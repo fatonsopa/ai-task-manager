@@ -12,7 +12,7 @@
     },
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "eec14b10073700a9b6e443cc073c9683474ab850cdfc4e67b64633d59fece80e"
+      "sha256": "eea0df2df94ccf880bbaa945a1d0fff9fc19905823dbaf393fd4a215dc412037"
     },
     {
       "path": "START-HERE.md",
@@ -112,7 +112,7 @@
     },
     {
       "path": "config/work-items.json",
-      "sha256": "07e32c4af5c54ec3440e3bd0b20845d9ea6bcb918b019661e5f6c6fa20c1d75b"
+      "sha256": "84fd0bc957e73223cb6ee77204b3930dd3a0a896070a5dc653aafbf868cfd445"
     },
     {
       "path": "migration/current-contracts.md",

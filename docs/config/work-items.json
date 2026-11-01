@@ -475,7 +475,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "The preserved merge contract has been inventoried; managed runner compatibility is being implemented under TST-81. Latest source audit and actual application-database merge acceptance remain pending."
     },
     {
       "id": "T10",
@@ -548,7 +549,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Application service, scoped CLI and actual SDK stdio passed component checks at commit 4c7b242; stronger current writing handoff integrated as commit 069a1b5 with 139 worker checks and 8 lead subset checks. Managed-host/legacy compatibility gates remain pending."
     },
     {
       "id": "T13",
@@ -569,7 +571,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Managed Claude transport/startup observer implementation and mechanical protocol controls are in progress under TST-81; no actual tool-enabled host acceptance is claimed."
     },
     {
       "id": "T14",
@@ -590,7 +593,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Managed Codex transport/startup observer implementation and mechanical protocol controls are in progress under TST-81; supported auth lifecycle and actual host acceptance remain unverified."
     },
     {
       "id": "T15",
@@ -657,7 +661,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Scoped structured CLI operations exist and installed-wheel checks passed; passive status line and native terminal acceptance remain pending."
     },
     {
       "id": "T18",
@@ -701,7 +706,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Current Builder audit/rebuild is active under TST-78. Prior 56 mechanical controls passed; fresh behavioral/host observations remain unrun and the canonical current artifact is not accepted."
     },
     {
       "id": "T20",
@@ -783,7 +789,8 @@
       "phase": "P09",
       "title": "Package both hosts and install lifecycle",
       "depends_on": [
-        "T22"
+        "T22",
+        "T34"
       ],
       "owned_paths": [
         "integrations/",
@@ -984,7 +991,8 @@
       "result": "Implemented focused interfaces and retained mechanical/live/behavioral evidence for the named capability.",
       "entry": "Required inputs ready and task prose reviewed before tracked assignment.",
       "exit": "Code review, scoped checks and actual required evidence pass; no placeholder readiness.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Durable scoped notification stages exist; actual bound host observation/public-output integration is in progress under TST-81. Full live receipt loop remains unrun."
     },
     {
       "id": "T32",
@@ -1030,7 +1038,34 @@
       "result": "Implemented focused interfaces and retained mechanical/live/behavioral evidence for the named capability.",
       "entry": "Required inputs ready and task prose reviewed before tracked assignment.",
       "exit": "Code review, scoped checks and actual required evidence pass; no placeholder readiness.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Actual Writer type/style/byte/version approval adapter is integrated. Current exact handoff passed 139 focused worker checks and 8 lead subset checks; actual AI/public handoff and global acceptance remain separate."
+    },
+    {
+      "id": "T34",
+      "phase": "P01",
+      "title": "Separate repository domains and documentation ownership",
+      "depends_on": [
+        "T01"
+      ],
+      "owned_paths": [
+        "config/repository-layout.json",
+        "tests/architecture/",
+        "docs/high_level_document.md",
+        "tools/"
+      ],
+      "requirements": [
+        "R15",
+        "R18",
+        "R24",
+        "R25",
+        "R27"
+      ],
+      "result": "A reviewed responsibility and dependency inventory, exact old/new move manifest, focused module refactors and executable boundary checks keep documentation, runtime configuration, deterministic helpers, tests/evals and private run records with their owners.",
+      "entry": "Register the implementation issue and assigned worker; audit the current tree, actual imports and consumers before freezing the exact allowed paths for moves/refactors. Apply Skill Builder structure principles to the application and its actual reusable skill workflow to generated skills.",
+      "exit": "All consumers and installation/package checks use the reviewed locations; each shared rule has one authority; import/ownership checks and focused behavior tests pass; no command intent, source information or private evidence is lost. Broad moves require a verified before-image and recovery manifest.",
+      "status": "not_started",
+      "scope_note": "Current docs/config and docs/tools are legacy handoff placement, not the target product structure. Do not create network services solely for directory structure."
     }
   ],
   "status_semantics": {
@@ -1039,5 +1074,12 @@
     "component_verified": "Reviewed component integrated with focused checks; broader integration gates remain.",
     "complete": "All item-specific exit evidence passed.",
     "blocked": "This item cannot proceed until its recorded prerequisite changes."
-  }
+  },
+  "revision_history": [
+    {
+      "observed_at_utc": "2026-11-01T21:27:02.998539+00:00",
+      "change": "Add user-requested responsibility/layout audit T34 as packaging prerequisite; correct stale not_started rows to observed partial component work. No phase acceptance or case result changed.",
+      "previous_sha256": "07e32c4af5c54ec3440e3bd0b20845d9ea6bcb918b019661e5f6c6fa20c1d75b"
+    }
+  ]
 }

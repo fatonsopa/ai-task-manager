@@ -15,7 +15,7 @@
     "workflows": 14,
     "authored_cases": 248,
     "phases": 11,
-    "planned_work_items": 33,
+    "planned_work_items": 34,
     "diagram_pairs": 7
   },
   "documents": {
@@ -198,5 +198,11 @@
     "audit_status": "pending",
     "script_refactor_performed": false,
     "prior_results_reinterpreted": false
+  },
+  "repository_structure": {
+    "work_item": "T34",
+    "status": "planned; implementation audit not started",
+    "principles": "Current Skill Builder responsibility/ownership/import guidance adapted to a modular application; source skills unchanged.",
+    "packaging_prerequisite": true
   }
 }
