@@ -1,0 +1,164 @@
+{
+  "assignment": "CORE/TST-75",
+  "version": 3,
+  "status": "frozen proposed cases awaiting lead review",
+  "cases": [
+    {
+      "id": "P01",
+      "name": "All status pairs and causes",
+      "oracle": "Parametrize all 10\u00d710 ordered pairs for each supported cause against an independently declared expected allowed-pair set; invalid guards must refuse without mutation.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P02",
+      "name": "Every review destination",
+      "oracle": "Each of the ten In Review targets succeeds with correct decision/evidence; each missing decision, destination evidence or startup guard refuses.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P03",
+      "name": "Initial queue order",
+      "oracle": "No direct new Todo or Backlog start; Backlog acknowledgement precedes explicit Todo acknowledgement; duplicate enqueue is idempotent.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P04",
+      "name": "Delivered work",
+      "oracle": "Attempt reserve/start/resume on In Dev/In Staging/Done fails; linked follow-up must use separate approved prose and Backlog.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P05",
+      "name": "Human precedence",
+      "oracle": "An automation call using an older human decision revision cannot undo a later hold/assignment; approved release permits only intended operation.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P06",
+      "name": "Non-code and terminal exits",
+      "oracle": "Only verified no-code completion reaches Done without deployment; cancel requires reason/quiescence; duplicate additionally requires canonical link.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P07",
+      "name": "Scope and capability",
+      "oracle": "Cross-principal/project/session handles, forged tokens, revoked tokens and missing bindings cannot read/mutate/observe task or event data.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P08",
+      "name": "Atomic reservations",
+      "oracle": "Two independent SQLite connections race same task and global/project cap boundaries; at most one active attempt and no capacity oversubscription.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P09",
+      "name": "Expected versions",
+      "oracle": "Stale task versions and stale decision revisions refuse before any task/attempt/event/outbox partial write.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P10",
+      "name": "Idempotency",
+      "oracle": "Same operation+scope+payload returns original outcome once; changed payload or foreign scope cannot reuse an operation identity.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P11",
+      "name": "Prose gate",
+      "oracle": "Reject absent receipt, stale writer/reference/style version, changed title/body/code literal, wrong representation and fake reviewed=True input.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P12",
+      "name": "Provider representation",
+      "oracle": "A trusted fixture renderer may apply only the declared bullet/tight-list encoding before approval; exact canonical approval succeeds while wording/code changes fail.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P13",
+      "name": "Startup truth",
+      "oracle": "Reserved and Starting do not imply Running; trusted worker identity plus matching In Progress acknowledgement are required before a work lease is granted.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P14",
+      "name": "Failure retention",
+      "oracle": "Failed/timeout/unknown attempts persist independently; restart retains reserved/uncertain ownership until confirmed recovery.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P15",
+      "name": "Checkpoint history",
+      "oracle": "Checkpoint/progress updates retain attempt identity and do not themselves establish liveness, success, merge or deployment.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P16",
+      "name": "Transactional obligations",
+      "oracle": "A forced failure after tentative task mutation rolls back task, event, outbox and notification; successful change creates each once.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P17",
+      "name": "Notification receipts",
+      "oracle": "No receipt can skip queued\u2192delivered\u2192AI-ack\u2192user-reported; proof must match event, target session and stage; invalid proof changes nothing.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P18",
+      "name": "Session cursors",
+      "oracle": "Two sessions sharing one project do not consume one another events/cursors; another principal cannot read or acknowledge them.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P19",
+      "name": "Durable outbound",
+      "oracle": "Outbox claim leases serialize adapters; uncertain/failing operations remain durable and retry does not fabricate confirmation or lose history.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P20",
+      "name": "Inbound dedup",
+      "oracle": "Same provider delivery ID+payload is idempotent; reused ID with different payload is a conflict; durable ingress is distinct from applied policy state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P21",
+      "name": "Schema/restart",
+      "oracle": "File-backed store can reopen with schema version checks, preserved history and explicit refusal of unsupported future schema; no destructive reset.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P22",
+      "name": "Independent package boundaries",
+      "oracle": "Imports use only standard library/domain/storage/application boundaries; no build-control, provider, UI, legacy synchronizer or source skill imports.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P23",
+      "name": "Intent before remote side effects",
+      "oracle": "Submit/create and explicit queue intent are durably recorded before any adapter request. Until trusted Backlog/Todo readback, later admission is refused. Crash/restart retains pending intake/outbox without fabricating a provider issue or repeating an uncertain create.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P24",
+      "name": "Trusted owned resource readiness",
+      "oracle": "Running requires trusted worktree/database identities bound to the same task, attempt, host and scope. Missing, not-ready or foreign resource proof refuses without granting a work lease.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P25",
+      "name": "Configured limits and trusted resume",
+      "oracle": "Capacity limits come only from trusted persisted configuration; callers cannot raise them. Re-registering a known logical session requires trusted resume/handoff proof and cannot mint a new authority by repeating identifiers.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "P26",
+      "name": "Partial issue work",
+      "oracle": "With independently required work units probe and fix, a successful probe attempt or Part-of merge does not complete fix or advance the whole issue. Only verified completion of every required unit permits whole-issue delivery.",
+      "execution_status": "not_run"
+    }
+  ],
+  "supersedes": "v1/v2 retained; lead-approved explicit guard additions before code"
+}
