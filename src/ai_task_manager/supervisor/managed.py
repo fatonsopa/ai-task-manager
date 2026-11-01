@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from ai_task_manager.adapters.hosts.bridge.records import HostBinding
 from ai_task_manager.adapters.resources.paths import unchanged
 from ai_task_manager.domains.work.errors import AccessDenied
+from ai_task_manager.domains.work.models import ACTIVE_ATTEMPTS
 
 from .models import RuntimeUncertain
 
@@ -20,6 +21,9 @@ class ManagedDispatch:
 
 
 class RejectExecutions:
+    def execution_kind(self, reference, task_id):
+        raise AccessDenied("A reviewed execution registry is required")
+
     def reconcile_stopped(self, attempt_id):
         return True
 
@@ -143,18 +147,59 @@ class ManagedWorkers:
                 "Owned managed dispatch is unavailable; reconcile before execution"
             )
         attempt = self.core.get_attempt(handle, attempt_id)
-        self._boundary(handle, dispatch, attempt.version)
-        return self.executions.execute(
-            handle=handle,
-            attempt=attempt,
-            resources=dispatch.resources,
-            host=dispatch.host,
-            command_ref=command_ref,
-            operation_key=operation_key,
-            boundary=lambda: self._boundary(handle, dispatch, attempt.version),
-            effect_boundary=lambda: self._short_effect(handle, dispatch, attempt.version),
-            merge_authority=lambda: self._merge_authority(handle, dispatch, attempt.version),
-        )
+        kind = self.executions.execution_kind(command_ref, attempt.task_id)
+        if attempt.state not in ACTIVE_ATTEMPTS:
+            raise AccessDenied("The assigned worker is already settled")
+        try:
+            self._boundary(handle, dispatch, attempt.version)
+            result = self.executions.execute(
+                handle=handle,
+                attempt=attempt,
+                resources=dispatch.resources,
+                host=dispatch.host,
+                command_ref=command_ref,
+                operation_key=operation_key,
+                boundary=lambda: self._boundary(handle, dispatch, attempt.version),
+                effect_boundary=lambda: self._short_effect(handle, dispatch, attempt.version),
+                merge_authority=lambda: self._merge_authority(handle, dispatch, attempt.version),
+            )
+        except BaseException as error:
+            if kind == "model":
+                try:
+                    self._finish(
+                        handle,
+                        attempt_id,
+                        dispatch.waiting,
+                        dispatch.host,
+                        operation_key + ":failed",
+                        type(error).__name__,
+                        "failed",
+                    )
+                except BaseException as settlement_error:
+                    self.journal.observe(
+                        attempt_id,
+                        "settlement_pending",
+                        {
+                            "reason": type(settlement_error).__name__,
+                            "invocation_error": type(error).__name__,
+                        },
+                    )
+            raise
+        if kind == "model":
+            settled = self._finish(
+                handle,
+                attempt_id,
+                dispatch.waiting,
+                dispatch.host,
+                operation_key + ":terminal",
+                "assigned invocation ended",
+                "done",
+            )
+            if settled.state == "unknown":
+                raise RuntimeUncertain(
+                    "Assigned model ended but complete owned stop is unconfirmed"
+                )
+        return result
 
     def _boundary(self, handle, dispatch, version):
         if self.journal.clock() >= self.deadline:
@@ -192,6 +237,32 @@ class ManagedWorkers:
             handle, attempt_id, dispatch.waiting, dispatch.host, operation_key, reason, "paused"
         )
 
+    def reconcile(self, handle, attempt_id, *, operation_key):
+        """Recover recorded complete stop or retain uncertainty without new effects."""
+        attempt = self.core.get_attempt(handle, attempt_id)
+        if attempt.state not in ACTIVE_ATTEMPTS:
+            return attempt
+        self.journal.attempt(attempt_id)
+        outcomes = self.journal.observations(attempt_id, "runtime_outcome")
+        managed = [row for row in outcomes if row.get("managed_stop") is True]
+        if managed and managed[-1].get("quiescent") is True:
+            return self._settle_observation(handle, attempt_id, managed[-1]["id"], operation_key)
+        # A waiting-harness outcome cannot prove that separate host/container/merge
+        # owners stopped. Lost waitable-child handles never authorize resurrection.
+        observation = self.journal.observe(
+            attempt_id,
+            "runtime_outcome",
+            {
+                "state": "unknown",
+                "quiescent": False,
+                "worker_id": attempt.worker_id,
+                "managed_stop": True,
+                "reason": "complete_managed_stop_unavailable",
+                "model_success": "not_established",
+            },
+        )
+        return self._settle_observation(handle, attempt_id, observation, operation_key)
+
     def _abort(self, handle, attempt_id, waiting, native, key, reason):
         try:
             self._finish(handle, attempt_id, waiting, native, key + ":abort", reason, "failed")
@@ -211,7 +282,10 @@ class ManagedWorkers:
                 outcomes.append(False)
         elif self.journal.effect(attempt_id, "native_launch") is not None:
             # launch() may have failed after creating a CLI. Only its trusted owner can reconcile.
-            outcomes.append(self.hosts.reconcile_stopped(attempt_id))
+            try:
+                outcomes.append(self.hosts.reconcile_stopped(attempt_id))
+            except BaseException:
+                outcomes.append(False)
         if waiting is not None:
             try:
                 stopped = self._waiting_stops.get(attempt_id)
@@ -225,18 +299,24 @@ class ManagedWorkers:
         elif self.journal.effect(attempt_id, "launch") is not None:
             outcomes.append(False)
         quiescent = all(value is True for value in outcomes)
+        attempt = self.core.get_attempt(handle, attempt_id)
         observation = self.journal.observe(
             attempt_id,
             "runtime_outcome",
             {
                 "state": state if quiescent else "unknown",
                 "quiescent": quiescent,
-                "worker_id": self.journal.attempt(attempt_id)["worker_id"],
+                "worker_id": attempt.worker_id,
+                "runtime_owner_worker_id": self.journal.attempt(attempt_id)["worker_id"],
+                "managed_stop": True,
                 "reason": reason,
                 "model_success": "not_established",
                 "native_and_harness_stop": outcomes,
             },
         )
+        return self._settle_observation(handle, attempt_id, observation, key)
+
+    def _settle_observation(self, handle, attempt_id, observation, key):
         attempt = self.core.get_attempt(handle, attempt_id)
         task = self.core.get_task(handle, attempt.task_id)
         _, scope = self.core.session_binding(handle)

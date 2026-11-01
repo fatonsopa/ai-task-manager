@@ -8,6 +8,8 @@ from ai_task_manager.supervisor.models import RuntimeUncertain
 
 @dataclass(frozen=True)
 class ModelWork:
+    """One reviewed full-assignment model invocation, including its tool loop."""
+
     task_id: str
     host: str
     prompt: str
@@ -44,6 +46,18 @@ class ReviewedExecutions:
             accounting,
             confined_runner,
         )
+
+    def execution_kind(self, reference, task_id):
+        plan = self.plans.get(reference)
+        if plan is None or plan.task_id != task_id:
+            raise AccessDenied("Command reference is not registered for this exact task")
+        if isinstance(plan, ModelWork):
+            return "model"
+        if isinstance(plan, ConfinedWork):
+            return "confined"
+        if isinstance(plan, ProtectedMergeWork):
+            return "merge"
+        raise AccessDenied("Unknown reviewed execution kind")
 
     def execute(
         self,
@@ -105,7 +119,18 @@ class ReviewedExecutions:
             )
             # The adapter owns the unchanged foreground script and its expected DB
             # lifecycle. Never apply a generic database-presence check after MERGED.
-            return self.merge_runner.execute_registered(plan.merge_ref, context)
+            result = self.merge_runner.execute_registered(plan.merge_ref, context)
+            self.journal._append(
+                "trace",
+                {
+                    "effect": "protected_merge_result",
+                    "attempt_id": attempt.id,
+                    "command_ref": command_ref,
+                    "result": result,
+                    "source": "trusted_project_adapter",
+                },
+            )
+            return result
         # This port must launch a reviewed credential-free confined plan. No model
         # argv, arbitrary shell or editable Python is executed in this controller.
         return self.runner.execute_registered(
