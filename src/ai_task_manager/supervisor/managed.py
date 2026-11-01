@@ -140,6 +140,15 @@ class ManagedWorkers:
             self._abort(handle, attempt.id, waiting, native, operation_key, type(error).__name__)
             raise
 
+    def execute_worker_command(self, handle, attempt_id, command_ref, operation_key):
+        attempt = self.core.get_attempt(handle, attempt_id)
+        if self.executions.execution_kind(command_ref, attempt.task_id) not in {
+            "confined",
+            "merge",
+        }:
+            raise AccessDenied("A full assigned model invocation is not a worker command")
+        return self.execute_reviewed(handle, attempt_id, command_ref, operation_key)
+
     def execute_reviewed(self, handle, attempt_id, command_ref, operation_key):
         dispatch = self.dispatches.get(attempt_id)
         if dispatch is None:

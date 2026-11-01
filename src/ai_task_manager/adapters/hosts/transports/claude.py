@@ -40,7 +40,9 @@ def sdk_options(policy, gateway):
         setting_sources=[],
         strict_mcp_config=True,
         include_hook_events=True,
+        max_turns=4,
         max_budget_usd=0.25,
+        max_buffer_size=262144,
         system_prompt="Work only through the managed task tools and follow current task authority.",
         extra_args={
             "restricted": None,
@@ -59,6 +61,9 @@ def sdk_command(policy, options, timeout):
         or options.setting_sources != []
         or not options.strict_mcp_config
         or options.permission_mode != "dontAsk"
+        or options.max_turns != 4
+        or options.max_budget_usd != 0.25
+        or options.max_buffer_size != 262144
         or set(options.mcp_servers) != {"aitm"}
         or set(options.allowed_tools) != set(policy.allowed_tools)
         or options.extra_args

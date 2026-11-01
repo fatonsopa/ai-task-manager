@@ -9,6 +9,7 @@ import sys
 import time
 
 MAX_FRAME = 262144
+OUTPUT_LIMITS = {"stdout": 4194304, "stderr": 1048576}
 
 
 def terminate(reason):
@@ -24,12 +25,14 @@ def main():
     deadline = time.monotonic() + duration
     control = b""
     child = None
+    written = {name: 0 for name in OUTPUT_LIMITS}
     while time.monotonic() < deadline:
         if child is not None and child.poll() is not None:
             terminate("native_exit")
         reads = [sys.stdin.fileno()]
         if child is not None:
             reads.append(child.stdout.fileno())
+            reads.append(child.stderr.fileno())
         ready, _, _ = select.select(reads, [], [], min(0.05, deadline - time.monotonic()))
         for fd in ready:
             if fd == sys.stdin.fileno():
@@ -51,6 +54,7 @@ def main():
                             env=data["environment"],
                             stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
                             close_fds=True,
                         )
                         with os.fdopen(ready_fd, "w") as stream:
@@ -69,8 +73,14 @@ def main():
             else:
                 part = os.read(fd, 65536)
                 if part:
-                    sys.stdout.buffer.write(part)
-                    sys.stdout.buffer.flush()
+                    name = "stdout" if fd == child.stdout.fileno() else "stderr"
+                    available = OUTPUT_LIMITS[name] - written[name]
+                    output = getattr(sys, name).buffer
+                    output.write(part[:available])
+                    output.flush()
+                    written[name] += min(len(part), available)
+                    if len(part) > available:
+                        terminate("native_" + name + "_limit")
     terminate("deadline")
 
 
