@@ -21,7 +21,8 @@ DEPENDENCIES = {
     "storage": {"values"},
     "checkpoint": {"values"},
     "ledger": {"values", "storage", "checkpoint"},
-    "process": {"values", "ledger"},
+    "process_group": {"values"},
+    "process": {"values", "ledger", "checkpoint", "process_group"},
     "cli": {"values", "ledger", "process"},
 }
 
