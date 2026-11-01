@@ -1,0 +1,37 @@
+%% Diagram: Flowchart
+%% Subtitle: Immediate outbound intents and signed inbound events update scoped task views through one policy.
+flowchart TD
+    accTitle: Bidirectional Linear synchronization
+    accDescr: Immediate outbound intents and signed inbound events update scoped task views through one policy.
+    N1@{ shape: lean-r, label: "1. Authorized local task event" }
+    class N1 data
+    N2@{ shape: cyl, label: "2. Durable outbound intent" }
+    class N2 datastore
+    N3@{ shape: rect, label: "3. Linear API" }
+    class N3 process
+    N4@{ shape: lean-r, label: "4. Independent Linear edit" }
+    class N4 data
+    N5@{ shape: fr-rect, label: "5. Signed webhook receiver" }
+    class N5 predefined
+    N6@{ shape: cyl, label: "6. Durable inbound event" }
+    class N6 datastore
+    N7@{ shape: rect, label: "7. Apply shared task policy" }
+    class N7 process
+    N8@{ shape: curv-trap, label: "8. Scoped CLI event stream" }
+    class N8 display
+    N9@{ shape: lean-r, label: "9. Lead notification and receipts" }
+    class N9 data
+    N10@{ shape: fr-rect, label: "10. Gap reconciliation" }
+    class N10 predefined
+    N1 --> N2
+    N2 -->|Immediate write| N3
+    N3 -->|Confirmed result| N7
+    N4 --> N5
+    N3 -. Webhook echo .-> N5
+    N5 -->|Persist before HTTP acknowledgement| N6
+    N6 -->|Deduplicate and order| N7
+    N7 --> N8
+    N7 --> N9
+    N3 -. Recovery read .-> N10
+    N10 -. Repair verified gaps .-> N7
+%% Legend: flow_arrow | Event or command

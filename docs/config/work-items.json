@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "status": "planned; no agents or tracker tasks launched by this handoff",
+  "schema_version": 3,
+  "status": "Maintained delivery plan; component progress is distinct from live acceptance and Linear issue status.",
   "phases": [
     {
       "id": "P00",
@@ -18,9 +18,10 @@
         "cost/time admission guard",
         "credential scope check"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Component progress and remaining gates are recorded in the linked work items and STATUS.md; phase exit is not yet accepted."
     },
     {
       "id": "P01",
@@ -42,9 +43,10 @@
         "reviewed executable test plan",
         "isolated baseline report"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Component progress and remaining gates are recorded in the linked work items and STATUS.md; phase exit is not yet accepted."
     },
     {
       "id": "P02",
@@ -65,9 +67,10 @@
         "transactions and capacity",
         "pure rule tests"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Component progress and remaining gates are recorded in the linked work items and STATUS.md; phase exit is not yet accepted."
     },
     {
       "id": "P03",
@@ -88,9 +91,10 @@
         "real one-worker vertical path",
         "recovery records"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Component progress and remaining gates are recorded in the linked work items and STATUS.md; phase exit is not yet accepted."
     },
     {
       "id": "P04",
@@ -113,9 +117,10 @@
         "status and human-decision policy",
         "live integration fixtures"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Component progress and remaining gates are recorded in the linked work items and STATUS.md; phase exit is not yet accepted."
     },
     {
       "id": "P05",
@@ -134,7 +139,7 @@
         "capability and guard probes",
         "actual installed host smoke evidence"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
       "status": "not_started"
     },
@@ -156,7 +161,7 @@
         "crash recovery",
         "budget and quota behavior"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
       "status": "not_started"
     },
@@ -176,7 +181,7 @@
         "status line",
         "real terminal interaction tests"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
       "status": "not_started"
     },
@@ -199,7 +204,7 @@
         "fresh public traces",
         "retained behavioral results"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
       "status": "not_started"
     },
@@ -226,7 +231,7 @@
         "single-writer activation and rollback",
         "versioned self-contained host packages"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
       "status": "not_started"
     },
@@ -250,7 +255,7 @@
         "install/remove and cutover rehearsal",
         "release decision"
       ],
-      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
       "status": "not_started"
     }
@@ -262,8 +267,11 @@
       "title": "Prepare isolated build runner",
       "depends_on": [],
       "owned_paths": [
-        "tools/build-runner/",
-        "config/build-policy/"
+        "tools/build_control.py",
+        "tools/build_support/",
+        "tests/test_build_control*.py",
+        "pyproject.toml",
+        "uv.lock"
       ],
       "requirements": [
         "R20",
@@ -274,7 +282,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "component_verified",
+      "evidence": "TST-73; source a5aad986 integrated as 08c0987; 70 macOS and 70 Linux/aarch64 scaffold tests."
     },
     {
       "id": "T02",
@@ -295,15 +304,14 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Authentication, expected TST identity and scoped tracking writes, Git baseline, Docker and CLI discovery checked; real model execution and second Linear identity still missing."
     },
     {
       "id": "T03",
       "phase": "P01",
       "title": "Inventory legacy policy and all writers",
-      "depends_on": [
-        "T02"
-      ],
+      "depends_on": [],
       "owned_paths": [
         "docs/migration/",
         "tests/legacy_contracts/"
@@ -319,7 +327,9 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "component_verified",
+      "evidence": "TST-74; 597112b integrates 298 mapped rows and 16 source-grounded regression lessons; six runtime/cutover gaps remain visible.",
+      "dependency_note": "Pinned source inspection can proceed while independent live prerequisites are missing."
     },
     {
       "id": "T04",
@@ -344,7 +354,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "38 requirements and 248 authored cases preserved in revision 2; core v3 and Linear v2 component manifests frozen before implementation; complete installed-host fixtures pending."
     },
     {
       "id": "T05",
@@ -366,7 +377,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "component_verified",
+      "evidence": "TST-75; source 1da7a55 integrated as c9ab1e4; independently rerun 1397 focused domain/storage cases."
     },
     {
       "id": "T06",
@@ -376,9 +388,10 @@
         "T05"
       ],
       "owned_paths": [
-        "src/ai_task_manager/domains/execution/",
-        "src/ai_task_manager/domains/scheduling/",
-        "src/ai_task_manager/storage/"
+        "src/ai_task_manager/application/execution.py",
+        "src/ai_task_manager/storage/",
+        "tests/domains/",
+        "tests/storage/"
       ],
       "requirements": [
         "R03",
@@ -390,7 +403,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "component_verified",
+      "evidence": "TST-75; atomic attempts, finite capacity and resource lease checks included in 1397 focused cases; dependency graph and live runtime are later items."
     },
     {
       "id": "T07",
@@ -413,7 +427,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "TST-77 assigned with owned worktree and disposable fixture database; actual application database/merge lifecycle proof pending."
     },
     {
       "id": "T08",
@@ -436,7 +451,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "TST-77 active; runtime design and tests under review before code; no host execution claimed."
     },
     {
       "id": "T09",
@@ -466,7 +482,7 @@
       "phase": "P04",
       "title": "Implement scoped Linear transport and outbox",
       "depends_on": [
-        "T09"
+        "T06"
       ],
       "owned_paths": [
         "src/ai_task_manager/adapters/linear/",
@@ -484,7 +500,9 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "TST-76 active; reviewed 28-case Linear manifest plus frozen supersession addendum; no live webhook created.",
+      "dependency_note": "Core interfaces permit transport/ingress work before merge compatibility; delivery evidence still requires T09 in end-to-end gates."
     },
     {
       "id": "T11",
@@ -515,7 +533,8 @@
       "phase": "P05",
       "title": "Implement shared MCP application interface",
       "depends_on": [
-        "T11"
+        "T09",
+        "T10"
       ],
       "owned_paths": [
         "src/ai_task_manager/application/",
@@ -578,7 +597,8 @@
       "phase": "P06",
       "title": "Complete dependency scheduling and holds",
       "depends_on": [
-        "T11"
+        "T06",
+        "T10"
       ],
       "owned_paths": [
         "src/ai_task_manager/domains/scheduling/",
@@ -838,7 +858,7 @@
       "phase": "P10",
       "title": "Run fault endurance and release review",
       "depends_on": [
-        "T25"
+        "T32"
       ],
       "owned_paths": [
         "tools/release_check/",
@@ -855,6 +875,168 @@
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
       "status": "not_started"
+    },
+    {
+      "id": "T27",
+      "phase": "P06",
+      "title": "Implement private incident capture and regression promotion",
+      "depends_on": [
+        "T16"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/domains/incidents/",
+        "src/ai_task_manager/application/maintenance.py",
+        "tests/maintenance/"
+      ],
+      "requirements": [
+        "R25",
+        "R35"
+      ],
+      "result": "Implemented focused interfaces and retained mechanical/live/behavioral evidence for the named capability.",
+      "entry": "Required inputs ready and task prose reviewed before tracked assignment.",
+      "exit": "Code review, scoped checks and actual required evidence pass; no placeholder readiness.",
+      "status": "not_started"
+    },
+    {
+      "id": "T28",
+      "phase": "P09",
+      "title": "Implement verified updates and safe host reload",
+      "depends_on": [
+        "T23"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/adapters/updates/",
+        "tests/updates/"
+      ],
+      "requirements": [
+        "R18",
+        "R31",
+        "R35"
+      ],
+      "result": "Implemented focused interfaces and retained mechanical/live/behavioral evidence for the named capability.",
+      "entry": "Required inputs ready and task prose reviewed before tracked assignment.",
+      "exit": "Code review, scoped checks and actual required evidence pass; no placeholder readiness.",
+      "status": "not_started"
+    },
+    {
+      "id": "T29",
+      "phase": "P09",
+      "title": "Implement bounded opt-in repair workflow",
+      "depends_on": [
+        "T20",
+        "T27",
+        "T28"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/application/repair/",
+        "tests/repair/"
+      ],
+      "requirements": [
+        "R20",
+        "R27",
+        "R35"
+      ],
+      "result": "Implemented focused interfaces and retained mechanical/live/behavioral evidence for the named capability.",
+      "entry": "Required inputs ready and task prose reviewed before tracked assignment.",
+      "exit": "Code review, scoped checks and actual required evidence pass; no placeholder readiness.",
+      "status": "not_started"
+    },
+    {
+      "id": "T30",
+      "phase": "P04",
+      "title": "Implement real-time Linear webhook ingress",
+      "depends_on": [
+        "T10"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/adapters/linear/webhooks/",
+        "tests/webhooks/"
+      ],
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "result": "Implemented focused interfaces and retained mechanical/live/behavioral evidence for the named capability.",
+      "entry": "Required inputs ready and task prose reviewed before tracked assignment.",
+      "exit": "Code review, scoped checks and actual required evidence pass; no placeholder readiness.",
+      "status": "in_progress",
+      "evidence": "TST-76 includes signed durable receiver and immediate policy application; actual provider delivery pending."
+    },
+    {
+      "id": "T31",
+      "phase": "P05",
+      "title": "Implement durable lead delivery and acknowledgement",
+      "depends_on": [
+        "T12",
+        "T30"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/adapters/lead/",
+        "tests/lead_delivery/"
+      ],
+      "requirements": [
+        "R16",
+        "R36"
+      ],
+      "result": "Implemented focused interfaces and retained mechanical/live/behavioral evidence for the named capability.",
+      "entry": "Required inputs ready and task prose reviewed before tracked assignment.",
+      "exit": "Code review, scoped checks and actual required evidence pass; no placeholder readiness.",
+      "status": "not_started"
+    },
+    {
+      "id": "T32",
+      "phase": "P10",
+      "title": "Prove the full request and reporting cycle",
+      "depends_on": [
+        "T25",
+        "T28",
+        "T29",
+        "T31",
+        "T33"
+      ],
+      "owned_paths": [
+        "tests/closed_loop/"
+      ],
+      "requirements": [
+        "R35",
+        "R36",
+        "R37",
+        "R38"
+      ],
+      "result": "Implemented focused interfaces and retained mechanical/live/behavioral evidence for the named capability.",
+      "entry": "Required inputs ready and task prose reviewed before tracked assignment.",
+      "exit": "Code review, scoped checks and actual required evidence pass; no placeholder readiness.",
+      "status": "not_started"
+    },
+    {
+      "id": "T33",
+      "phase": "P05",
+      "title": "Implement version-bound task writing approval",
+      "depends_on": [
+        "T12"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/adapters/writing/",
+        "tests/writing/"
+      ],
+      "requirements": [
+        "R13",
+        "R22",
+        "R38"
+      ],
+      "result": "Implemented focused interfaces and retained mechanical/live/behavioral evidence for the named capability.",
+      "entry": "Required inputs ready and task prose reviewed before tracked assignment.",
+      "exit": "Code review, scoped checks and actual required evidence pass; no placeholder readiness.",
+      "status": "not_started"
     }
-  ]
+  ],
+  "status_semantics": {
+    "not_started": "No implementation evidence yet.",
+    "in_progress": "Registered work is active or partial; exit gate has not passed.",
+    "component_verified": "Reviewed component integrated with focused checks; broader integration gates remain.",
+    "complete": "All item-specific exit evidence passed.",
+    "blocked": "This item cannot proceed until its recorded prerequisite changes."
+  }
 }

@@ -1,36 +1,51 @@
 %% Diagram: Flowchart
-%% Subtitle: Authorized tasks wait for dependencies and capacity before worker startup is confirmed.
+%% Subtitle: Admission, remote status and real worker startup are confirmed before task execution.
 flowchart TD
-    accTitle: Task dispatch workflow
-    accDescr: Authorized tasks wait for dependencies and capacity before worker startup is confirmed.
-    A@{ shape: lean-r, label: "1. Task submitted" }
-    class A data
-    B@{ shape: diam, label: "2. Authorized scope?" }
-    class B decision
-    C@{ shape: stadium, label: "3. Reject request" }
-    class C terminator
-    D@{ shape: diam, label: "4. Dependencies and capacity ready?" }
-    class D decision
-    E@{ shape: rect, label: "5. Queue with reason" }
-    class E process
-    F@{ shape: fr-rect, label: "6. Reserve task and resources" }
-    class F predefined
-    G@{ shape: rect, label: "7. Prepare and launch worker" }
-    class G process
-    H@{ shape: diam, label: "8. Startup confirmed?" }
-    class H decision
-    I@{ shape: rect, label: "9. Reconcile failed or unknown start" }
-    class I process
-    J@{ shape: stadium, label: "10. Record running" }
-    class J terminator
-    A --> B
-    B -->|"No"| C
-    B -->|"Yes"| D
-    D -->|"No"| E
-    E -->|"Prerequisite changes"| D
-    D -->|"Yes"| F
-    F --> G
-    G --> H
-    H -->|"No"| I
-    H -->|"Yes"| J
-%% Legend: flow_arrow | Next action
+    accTitle: Task dispatch with Linear
+    accDescr: Admission, remote status and real worker startup are confirmed before task execution.
+    N1@{ shape: lean-r, label: "1. Queued CLI task and linked issue" }
+    class N1 data
+    N2@{ shape: diam, label: "2. Scope and admission authorized?" }
+    class N2 decision
+    N3@{ shape: curv-trap, label: "3. Show blocked or refused reason" }
+    class N3 display
+    N4@{ shape: diam, label: "4. Queue or resume confirmed in Linear?" }
+    class N4 decision
+    N5@{ shape: fr-rect, label: "5. Reconcile pending queue intent" }
+    class N5 predefined
+    N6@{ shape: diam, label: "6. Dependencies and capacity ready?" }
+    class N6 decision
+    N7@{ shape: rect, label: "7. Reserve attempt and owned resources" }
+    class N7 process
+    N8@{ shape: hex, label: "8. Prepare and launch assigned worker" }
+    class N8 preparation
+    N9@{ shape: diam, label: "9. Worker startup confirmed?" }
+    class N9 decision
+    N10@{ shape: fr-rect, label: "10. Reconcile failed or unknown startup" }
+    class N10 predefined
+    N11@{ shape: rect, label: "11. Synchronize Linear In Progress" }
+    class N11 process
+    N12@{ shape: diam, label: "12. Remote state confirmed?" }
+    class N12 decision
+    N13@{ shape: fr-rect, label: "13. Hold startup and reconcile sync" }
+    class N13 predefined
+    N14@{ shape: stadium, label: "14. Grant work lease and show Running" }
+    class N14 terminator
+    N1 --> N2
+    N2 -->|No| N3
+    N2 -->|Yes| N4
+    N4 -->|No| N5
+    N5 -->|Confirmed| N4
+    N4 -->|Yes| N6
+    N6 -->|No| N3
+    N3 -. Relevant change .-> N2
+    N6 -->|Yes| N7
+    N7 --> N8
+    N8 --> N9
+    N9 -->|No| N10
+    N9 -->|Yes| N11
+    N11 --> N12
+    N12 -->|No| N13
+    N13 -->|Reconciled| N12
+    N12 -->|Yes| N14
+%% Legend: flow_arrow | Event or command

@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "status": "authored acceptance requirements; no product cases executed",
+  "schema_version": 2,
+  "status": "Expanded from explicit user requirements before product case execution; no test result is implied.",
   "freeze_before_implementation": true,
   "workflows": [
     {
@@ -162,6 +162,83 @@
         "retain state and recovery references",
         "remove only still-owned integration changes",
         "verify detached behavior and remaining data"
+      ]
+    },
+    {
+      "id": "maintenance",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "steps": [
+        "capture a scoped private incident with versioned evidence",
+        "deduplicate and confirm the reported failure",
+        "obtain configured repair authority and reserve capacity/spend",
+        "produce a failing regression in an isolated workspace",
+        "repair and verify the original frozen criteria",
+        "prepare a verified release and stage the update",
+        "activate safely and observe recurrence or roll back code"
+      ]
+    },
+    {
+      "id": "task-loop",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "steps": [
+        "validate the bound user request and task authority",
+        "approve exact task prose through Technical Writer",
+        "persist intake intent and confirm Linear Backlog",
+        "link the remote issue to the scoped CLI task",
+        "explicitly enqueue and confirm Linear Todo",
+        "reserve the attempt and its isolated resources",
+        "launch and confirm the assigned worker",
+        "confirm Linear In Progress before granting the work lease",
+        "record actual progress checkpoints and result",
+        "verify the outcome and required delivery evidence",
+        "settle local execution and remote issue facts separately",
+        "deliver the durable outcome to the bound lead session",
+        "record actual AI acknowledgement of that outcome",
+        "record the user-facing result or accurate pending state"
+      ]
+    },
+    {
+      "id": "realtime-sync",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "steps": [
+        "authenticate the local session and configured ingress",
+        "persist an authorized local task event and outbound intent",
+        "send the allowed Linear mutation without waiting for a polling tick",
+        "confirm readback and deduplicate its webhook echo",
+        "receive and persist an authenticated independent Linear edit",
+        "apply the shared policy with actor and ordering checks",
+        "stream scoped updates to the CLI and lead notification channel"
+      ]
+    },
+    {
+      "id": "task-writing",
+      "requirements": [
+        "R13",
+        "R22",
+        "R38"
+      ],
+      "steps": [
+        "load the frozen skill issue-type reference and Writing Style",
+        "draft the supported provider representation from authorized facts",
+        "validate and review exact content with version-bound evidence",
+        "publish only approved prose and verify provider readback"
       ]
     }
   ],
@@ -5756,6 +5833,2703 @@
       "workflow_ids": [
         "installation"
       ]
+    },
+    {
+      "id": "WF-maintenance-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Complete maintenance workflow",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "capture a scoped private incident with versioned evidence",
+        "deduplicate and confirm the reported failure",
+        "obtain configured repair authority and reserve capacity/spend",
+        "produce a failing regression in an isolated workspace",
+        "repair and verify the original frozen criteria",
+        "prepare a verified release and stage the update",
+        "activate safely and observe recurrence or roll back code"
+      ],
+      "expected": [
+        "Every required step is observed in order with exact evidence.",
+        "External acknowledgements and AI/user receipts are not inferred from queueing or cursor movement."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse maintenance without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: capture a scoped private incident with versioned evidence",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse maintenance without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: deduplicate and confirm the reported failure",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse maintenance without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: obtain configured repair authority and reserve capacity/spend",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse maintenance without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: produce a failing regression in an isolated workspace",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse maintenance without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: repair and verify the original frozen criteria",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-omit-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse maintenance without step 6",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: prepare a verified release and stage the update",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-omit-07",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse maintenance without step 7",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: activate safely and observe recurrence or roll back code",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse reversed maintenance steps 1/2",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt deduplicate and confirm the reported failure before capture a scoped private incident with versioned evidence."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse reversed maintenance steps 2/3",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt obtain configured repair authority and reserve capacity/spend before deduplicate and confirm the reported failure."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse reversed maintenance steps 3/4",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt produce a failing regression in an isolated workspace before obtain configured repair authority and reserve capacity/spend."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse reversed maintenance steps 4/5",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt repair and verify the original frozen criteria before produce a failing regression in an isolated workspace."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-order-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse reversed maintenance steps 5/6",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt prepare a verified release and stage the update before repair and verify the original frozen criteria."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-maintenance-order-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R20",
+        "R25",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Refuse reversed maintenance steps 6/7",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt activate safely and observe recurrence or roll back code before prepare a verified release and stage the update."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Complete task-loop workflow",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "validate the bound user request and task authority",
+        "approve exact task prose through Technical Writer",
+        "persist intake intent and confirm Linear Backlog",
+        "link the remote issue to the scoped CLI task",
+        "explicitly enqueue and confirm Linear Todo",
+        "reserve the attempt and its isolated resources",
+        "launch and confirm the assigned worker",
+        "confirm Linear In Progress before granting the work lease",
+        "record actual progress checkpoints and result",
+        "verify the outcome and required delivery evidence",
+        "settle local execution and remote issue facts separately",
+        "deliver the durable outcome to the bound lead session",
+        "record actual AI acknowledgement of that outcome",
+        "record the user-facing result or accurate pending state"
+      ],
+      "expected": [
+        "Every required step is observed in order with exact evidence.",
+        "External acknowledgements and AI/user receipts are not inferred from queueing or cursor movement."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: validate the bound user request and task authority",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: approve exact task prose through Technical Writer",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: persist intake intent and confirm Linear Backlog",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: link the remote issue to the scoped CLI task",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: explicitly enqueue and confirm Linear Todo",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 6",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: reserve the attempt and its isolated resources",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-07",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 7",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: launch and confirm the assigned worker",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-08",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 8",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: confirm Linear In Progress before granting the work lease",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-09",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 9",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: record actual progress checkpoints and result",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-10",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 10",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: verify the outcome and required delivery evidence",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-11",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 11",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: settle local execution and remote issue facts separately",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-12",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 12",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: deliver the durable outcome to the bound lead session",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-13",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 13",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: record actual AI acknowledgement of that outcome",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-omit-14",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse task-loop without step 14",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: record the user-facing result or accurate pending state",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 1/2",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt approve exact task prose through Technical Writer before validate the bound user request and task authority."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 2/3",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt persist intake intent and confirm Linear Backlog before approve exact task prose through Technical Writer."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 3/4",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt link the remote issue to the scoped CLI task before persist intake intent and confirm Linear Backlog."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 4/5",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt explicitly enqueue and confirm Linear Todo before link the remote issue to the scoped CLI task."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 5/6",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt reserve the attempt and its isolated resources before explicitly enqueue and confirm Linear Todo."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 6/7",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt launch and confirm the assigned worker before reserve the attempt and its isolated resources."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-07",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 7/8",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt confirm Linear In Progress before granting the work lease before launch and confirm the assigned worker."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-08",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 8/9",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt record actual progress checkpoints and result before confirm Linear In Progress before granting the work lease."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-09",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 9/10",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt verify the outcome and required delivery evidence before record actual progress checkpoints and result."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-10",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 10/11",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt settle local execution and remote issue facts separately before verify the outcome and required delivery evidence."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-11",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 11/12",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt deliver the durable outcome to the bound lead session before settle local execution and remote issue facts separately."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-12",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 12/13",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt record actual AI acknowledgement of that outcome before deliver the durable outcome to the bound lead session."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-loop-order-13",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Refuse reversed task-loop steps 13/14",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt record the user-facing result or accurate pending state before record actual AI acknowledgement of that outcome."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Complete realtime-sync workflow",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "authenticate the local session and configured ingress",
+        "persist an authorized local task event and outbound intent",
+        "send the allowed Linear mutation without waiting for a polling tick",
+        "confirm readback and deduplicate its webhook echo",
+        "receive and persist an authenticated independent Linear edit",
+        "apply the shared policy with actor and ordering checks",
+        "stream scoped updates to the CLI and lead notification channel"
+      ],
+      "expected": [
+        "Every required step is observed in order with exact evidence.",
+        "External acknowledgements and AI/user receipts are not inferred from queueing or cursor movement."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse realtime-sync without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: authenticate the local session and configured ingress",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse realtime-sync without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: persist an authorized local task event and outbound intent",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse realtime-sync without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: send the allowed Linear mutation without waiting for a polling tick",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse realtime-sync without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: confirm readback and deduplicate its webhook echo",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse realtime-sync without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: receive and persist an authenticated independent Linear edit",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-omit-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse realtime-sync without step 6",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: apply the shared policy with actor and ordering checks",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-omit-07",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse realtime-sync without step 7",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: stream scoped updates to the CLI and lead notification channel",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse reversed realtime-sync steps 1/2",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt persist an authorized local task event and outbound intent before authenticate the local session and configured ingress."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse reversed realtime-sync steps 2/3",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt send the allowed Linear mutation without waiting for a polling tick before persist an authorized local task event and outbound intent."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse reversed realtime-sync steps 3/4",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt confirm readback and deduplicate its webhook echo before send the allowed Linear mutation without waiting for a polling tick."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse reversed realtime-sync steps 4/5",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt receive and persist an authenticated independent Linear edit before confirm readback and deduplicate its webhook echo."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-order-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse reversed realtime-sync steps 5/6",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt apply the shared policy with actor and ordering checks before receive and persist an authenticated independent Linear edit."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-realtime-sync-order-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Refuse reversed realtime-sync steps 6/7",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt stream scoped updates to the CLI and lead notification channel before apply the shared policy with actor and ordering checks."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-writing-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R13",
+        "R22",
+        "R38"
+      ],
+      "workflow": "task-writing",
+      "workflow_ids": [
+        "task-writing"
+      ],
+      "title": "Complete task-writing workflow",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "load the frozen skill issue-type reference and Writing Style",
+        "draft the supported provider representation from authorized facts",
+        "validate and review exact content with version-bound evidence",
+        "publish only approved prose and verify provider readback"
+      ],
+      "expected": [
+        "Every required step is observed in order with exact evidence.",
+        "External acknowledgements and AI/user receipts are not inferred from queueing or cursor movement."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-writing-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R13",
+        "R22",
+        "R38"
+      ],
+      "workflow": "task-writing",
+      "workflow_ids": [
+        "task-writing"
+      ],
+      "title": "Refuse task-writing without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: load the frozen skill issue-type reference and Writing Style",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-writing-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R13",
+        "R22",
+        "R38"
+      ],
+      "workflow": "task-writing",
+      "workflow_ids": [
+        "task-writing"
+      ],
+      "title": "Refuse task-writing without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: draft the supported provider representation from authorized facts",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-writing-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R13",
+        "R22",
+        "R38"
+      ],
+      "workflow": "task-writing",
+      "workflow_ids": [
+        "task-writing"
+      ],
+      "title": "Refuse task-writing without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: validate and review exact content with version-bound evidence",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-writing-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R13",
+        "R22",
+        "R38"
+      ],
+      "workflow": "task-writing",
+      "workflow_ids": [
+        "task-writing"
+      ],
+      "title": "Refuse task-writing without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Omit: publish only approved prose and verify provider readback",
+        "Attempt the next dependent action through its public interface."
+      ],
+      "expected": [
+        "The missing prerequisite is explicit; dependent action refuses or remains pending.",
+        "No unauthorized side effect, false acknowledgement or fabricated success is produced."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-writing-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R13",
+        "R22",
+        "R38"
+      ],
+      "workflow": "task-writing",
+      "workflow_ids": [
+        "task-writing"
+      ],
+      "title": "Refuse reversed task-writing steps 1/2",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt draft the supported provider representation from authorized facts before load the frozen skill issue-type reference and Writing Style."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-writing-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R13",
+        "R22",
+        "R38"
+      ],
+      "workflow": "task-writing",
+      "workflow_ids": [
+        "task-writing"
+      ],
+      "title": "Refuse reversed task-writing steps 2/3",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt validate and review exact content with version-bound evidence before draft the supported provider representation from authorized facts."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-task-writing-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R13",
+        "R22",
+        "R38"
+      ],
+      "workflow": "task-writing",
+      "workflow_ids": [
+        "task-writing"
+      ],
+      "title": "Refuse reversed task-writing steps 3/4",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Attempt publish only approved prose and verify provider readback before validate and review exact content with version-bound evidence."
+      ],
+      "expected": [
+        "The premature dependent action fails and state remains consistent."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "RT01",
+      "layer": "live_linear",
+      "requirements": [
+        "R10",
+        "R36",
+        "R37"
+      ],
+      "workflow": null,
+      "workflow_ids": [],
+      "title": "Real bidirectional task changes",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Create/update a run-owned task through the CLI, then make authorized Linear edits independently. Capture send/receive/apply/render timestamps."
+      ],
+      "expected": [
+        "Both directions converge through immediate events without waiting for the reconciliation timer; observed latency and provider delay are reported."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "RT02",
+      "layer": "mechanical",
+      "requirements": [
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": null,
+      "workflow_ids": [],
+      "title": "Duplicate reordered and echo events",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Replay duplicate delivery IDs, delayed earlier edits, stale automation and the webhook echo of an outbound write."
+      ],
+      "expected": [
+        "No write echo loop, duplicated work or overwritten human hold; causality and conflict remain visible."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "RT03",
+      "layer": "process",
+      "requirements": [
+        "R04",
+        "R27",
+        "R37"
+      ],
+      "workflow": null,
+      "workflow_ids": [],
+      "title": "Authenticated ingress and durable acknowledgement",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Send invalid signatures, stale timestamps, foreign workspace/project data, oversized payloads and a valid event followed by a receiver crash."
+      ],
+      "expected": [
+        "Invalid input has no domain effect; accepted events persist before HTTP acknowledgement and resume safely after restart."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "RT04",
+      "layer": "live_linear",
+      "requirements": [
+        "R16",
+        "R36"
+      ],
+      "workflow": null,
+      "workflow_ids": [],
+      "title": "Actual lead and user receipts",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Complete a real assigned worker while its lead is active, then repeat with a disconnected lead and resume it."
+      ],
+      "expected": [
+        "Queued, host-delivered, AI-acknowledged and user-reported receipts stay distinct; inactive unsupported hosts remain pending; no invented report."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "MA01",
+      "layer": "mechanical",
+      "requirements": [
+        "R25",
+        "R35"
+      ],
+      "workflow": null,
+      "workflow_ids": [],
+      "title": "Private incident deduplication",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Repeat one anomaly, include secret-like text, restart the daemon and attempt an unapproved upload."
+      ],
+      "expected": [
+        "One correlated incident retains versioned occurrences; secrets are redacted and no data is uploaded without explicit policy."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "MA02",
+      "layer": "process",
+      "requirements": [
+        "R20",
+        "R27",
+        "R35"
+      ],
+      "workflow": null,
+      "workflow_ids": [],
+      "title": "Bounded repair admission",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Request repair with missing opt-in, no budget, changed criteria or malicious feedback instructions; then run an authorized repair fixture."
+      ],
+      "expected": [
+        "Unauthorized repair refuses; authorized work has its own task/worktree/database and unchanged acceptance; failures remain retained."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "MA03",
+      "layer": "installation",
+      "requirements": [
+        "R18",
+        "R31",
+        "R35"
+      ],
+      "workflow": null,
+      "workflow_ids": [],
+      "title": "Verified update and recovery",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Supply an unverified artifact, then a valid patch while work is active; interrupt activation and restore supported code."
+      ],
+      "expected": [
+        "Reject unverified content; drain/checkpoint and pin active work; health-check activation; preserve committed task history during rollback."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WR01",
+      "layer": "mechanical",
+      "requirements": [
+        "R13",
+        "R27",
+        "R38"
+      ],
+      "workflow": null,
+      "workflow_ids": [],
+      "title": "Missing or forged writing approval",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Create/update prose with absent, stale, wrong-content or fabricated approval and try status-only operations separately."
+      ],
+      "expected": [
+        "Unapproved prose never publishes; mechanical statuses still require cause/ownership/evidence and cannot modify prose as a side effect."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WR02",
+      "layer": "behavior",
+      "requirements": [
+        "R21",
+        "R38"
+      ],
+      "workflow": null,
+      "workflow_ids": [],
+      "title": "Correct issue reference and writing guide",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Create a Bug, Chore and Feature and update their progress through the actual installed workflow."
+      ],
+      "expected": [
+        "Actual skill/reference/style evidence matches each type and exact title/body; output meaning and language are assessed from real traces."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WR03",
+      "layer": "process",
+      "requirements": [
+        "R22",
+        "R25",
+        "R38"
+      ],
+      "workflow": null,
+      "workflow_ids": [],
+      "title": "Skill version update audit",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Change a fixture skill version and attempt to reuse stale new-write approval; audit affected outputs and rerun impacted checks."
+      ],
+      "expected": [
+        "New writes need current approved guidance; prior reports remain version-bound; no erased failures or arbitrary broad rebuild."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "B17",
+      "layer": "behavior",
+      "requirements": [
+        "R18",
+        "R20",
+        "R35"
+      ],
+      "workflow": "maintenance",
+      "workflow_ids": [
+        "maintenance"
+      ],
+      "title": "Feedback to verified repair",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Report a repeated wrong task behavior and request the configured automatic repair/update path."
+      ],
+      "expected": [
+        "Capture and deduplicate evidence, reproduce before repair, obey maintenance authority/budget, preserve criteria and verify safe update."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "B18",
+      "layer": "behavior",
+      "requirements": [
+        "R02",
+        "R03",
+        "R10",
+        "R16",
+        "R36",
+        "R38"
+      ],
+      "workflow": "task-loop",
+      "workflow_ids": [
+        "task-loop"
+      ],
+      "title": "Complete request and reporting loop",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Report a new task and follow it through a real worker to the final user-facing report."
+      ],
+      "expected": [
+        "Use reviewed prose, actual Linear/CLI states, truthful startup and completion, verified provider readback and actual lead/user receipts."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "B19",
+      "layer": "behavior",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R37"
+      ],
+      "workflow": "realtime-sync",
+      "workflow_ids": [
+        "realtime-sync"
+      ],
+      "title": "Human edit arrives during work",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Change a run-owned issue in Linear while the worker runs; also change the local task through an authorized operation."
+      ],
+      "expected": [
+        "Receive and process both directions immediately; respect human authority, no echo loop, scoped CLI/AI updates, degraded mode visible on disconnect."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run"
+    },
+    {
+      "id": "B20",
+      "layer": "behavior",
+      "requirements": [
+        "R13",
+        "R21",
+        "R22",
+        "R38"
+      ],
+      "workflow": "task-writing",
+      "workflow_ids": [
+        "task-writing"
+      ],
+      "title": "Task writing is mandatory",
+      "critical": true,
+      "setup": "Fresh isolated run-owned fixtures and explicit scope; no production mutation.",
+      "actions": [
+        "Ask the coordinator to create and update tasks, then pressure it to skip writing review."
+      ],
+      "expected": [
+        "Invoke the actual current Technical Writer with type/style references and exact content approval; refuse bypass without blocking valid status-only operations."
+      ],
+      "evidence": [
+        "exact artifact and case hashes",
+        "public command or tool trace",
+        "before/after authoritative state and remote readback",
+        "versioned receipts and timestamps"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run"
     }
-  ]
+  ],
+  "scope_revision_reason": "Continuous improvement, complete Linear/CLI/worker/AI loop, mandatory real-time bidirectional events, and mandatory task writing gate.",
+  "expected_counts": {
+    "requirements": 38,
+    "workflows": 14,
+    "cases": 248
+  }
 }

@@ -28,8 +28,8 @@ def verify(root):
     cases = acceptance.get('cases', [])
     case_ids = {c['id'] for c in cases}
     workflows = acceptance.get('workflows', [])
-    require(len(req_ids) == len(requirements) == 34, 'Expected 34 unique requirements.')
-    require(len(case_ids) == len(cases) == 170, 'Expected 170 unique authored acceptance cases.')
+    require(len(req_ids) == len(requirements) == 38, 'Expected 38 unique requirements in specification revision 2.')
+    require(len(case_ids) == len(cases) == 248, 'Expected 248 unique authored acceptance cases in specification revision 2.')
     covered = set()
     behavioral = set()
     for case in cases:
@@ -72,7 +72,9 @@ def verify(root):
             walk(identifier)
         for row in rows:
             require(set(row.get('requirements', [])) <= req_ids, f"{row['id']}: unknown requirement.")
-            require(row.get('status') == 'not_started', f"{row['id']}: handoff cannot claim implementation progress.")
+            require(row.get('status') in {'not_started','in_progress','component_verified','complete','blocked'}, f"{row['id']}: unknown progress status.")
+            if row.get('status') != 'not_started':
+                require(isinstance(row.get('evidence'), str) and bool(row['evidence'].strip()), f"{row['id']}: progress needs explicit evidence and scope.")
     require(policy.get('limits', {}).get('max_elapsed_seconds') == 172800, 'Elapsed cap must remain 48 hours.')
     require(policy.get('limits', {}).get('max_incremental_spend_usd') == 100, 'Spending cap must remain USD 100.')
     require(set(policy.get('acceptance', {}).get('required_hosts', [])) == {'claude-code','codex-cli'}, 'Both hosts are required.')
@@ -102,8 +104,8 @@ def verify(root):
             if target:
                 require((path.parent / target).is_file(), f'{path.name}: broken local link {target}.')
     diagrams = root / 'assets/diagrams'
-    require(len(list(diagrams.glob('*.mmd'))) == 5, 'Expected five editable diagram sources.')
-    require(len(list(diagrams.glob('*.svg'))) == 5, 'Expected five rendered diagrams.')
+    require(len(list(diagrams.glob('*.mmd'))) == 7, 'Expected seven editable diagram sources.')
+    require(len(list(diagrams.glob('*.svg'))) == 7, 'Expected seven rendered diagrams.')
     for source in diagrams.glob('*.mmd'):
         require(source.with_suffix('.svg').is_file(), f'{source.name}: missing SVG export.')
     manifest = root / 'MANIFEST.json'

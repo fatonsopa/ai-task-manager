@@ -1,29 +1,30 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
+  "scope": "Maintained docs source integrity; excludes this manifest, OS metadata and bytecode caches.",
   "files": [
     {
-      "path": ".DS_Store",
-      "sha256": "31a5af1adf0aebf35c0c75ecf54eac354c0f4cead6d8b8a9b8cc5590ad56bb70"
-    },
-    {
       "path": "ARCHITECTURE.md",
-      "sha256": "86e525cbcef18fe2725dcacc851f0afd1ec434095f09bab700c4d15e8173d6f6"
+      "sha256": "80d5862dd6bfac5f7396a4350202278c219a27be732c9ac95480e98929d53a80"
     },
     {
       "path": "BUILD.md",
-      "sha256": "f21c44fe4ada4b75643c1ae35c3026deea62908960fe39cfe7aa280a7edd6de0"
+      "sha256": "4a1c8d5bf56519c664daf008e5f336b9114311f2bebb47f70c4b10570be25cd5"
     },
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "fc0db9fdb7d08f2bac98267e8a2d1099a607b8b0cc4dc53415f453f0d2e222d2"
+      "sha256": "f7a22501a660f3d2f9805248b933b1a1179ba0ba1d2810bdfda8bc70efe3a0d9"
     },
     {
       "path": "START-HERE.md",
-      "sha256": "46ef0b5bcfe8c8aba8340f48c0c69e2bf88e8a86a71b3a7f8f161ef3d1e1b351"
+      "sha256": "dae9f6970599b4b49addef9d23dcd3575dc4d8efafd4d727cf19255ee0638aad"
     },
     {
       "path": "STATUS.md",
-      "sha256": "198b79ffac1a5984494de7a7d4021c8004f79ff1cf91685e979eb7536df025b5"
+      "sha256": "1fe3dd7e8f343d751128035c370bc686f0a21d4d2384757b1eb5cffaad17b49d"
+    },
+    {
+      "path": "WORKFLOW.md",
+      "sha256": "06546c25ab343fc85af6afa760399b0398e0244fedd0e91ae1d4130d22fdd6a3"
     },
     {
       "path": "assets/diagrams/architecture.mmd",
@@ -35,11 +36,11 @@
     },
     {
       "path": "assets/diagrams/dispatch.mmd",
-      "sha256": "3104f00b3ba01bd724ec3e64ee2a1ef3803ab06d600bb1bb6a103ea4d12a55f7"
+      "sha256": "e6e9e77f636cc34bbfeb9b406d98595fcf10c2c592812bf8491df243b8665326"
     },
     {
       "path": "assets/diagrams/dispatch.svg",
-      "sha256": "735095e90269483e7e5764cebe6714be204e2d0d9c1312d5e4c8e9163046df69"
+      "sha256": "eeb457aa67c12a028929c49911f3530c8d8f87e063e6637340bbc0631418fe55"
     },
     {
       "path": "assets/diagrams/installation.mmd",
@@ -48,6 +49,22 @@
     {
       "path": "assets/diagrams/installation.svg",
       "sha256": "d2e07332d517963e0a4a86b1f7b2936ee50609786d972fc7e0c0c7ff90eb2473"
+    },
+    {
+      "path": "assets/diagrams/lifecycle.mmd",
+      "sha256": "3c0de4efb0dd57792c76ec1951aec4ceb5d25404f7cce0b0810b856aab57cf3d"
+    },
+    {
+      "path": "assets/diagrams/lifecycle.svg",
+      "sha256": "984b4f484278d9356e8aef1aa098a3fe9f07c1e22590b569e0159719fe5c7a04"
+    },
+    {
+      "path": "assets/diagrams/realtime.mmd",
+      "sha256": "bf3a9deffba74c366432b928dbbd408c40f9b39c208861020dbd1ebddfc78ad6"
+    },
+    {
+      "path": "assets/diagrams/realtime.svg",
+      "sha256": "effc5f64e85882de7848a9a481c2a321844b5e04f76b6abbbf5fc177eec93e7a"
     },
     {
       "path": "assets/diagrams/session-view.mmd",
@@ -67,15 +84,15 @@
     },
     {
       "path": "config/acceptance-cases.json",
-      "sha256": "82f7974dd23a2e2b9c6691724a0fe45519e65c45ec6786bb347668cbfa06aba9"
+      "sha256": "270ba717f3a764d1ea5b888d7f9a51073b96aaad3c5659b8dc8b70bacd98cd3e"
     },
     {
       "path": "config/execution-policy.json",
-      "sha256": "fcc0c86949ca8670880070ede232c22a0b34fe6ebef2dfb0162e58df681799a7"
+      "sha256": "1b129ea4a9686820ce403f03543476d9ce0ba7424b0c1056cc7a3e739c2f8991"
     },
     {
       "path": "config/requirements.json",
-      "sha256": "fda0cdf71d4547a546d7f11c24ce8f3cdf30c95c773d9ec09e40aa9515d6492c"
+      "sha256": "f56d0af57d736c6b93a5b5225a38a00cc37ac21a23118cff4b95e4cac335f08a"
     },
     {
       "path": "config/research-sources.json",
@@ -87,11 +104,19 @@
     },
     {
       "path": "config/work-items.json",
-      "sha256": "af48579bcb583f8e70beae7b5d18bc80e7734f42d5661881e9acf4cc57707c6e"
+      "sha256": "d927c0da7ff1346d33b4da19f6de13585eb25fabfb84ac8f8bb3cadef3ec363d"
+    },
+    {
+      "path": "migration/current-contracts.md",
+      "sha256": "fe32a816fa7c62256bf37eebe785d9ec8f3e7ba3e9ab13dfbc0a325fe8168dd2"
+    },
+    {
+      "path": "migration/legacy-inventory.json",
+      "sha256": "a45787e433057a674b76f174de0c34237c90d5d563432b48ba22e062f00e08d0"
     },
     {
       "path": "tools/check_handoff.py",
-      "sha256": "b2ce034d3cdfe0c3e08ebedda3f313a5ecbe048f1c042bf38138d5d0dd101197"
+      "sha256": "70503d8a489c32b68baad139823403bcffb8aec2932797dcf808e4cda4d77e97"
     },
     {
       "path": "tools/setup_test_credentials.py",

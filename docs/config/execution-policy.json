@@ -2,7 +2,7 @@
   "schema_version": 1,
   "product": "ai-task-manager",
   "cli": "aitm",
-  "status": "planning_handoff; implementation has not started",
+  "status": "implementation_in_progress; acceptance evidence tracked separately",
   "repository": {
     "remote": "https://github.com/fatonsopa/ai-task-manager.git",
     "visibility": "public",
@@ -100,7 +100,11 @@
       "date": "2026-11-01",
       "authenticated": true,
       "expected_tst_team_matches": true,
-      "writes_tested": false
+      "writes_tested": false,
+      "write_probe": {
+        "verified": true,
+        "scope": "Run-owned development tracking project/issues only; no live product fixture acceptance claimed."
+      }
     }
   },
   "integration": {
@@ -183,6 +187,22 @@
     {
       "id": "D18",
       "decision": "Use both current skills now. Audit and potentially redo affected work when the user supplies an updated version, retaining prior evidence."
+    },
+    {
+      "id": "D19",
+      "decision": "Provide a continuous incident/reproduction/repair/regression/release/update loop without requiring this chat."
+    },
+    {
+      "id": "D20",
+      "decision": "Make the full user-to-Linear-to-CLI-to-worker-to-AI-to-user workflow explicit and learn from existing regression fixes."
+    },
+    {
+      "id": "D21",
+      "decision": "Use real-time bidirectional Linear events; the old ten-minute check is recovery, not the normal sync design."
+    },
+    {
+      "id": "D22",
+      "decision": "Every task prose write/update goes through Technical Writer with the appropriate reference and Writing Style."
     }
   ],
   "active_host_profiles": {
@@ -235,5 +255,23 @@
     },
     "all_task_prose_requires_review": true,
     "status_fields_require_execution_guards": true
-  }
+  },
+  "realtime_sync": {
+    "inbound": "authenticated Linear webhooks",
+    "outbound": "immediate durable outbox",
+    "ui": "scoped event stream",
+    "lead_delivery": "separate queued/delivered/AI-ack/user-reported receipts",
+    "polling_role": "recovery and reconciliation only",
+    "healthy_path_waits_for_timer": false,
+    "public_https_ingress_required": true
+  },
+  "maintenance": {
+    "incident_storage": "local scoped and redacted by default",
+    "report_upload": "explicit opt-in only",
+    "automatic_repair": "explicit opt-in with separate finite capacity/spend limits",
+    "automatic_updates": "verified compatible patch channel only when configured",
+    "active_attempts": "pinned version until safe checkpoint",
+    "policy_or_permission_expansion": "requires explicit decision"
+  },
+  "specification_revision": 2
 }

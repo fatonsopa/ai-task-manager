@@ -1,88 +1,82 @@
 {
-  "scope": "Historical handoff checks retained; current repository instructions and baseline updated from subsequent user decisions.",
+  "schema_version": 2,
+  "scope": "Current source-document checks and observed component evidence; this is not product acceptance.",
   "checked_date": "2026-11-01",
-  "counts": {
+  "historical_baseline": {
+    "commit": "281197b",
     "requirements": 34,
     "workflows": 10,
-    "acceptance_scenarios_authored": 170,
+    "authored_cases": 170,
+    "diagram_pairs": 5,
+    "retained_in_git": true
+  },
+  "current_counts": {
+    "requirements": 38,
+    "workflows": 14,
+    "authored_cases": 248,
     "phases": 11,
-    "initial_work_items": 26,
-    "diagram_pairs": 5
+    "planned_work_items": 33,
+    "diagram_pairs": 7
   },
   "documents": {
     "BUILD": {
-      "delivered": true,
+      "checked_delivery": "delivered",
+      "sha256": "4a1c8d5bf56519c664daf008e5f336b9114311f2bebb47f70c4b10570be25cd5",
       "review_kind": "current_host_self_review",
       "model": null,
-      "historical_sha256": "80cf5778f02611eea0b4f296d2db31471fda66281c42aefe197609bae02fec40",
-      "current_sha256": "f21c44fe4ada4b75643c1ae35c3026deea62908960fe39cfe7aa280a7edd6de0",
-      "validation_status": "Current edits recorded while Technical Writer is held; no skill invocation or new skill-based review performed."
+      "meaning_and_style_review": true,
+      "independent_review": false
     },
     "ARCHITECTURE": {
-      "delivered": true,
-      "sha256": "86e525cbcef18fe2725dcacc851f0afd1ec434095f09bab700c4d15e8173d6f6",
+      "checked_delivery": "delivered",
+      "sha256": "80d5862dd6bfac5f7396a4350202278c219a27be732c9ac95480e98929d53a80",
       "review_kind": "current_host_self_review",
-      "model": null
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false
+    },
+    "WORKFLOW": {
+      "checked_delivery": "delivered",
+      "sha256": "06546c25ab343fc85af6afa760399b0398e0244fedd0e91ae1d4130d22fdd6a3",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false
     }
   },
   "diagram_collection": {
     "passed": true,
-    "diagrams": 5,
-    "consumers": 5
+    "diagrams": 7,
+    "consumers": 7,
+    "browser_visual_review": "Three new/changed diagrams inspected; lifecycle subtitle corrected to distinguish lead acknowledgement from public reporting."
   },
-  "helper_checks": {
-    "scope": "handoff helper validation only",
-    "passed": true,
-    "checks": [
-      "valid package accepted",
-      "unknown requirement rejected",
-      "task dependency cycle rejected",
-      "broken document link rejected",
-      "changed hard spending cap rejected",
-      "credential init permissions and existing-file preservation passed",
-      "credential newline rejected",
-      "credential directory symlink rejected",
-      "manifest tampering rejected"
-    ],
-    "product_tests_run": 0
-  },
-  "product_acceptance_tests_executed": 0,
-  "deferred_claude_tests": {
-    "previous_date": "2026-11-02",
-    "superseded_by": "user approved implementation now using claude_roni",
-    "original_default_account_available": false
-  },
-  "runtime_prerequisites": [
-    "Existing primary key authenticated and verified TST read access; verify write permission and add a distinct secondary identity before two-user cases.",
-    "Docker daemon must start and pass probes.",
-    "Both installed host profiles and cost limits need real execution proof."
-  ],
-  "project_changes": "No application files or merge script were modified; no code was pushed.",
-  "latest_correction": {
-    "subject": "All configured In Review exits",
-    "policy": "authorized destination-specific guards preserved",
-    "new_package_checks": [
-      "missing review destination rejected",
-      "missing delivery evidence guard rejected",
-      "incomplete review test matrix rejected"
-    ],
-    "product_tests_executed": 0
-  },
-  "credential_source_update": {
-    "primary_source": "application repository .env.local / LINEAR_API_KEY",
-    "authenticated_read": true,
-    "expected_tst_team_matches": true,
-    "writes_attempted": false,
-    "secret_copied_or_displayed": false,
-    "helper_validation": {
-      "passed": true,
-      "checks": [
-        "secondary-only setup works without duplicating primary key",
-        "secondary-only setup preserves configured primary token",
-        "credential file remains mode 600"
-      ],
-      "real_credentials_used": false
+  "component_evidence": {
+    "core": {
+      "commit": "c9ab1e4",
+      "focused_macos_tests_passed": 1397,
+      "lead_rerun": true,
+      "live_provider_or_host_acceptance": false
+    },
+    "build_runner": {
+      "commit": "08c0987",
+      "focused_macos_tests_passed": 70,
+      "focused_linux_aarch64_tests_passed": 70,
+      "live_provider_or_host_acceptance": false
     }
   },
-  "application_baseline": "c05f40200703e7b8f379a8477502dabd594ba79c"
+  "product_acceptance_cases_executed": 0,
+  "external_model_invocations": 0,
+  "known_blocks": [
+    "Live two-user Linear acceptance requires the unavailable second identity."
+  ],
+  "pending_live_evidence": [
+    "Reachable HTTPS receiver and scoped TST webhook delivery.",
+    "Actual tool-enabled Claude Code and Codex execution, installation and complete lifecycle traces."
+  ],
+  "skill_versions": {
+    "technical_writer_snapshot": "7a0dbe4a69d07de868db1dd56ec1bd74b0870db3e184d4990ab6f2f894deeb72",
+    "skill_builder_snapshot": "c3cbe640e61ae548714cddb5a88be7ff2d519bc85424b30508235b96a7bdd7ea",
+    "update_policy": "Use current snapshots; audit affected work and rerun impacted checks when the user supplies newer versions."
+  },
+  "project_changes": "Application files and merge script unchanged. Code is local; normal sessions remain unmodified."
 }

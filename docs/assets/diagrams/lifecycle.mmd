@@ -1,0 +1,47 @@
+%% Diagram: Flowchart
+%% Subtitle: A request becomes a tracked issue, assigned work and a result acknowledged by the lead and reported to the user.
+flowchart TD
+    accTitle: Task and Linear lifecycle
+    accDescr: A request becomes a tracked issue, assigned work and a result acknowledged by the lead and reported to the user.
+    N1@{ shape: stadium, label: "1. User reports work" }
+    class N1 terminator
+    N2@{ shape: rect, label: "2. Lead frames the request" }
+    class N2 process
+    N3@{ shape: fr-rect, label: "3. Review task prose" }
+    class N3 predefined
+    N4@{ shape: rect, label: "4. Confirm Linear Backlog" }
+    class N4 process
+    N5@{ shape: rect, label: "5. Link the scoped CLI task" }
+    class N5 process
+    N6@{ shape: rect, label: "6. Enqueue and confirm Todo" }
+    class N6 process
+    N7@{ shape: fr-rect, label: "7. Reserve and start worker" }
+    class N7 predefined
+    N8@{ shape: rect, label: "8. Confirm In Progress and grant lease" }
+    class N8 process
+    N9@{ shape: rect, label: "9. Record progress and checkpoints" }
+    class N9 process
+    N10@{ shape: fr-rect, label: "10. Verify result and delivery evidence" }
+    class N10 predefined
+    N11@{ shape: rect, label: "11. Settle CLI and Linear records" }
+    class N11 process
+    N12@{ shape: lean-r, label: "12. Deliver result to bound lead" }
+    class N12 data
+    N13@{ shape: rect, label: "13. Acknowledge AI processing" }
+    class N13 process
+    N14@{ shape: stadium, label: "14. Report outcome to user" }
+    class N14 terminator
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5
+    N5 --> N6
+    N6 --> N7
+    N7 --> N8
+    N8 --> N9
+    N9 --> N10
+    N10 --> N11
+    N11 --> N12
+    N12 --> N13
+    N13 --> N14
+%% Legend: flow_arrow | Event or command

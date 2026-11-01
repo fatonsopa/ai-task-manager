@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "requirements": [
     {
       "id": "R01",
@@ -136,6 +136,22 @@
     {
       "id": "R34",
       "text": "Old writers are fenced off before new admission; rollback never enables two live authorities or loses post-cutover facts."
+    },
+    {
+      "id": "R35",
+      "text": "Local incidents and user feedback feed a bounded opt-in repair, regression, verified release and safe update/rollback loop; private evidence is not uploaded without authorization."
+    },
+    {
+      "id": "R36",
+      "text": "The full user request → reviewed task prose → Linear Backlog → scoped CLI linkage → Todo → confirmed worker/In Progress → verified result → CLI/Linear settlement → lead AI acknowledgement → user report is observable and recoverable."
+    },
+    {
+      "id": "R37",
+      "text": "Linear and local tasks synchronize through immediate durable outbound events and authenticated inbound webhooks; reconciliation polling is recovery only; CLI and lead receive scoped real-time events."
+    },
+    {
+      "id": "R38",
+      "text": "Every new or updated task prose uses Technical Writer, the appropriate issue-type reference and Writing Style; exact content/version approval precedes publication; skill updates trigger scoped audits and retained evidence."
     }
   ]
 }

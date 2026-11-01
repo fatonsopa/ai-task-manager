@@ -1,6 +1,6 @@
 # AI task manager architecture
 
-Status: Design for the implementation handoff; no product implementation is claimed.
+Status: Maintained target design. The task-policy core is integrated and has passed focused tests; host, provider and end-to-end integration remain unverified.
 Authority: BUILD.md and config/execution-policy.json include the current status-policy and clean-cutover decisions.
 
 ## Scope, terms, and drivers
@@ -68,62 +68,81 @@ Process startup, local transactions and Linear mutations are separate operations
 
 ### Dispatch and blocking view
 
-![Dispatch and blocking view](assets/diagrams/dispatch.svg)
+![Task dispatch with Linear](assets/diagrams/dispatch.svg)
 
-This view separates rejection, queued work, reserved capacity and confirmed execution. A failed launch cannot silently become running.
+Admission, remote status and real worker startup are confirmed before task execution. Numbers identify the complete steps; each acknowledgement is an observed fact.
 
 | Component | Explanation |
 | --- | --- |
-| 1. Task submitted | Submission names an authorized issue, accepted scope and a deduplication identifier. |
-| 2. Authorized scope? | Validate project, authenticated principal, logical session and work authorization before enrollment or execution. |
-| 3. Reject request | An unauthorized request creates no worker or foreign task-list entry. |
-| 4. Dependencies and capacity ready? | Check dependency conditions, human holds and resource budgets. Admission is committed atomically with the reservation. |
-| 5. Queue with reason | Keep the task queued with its blocker or resource reason; re-evaluate when that fact changes. |
-| 6. Reserve task and resources | Claim one attempt and reserve capacity once; unique constraints reject competing active claims. |
-| 7. Prepare and launch worker | Verify the dedicated worktree/database before launching through the supported runtime adapter. |
-| 8. Startup confirmed? | Require a real worker identity and confirmed resources. A launch request alone is not readiness. |
-| 9. Reconcile failed or unknown start | Retain the partial-start record and reconcile before retrying; do not start a competing replacement. |
-| 10. Record running | Only confirmed, authorized startup permits the running state and protected execution. |
+| 1. Queued CLI task and linked issue | The task already has reviewed prose, a confirmed Linear issue and trusted session linkage. This view expands stages 6 through 8 of the full lifecycle. |
+| 2. Scope and admission authorized? | Check bound identity, current task/decision version, reviewed content and explicit queue or resume authority. An arbitrary model-supplied identifier grants nothing. |
+| 3. Show blocked or refused reason | Show the exact refusal or prerequisite. Retry eligibility only on a relevant authorized change; do not spin on a failed guard. |
+| 4. Queue or resume confirmed in Linear? | Initial work requires Todo acknowledgement. Authorized On Hold resume checks its prior queue history and current remote facts without inventing a new initial issue. |
+| 5. Reconcile pending queue intent | Inspect uncertain or failed remote queue effects. Keep the task undispatched until the required remote state is confirmed. |
+| 6. Dependencies and capacity ready? | Check dependency conditions and trusted finite host/project/resource budgets; failed predecessors do not imply success. |
+| 7. Reserve attempt and owned resources | Use one local transaction for the task claim, attempt and capacity reservations. Resource preparation is external and must be confirmed or compensated. |
+| 8. Prepare and launch assigned worker | Prepare the task-owned worktree and database, then launch one assigned worker with its bound profile and attempt capability. |
+| 9. Worker startup confirmed? | Require actual runtime/process identity and owned resource evidence. Unknown startup cannot become Running or trigger a competing retry. |
+| 10. Reconcile failed or unknown startup | Retain the failed/uncertain attempt, inspect the real process/resources and recover safely. Do not fabricate an active agent. |
+| 11. Synchronize Linear In Progress | Persist the execution-status intent and send it immediately through the sole authorized Linear writer, respecting newer human decisions. |
+| 12. Remote state confirmed? | Read back the matching issue state and verify it still permits the assigned attempt. A request being queued or accepted locally is insufficient. |
+| 13. Hold startup and reconcile sync | Keep the worker without a work lease while synchronization or authority is unresolved. Reconcile the exact operation before retry. |
+| 14. Grant work lease and show Running | Grant execution only after all admission/startup/remote guards pass; stream the truthful state to this session and queue the lead update. |
 
 **Mermaid source**
 
 ```text
 %% Diagram: Flowchart
-%% Subtitle: Authorized tasks wait for dependencies and capacity before worker startup is confirmed.
+%% Subtitle: Admission, remote status and real worker startup are confirmed before task execution.
 flowchart TD
-    accTitle: Task dispatch workflow
-    accDescr: Authorized tasks wait for dependencies and capacity before worker startup is confirmed.
-    A@{ shape: lean-r, label: "1. Task submitted" }
-    class A data
-    B@{ shape: diam, label: "2. Authorized scope?" }
-    class B decision
-    C@{ shape: stadium, label: "3. Reject request" }
-    class C terminator
-    D@{ shape: diam, label: "4. Dependencies and capacity ready?" }
-    class D decision
-    E@{ shape: rect, label: "5. Queue with reason" }
-    class E process
-    F@{ shape: fr-rect, label: "6. Reserve task and resources" }
-    class F predefined
-    G@{ shape: rect, label: "7. Prepare and launch worker" }
-    class G process
-    H@{ shape: diam, label: "8. Startup confirmed?" }
-    class H decision
-    I@{ shape: rect, label: "9. Reconcile failed or unknown start" }
-    class I process
-    J@{ shape: stadium, label: "10. Record running" }
-    class J terminator
-    A --> B
-    B -->|"No"| C
-    B -->|"Yes"| D
-    D -->|"No"| E
-    E -->|"Prerequisite changes"| D
-    D -->|"Yes"| F
-    F --> G
-    G --> H
-    H -->|"No"| I
-    H -->|"Yes"| J
-%% Legend: flow_arrow | Next action
+    accTitle: Task dispatch with Linear
+    accDescr: Admission, remote status and real worker startup are confirmed before task execution.
+    N1@{ shape: lean-r, label: "1. Queued CLI task and linked issue" }
+    class N1 data
+    N2@{ shape: diam, label: "2. Scope and admission authorized?" }
+    class N2 decision
+    N3@{ shape: curv-trap, label: "3. Show blocked or refused reason" }
+    class N3 display
+    N4@{ shape: diam, label: "4. Queue or resume confirmed in Linear?" }
+    class N4 decision
+    N5@{ shape: fr-rect, label: "5. Reconcile pending queue intent" }
+    class N5 predefined
+    N6@{ shape: diam, label: "6. Dependencies and capacity ready?" }
+    class N6 decision
+    N7@{ shape: rect, label: "7. Reserve attempt and owned resources" }
+    class N7 process
+    N8@{ shape: hex, label: "8. Prepare and launch assigned worker" }
+    class N8 preparation
+    N9@{ shape: diam, label: "9. Worker startup confirmed?" }
+    class N9 decision
+    N10@{ shape: fr-rect, label: "10. Reconcile failed or unknown startup" }
+    class N10 predefined
+    N11@{ shape: rect, label: "11. Synchronize Linear In Progress" }
+    class N11 process
+    N12@{ shape: diam, label: "12. Remote state confirmed?" }
+    class N12 decision
+    N13@{ shape: fr-rect, label: "13. Hold startup and reconcile sync" }
+    class N13 predefined
+    N14@{ shape: stadium, label: "14. Grant work lease and show Running" }
+    class N14 terminator
+    N1 --> N2
+    N2 -->|No| N3
+    N2 -->|Yes| N4
+    N4 -->|No| N5
+    N5 -->|Confirmed| N4
+    N4 -->|Yes| N6
+    N6 -->|No| N3
+    N3 -. Relevant change .-> N2
+    N6 -->|Yes| N7
+    N7 --> N8
+    N8 --> N9
+    N9 -->|No| N10
+    N9 -->|Yes| N11
+    N11 --> N12
+    N12 -->|No| N13
+    N13 -->|Reconciled| N12
+    N12 -->|Yes| N14
+%% Legend: flow_arrow | Event or command
 ```
 
 ### Worker-owned merge view
@@ -228,6 +247,67 @@ flowchart TD
 ```
 
 Worker results and questions go into a durable inbox for the owning session. Replay unacknowledged events after resume. A status line alone does not wake the lead model. The host adapter must test its event/wait mechanism; when automatic push is unavailable, expose pending events and provide an explicit wait/read operation. Do not depend on an unverified notification feature for lifecycle correctness.
+
+### Real-time Linear event flow
+
+![Bidirectional Linear synchronization](assets/diagrams/realtime.svg)
+
+Immediate outbound intents and signed inbound events update scoped task views through one policy. Numbers identify the complete steps; each acknowledgement is an observed fact.
+
+| Component | Explanation |
+| --- | --- |
+| 1. Authorized local task event | A local operation comes from the authenticated session and has passed its task-writing and execution guards. |
+| 2. Durable outbound intent | The local transaction records the mutation and its outbound obligation before any remote request. |
+| 3. Linear API | The adapter sends the allowed mutation immediately and reads back the result. HTTP success without a valid GraphQL result is not confirmation. |
+| 4. Independent Linear edit | A human or integration changes a bound issue in Linear. Backlog or assignment elsewhere does not automatically admit it to this session. |
+| 5. Signed webhook receiver | A reachable HTTPS receiver authenticates raw-body signature, freshness and workspace/team scope, then durably accepts the delivery before replying. |
+| 6. Durable inbound event | Persist delivery identity and payload hash. Deduplicate echoes/retries and retain an event if domain application is interrupted. |
+| 7. Apply shared task policy | Apply causality, ownership, human-decision and transition checks through the same domain API used by the CLI. Do not maintain a second inbound policy. |
+| 8. Scoped CLI event stream | Push applied state and synchronization health to the authorized CLI/sidebar. Report delayed or disconnected paths explicitly. |
+| 9. Lead notification and receipts | Deliver relevant events to the bound lead, with distinct queued, host-delivered, AI-acknowledged and user-reported receipts. |
+| 10. Gap reconciliation | Use repair scans only for missed events, outages or reconnects. They never replace the normal event-driven synchronization path. |
+
+**Mermaid source**
+
+```text
+%% Diagram: Flowchart
+%% Subtitle: Immediate outbound intents and signed inbound events update scoped task views through one policy.
+flowchart TD
+    accTitle: Bidirectional Linear synchronization
+    accDescr: Immediate outbound intents and signed inbound events update scoped task views through one policy.
+    N1@{ shape: lean-r, label: "1. Authorized local task event" }
+    class N1 data
+    N2@{ shape: cyl, label: "2. Durable outbound intent" }
+    class N2 datastore
+    N3@{ shape: rect, label: "3. Linear API" }
+    class N3 process
+    N4@{ shape: lean-r, label: "4. Independent Linear edit" }
+    class N4 data
+    N5@{ shape: fr-rect, label: "5. Signed webhook receiver" }
+    class N5 predefined
+    N6@{ shape: cyl, label: "6. Durable inbound event" }
+    class N6 datastore
+    N7@{ shape: rect, label: "7. Apply shared task policy" }
+    class N7 process
+    N8@{ shape: curv-trap, label: "8. Scoped CLI event stream" }
+    class N8 display
+    N9@{ shape: lean-r, label: "9. Lead notification and receipts" }
+    class N9 data
+    N10@{ shape: fr-rect, label: "10. Gap reconciliation" }
+    class N10 predefined
+    N1 --> N2
+    N2 -->|Immediate write| N3
+    N3 -->|Confirmed result| N7
+    N4 --> N5
+    N3 -. Webhook echo .-> N5
+    N5 -->|Persist before HTTP acknowledgement| N6
+    N6 -->|Deduplicate and order| N7
+    N7 --> N8
+    N7 --> N9
+    N3 -. Recovery read .-> N10
+    N10 -. Repair verified gaps .-> N7
+%% Legend: flow_arrow | Event or command
+```
 
 ## Deployment and operations
 
