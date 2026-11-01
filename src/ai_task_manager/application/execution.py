@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from dataclasses import asdict, replace
 from uuid import uuid4
 
@@ -24,24 +25,38 @@ class Execution:
     def __init__(self, context):
         self.c = context
 
+    def _work_lease(self, conn, handle, attempt_id, expected_attempt_version):
+        sid, _ = sessions.resolve(conn, handle)
+        attempt = attempts.get(conn, sid, attempt_id)
+        task = work.get(conn, sid, attempt.task_id)
+        if attempt.version != expected_attempt_version:
+            raise StaleVersion("Attempt version has changed")
+        if (
+            attempt.state != A.RUNNING
+            or task.human_hold
+            or task.delivered_once
+            or task.decision_revision != attempt.decision_revision
+            or task.observed_status != S.IN_PROGRESS
+            or task.sync_state != SyncState.CONFIRMED
+        ):
+            raise InvalidTransition("Work lease is no longer authorized")
+        return attempt
+
     def validate_work_lease(self, handle, attempt_id, expected_attempt_version):
         """Recheck authority at a host work boundary, including later human decisions."""
         with self.c.db.transaction() as conn:
-            sid, _ = sessions.resolve(conn, handle)
-            attempt = attempts.get(conn, sid, attempt_id)
-            task = work.get(conn, sid, attempt.task_id)
-            if attempt.version != expected_attempt_version:
-                raise StaleVersion("Attempt version has changed")
-            if (
-                attempt.state != A.RUNNING
-                or task.human_hold
-                or task.delivered_once
-                or task.decision_revision != attempt.decision_revision
-                or task.observed_status != S.IN_PROGRESS
-                or task.sync_state != SyncState.CONFIRMED
-            ):
-                raise InvalidTransition("Work lease is no longer authorized")
-            return attempt
+            return self._work_lease(conn, handle, attempt_id, expected_attempt_version)
+
+    @contextmanager
+    def work_boundary(self, handle, attempt_id, expected_attempt_version):
+        """Serialize a bounded short effect against other task-authority writers.
+
+        The trusted adapter owns effect intent/reconciliation. This transaction cannot
+        roll back a filesystem publication or process spawn, and must never surround
+        a whole command, host call, provider request or model turn.
+        """
+        with self.c.db.transaction() as conn:
+            yield self._work_lease(conn, handle, attempt_id, expected_attempt_version)
 
     def reserve(
         self,

@@ -1,0 +1,11 @@
+{
+  "version": 5,
+  "extends": "host-bridge-cases-v4.json",
+  "preserves_all_prior_cases": true,
+  "reason": "Actual container restrictions must be observed before editable project tests receive their execution grant. This strengthens the existing admission case before its first execution.",
+  "case": {
+    "id": "HB-D01a",
+    "expected": "The trusted wrapper waits without task effects. The controller verifies actual image, mounts, UID and all resource/security limits, then rechecks the Core lease inside its short grant transaction before sending the private one-use execution challenge. Unknown or different facts refuse execution."
+  },
+  "scope": "Mechanical container fixture only; test code and database use bounded temporary snapshots, not the application stack."
+}
