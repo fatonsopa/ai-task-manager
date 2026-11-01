@@ -1,43 +1,47 @@
 # AI task manager development and testing status
 
-Reporting period: 1 November 2026, 15:56–20:12 UTC.
-Build: Local main through 4c7b242; component source commits are recorded below.
-Environment: macOS arm64 and an isolated Linux/aarch64 container, Python 3.13.13.
-Status: Implementation and component verification are active; full product acceptance remains incomplete.
+Reporting period: 1 November 2026, 15:56–22:50 UTC.
+Build: Local main through a26f0e3; separately tested component sources are identified below.
+Environment: macOS arm64, Python 3.13.13, and an isolated Linux/aarch64 container for the earlier backend baseline.
+Status: Implementation continues. A live Claude component test exposed a model-stability failure; full product acceptance remains incomplete.
 
 ## Progress and results
 
-The approved limits remain USD 100 incremental spending and 48 elapsed hours, ending 3 November 2026 at 15:56:48 UTC. Private run records retain assignments, reservations, failed attempts and exact artifact evidence. The maintained docs directory owns requirements, plans and diagrams.
+The eight maintained documents and eleven source/export diagram pairs are consolidated under this directory. The task and Linear workflow now separates issue intake, worker execution, delivery and reporting, with detailed scenario tables. The delivery and source/diagram checks passed; this establishes documentation consistency, not implemented product behavior. Repository responsibility changes remain planned as T34 before packaging.
 
-| Scope | Observed result | Limit |
+| Scope and source | Observed result | What it establishes |
 | --- | --- | --- |
-| Legacy inventory, 597112b | 298 mapped contracts, callers and stores; 16 regression lessons. | Source audit, not an executed legacy integration suite. |
-| Integrated core, Linear and runtime through 264738c | 1,690 tests passed on macOS. | Local transport/process fixtures; no live product webhook. |
-| CLI/MCP composition, 4c7b242 | Lead's configured combined runs: 1,790 passed on macOS and 1,790 passed on Linux/aarch64, each with zero failures or skipped tests. Worker exact-tree suite and installed-wheel CLI/SDK stdio checks also passed. | The first lead run omitted the external writer setting: 1,771 passed and 19 skipped; that run is retained. |
-| Build controls, 08c0987 | 70 macOS and 70 Linux/aarch64 tests passed. | Earlier component evidence; these cases overlap the combined backend suite. |
-| Approved subscription pilots | One actual Claude Code turn and one actual Codex CLI turn returned the requested token without tools. | Capability probes only; no installed workflow or tool-enabled acceptance. |
-| Sidebar design | Approved compact groups, counts, row activity icons, matching expanded activity labels, five-line descriptions, hide/show and whole-sidebar scrolling. Browser interactions were inspected. | Native terminal implementation and both-host acceptance remain pending. |
+| Earlier integrated backend, 4c7b242 | Lead's configured runs passed 1,790 tests on macOS and 1,790 on Linux/aarch64, each with zero failures or skips. | A retained backend baseline. These suites have not been rerun against the newer bridge or admission work. The earlier unconfigured run with 1,771 passes and 19 skips remains recorded. |
+| Writer handoff, source 842e9597 integrated as 069a1b5 | Worker reported 139 focused passes and installed CLI/actual SDK stdio checks; the lead's eight-test subset passed. | Exact finalized writer-message metadata crosses the application boundary. Counts overlap. Synthetic semantic reviews do not establish fresh AI writing quality. |
+| Managed host bridge, unmerged c445b0e6 | Worker reported 1,702 selected mechanical passes in 181.75 seconds. | Local host/process/resource controls on that source. Authored provider/account controls remain separate from live observations. |
+| Actual Claude component pilot, c445b0e6 | The model read and changed an owned fixture through managed tools, ran its registered test in an isolated container, and stopped. Owned worktree/database cleanup completed. Independent review failed the frozen model-stability gate. | The operational path ran, but the complete pilot is not accepted. The CLI changed from claude-opus-5 to claude-opus-4-8 after a native refusal; the guard missed that change. A zero performer exit did not waive the failed gate. |
+| Coordination skill | The prior candidate passed 56 mechanical checks. Fresh behavior observations remain 0/3; host-matrix observations remain 0/6. | Mechanical evidence on the recorded earlier source only. The updated Skill Builder renderer now passes the current document structure check, but the skill has not been rebuilt or accepted. |
+| Sidebar | Compact groups/counts, task activity icons, five-line descriptions, hide/show and whole-sidebar scrolling were approved and inspected in the browser prototype. | Design evidence; native terminal implementation and both-host acceptance remain pending. |
 
-The combined suite exercises guarded transitions, ownership, durable retries, signed local webhook fixtures, resource/process supervision, exact writer integration and scoped CLI/MCP boundaries. Writer tests run the actual pinned validator with synthetic semantic-review controls; they do not prove fresh AI writing quality. Component counts overlap and must not be summed as additional acceptance coverage. The acceptance inventory remains 248 authored scenarios across 14 workflows; none has a completed full-product acceptance verdict.
+Earlier component evidence is retained: the legacy inventory mapped 298 contracts/callers/stores and sixteen lessons; the integrated core/Linear/runtime run through 264738c passed 1,690 tests; build controls passed seventy tests on each tested platform. These overlap later suites and are not additional acceptance totals. The global inventory remains 38 requirements, 248 authored scenarios and fourteen workflows, with no completed full-product case verdict. Mechanical test totals are not a percentage of that inventory.
 
-Both tool-free model pilots used the approved included subscriptions. Claude exposed claude-opus-5; Codex did not expose its actual model identity. The Claude API-equivalent estimate was USD 0.0266295; it is not a billed charge. Recorded incremental external charges remain zero. The user confirmed paid overage, usage credits and automatic reload are disabled on both accounts.
+Two earlier tool-free subscription pilots returned the requested token, one through Claude Code and one through Codex CLI. The later Claude component session used one neutral initialization submission and one assigned submission. Authentication probes are recorded separately. The earlier Claude API-equivalent estimate was USD 0.0266295; estimates are not billed charges. Recorded incremental external charges remain zero, and native billing is not independently observable. Paid overage, usage credits and automatic reload remain disabled by user confirmation.
 
 ## Blockers and risks
 
-* The second Linear identity is unavailable by user confirmation. Live two-user acceptance remains blocked; independent work continues.
-* Actual host enrollment, startup/lease enforcement, independently observed human instructions and ordered AI/public-report receipts are being implemented. A waiting harness or queued context cannot establish those facts.
-* Live product webhook delivery, complete TST lifecycle, native terminal interaction, installed host guards, clean cutover, portability and final release checks still require evidence. Development-task writes are separate from product fixture acceptance.
-* The application component reported 36 inherited repository-wide lint diagnostics in documentation tools and Linear test formatting; its source and owned component checks passed. The broader diagnostics remain unresolved.
-* Use claude_roni only. The original claude account remains unavailable. A skill update requires a scoped audit and impacted rechecks while retaining prior evidence.
+* The second Linear identity remains unavailable by user confirmation, so live two-user acceptance is blocked. Independent work continues.
+* The observed Claude fallback failure requires a guard repair and a separately reviewed retry. Its original packet, traces, successful fixture effects and failed overall verdict are preserved. Supported coherent Codex authentication and actual tool-enabled Codex evidence remain unresolved.
+* The coordination skill has used four of its original five production rounds. The last round is held until the managed-host and existing-issue interfaces are ready. Reloading a source skill does not reset those limits or erase earlier failures. The current candidate also retains format/procedure gaps identified by its review.
+* Live product webhook delivery, the complete TST lifecycle, actual host selection/human observations, native terminal behavior, clean cutover, portability and final release checks still require evidence. Development-task writes and authored provider controls do not establish those facts.
+* The thirty-six inherited repository-wide lint diagnostics remain unresolved. Earlier component-owned checks passed; there is no repository-wide clean-lint claim.
+
+The build still ends on 3 November 2026 at 15:56:48 UTC, under the original USD 100 incremental-spend ceiling. Advance warnings are recorded for USD 80 and eight hours remaining, or earlier when a planned step could exceed a limit. New admission stops thirty minutes before the deadline. Three registered development workers remain active; the temporary fourth slot for the bounded Claude pilot was released after confirmed stop. No additional spending or time is authorized by these warnings.
 
 ## Next work
 
-The source-bound role audit is complete. The user approved bounded lead investigation/support and substantive worker delegation, with all worker communication through the lead. Assigned workers are consolidating the existing material into standard document types, building the managed host bridge and producing the coordination skill through Skill Builder. The document consolidation preserves the approved behavior while clarifying full workflow coverage.
+The host-bridge owner is investigating the observed model-stability failure before extending the merge boundary. The compatibility owner is auditing all relevant AI Index instructions, imports, hooks, callers, background jobs, stores and shared resources, including CLAUDE.md. The admission owner is implementing reviewed canonical existing-issue discovery/binding, lifecycle fences, exact scoped writing checks and one enrolled claim store. Focused regression cases are frozen before each implementation batch; live provider/model evidence remains separate.
 
-The application compatibility baseline is now 24d05ac23420b0bb2b062430ff4e9b9c78727b81 on origin/dev-mirror, 81 commits ahead of the clean local application checkout. The nine newly inspected commits preserve the merge and Linear/agent lifecycle scripts. The merge script's SHA-256 remains b47d53d4f9861e2a22e1412dd1d9b8c48407bf177c232cb97ff4770acd307022. New E2E changes bind the served application/build to its provided database and require shared-stack discrimination; future application-database rehearsals must use this updated source.
+The latest inspected application source is 873155ac73f486912e4e9fe6e3daa719388e0665 on origin/dev-mirror, eighty-six commits ahead of the clean local checkout at 15992e2be8b2fe47d4646f92e62c90888a332619. The former 24d05ac pin is historical. The merge script's SHA-256 remains b47d53d4f9861e2a22e1412dd1d9b8c48407bf177c232cb97ff4770acd307022. Audit actual callbacks, late authority checks and Docker ownership before executing disposable application-stack tests. Preserve command names, arguments, foreground flow, result meanings and database lifecycle; change only demonstrated incompatible boundaries under the approved audit-first exception.
 
-No code has been pushed and no normal-session integration has been activated. Application files and the merge script remain unchanged.
+No code has been pushed and no normal-session integration has been activated. Application checkout files and the merge script remain unchanged. Use claude_roni; the original claude account remains unavailable.
 
 ## Sources
 
-[The Implementation Plan (IP)](implementation_plan.md), [task and Linear workflow](spec_driven_development.md), [approved sidebar specification](terminal/spec_driven_development.md), [execution policy](config/execution-policy.json) and [component evidence summary](HANDOFF-CHECKS.json). Exact local run logs, XML results, package hashes, model traces and source-delta evidence are retained in the private build records for run 20261101T155648Z.
+The Test Plan (TP), [test_plan.md](test_plan.md), owns test entry and exit criteria. The Implementation Plan (IP), [implementation_plan.md](implementation_plan.md), owns delivery dependencies and hard-stop handling. The Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), owns expected task/Linear behavior. See the [execution policy](config/execution-policy.json), [source baseline](config/source-baseline.json) and [component evidence summary](HANDOFF-CHECKS.json).
+
+Exact logs, XML results, writer receipts, model frames, the pilot's independent failure review, resource cleanup and limit records remain in private run 20261101T155648Z. The reporting-period update preserves the previous report as source evidence and in Git history; no earlier result is silently reclassified as a pass on a later candidate.

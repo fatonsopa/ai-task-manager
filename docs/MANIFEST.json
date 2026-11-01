@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "a6bad68bb62e5a15b53961f0f29c29511d8e4bada1c72e00b2d802ada07c8d98"
+      "sha256": "0656728e9192e9fc148538f549c5c2087140d6a3fd16ba4cbf37b0dbef37c769"
     },
     {
       "path": "assets/diagrams/architecture.mmd",
@@ -172,7 +172,7 @@
     },
     {
       "path": "test_status_report.md",
-      "sha256": "ed25e6a96bd723ddf70c1ae3b171f3e2721757d52acd50949c8cbf20f9bf54e0"
+      "sha256": "afb88a3c778af0ba4aceb13721c2f71151b31cf30b3b5fba95e7b287e6a7f068"
     },
     {
       "path": "tools/check_handoff.py",

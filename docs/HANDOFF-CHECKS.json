@@ -84,12 +84,13 @@
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "ed25e6a96bd723ddf70c1ae3b171f3e2721757d52acd50949c8cbf20f9bf54e0",
+      "sha256": "afb88a3c778af0ba4aceb13721c2f71151b31cf30b3b5fba95e7b287e6a7f068",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "reporting_period": "2026-11-01 15:56\u201322:50 UTC"
     }
   },
   "diagram_collection": {
@@ -172,10 +173,31 @@
       "installed_cli_and_actual_mcp_stdio_passed": true,
       "actual_ai_public_delivery_or_full_product_acceptance": false,
       "cached_projection_followup": "Current quarantine handling across cached progress/execute receipts remains pending."
+    },
+    "host_bridge": {
+      "source_commit": "c445b0e6b3a12f6c4981ad3c856e704fdc59f9e3",
+      "integrated_into_main": false,
+      "selected_mechanical_tests_passed": 1702,
+      "actual_claude_component_attempts": 1,
+      "operational_edit_test_and_cleanup_completed": true,
+      "complete_pilot_accepted": false,
+      "failed_gate": "Unapproved native model fallback was not rejected; initial startup receipt was overwritten.",
+      "failed_attempt_retained": true,
+      "requested_model": "native CLI default",
+      "initial_advertised_model": "claude-opus-5",
+      "observed_performing_model": "claude-opus-4-8",
+      "model_stability_accepted": false,
+      "authored_provider_controls_are_live_linear": false,
+      "native_reported_cumulative_api_equivalent_estimate_usd": 0.08296959999999999,
+      "auxiliary_models_reported": [
+        "claude-haiku-5-5",
+        "claude-opus-4-8",
+        "claude-opus-5"
+      ]
     }
   },
   "product_acceptance_cases_executed": 0,
-  "external_model_invocations": 2,
+  "external_model_invocations": 4,
   "known_blocks": [
     "Live two-user Linear acceptance requires the unavailable second identity."
   ],
@@ -340,5 +362,31 @@
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
     }
+  },
+  "historical_status_periods": [
+    {
+      "reporting_period": "2026-11-01 15:56\u201320:12 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "ed25e6a96bd723ddf70c1ae3b171f3e2721757d52acd50949c8cbf20f9bf54e0",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    }
+  ],
+  "external_model_invocation_basis": "Four host-level submitted turns: two prior tool-free pilots, one neutral initialization submission and one assigned Claude component submission. The later native results report two neutral and four assigned agentic turns plus auxiliary model usage; the provider-internal request count is not fully exposed. These are not four billed API calls.",
+  "external_native_fallback_events": 1,
+  "limits_warning_policy": {
+    "budget_warn_at_usd": 80,
+    "warn_when_remaining_hours": 8,
+    "earlier_step_admission_check": true,
+    "hard_budget_usd": 100,
+    "hard_deadline_utc": "2026-11-03T15:56:48Z",
+    "coordination_skill_original_rounds_used": 4,
+    "coordination_skill_original_rounds_cap": 5,
+    "advance_warning_sent": true
   }
 }
