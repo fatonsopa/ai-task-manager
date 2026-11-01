@@ -1,0 +1,93 @@
+# Current task and delivery contracts
+
+Source baseline: `c05f40200703e7b8f379a8477502dabd594ba79c` on `origin/dev-mirror`. This inventory reads pinned Git objects and leaves the application checkout unchanged. It is a migration input; it does not prove the new product or the legacy suites passed.
+
+## Inventory coverage
+
+The machine-readable inventory maps 298 rows: 54 interpreted contracts, 23 issue-command surfaces, 39 sync dispatcher commands, 31 transition rows, 49 active hooks, 95 tracked caller files and 7 state stores. It also catalogs 487 pinned source files. Static references and file hashes identify scope; they are not semantic approval of every branch.
+
+Each row in [the inventory](legacy-inventory.json) names its source/hash, responsibility, new owner, disposition, imported state, fencing action and proposed checks. [Compatibility fixtures](../../tests/fixtures/legacy-contracts.json) retain the complete command, hook and rule identifiers with targeted oracles. Runtime settings outside Git, active processes and installed timer overrides remain explicit cutover prerequisites.
+
+## Preserved command and resource boundaries
+
+- Keep `bash scripts/merge-to-dev.sh --checks`, the foreground merge call, its optional worktree argument, and `--probe` unchanged. Preserve result and exit meanings, including `NOTHING TO MERGE` and warning-only cleanup/runtime/mirror conditions.
+- The latest precheck warns when the branch is behind dev because it does not rebase. A stale unnamed-test finding cannot be treated as this branch failure before the normal rebase/check path is evaluated.
+- Preserve `#push`, `#release`, `#hotfix` and `/sync-with-dev` invocation flow. Keep pipeline, rollback and test-record logic in project adapters; route their task-state side effects through the new sole writer.
+- `worktree-setup.sh` creates independent files and dependencies but does not itself provide a separate database. The managed resource provider must call `worktree-db.sh up` before granting execution. The existing merge script owns its database stop/removal timing.
+- Retain native issue identity, team-specific state IDs, typed fields, acceptance, queue checkpoints and human decisions. Product execution state, issue delivery stage and human review are distinct.
+
+## Approved changes to legacy behavior
+
+| Source contract | Required replacement |
+| --- | --- |
+| OWNER-REOPEN, POLICY-A18b | Approved override: preserve reopen invocation but use a new linked Backlog issue for further work on delivered issues; do not reset the original delivered status. |
+| POLICY-A12b | Approved override: In Review may exit to every configured status with destination evidence and worker-admission guards. |
+| NEW-PLACEMENT, POLICY-A9a | Approved override: new issues always begin in Backlog; explicit enqueue confirms Todo before initial work. |
+| POLICY-A10, POLICY-A12a | Approved override: active work uses a checkpointed On Hold path before de-queue/requeue, except explicit human review destinations. |
+| TEST-CLEANUP, POLICY-A14c | Restrict cleanup to the owned fixture run/project; never sweep all open TST work or label unfinished development tracking Done. |
+| WORKTREE-SETUP, WORKTREE-DB | The replacement provider must explicitly create the owned database before worker execution. Setup alone leaves shared-stack access. |
+| RULE-COPY, SCAN-WATCH, SYSTEMD | One clean cutover fences materialized Git rules, stale worktree script copies, hooks, drains, watchers and installed timers before enabling the new writer. |
+| HOST-HOME | Bind the selected Claude configuration and logical session explicitly. No /proc or cwd inference grants session/principal authority. |
+| CAP-EXEMPTION | All admitted workers require bounded capacity; model-tool isolation choices or merge waiting cannot bypass the new host/project admission budget. |
+| TASK-START, OUTBOX | Strict managed mode refuses uncertain missing enforcement and retains failed sync obligations; legacy fail-open or dropped-write behavior is not a valid replacement guarantee. |
+
+The old `reopen` command remains a compatibility surface with its arguments. For further work on a delivered issue, it creates a new linked Backlog issue under explicit authorization; it does not mutate the delivered issue to In Progress. In Review can reach every configured destination with the approved target-specific guards.
+
+## Complete request and result lifecycle
+
+| Stage | Existing caller paths | Required interpretation |
+| --- | --- |
+| User request or newly found work | `.claude/standards/task-management.md §3`; `scripts/linear/issue_cli.py cmd_new` | Source requires a Linear issue before native TaskCreate. New Backlog-first admission intentionally tightens legacy placement. |
+| Create and confirm Backlog issue | `scripts/linear/issue_cli.py cmd_new`; `scripts/linear/new_work_place.py new_work_status`; `scripts/linear/linear_sync.py update_issue` | New policy confirms Backlog even where legacy placement chooses Todo for work already in hand. |
+| Create session task and issue linkage | `scripts/linear/linear_sync.py cmd_pretool`; `scripts/linear/linear_sync.py cmd_hook`; `scripts/linear/task_names.py linked_issue` | Native task name/metadata maps to existing issue; scope cannot be inferred only from free text. |
+| Confirm Todo after authorized enqueue | `scripts/linear/status_policy.py A9a/A9`; `scripts/linear/work_queue.py service_class` | Legacy queue intent/checkpoint rules are inputs; explicit new queue admission is the authority. |
+| Reserve and confirm actual assigned worker | `scripts/linear/subagent_guard.py start_plan/helper_start`; `scripts/linear/subagent_guard.py pretool mode` | Legacy pretool may mark a task in progress before host startup. New core needs startup acknowledgement before granting work lease. |
+| Reflect actual Running/In Progress | `scripts/linear/linear_sync.py journal_hook/cmd_drain`; `scripts/linear/status_policy.py task-start/A9` | Remote acknowledgement and local execution are distinct; pending/failed synchronization is visible. |
+| Record checkpoint and progress | `scripts/linear/branch_notes.py`; `scripts/linear/agent_stop.py commands_ran/last_write`; `scripts/linear/claude_processes.py session_moves` | Progress differs from heartbeat and native process presence; do not infer success from recent output. |
+| Verify worker result and required merge evidence | `scripts/linear/subagent_guard.py stop_decision/record_said`; `scripts/merge-to-dev.sh`; `scripts/linear/finished_task_close.py close_plan` | Inspect actual task, process, own work and Git evidence; unknown or branch-only work remains recoverable. |
+| Settle task execution and synchronize issue facts | `scripts/linear/finished_task_close.py apply_close/close_finished`; `scripts/linear/linear_sync.py cmd_hook_or_queue/cmd_delivery` | Close execution and update actual issue delivery/hold/review state separately; retain unresolved writes. |
+| Queue and deliver result to bound lead | `scripts/linear/lead_news.py lead_asks`; `scripts/linear/linear_sync.py append_sync_log/sync_log_news/cmd_prompt`; `scripts/linear/prompt_news.py news` | Existing log/context path is checkout-offset based and may omit journal writer attribution. A queued notice is not per-session delivery proof. |
+| Require observed lead-AI acknowledgement | `scripts/linear/lead_news.py (gap)`; `scripts/linear/linear_sync.py sync_log_news (gap)` | No existing explicit AI acknowledgement receipt was found. New event state must retain unacknowledged outcomes until the assigned lead processes them. |
+| Deliver meaningful result/status to the user | `.claude/output-styles/lead-engineer.md duties 5/6/8`; `scripts/linear/prompt_news.py (context only)` | Prose role instructions require reporting, but queued context cannot prove a user-facing report; record the actual public message/receipt separately. |
+
+The existing notice channel appends to `sync-tasks.log`, advances a checkout-owned offset and emits context at a later prompt. It does not establish that a particular lead model processed the result or that the user received a report. Journal drains also omit the original agent attribution in one mention path. The replacement must retain four separate facts: queued event, delivery to the bound session, observed lead-AI acknowledgement and actual user report. Acknowledgement must not be inferred from a cursor advance or a process exit.
+
+## Lessons from regression fixes
+
+| Lesson and source | Prior failure | Invariant to retain and new oracle |
+| --- | --- |
+| L01 / CG-1453 — `scripts/linear/linear_sync.test.d/cg_1453_failed_writes.test.py` | Failed worker-stop notes and starts could be lost or reported only as a short error. | Persist the obligation before delivery; identify its issue/cause; retry through the durable journal/outbox and report the eventual result once. C10/C22: lose a response, restart the drain and assert one resulting write with retained failed attempt. |
+| L02 / CG-1873 — `scripts/linear/linear_sync.test.d/cg_1873_owner_backlog.test.py` | An automated pause or later placement could undo the owner decision that work belongs in Backlog. | Preserve explicit human later/hold decisions across pause, finish and background reconciliation until authorized release. C09/C18: human Backlog/On Hold wins over stale automation and remains attributed. |
+| L03 / CG-2596 — `scripts/linear/linear_sync.test.d/cg_2596_another_persons_issue.test.py` | The lead, native task tool, connector or worker could claim another person issue. | Enforce principal ownership at every writer and launch boundary; model text and fabricated decision notes do not grant authority. C21/B08: direct API, task/agent/connector calls and forged session references cannot claim foreign work. |
+| L04 / CG-1327 — `scripts/linear/linear_sync.test.d/cg_1327_home.test.py` | Fallback configuration discovery read another home or real running profile during an isolated test. | Bind config root explicitly; keep fixture process metadata independent from the machine; unavailable process observation is unknown. C07/C21/C27: distinct profile roots and inaccessible process metadata never select another session or infer no worker. |
+| L05 / CG-1241 — `scripts/linear/linear_team.test.py` | A test-team issue number could be interpreted using the normal team key or the wrong workflow-state IDs. | Keep immutable team identity with the issue reference; repository TST binding and team-specific state IDs are validated before writes. C17/C21/C23: normal/test teams share an issue number but never share identity or state IDs; cross-team writes refuse. |
+| L06 / CG-2625 — `scripts/linear/subagent_guard.test.d/cg_2625_every_task_has_an_agent.test.py` | The lead could take substantive work itself while CLI tasks in progress had no assigned active worker. | One tracked assignment per worker; lead coordination is separate; every active task has observed ownership and startup evidence. C06/C36/B01/B09: no untracked worker and no phantom active task; coordinator never invents a task for bookkeeping. |
+| L07 / CG-2150 — `scripts/linear/subagent_guard.test.d/cg_2150_finished_task_close.test.py` | Tasks stayed in progress after their worker finished and merged. | Close execution when the assigned worker actually finished and no required own work remains; preserve unknown or unmerged outcomes. C03/C14/C37: distinguish running, aborted, finished+merged, finished+branch-only and unreadable evidence. |
+| L08 / CG-3140 — `scripts/linear/subagent_guard.test.d/cg_2150_finished_task_close.test.py` | Finished no-code/review work was omitted from an enumerated set of closeable delivery statuses. | Execution completion is separate from where an issue waits; derive it from remaining work and evidence, not a duplicated short status list. C04/C20/B04/B05: a completed reviewable artifact releases execution while the issue awaits human acceptance. |
+| L09 / CG-2143 — `scripts/linear/subagent_guard.test.d/cg_2143_waiting_keeps_progress.test.py` | Pausing a task merely because it awaited a resource made later resumption a forbidden backwards move and concealed unfinished work. | Keep waiting reason, execution state and delivery stage distinct; use explicit approved hold/resume transitions and verified resource eligibility. C04/C06/C16: resource wait cannot fabricate completion or lose the same task/attempt history. |
+| L10 / CG-1245 — `scripts/linear/linear_sync.test.d/cg_1245_detector.test.py` | A detector with incomplete session records could declare no active work and pause a potentially live task. | Unknown visibility does not establish termination; reconcile process identity and retain ownership before recovery or competing admission. C07/C14: known-dead session can recover; unrecorded live process freezes unsafe repair/admission and surfaces uncertainty. |
+| L11 / CG-3314 — `scripts/linear/linear_sync.test.d/cg_3314_partial_work.test.py` | A partial probe/tool commit moved the whole unresolved issue to In Dev and closed its task. | Part-of attribution is not whole-issue delivery; retain acceptance obligations and distinguish support artifacts from completed requested work. C37/B03: Part-of-only merge records partial evidence without completing the issue; normal completed-issue commit remains deliverable. |
+| L12 / CG-3397 — `src/test/pipeline/a-carried-pass-proves-only-what-ran.test.ts` | One selection mode missed files another mode selected, and carried pass records were treated as fresh execution at a newer commit. | Union applicable selection modes; carry proof only for files actually run at the matched artifact, retaining same-commit carry when valid. C34/C38: selected-but-unrun files and old-artifact carry cannot satisfy release evidence; current-commit proven carry remains valid. |
+| L13 / CG-3397 — `scripts/linear/linear_sync.test.d/cg_1598_rules_follow_dev.test.py` | Importing the shared test-record reader eagerly broke minimal materialized rule-tree entry points. | Load optional project-evidence dependencies at the responsible call; a packaged minimal rule/adapter entry point must not require unrelated checkout modules. C27/C30: isolated installed/minimal packages start without the application checkout; missing required runtime dependency is a clear scoped failure. |
+| L14 / CG-1360 — `scripts/linear/linear_sync.test.d/cg_1360_todo_reaches_sessions.test.py` | A background detector found actionable work but it did not reliably reach the active session, or repeated unchanged lines flooded it. | Retain actionable events and dedup by event meaning; distinguish new, previously reported and resolved differences. C16/C22/B15: actionable new event is delivered once per authorized session; unchanged repeats are suppressed without dropping new state. |
+| L15 / CG-3157 — `scripts/linear/linear_sync.test.d/cg_3157_lead_told_of_its_agents_ask.test.py` | An agent asked the owner through Linear and stopped, while the lead did not learn of the ask in time. | Route relevant worker result/ask to its coordinating lead with durable task identity; queued log delivery must not be mistaken for AI acknowledgement or user report. Closed-loop acceptance: queue event, deliver to bound lead, record model acknowledgement and user report separately; preserve pending/unacknowledged events on restart. |
+| L16 / CG-3367 — `scripts/monitor/watch-told-findings.test.sh` | A stopped helper left uncommitted remediation work, and later monitoring could overlook the remaining useful changes. | Recover actual checkpoint/dirty-file ownership and unfinished remediation; user-visible finding resolution requires verified work, not helper exit alone. Maintenance regression: reproduce stopped repair, retain owned dirty changes, resume safely, verify regression and track recurrence. |
+
+The ledger records the source fix commit, test symbol/lines/hash, responsible new module and evidence limit for each lesson. These assertions were read from source, not rerun here. Several use real Git/process fixtures with fake provider facts; that does not prove current live Linear or model behavior. No legacy suite or external model was launched by this inventory worker.
+
+## Clean cutover and feedback boundary
+
+The cutover must retire the entire writer graph before enabling admission: native hook handlers, detached journals/drains, scanner/watch loops, installed user timers, materialized dev-rule Git trees, stale worktree script copies, pipeline delivery callbacks and direct connector writes. Import pending obligations and identity mappings first, reconcile actual resources and Git/Linear facts, then activate one authority epoch. Rollback preserves post-cutover facts and never enables both writer sets.
+
+Existing feedback consumers include monitor issue filing and told/acknowledged findings, detector incidents, failed-write alerts, stranded-helper recovery and post-merge fix-forward evidence. Reuse their proven measurements and deduplication boundaries. They do not establish a complete automatic repair/release/update service. The new maintenance process must add bounded repair, regression/host verification, release evidence, update/rollback and recurrence tracking without bypassing the same task and resource rules.
+
+## Remaining verification
+
+- RUNTIME-01: Pinned Git objects do not reveal user/managed settings, live process environments, external cron/launchd jobs or installed unit overrides. Discover and hash those runtime surfaces before activation; do not claim they were inspected here.
+- RUNTIME-02: Reconcile active native task/session stores, worktrees, databases, journals, in-flight merges and human decisions at the cutover checkpoint. This inventory does not copy or mutate live state.
+- RUNTIME-03: Actual current Claude/Codex hook trust, native task APIs and guarded shell/SDK surfaces require installed-host execution; source matchers alone cannot establish strict-mode enforcement.
+- RUNTIME-04: The source still contains lexical title/word guard rules. Preserve typed issue fields and clear acceptance requirements; reconcile the earlier user-approved word-list removal before carrying lexical refusal into the new controller.
+- RUNTIME-05: Static caller and option discovery do not prove branch behavior. Run every retained command/path in isolated fixtures and resolve any unparsed dynamic entry before cutover.
+- RUNTIME-06: The second real Linear identity remains unavailable; no source fixture or app actor substitutes for the required live two-user test.
+
+Technical Writer and Skill Builder remain held by the user. This inventory was produced through source inspection and local data checks without invoking, reading or modifying either skill.

@@ -1,0 +1,2103 @@
+{
+  "schema_version": 1,
+  "status": "authored compatibility fixtures; execution not run",
+  "baseline_commit": "c05f40200703e7b8f379a8477502dabd594ba79c",
+  "policy_rule_ids": [
+    "A1",
+    "A2",
+    "A4",
+    "A5",
+    "A3a",
+    "A3",
+    "A6",
+    "A7",
+    "A8",
+    "A8a",
+    "A9a",
+    "A9b",
+    "A9",
+    "A10",
+    "A11",
+    "A12",
+    "A12a",
+    "A12b",
+    "A13",
+    "A14",
+    "A14b",
+    "A14c",
+    "A14d",
+    "A15",
+    "A16",
+    "A17",
+    "A17a",
+    "A18",
+    "A18b",
+    "A19",
+    "A20"
+  ],
+  "issue_commands": [
+    "block",
+    "continued",
+    "duplicate",
+    "find",
+    "label",
+    "new",
+    "next",
+    "next-step",
+    "note",
+    "outside-done",
+    "parent",
+    "priority",
+    "project",
+    "relate",
+    "reopen",
+    "restate",
+    "section",
+    "show",
+    "status",
+    "title",
+    "unblock",
+    "follow-up",
+    "decided"
+  ],
+  "sync_commands": [
+    "after-merge",
+    "ask",
+    "assign-owner-backfill",
+    "blocked-to-todo",
+    "checks",
+    "convert-monitor-cards",
+    "current",
+    "decided",
+    "drain",
+    "edit-guard",
+    "follow-up",
+    "hook",
+    "landed",
+    "mcp-headers",
+    "needs-me",
+    "plain-words",
+    "plan-approved",
+    "plan-build",
+    "plan-new",
+    "pretool",
+    "promote",
+    "prompt",
+    "pushed",
+    "release-items",
+    "released",
+    "rolled-back",
+    "rules-copy",
+    "run-end",
+    "run-start",
+    "scan",
+    "session-end",
+    "session-start",
+    "sync-due",
+    "sync-tasks",
+    "title-proposals",
+    "unlink",
+    "unneeded-checks",
+    "watch",
+    "whoami"
+  ],
+  "hook_inventory_ids": [
+    "HOOK-01",
+    "HOOK-02",
+    "HOOK-03",
+    "HOOK-04",
+    "HOOK-05",
+    "HOOK-06",
+    "HOOK-07",
+    "HOOK-08",
+    "HOOK-09",
+    "HOOK-10",
+    "HOOK-11",
+    "HOOK-12",
+    "HOOK-13",
+    "HOOK-14",
+    "HOOK-15",
+    "HOOK-16",
+    "HOOK-17",
+    "HOOK-18",
+    "HOOK-19",
+    "HOOK-20",
+    "HOOK-21",
+    "HOOK-22",
+    "HOOK-23",
+    "HOOK-24",
+    "HOOK-25",
+    "HOOK-26",
+    "HOOK-27",
+    "HOOK-28",
+    "HOOK-29",
+    "HOOK-30",
+    "HOOK-31",
+    "HOOK-32",
+    "HOOK-33",
+    "HOOK-34",
+    "HOOK-35",
+    "HOOK-36",
+    "HOOK-37",
+    "HOOK-38",
+    "HOOK-39",
+    "HOOK-40",
+    "HOOK-41",
+    "HOOK-42",
+    "HOOK-43",
+    "HOOK-44",
+    "HOOK-45",
+    "HOOK-46",
+    "HOOK-47",
+    "HOOK-48",
+    "HOOK-49"
+  ],
+  "required_statuses": [
+    "Backlog",
+    "Todo",
+    "In Progress",
+    "In Review",
+    "In Dev",
+    "In Staging",
+    "Done",
+    "On Hold",
+    "Canceled",
+    "Duplicate"
+  ],
+  "review_exit_targets": [
+    "Backlog",
+    "Todo",
+    "In Progress",
+    "In Review",
+    "In Dev",
+    "In Staging",
+    "Done",
+    "On Hold",
+    "Canceled",
+    "Duplicate"
+  ],
+  "case_links": {
+    "INTAKE": [
+      "C01",
+      "C17"
+    ],
+    "NEW-PLACEMENT": [
+      "C01",
+      "B01"
+    ],
+    "WRITER": [
+      "C02",
+      "C09",
+      "C10"
+    ],
+    "LOCK": [
+      "C06",
+      "C15"
+    ],
+    "RULE-COPY": [
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "IDENTITY": [
+      "C21",
+      "C24"
+    ],
+    "APP-ACTOR": [
+      "C21",
+      "C39"
+    ],
+    "MCP-HEADERS": [
+      "C27",
+      "C36",
+      "C39"
+    ],
+    "STATE-REPO": [
+      "C31",
+      "C32"
+    ],
+    "HOST-HOME": [
+      "C21",
+      "C27",
+      "C36"
+    ],
+    "PROCESS-IDENTITY": [
+      "C07",
+      "C16",
+      "B12"
+    ],
+    "TASK-START": [
+      "C01",
+      "C06",
+      "C36",
+      "B09"
+    ],
+    "EDIT-GUARD": [
+      "B01",
+      "B04",
+      "C36"
+    ],
+    "JOURNAL": [
+      "C10",
+      "C22"
+    ],
+    "OUTBOX": [
+      "C10",
+      "C22",
+      "C34"
+    ],
+    "HUMAN-DECISIONS": [
+      "C09",
+      "C18",
+      "C20",
+      "B04"
+    ],
+    "OWNER-REOPEN": [
+      "C03",
+      "C31",
+      "B03"
+    ],
+    "PARTIAL-COMMIT": [
+      "C37",
+      "C38"
+    ],
+    "COMMIT-GUARD": [
+      "C31",
+      "C37"
+    ],
+    "QUEUE": [
+      "C06",
+      "B02"
+    ],
+    "CAPACITY": [
+      "C06",
+      "C15",
+      "B02"
+    ],
+    "CAP-EXEMPTION": [
+      "C06",
+      "C36"
+    ],
+    "AGENT-BRIEF": [
+      "B01",
+      "B02",
+      "B09"
+    ],
+    "AGENT-STOP": [
+      "C13",
+      "C14",
+      "B07"
+    ],
+    "FINISHED-CLOSE": [
+      "C03",
+      "C37",
+      "B15"
+    ],
+    "STRANDED-WORK": [
+      "C14",
+      "C16",
+      "C31",
+      "B12"
+    ],
+    "TASK-RESHOW": [
+      "C21",
+      "C25",
+      "B08"
+    ],
+    "OPEN-RUN": [
+      "C37",
+      "C38"
+    ],
+    "PLAN-QUEUE": [
+      "C06",
+      "C37"
+    ],
+    "SCAN-WATCH": [
+      "C22",
+      "C32",
+      "C36"
+    ],
+    "SYSTEMD": [
+      "C31",
+      "C32",
+      "C33"
+    ],
+    "MONITOR-ISSUES": [
+      "C09",
+      "C31",
+      "C38"
+    ],
+    "MONITOR-DELIVERY": [
+      "C16",
+      "C31"
+    ],
+    "AFTER-MERGE": [
+      "C13",
+      "C14",
+      "C34",
+      "C38"
+    ],
+    "LOCAL-BEHIND": [
+      "C13",
+      "C14"
+    ],
+    "MERGE": [
+      "C13",
+      "C14",
+      "C38"
+    ],
+    "MERGE-BEHIND": [
+      "C13",
+      "B07"
+    ],
+    "MERGE-DB": [
+      "C12",
+      "C13",
+      "C14"
+    ],
+    "LAND-DELEGATE": [
+      "C13",
+      "C38"
+    ],
+    "POSTMERGE": [
+      "C14",
+      "C16",
+      "C38"
+    ],
+    "WORKTREE-SETUP": [
+      "C12",
+      "C29"
+    ],
+    "WORKTREE-DB": [
+      "C12",
+      "C13",
+      "C15"
+    ],
+    "DB-SWEEP": [
+      "C12",
+      "C23",
+      "C31"
+    ],
+    "REMOVE-MERGED": [
+      "C12",
+      "C31"
+    ],
+    "TAKE-OVER": [
+      "C14",
+      "C31",
+      "B12"
+    ],
+    "PIPELINE-RUN": [
+      "C37",
+      "C38"
+    ],
+    "PIPELINE-STATE": [
+      "C16",
+      "C38"
+    ],
+    "ROLLBACK": [
+      "C03",
+      "C33",
+      "C38"
+    ],
+    "TEST-SETUP": [
+      "C17",
+      "C19",
+      "C23"
+    ],
+    "TEST-CLEANUP": [
+      "C23"
+    ],
+    "TEST-GAPS": [
+      "C34",
+      "B15"
+    ],
+    "TASK-DOC": [
+      "C31",
+      "C32"
+    ],
+    "LEAD-STYLE": [
+      "B01",
+      "B02"
+    ],
+    "ISSUE-CMD-block": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-continued": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-duplicate": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-find": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-label": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-new": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-next": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-next-step": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-note": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-outside-done": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-parent": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-priority": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-project": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-relate": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-reopen": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-restate": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-section": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-show": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-status": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-title": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-CMD-unblock": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-PASS-follow-up": [
+      "C31",
+      "C38"
+    ],
+    "ISSUE-PASS-decided": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-after-merge": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-ask": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-assign-owner-backfill": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-blocked-to-todo": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-checks": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-convert-monitor-cards": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-current": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-decided": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-drain": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-edit-guard": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-follow-up": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-hook": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-landed": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-mcp-headers": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-needs-me": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-plain-words": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-plan-approved": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-plan-build": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-plan-new": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-pretool": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-promote": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-prompt": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-pushed": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-release-items": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-released": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-rolled-back": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-rules-copy": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-run-end": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-run-start": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-scan": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-session-end": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-session-start": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-sync-due": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-sync-tasks": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-title-proposals": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-unlink": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-unneeded-checks": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-watch": [
+      "C31",
+      "C38"
+    ],
+    "SYNC-CMD-whoami": [
+      "C31",
+      "C38"
+    ],
+    "POLICY-A1": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A2": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A4": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A5": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A3a": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A3": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A6": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A7": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A8": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A8a": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A9a": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A9b": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A9": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A10": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A11": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A12": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A12a": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A12b": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A13": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A14": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A14b": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A14c": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A14d": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A15": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A16": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A17": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A17a": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A18": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A18b": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A19": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "POLICY-A20": [
+      "C02",
+      "C04",
+      "C09",
+      "C20"
+    ],
+    "HOOK-01": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-02": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-03": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-04": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-05": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-06": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-07": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-08": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-09": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-10": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-11": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-12": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-13": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-14": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-15": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-16": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-17": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-18": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-19": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-20": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-21": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-22": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-23": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-24": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-25": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-26": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-27": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-28": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-29": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-30": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-31": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-32": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-33": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-34": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-35": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-36": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-37": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-38": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-39": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-40": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-41": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-42": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-43": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-44": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-45": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-46": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-47": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-48": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "HOOK-49": [
+      "C27",
+      "C31",
+      "C32",
+      "C36"
+    ],
+    "CALLER-001": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-002": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-003": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-004": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-005": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-006": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-007": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-008": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-009": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-010": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-011": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-012": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-013": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-014": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-015": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-016": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-017": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-018": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-019": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-020": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-021": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-022": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-023": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-024": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-025": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-026": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-027": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-028": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-029": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-030": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-031": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-032": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-033": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-034": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-035": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-036": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-037": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-038": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-039": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-040": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-041": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-042": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-043": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-044": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-045": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-046": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-047": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-048": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-049": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-050": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-051": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-052": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-053": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-054": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-055": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-056": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-057": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-058": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-059": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-060": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-061": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-062": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-063": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-064": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-065": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-066": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-067": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-068": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-069": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-070": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-071": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-072": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-073": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-074": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-075": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-076": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-077": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-078": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-079": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-080": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-081": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-082": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-083": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-084": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-085": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-086": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-087": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-088": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-089": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-090": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-091": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-092": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-093": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-094": [
+      "C31",
+      "C38"
+    ],
+    "CALLER-095": [
+      "C31",
+      "C38"
+    ],
+    "STORE-NATIVE-TASKS": [
+      "C21"
+    ],
+    "STORE-HOST-SESSIONS": [
+      "C07"
+    ],
+    "STORE-CHECKOUT-STATE": [
+      "C32"
+    ],
+    "STORE-SHARED-STATE": [
+      "C32"
+    ],
+    "STORE-MERGE-STATE": [
+      "C14"
+    ],
+    "STORE-RESOURCE-STATE": [
+      "C12"
+    ],
+    "STORE-INSTALLED-UNITS": [
+      "C32"
+    ]
+  },
+  "critical_scenarios": [
+    {
+      "id": "LEGACY-MERGE-BEHIND",
+      "source_contracts": [
+        "MERGE",
+        "MERGE-BEHIND"
+      ],
+      "action": "Run preserved --checks on a fixture branch behind dev and then the standard merge path.",
+      "expected": "Precheck reports stale position without rebasing; normal merge judges rebased commit; stale un-named-test findings are not falsely attributed."
+    },
+    {
+      "id": "LEGACY-REOPEN",
+      "source_contracts": [
+        "OWNER-REOPEN",
+        "POLICY-A18b"
+      ],
+      "action": "Call the preserved reopen command on a delivered fixture issue with an authorized reason.",
+      "expected": "Create and link a new Backlog issue; original delivered issue stays unchanged; no worker is started by status mutation."
+    },
+    {
+      "id": "LEGACY-PART-OF",
+      "source_contracts": [
+        "PARTIAL-COMMIT",
+        "COMMIT-GUARD"
+      ],
+      "action": "Merge a Part-of commit while other required issue work remains unfinished.",
+      "expected": "Link its evidence but do not close or advance the entire issue prematurely."
+    },
+    {
+      "id": "LEGACY-OWN-DB",
+      "source_contracts": [
+        "WORKTREE-SETUP",
+        "WORKTREE-DB",
+        "MERGE-DB"
+      ],
+      "action": "Prepare a fresh worktree; create its owned stack; merge its work.",
+      "expected": "No task uses the shared stack. Existing merge stop/remove lifecycle remains sole authority during merge; cleanup warning retains merged outcome."
+    },
+    {
+      "id": "LEGACY-RULES-COPY",
+      "source_contracts": [
+        "RULE-COPY",
+        "SYSTEMD",
+        "SCAN-WATCH"
+      ],
+      "action": "Attempt mutation through stale worktree, materialized Git rules, old hook, drain and timer after authority cutover.",
+      "expected": "Every old writer is stopped or rejected by fencing; no old Git-object handoff can restore legacy policy."
+    },
+    {
+      "id": "LEGACY-TEST-CLEANUP",
+      "source_contracts": [
+        "TEST-CLEANUP",
+        "POLICY-A14c"
+      ],
+      "action": "Close one fixture run while another run and unfinished development tracking have open issues.",
+      "expected": "Only proven owned fixture records change after verdict capture; other run/user/development records stay unchanged."
+    },
+    {
+      "id": "LEGACY-PROFILE",
+      "source_contracts": [
+        "HOST-HOME",
+        "PROCESS-IDENTITY"
+      ],
+      "action": "Run sessions under different config roots on macOS and Linux, including inaccessible process metadata.",
+      "expected": "Explicit profile/principal/session capability remains authoritative; missing observation is unknown, never no active work."
+    },
+    {
+      "id": "LEGACY-FIX-FORWARD",
+      "source_contracts": [
+        "AFTER-MERGE",
+        "POSTMERGE"
+      ],
+      "action": "Report green after-merge results with selected-but-not-run files, omitted files and actually executed carried proof.",
+      "expected": "Only actual matching execution at the verified artifact can close fix-forward work; omission or selection alone is not proof."
+    },
+    {
+      "id": "LEGACY-CUTOVER-DELTA",
+      "source_contracts": [
+        "STATE-REPO",
+        "JOURNAL",
+        "OUTBOX",
+        "SYSTEMD"
+      ],
+      "action": "Import state, fence writers, activate new authority and inject failure after new writes.",
+      "expected": "Preserve post-cutover facts; never restore an old snapshot blindly or enable two writers."
+    },
+    {
+      "id": "LEGACY-LEAD-ACK",
+      "source_contracts": [
+        "LEAD-DELIVERY",
+        "JOURNAL",
+        "SCAN-WATCH"
+      ],
+      "action": "Queue an agent outcome while two lead sessions share a checkout; restart after delivery but before AI acknowledgement; later produce a public user report.",
+      "expected": "Only the bound authorized lead receives its outcome; durable per-session cursor and distinct acknowledgement/report receipts prevent loss, cross-session consumption and false completion."
+    }
+  ],
+  "regression_lessons": [
+    {
+      "id": "L01",
+      "source_commit": "ee9a9ce8410dd34ea1f11a28c809023591bd2107",
+      "test_source": {
+        "path": "scripts/linear/linear_sync.test.d/cg_1453_failed_writes.test.py",
+        "symbol": "t1453_note",
+        "line_start": 76,
+        "line_end": 97,
+        "sha256": "167000df1c8cfcdfcd27ac19631fb3482c65c8522e13b3e75ffe75e522120c92"
+      },
+      "required_oracle": "C10/C22: lose a response, restart the drain and assert one resulting write with retained failed attempt.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L02",
+      "source_commit": "e96f34009148f046e9826057048b067098446a8e",
+      "test_source": {
+        "path": "scripts/linear/linear_sync.test.d/cg_1873_owner_backlog.test.py",
+        "symbol": "t1873_sequence",
+        "line_start": 54,
+        "line_end": 60,
+        "sha256": "2e478b25ca68c79173f45a2e5de5c1fc5adfd5beb0921058d15ecde83a44d916"
+      },
+      "required_oracle": "C09/C18: human Backlog/On Hold wins over stale automation and remains attributed.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L03",
+      "source_commit": "b53b7fc0e6f82a4ea1fe23c08c5e408d896ab04e",
+      "test_source": {
+        "path": "scripts/linear/linear_sync.test.d/cg_2596_another_persons_issue.test.py",
+        "symbol": "t2596_refused",
+        "line_start": 67,
+        "line_end": 83,
+        "sha256": "b0c42ce7fd1ae4f2d6f3f4d9877d82522ee2366c12dc4467fb4e4113417e257a"
+      },
+      "required_oracle": "C21/B08: direct API, task/agent/connector calls and forged session references cannot claim foreign work.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L04",
+      "source_commit": "5dc79ad722f85ac24f61eab1c26a969f7ad412c0",
+      "test_source": {
+        "path": "scripts/linear/linear_sync.test.d/cg_1327_home.test.py",
+        "symbol": "t1327_home_only",
+        "line_start": 21,
+        "line_end": 43,
+        "sha256": "57e23afac553c0a70472b32561b8cc610799be6ed4f12d8bca14ef239cc8256f"
+      },
+      "required_oracle": "C07/C21/C27: distinct profile roots and inaccessible process metadata never select another session or infer no worker.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L05",
+      "source_commit": "5d57703a7b1d221ed183187d5401080c7992b2f3",
+      "test_source": {
+        "path": "scripts/linear/linear_team.test.py",
+        "symbol": null,
+        "line_start": 1,
+        "line_end": 233,
+        "sha256": "3039a560895d7a8d7c941efac997ef34fa4cecbc38e99a318c7285bc8eb8153c"
+      },
+      "required_oracle": "C17/C21/C23: normal/test teams share an issue number but never share identity or state IDs; cross-team writes refuse.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L06",
+      "source_commit": "776201c286fa5d4967abc2121d7e119ad57b923d",
+      "test_source": {
+        "path": "scripts/linear/subagent_guard.test.d/cg_2625_every_task_has_an_agent.test.py",
+        "symbol": "starts_agent25",
+        "line_start": 96,
+        "line_end": 99,
+        "sha256": "b5fb04c3eddc7e72d12c94fc11dba3409ae6876a425603a494d051cc79d47b98"
+      },
+      "required_oracle": "C06/C36/B01/B09: no untracked worker and no phantom active task; coordinator never invents a task for bookkeeping.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L07",
+      "source_commit": "19d33b97368d33c42a89ddb86a7d99b55ae3b01f",
+      "test_source": {
+        "path": "scripts/linear/subagent_guard.test.d/cg_2150_finished_task_close.test.py",
+        "symbol": "plan2150",
+        "line_start": 33,
+        "line_end": 37,
+        "sha256": "512b056df21e259ac3d3a0030c8f41c00f7fc2d4c94d3100572da1afd1048c92"
+      },
+      "required_oracle": "C03/C14/C37: distinguish running, aborted, finished+merged, finished+branch-only and unreadable evidence.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L08",
+      "source_commit": "9b0303cd1315c4a4efa4f2d80a0e168a14ea5957",
+      "test_source": {
+        "path": "scripts/linear/subagent_guard.test.d/cg_2150_finished_task_close.test.py",
+        "symbol": "plan2150",
+        "line_start": 33,
+        "line_end": 37,
+        "sha256": "512b056df21e259ac3d3a0030c8f41c00f7fc2d4c94d3100572da1afd1048c92"
+      },
+      "required_oracle": "C04/C20/B04/B05: a completed reviewable artifact releases execution while the issue awaits human acceptance.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L09",
+      "source_commit": "b108a19f419e05d8a81055e60c717281ce44d800",
+      "test_source": {
+        "path": "scripts/linear/subagent_guard.test.d/cg_2143_waiting_keeps_progress.test.py",
+        "symbol": "view43",
+        "line_start": 85,
+        "line_end": 86,
+        "sha256": "d2804f5e1f5c2001248aed3eee75bc1ebb7f5edac32247ca37d2e9317afe19c2"
+      },
+      "required_oracle": "C04/C06/C16: resource wait cannot fabricate completion or lose the same task/attempt history.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L10",
+      "source_commit": "ba21a5d669ca4ed9f140965cb289702d8d5881f0",
+      "test_source": {
+        "path": "scripts/linear/linear_sync.test.d/cg_1245_detector.test.py",
+        "symbol": "t1245_crash",
+        "line_start": 238,
+        "line_end": 251,
+        "sha256": "ffd03a3b5aef5a36a18755676608f160b3b8f59296277ce341ea23f7b22a0e95"
+      },
+      "required_oracle": "C07/C14: known-dead session can recover; unrecorded live process freezes unsafe repair/admission and surfaces uncertainty.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L11",
+      "source_commit": "6514e199d819388b89ed8e995587781100065f3a",
+      "test_source": {
+        "path": "scripts/linear/linear_sync.test.d/cg_3314_partial_work.test.py",
+        "symbol": "t3314_a",
+        "line_start": 40,
+        "line_end": 50,
+        "sha256": "fdf21e9e14c9972f0bfc115b78b15fb28a3dc71db55fcaf6145adff129b0beb3"
+      },
+      "required_oracle": "C37/B03: Part-of-only merge records partial evidence without completing the issue; normal completed-issue commit remains deliverable.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L12",
+      "source_commit": "066ddba3506c1f29273303cbeb5bc6d2b8bb441b",
+      "test_source": {
+        "path": "src/test/pipeline/a-carried-pass-proves-only-what-ran.test.ts",
+        "symbol": null,
+        "line_start": 1,
+        "line_end": 159,
+        "sha256": "12b00a08216d517e343878666ad8f4bbbbbcbd5c2e9ac358663872eb38c55fc6"
+      },
+      "required_oracle": "C34/C38: selected-but-unrun files and old-artifact carry cannot satisfy release evidence; current-commit proven carry remains valid.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L13",
+      "source_commit": "f535e2574c62ce96889f960622a7875b09d3eeed",
+      "test_source": {
+        "path": "scripts/linear/linear_sync.test.d/cg_1598_rules_follow_dev.test.py",
+        "symbol": null,
+        "line_start": 1,
+        "line_end": 269,
+        "sha256": "b45f354cc8d41f5568d4e372d360d999f1a24938bf4004a8725e1bc6f629f435"
+      },
+      "required_oracle": "C27/C30: isolated installed/minimal packages start without the application checkout; missing required runtime dependency is a clear scoped failure.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L14",
+      "source_commit": "657df97ea1011a4a5cbbacd6e5e48e37ef86f221",
+      "test_source": {
+        "path": "scripts/linear/linear_sync.test.d/cg_1360_todo_reaches_sessions.test.py",
+        "symbol": "t1360_found",
+        "line_start": 98,
+        "line_end": 111,
+        "sha256": "2f23c28e85fdb57fa3067b9f2bbbad7e16c49322cc03c1af5b5a061191ff45cc"
+      },
+      "required_oracle": "C16/C22/B15: actionable new event is delivered once per authorized session; unchanged repeats are suppressed without dropping new state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L15",
+      "source_commit": "7c190023a390ae7cdee181270b21c80dec5ed42d",
+      "test_source": {
+        "path": "scripts/linear/linear_sync.test.d/cg_3157_lead_told_of_its_agents_ask.test.py",
+        "symbol": null,
+        "line_start": 1,
+        "line_end": 140,
+        "sha256": "c2fbe9b30952d7d6c5a16edd54bfec874630f0707bb58bb2fdaa874f266dbc71"
+      },
+      "required_oracle": "Closed-loop acceptance: queue event, deliver to bound lead, record model acknowledgement and user report separately; preserve pending/unacknowledged events on restart.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L16",
+      "source_commit": "064a49341f5a2ec15b9ad6988cdcf2f2fed8c570",
+      "test_source": {
+        "path": "scripts/monitor/watch-told-findings.test.sh",
+        "symbol": null,
+        "line_start": 1,
+        "line_end": 124,
+        "sha256": "faf22c675fb00ccaa2c72d4918db759857914544f1246ccc9ec960d8f759a651"
+      },
+      "required_oracle": "Maintenance regression: reproduce stopped repair, retain owned dirty changes, resume safely, verify regression and track recurrence.",
+      "execution_status": "not_run"
+    }
+  ],
+  "closed_loop_required_receipts": [
+    "event_queued",
+    "delivered_to_bound_lead_session",
+    "lead_ai_acknowledged",
+    "user_reported"
+  ],
+  "issue_command_options": {
+    "block": [
+      "--by"
+    ],
+    "continued": [
+      "--why"
+    ],
+    "duplicate": [
+      "--of"
+    ],
+    "find": [
+      "--open"
+    ],
+    "label": [
+      "--add",
+      "--dry-run",
+      "--remove",
+      "--replace-retired",
+      "--restore"
+    ],
+    "new": [
+      "--asked",
+      "--blocked-by",
+      "--blocks",
+      "--description",
+      "--description-file",
+      "--in-the-way-of",
+      "--next",
+      "--parent",
+      "--priority",
+      "--product",
+      "--project",
+      "--seen-on",
+      "--type"
+    ],
+    "next": [],
+    "next-step": [
+      "--description-file"
+    ],
+    "note": [
+      "--body-file"
+    ],
+    "outside-done": [
+      "--checked",
+      "--what"
+    ],
+    "parent": [],
+    "priority": [],
+    "project": [],
+    "relate": [],
+    "reopen": [
+      "--next",
+      "--why"
+    ],
+    "restate": [
+      "--done-file",
+      "--left-file",
+      "--next",
+      "--where"
+    ],
+    "section": [
+      "--body-file",
+      "--text"
+    ],
+    "show": [],
+    "status": [
+      "--sha",
+      "--why"
+    ],
+    "title": [
+      "--dry-run",
+      "--from",
+      "--restore"
+    ],
+    "unblock": [
+      "--by"
+    ],
+    "follow-up": [
+      "--kind",
+      "--title",
+      "--body-file",
+      "--type",
+      "--after",
+      "--backlog",
+      "--blocks-parent",
+      "--blocked-by",
+      "--due",
+      "--project",
+      "--side-finding",
+      "--dry-run"
+    ],
+    "decided": [
+      "--answer",
+      "--outcome",
+      "--next",
+      "--after"
+    ]
+  },
+  "sync_command_options": {
+    "after-merge": [],
+    "ask": [
+      "--about",
+      "--context",
+      "--title"
+    ],
+    "assign-owner-backfill": [
+      "--dry-run"
+    ],
+    "blocked-to-todo": [
+      "--dry-run"
+    ],
+    "checks": [
+      "--dry-run"
+    ],
+    "convert-monitor-cards": [
+      "--dry-run",
+      "--only"
+    ],
+    "current": [],
+    "decided": [
+      "--after",
+      "--answer",
+      "--date",
+      "--description-file",
+      "--dry-run",
+      "--from-terminal",
+      "--next",
+      "--outcome",
+      "--state",
+      "--title",
+      "--type",
+      "--why",
+      "--why-yours"
+    ],
+    "drain": [],
+    "edit-guard": [],
+    "follow-up": [
+      "--after",
+      "--backlog",
+      "--blocked-by",
+      "--blocks-parent",
+      "--body-file",
+      "--dry-run",
+      "--due",
+      "--kind",
+      "--project",
+      "--side-finding",
+      "--title",
+      "--type"
+    ],
+    "hook": [],
+    "landed": [
+      "--dry-run",
+      "--env",
+      "--range",
+      "--to",
+      "--version"
+    ],
+    "mcp-headers": [],
+    "needs-me": [
+      "--update"
+    ],
+    "plain-words": [],
+    "plan-approved": [
+      "--build",
+      "--dry-run",
+      "--step"
+    ],
+    "plan-build": [
+      "--build"
+    ],
+    "plan-new": [
+      "--issue"
+    ],
+    "pretool": [],
+    "promote": [
+      "--priority"
+    ],
+    "prompt": [],
+    "pushed": [
+      "--dry-run",
+      "--env",
+      "--range",
+      "--to",
+      "--version"
+    ],
+    "release-items": [
+      "--at",
+      "--from-run-issue",
+      "--out",
+      "--range",
+      "--saved"
+    ],
+    "released": [
+      "--dry-run",
+      "--env",
+      "--range",
+      "--to",
+      "--version"
+    ],
+    "rolled-back": [
+      "--dry-run",
+      "--env",
+      "--range",
+      "--to",
+      "--version"
+    ],
+    "rules-copy": [],
+    "run-end": [
+      "--range",
+      "--result",
+      "--saved",
+      "--version"
+    ],
+    "run-start": [
+      "--issue"
+    ],
+    "scan": [],
+    "session-end": [],
+    "session-start": [],
+    "sync-due": [],
+    "sync-tasks": [
+      "--dry-run",
+      "--log",
+      "--session"
+    ],
+    "title-proposals": [
+      "--out",
+      "--proposals"
+    ],
+    "unlink": [
+      "--session"
+    ],
+    "unneeded-checks": [],
+    "watch": [],
+    "whoami": []
+  }
+}
