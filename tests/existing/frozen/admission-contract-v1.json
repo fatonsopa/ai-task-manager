@@ -1,0 +1,145 @@
+{
+  "task": "TST-85",
+  "status": "proposed_for_lead_review_before_code_or_fixture_execution",
+  "baseline": "b384f10278b0ee6b0bcd72fef161e8327cdf491d",
+  "brief_sha256": "d82c246ef8a9ae665629ec6ab8dbd9c3b80897abdc9982d17b3311a7d5f494a5",
+  "requirements": ["R02", "R04", "R07", "R10", "R11", "R12", "R15", "R27", "R30", "R36", "R38"],
+  "public_operations": {
+    "task_find": {
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["query"],
+        "properties": {
+          "query": {"type": "string", "minLength": 1, "maxLength": 200},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20},
+          "cursor": {"type": "string", "minLength": 1, "maxLength": 4096}
+        }
+      },
+      "output": "Standard envelope containing candidates[{issue_id,identifier,title,status,source_revision}], has_more and next_cursor. Returned candidates are verified own-assignee/team/project issues. Discovery results are separate from the session task list and do not grant authority.",
+      "effects": "Provider queries only; no domain task, binding, event, outbox, attempt, resource or provider mutation. No full descriptions are fetched during search."
+    },
+    "task_inspect": {
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["issue"],
+        "properties": {"issue": {"type": "string", "minLength": 1, "maxLength": 128}}
+      },
+      "output": "Standard envelope containing actual canonical issue_id, identifier, exact title/body, status, source_revision, history{assessment,reasons,digest}, binding{state,task_id_if_owned}, discovery_ref and expires_at. No foreign binding identity or prose is returned. The issue input is a canonical UUID or bounded provider display identifier; it is never used as mutation authority.",
+      "effects": "No domain task, binding, event, outbox, attempt, resource or provider mutation. A private expiring source receipt is retained for exact-content and revision verification; this is observation storage, not queue admission. A denied foreign candidate produces no receipt containing its prose."
+    },
+    "task_admit": {
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["discovery_ref", "writing_ref", "selection_ref", "operation_key"],
+        "properties": {
+          "discovery_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+          "writing_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+          "selection_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+          "operation_key": {"type": "string", "minLength": 1, "maxLength": 256}
+        }
+      },
+      "output": "Current scoped TaskView in the standard envelope. A new binding preserves confirmed remote status and exact reviewed prose, with queued_once=false, no attempt and no work lease. A same-session canonical binding is reused without resetting task, hold, queue history, attempt or resources. Current quarantine redaction applies to every replay.",
+      "effects": "One transactional local task/canonical binding/origin record and scoped admission event when new; no Linear mutation or create fallback. No implicit queue or worker. Same-key committed replay performs no new approval consumption or effect."
+    }
+  },
+  "existing_operations": {
+    "task_action_enqueue": "Inputs and command remain unchanged. Before imported work is queued, obtain a fresh source snapshot/history and compare canonical identity, ownership, exact prose, current status and lifecycle fence. Backlog uses the existing guarded Todo outbox/readback. Already-remote Todo sets session queue membership only after the existing enqueue authorization, actual quiescence and matching fresh source proof; it emits a local queue-confirmed event without a redundant provider write. A remote Todo edit alone cannot set queued_once.",
+    "worker_start": "Inputs, actual host startup/resource gates and command remain unchanged. Imported work receives a fresh source/history guard before reservation; a mismatch is fenced, not silently adopted. No new host observer or startup proof is implemented here.",
+    "other_commands": "Existing public inputs, status policy, delivery commands, merge contract and result meanings are preserved. No new migrate, transfer or follow-up command is advertised."
+  },
+  "source_contract": {
+    "search": "Hard-coded team/project/assignee filters plus local verification. First query metadata without title/body; fetch candidate title only after scope checks, then recheck returned scope/revision. Foreign responses and GraphQL errors use sanitized diagnostics, never raw payloads. Search cursor cannot alter trusted filters.",
+    "inspection": "Resolve display identifier through the provider, verify canonical UUID/team/project/assignee before requesting prose, recheck scope on the prose response, fetch every history page, then perform a final metadata/revision read. Limits and pagination ambiguity block admission.",
+    "state_history": "Use Issue.stateHistory spans, not an empty Issue.history activity log. Require a nonempty complete span sequence whose first start matches issue creation, whose intervals have no gaps/overlaps, and whose single current open span matches current state. Normalize timestamps and retain span/source digests. Duplicate IDs, repeated cursors, missing states, truncated pages, changing revisions and unknown classification block eligibility.",
+    "classification": "A negative delivery conclusion requires an attributable state-ID classification. The conservative provider-only route accepts a state's current name/type/team only when its updatedAt is no later than the first relevant span, so later renames cannot rewrite history. Known prior local receipts may establish earlier classification. Unknown/deleted/edited historic states remain blocked. Completed/delivery evidence establishes a permanent positive fence; it is not deployment verification.",
+    "history_suppression": "Official Linear documentation says issue property changes in the first three minutes are omitted from the activity log. Therefore activity absence never proves initial Backlog or never-delivered. Static stateHistory schema availability is not live evidence of timeline completeness; missing prefix coverage is blocked.",
+    "freshness": "Inspection receipts expire after 900 seconds; admission always performs fresh scope/prose/history/final-revision checks and requires the inspected revision/digest. Linear cannot be transactionally locked by a local SQLite transaction. Checks establish the recorded source version, not immunity from later human edits; existing reconciliation/conflict fencing remains necessary. No atomic remote compare-and-swap is claimed."
+  },
+  "authority_contract": {
+    "provider_receipt": "New linear-proof existing_issue_snapshot binds full Scope, enrolled installation/store identity, canonical issue UUID, revision, exact owned title/body, state timeline/classification and source digest. Core re-evaluates normalized history rather than accepting a caller boolean. No provider receipt grants selection, human acceptance or worker authority.",
+    "selection_receipt": "New decision-proof existing_issue_selection binds Scope, enrolled installation/store identity, canonical issue UUID and the exact discovery digest to an actual trusted host selection observation/source hash and expiry. A separate typed observer defaults to rejection. No model argument may declare selected=true, human=true or never_delivered. No host-bridge implementation is included; default production refusal remains honest until that integration exists.",
+    "writing": "Require actual current task-purpose approval for exact rendered title/body, code_bearing, required_work, representation and Scope. A narrowly added scoped verification method is checked inside Core admission as well as service composition. Progress approval and another session's approval cannot substitute. Preserve actual data.handoff from TST-83; no invented summary or human proof.",
+    "holds": "Selection authorizes local binding only. It cannot release a recorded human hold, replace In Review acceptance, set queue membership or manufacture quiescence. Existing own bindings reuse current guarded paths.",
+    "authored_controls": "Tests may preissue signed selection receipts through the actual trusted issuer with explicitly synthetic observations. This proves mechanical authority separation, not a real host/user observation or live provider acceptance."
+  },
+  "ownership_contract": {
+    "identity": "Reuse the existing unique provider/workspace/canonical-UUID key. Principal/project/session are checked against the owner but cannot split the key into competing claims.",
+    "transaction": "BEGIN IMMEDIATE atomically checks lifecycle, canonical binding and session authority and inserts a task/binding/origin/event/operation result. Competing processes must share the enrolled Core database. Independently configured installations are not a distributed Linear lock, and this task does not claim otherwise.",
+    "installation": "A stable random store UUID is persisted by the backward-compatible Core migration. A trusted installer-only enrollment helper binds it to an installation UUID and the actual owned file identity in a signed AuthorityJournal singleton. load_service verifies this enrollment before constructing effects, rather than electing a new store from a pathname or trusting a session override. The service checks the enrollment/file identity again on each invocation. New admission/selection/source receipts and invocation context include the installation/store identity. Isolated direct Core fixtures remain available. No new public installation/enrollment command is advertised.",
+    "replacement": "A path rename retaining the same owned file identity and store UUID can preserve enrollment after an explicit sealed-config update. A copied/replaced/empty database, wrong UUID, missing enrollment or changed signed identity is refused. No automatic re-enrollment, ownership reset or trusted recovery receipt is invented. Legitimate replacement/restore requires an explicit trusted recovery step after actual writer/worker quiescence and retained canonical ownership; that installer/recovery integration remains pending rather than silently accepting a copy.",
+    "same_owner": "Reuse matching own task, including active attempts, without resetting history, resources, status, approvals or queue membership. Changed own prose requires the existing review/reconciliation path.",
+    "foreign_owner": "Return a generic ownership blocker; do not reveal task/session/user identities or stored prose. Reassignment never releases old canonical claims, attempts or resources. Existing tombstone/quarantine views remain authoritative.",
+    "initial_status": "New unbound admission is proposed only for Backlog/Todo with confirmed initial Backlog and no historical active-work/hold ambiguity. Unbound In Progress, On Hold or In Review is inspectable but blocked for unknown ownership; an existing own canonical binding remains accessible through its existing guarded status/attempt path. This deliberately avoids inventing external quiescence or previous session queue evidence.",
+    "delivery": "Add a monotone canonical lifecycle fence and record positive delivered observations even before later settlement. A later Todo/Backlog observation or replay cannot clear it. Preserve old tasks' delivered_once and backfill their canonical fence during the backward-compatible storage migration. Existing reserve/start/work-lease guards consult the fence. No task or worker is created merely to store a positive history fence."
+  },
+  "recovery_contract": {
+    "read_failure": "Authentication/scope failures are denied; unavailable history/rate limits are blocked; failed/partial provider reads do not yield an eligible receipt or task. Timed-out reads have no mutation to retry as a create.",
+    "stale": "A different scope, owner, prose, workflow state, history digest or revision between inspect and admit blocks the new binding. No fallback update/reset or duplicate issue is allowed.",
+    "commit_reply_loss": "A durable Core operation is recovered before consuming fresh writing/source authority again. Same key with changed input is rejected. A successful committed retry after artifact cleanup/policy change remains truthful and returns current scoped/quarantined projection without a duplicate effect.",
+    "unresolved": "Unknown ownership or observed delivery fences work and retains old resources/audit. No timeout, hidden task or absent process label is treated as verified cleanup."
+  },
+  "owned_paths_new": [
+    "src/ai_task_manager/domains/work/existing.py",
+    "src/ai_task_manager/storage/issue_claims.py",
+    "src/ai_task_manager/application/existing_issues.py",
+    "src/ai_task_manager/application/existing_intake.py",
+    "src/ai_task_manager/adapters/linear/existing.py",
+    "src/ai_task_manager/adapters/decisions/existing.py",
+    "src/ai_task_manager/config/claim_store.py",
+    "src/ai_task_manager/application/service/existing.py",
+    "tests/existing/",
+    "tests/fixtures/existing/"
+  ],
+  "owned_paths_narrow_shared": [
+    "src/ai_task_manager/storage/database.py",
+    "src/ai_task_manager/application/core.py",
+    "src/ai_task_manager/application/intake.py",
+    "src/ai_task_manager/application/transitions.py",
+    "src/ai_task_manager/application/execution.py",
+    "src/ai_task_manager/application/external_sync.py",
+    "src/ai_task_manager/adapters/linear/receipts.py",
+    "src/ai_task_manager/adapters/decisions/journal.py",
+    "src/ai_task_manager/adapters/writing/journal.py",
+    "src/ai_task_manager/application/service/models.py",
+    "src/ai_task_manager/application/service/handlers.py",
+    "src/ai_task_manager/application/service/facade.py",
+    "src/ai_task_manager/application/service/invocations.py",
+    "src/ai_task_manager/application/service/linear.py",
+    "src/ai_task_manager/application/service/actions.py",
+    "src/ai_task_manager/application/service/workers.py",
+    "src/ai_task_manager/config/service.py",
+    "tests/application/test_public_contract.py",
+    "tests/application/conftest.py",
+    "tests/application/test_cli.py",
+    "tests/mcp/test_stdio.py",
+    "docs/spec_driven_development.md",
+    "docs/implementation_plan.md",
+    "docs/test_plan.md",
+    "docs/test_status_report.md"
+  ],
+  "shared_edit_limits": "Only the new existing-issue composition, metadata/history authority, shared canonical claim/fence helpers, scoped writing verification and exact Todo-membership hole are included. No copied transition table, host bridge, merge implementation, scheduling, UI, broad projection cleanup, source skills or application checkout changes. Documentation changes describe actual implemented capability and unrun integration cells.",
+  "execution_plan": [
+    "Wait for lead review of this contract and frozen case inventory. No fixture execution precedes approval.",
+    "Implement domain/history and metadata-first provider reader, then Core canonical admission/fences and exact scoped authority. Run their focused tests.",
+    "Compose service operations and existing queue/start hooks; test actual positive and negative boundaries, concurrency, fault recovery and backward-compatible migrations.",
+    "Build an isolated wheel and execute installed aitm plus real MCP SDK stdio against authored loopback fixtures; no normal installation or live account.",
+    "Update actual supported schemas and standard documents; report tested tree, artifacts, retained failures and unrun live provider/selection/host cells."
+  ],
+  "bounded_testing": {"initial_batch": "New tests/existing plus directly impacted contract/CLI/MCP/writing/core tests", "correction_batches": 3, "full_product_suite": "Lead-coordinated final candidate only, not this pre-code research step", "live_provider_calls": 0, "live_model_calls": 0},
+  "primary_sources": [
+    "https://linear.app/developers/graphql",
+    "https://linear.app/developers/pagination",
+    "https://linear.app/developers/filtering",
+    "https://github.com/linear/linear",
+    "https://raw.githubusercontent.com/linear/linear/master/packages/sdk/src/schema.graphql"
+  ],
+  "static_schema_sha256": "99d9d750824578cf8bceecda0b556b9b885c07404fe7d32222e679b5962d1dce",
+  "decisions_requested": [
+    "Approve the conservative new-binding Backlog/Todo boundary; unbound Hold/Review/active-work history stays blocked until a separate attributable ownership/quiescence import exists.",
+    "Approve the narrow canonical lifecycle fence, stateHistory classification and scoped approval extensions as necessary acceptance guards.",
+    "Approve the three exact additive public operations and paths; acknowledge that the real host selection observer remains a separate integration dependency rather than fixture evidence."
+  ]
+}

@@ -21,6 +21,16 @@ The harness declares untested paths in `fixtures.NOT_DRIVEN`, including connecto
 
 Use the architecture's component/data/packaging design instead of importing the monolithic synchronizer. Test existing project procedures only in complete disposable copies. Skill Builder produces independently installable skill repositories outside this checkout, then verified pinned artifacts are assembled into the product. Do not alter either source skill to fit this product.
 
+### Existing-issue intake
+
+TST-85 adds the focused `task_find`, `task_inspect` and `task_admit` operations. The frozen contract and 71 case families are retained under `tests/existing/frozen/`. They extend the existing acceptance work without replacing R01–R38 or the global case inventory.
+
+The provider reader verifies metadata scope before retrieving prose, then checks the complete state timeline and a fresh revision. The core binds reviewed exact content and a separately observed lead selection to a transactional canonical claim. A new remote Todo binding remains unqueued until the existing enqueue authorization confirms session membership. Queue/start checks and permanent delivery/terminal fences share core rules; no remote issue is created as a lookup fallback.
+
+The additive schema-3 migration preserves task/outbox/resource history and introduces stable store identity and lifecycle records. The installer must explicitly call the trusted claim-store enrollment port before product composition; ordinary runtime configuration cannot enroll a replacement. A copied or replaced store is refused even at the old pathname. Same-file renames can retain enrollment after an explicit configuration update. Restore/replacement integration still needs verified quiescence and retained ownership; this task supplies no automatic restore command.
+
+Integrate the implemented selection-receipt contract with the actual host observer before claiming the live selection path. Keep the separate delivered-follow-up issuer, complete installation/cutover, application resource/merge adapter and live end-to-end receipt work visible as dependencies. Installed CLI/MCP tests with authored loopback transport establish their mechanical boundary, not those live paths.
+
 ### Tools and prerequisite checks
 
 | Tool | Purpose and required check |

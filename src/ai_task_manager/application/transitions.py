@@ -8,8 +8,9 @@ from ai_task_manager.domains.work.models import (
 )
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.domains.work.transitions import check_transition
-from ai_task_manager.storage import attempts, work
+from ai_task_manager.storage import attempts, issue_claims, work
 
+from .existing_issues import ExistingIssues
 from .transition_evidence import destination_facts
 
 
@@ -58,7 +59,27 @@ class Transitions:
                 target,
                 human=task.observed_status == S.IN_REVIEW or target == S.IN_REVIEW,
             )
+            imported_queue = issue_claims.imported(conn, task.id) and target == S.TODO
+            if imported_queue:
+                ExistingIssues(self.c).validate_source(
+                    conn, task, scope, evidence_refs.get("existing_source")
+                )
             if target == task.observed_status:
+                if target == S.TODO and cause == Cause.ENQUEUE and not task.queued_once:
+                    if not issue_claims.imported(conn, task.id):
+                        raise InvalidTransition("Existing Todo queue admission is not available")
+                    if attempts.active(conn, task.id):
+                        raise InvalidTransition("Queue admission requires actual quiescence")
+                    task = work.save(conn, replace(task, queued_once=True), task.version)
+                    self.c.changed(
+                        conn,
+                        task,
+                        "existing_todo_queue_confirmed",
+                        {
+                            "source_ref": evidence_refs["existing_source"],
+                            "decision_ref": decision_ref,
+                        },
+                    )
                 return asdict(task)
             if task.delivered_once and target == S.IN_PROGRESS:
                 raise InvalidTransition("Further work needs a new linked Backlog issue")
@@ -68,7 +89,15 @@ class Transitions:
                     "Use guarded reserve/start; a status change cannot grant work"
                 )
             facts, active = destination_facts(
-                self.c, conn, scope, task, target, decision, evidence_refs
+                self.c,
+                conn,
+                scope,
+                task,
+                target,
+                decision,
+                {key: value for key, value in evidence_refs.items() if key != "existing_source"}
+                if imported_queue
+                else evidence_refs,
             )
             check_transition(task.observed_status, target, cause, facts)
             if active:

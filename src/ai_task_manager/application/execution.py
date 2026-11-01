@@ -16,8 +16,10 @@ from ai_task_manager.domains.work.models import (
 from ai_task_manager.domains.work.models import AttemptState as A
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.domains.work.transitions import check_transition
-from ai_task_manager.storage import attempts, capacity, sessions, work
+from ai_task_manager.storage import attempts, capacity, issue_claims, sessions, work
 from ai_task_manager.storage.database import encode
+
+from .existing_issues import ExistingIssues
 
 
 class Execution:
@@ -27,9 +29,10 @@ class Execution:
     def validate_work_lease(self, handle, attempt_id, expected_attempt_version):
         """Recheck authority at a host work boundary, including later human decisions."""
         with self.c.db.transaction() as conn:
-            sid, _ = sessions.resolve(conn, handle)
+            sid, scope = sessions.resolve(conn, handle)
             attempt = attempts.get(conn, sid, attempt_id)
             task = work.get(conn, sid, attempt.task_id)
+            issue_claims.require_open(conn, scope, task.issue_id)
             if attempt.version != expected_attempt_version:
                 raise StaleVersion("Attempt version has changed")
             if (
@@ -64,6 +67,8 @@ class Execution:
 
         def action(conn, sid, scope):
             task = work.get(conn, sid, task_id)
+            issue_claims.require_open(conn, scope, task.issue_id)
+            ExistingIssues(self.c).require_start_check(conn, task, scope, reservation=True)
             self.c.check(task, expected_version, expected_decision_revision)
             self.c.decision(
                 conn,
@@ -121,6 +126,8 @@ class Execution:
         def action(conn, sid, scope):
             attempt = attempts.get(conn, sid, attempt_id)
             task = work.get(conn, sid, attempt.task_id)
+            issue_claims.require_open(conn, scope, task.issue_id)
+            ExistingIssues(self.c).require_start_check(conn, task, scope)
             self.c.check(task, expected_version, expected_decision_revision)
             self.c.decision(
                 conn,

@@ -7,10 +7,12 @@ from dataclasses import asdict
 import pytest
 
 from ai_task_manager.adapters.decisions.authority import HostGrant
+from ai_task_manager.adapters.decisions.journal import AuthorityJournal
 from ai_task_manager.adapters.linear.client import LinearClient
 from ai_task_manager.adapters.linear.transport import HttpTransport
 from ai_task_manager.adapters.writing.package import WriterPackage
 from ai_task_manager.application.service.linear import LinearComponents
+from ai_task_manager.config.claim_store import enroll_claim_store
 from ai_task_manager.config.files import write_private
 from ai_task_manager.config.service import load_service
 from ai_task_manager.config.sessions import SessionFile
@@ -67,6 +69,9 @@ def composed(tmp_path):
             time.time() + 3600,
         )
         path = tmp_path / "service.json"
+        enroll_claim_store(
+            rig.db, AuthorityJournal(config["authority_database"], config["authority_key"])
+        )
         write_private(path, config)
         components = LinearComponents(
             config["linear"],

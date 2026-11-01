@@ -33,6 +33,7 @@ KINDS = frozenset(
         "outbound_absent",
         "external_prose_readback",
         "provider_progress",
+        "existing_issue_snapshot",
     }
 )
 SCHEMA = """
@@ -132,8 +133,9 @@ class ProviderJournal:
                 Scope(**json.loads(row["scope"])),
                 row["subject"],
                 payload,
-                expires_at=payload["observed_at"] + 30
-                if row["kind"] == "external_prose_readback"
+                expires_at=payload["observed_at"]
+                + (900 if row["kind"] == "existing_issue_snapshot" else 30)
+                if row["kind"] in {"external_prose_readback", "existing_issue_snapshot"}
                 else None,
             )
 

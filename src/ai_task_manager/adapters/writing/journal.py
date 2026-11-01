@@ -32,6 +32,15 @@ class ApprovalView:
         row = self.record(ref)
         return Approval(row["digest"], ApprovalPolicy(**row["policy"]), row["representation"])
 
+    def verify_scoped_approval(self, ref, scope):
+        if self.purpose != "task":
+            raise ApprovalRequired("Task admission requires task-purpose writing approval")
+        if self.scope is not None and self.scope != scope:
+            raise ApprovalRequired("Writing approval view belongs to another session")
+        return ApprovalView(
+            self.writer, self.purpose, scope, self.task_id, self.task_prose_digest
+        ).verify_approval(ref)
+
     def prose(self, ref):
         row = self.record(ref)
         return TaskProse(**{**row["prose"], "required_work": tuple(row["prose"]["required_work"])})

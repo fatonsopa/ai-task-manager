@@ -17,6 +17,10 @@ Prior regressions include dropped writes, stale automation overriding human hold
 
 Each authored workflow includes a valid path, an omitted-step case for every step and adjacent-order violations. Enumerate every status pair/cause and all guarded In Review destinations; add reviewed source-derived cases without deleting the original cases. Missing lookup/adoption/follow-up integration and actual resource/merge/host paths must be tested as required behavior, not declared present because a diagram shows them.
 
+TST-85 freezes 68 existing-issue case families and three additive controls in `tests/existing/frozen/`. Exercise metadata-first privacy, complete initial-Backlog spans, deleted/renamed states, early activity-log omissions, pagination and revision races, exact scoped Writer approval, independent lead selection, canonical process claims, explicit Todo admission, terminal/delivery resets and restart recovery. Hostile issue instructions remain data. Test enrolled-store rejection with independent stores, copies and replacement at actual transaction boundaries; a pathname-only check is insufficient.
+
+Use authored loopback HTTP and explicitly synthetic selection observations for mechanical tests. Build and install the wheel in an isolated environment, then run its actual CLI entry point and the real MCP SDK stdio protocol. The test-only bootstrap may inject only the loopback HTTP destination; production configuration retains its fixed provider endpoint and authority checks. Retain wheel/bootstrap/source hashes and failures. These checks cannot substitute for live history semantics, an actual host selection observation, two-user isolation or installed model behavior.
+
 ## Approach and resources
 
 ### Test levels and sequence

@@ -7,9 +7,12 @@ from ai_task_manager.domains.work.errors import IdempotencyConflict
 
 
 class Invocation:
-    def __init__(self, journal, scope, operation, key, arguments):
+    def __init__(self, journal, scope, operation, key, arguments, *, claim_store=None):
         self.journal = journal
-        self.id = digest({"scope": vars(scope), "key": key})
+        context = {"scope": vars(scope), "key": key}
+        if claim_store is not None:
+            context["claim_store"] = claim_store
+        self.id = digest(context)
         self.fingerprint = digest({"operation": operation, "arguments": arguments})
         with journal.transaction() as conn:
             prior = conn.execute(

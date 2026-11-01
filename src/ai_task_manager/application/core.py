@@ -10,6 +10,7 @@ from ai_task_manager.storage import attempts, capacity, sessions, work
 from .context import Context
 from .decisions import Decisions
 from .execution import Execution
+from .existing_issues import ExistingIssues
 from .external_sync import ExternalSynchronization
 from .intake import Intake
 from .notifications import Notifications
@@ -46,6 +47,7 @@ class Core:
         self.intake = Intake(self.context)
         self.transitions = Transitions(self.context)
         self.execution = Execution(self.context)
+        self.existing = ExistingIssues(self.context)
         self.decisions = Decisions(self.context)
         self.notifications = Notifications(self.context)
         self.sync = Synchronization(self.context)

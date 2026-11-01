@@ -14,7 +14,7 @@ from ai_task_manager.domains.work.models import (
     valid_display_identifier,
 )
 from ai_task_manager.domains.work.models import IssueStatus as S
-from ai_task_manager.storage import attempts, outbox, work
+from ai_task_manager.storage import attempts, issue_claims, outbox, work
 
 from .context import valid_prose
 
@@ -35,13 +35,19 @@ class Intake:
     def __init__(self, context):
         self.c = context
 
-    def approved(self, prose, approval_ref):
+    def approved(self, prose, approval_ref, scope=None):
         valid_prose(prose)
         rendered = self.c.renderer.render(prose)
         digest = prose_digest(prose, rendered)
         if not approval_ref:
             raise ApprovalRequired("Exact rendered prose approval is required")
-        approval = self.c.approvals.verify_approval(approval_ref)
+        if scope is None:
+            approval = self.c.approvals.verify_approval(approval_ref)
+        else:
+            verifier = getattr(self.c.approvals, "verify_scoped_approval", None)
+            if verifier is None:
+                raise ApprovalRequired("A scoped current writing approval is required")
+            approval = verifier(approval_ref, scope)
         if (
             not isinstance(approval, Approval)
             or approval.digest != digest
@@ -241,6 +247,15 @@ class Intake:
                 "INSERT OR IGNORE INTO issue_bindings VALUES(?,?)",
                 (identity_key, task.id),
             )
+            if task.desired_status in DELIVERED or task.desired_status in {S.CANCELED, S.DUPLICATE}:
+                issue_claims.fence(
+                    conn,
+                    scope,
+                    issue_id,
+                    delivered=task.desired_status in DELIVERED,
+                    terminal=task.desired_status in {S.CANCELED, S.DUPLICATE},
+                    source=proof_ref,
+                )
             # Review may move a delivered issue, but its historical delivery fence remains.
             execution = task.execution_state
             if execution == "pending_intake":

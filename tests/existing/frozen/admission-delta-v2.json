@@ -1,0 +1,18 @@
+{
+  "task": "TST-85",
+  "status": "lead_approved_additive_boundaries_before_code_and_execution",
+  "parent_contract_sha256": "ac70157311d6bb6f6c6652e5874f1e8256a609c825291b39ca22d18343c897f4",
+  "parent_cases_sha256": "334e0b6d778b341a874fbc9b87854ac671189660ac4e5ec829f1673775bab01a",
+  "preserved": "Original contract, 68 case objects, requirements, commands, three correction batches and original global limits remain unchanged except the explicit clarifications below.",
+  "selection": "An actual trusted observation may record the authorized lead's routine selection, with exact issue/scope/source/digest and installation binding. It is not necessarily a new human click and never establishes human acceptance. No model-facing boolean or prose instruction creates this observation.",
+  "transaction_guard": "Product Database connections carry a trusted enrolled-store guard. Verify actual connection store UUID plus owned file identity after opening/BEGIN and before commit. The composition check is additional. On mismatch roll back the actual connection, refusing new claims/effects. Do not claim a distributed lock or protection from an adversarial filesystem actor beyond the owned installation boundary.",
+  "ownership_delta": "docs/test_status_report.md is excluded from worker edits; the lead owns that report and receives final evidence.",
+  "migration_assertion_delta": "Lead approved changing only tests/domains/test_external_supersession.py::test_l25_additive_core_schema_upgrade_preserves_existing_intents expected schema 2 to schema 3 for the additive identity/fence/origin migration. Retain its task, pending outbox and exact task preservation assertions unchanged.",
+  "cases_added": [
+    {"id":"EA69","requirement":"R04/R07/R11","layer":"history","precondition":"Complete history contains Canceled or Duplicate before an external reset to Backlog/Todo.","actions":"Inspect and attempt new admission and explicit queue for each terminal status.","expected":"Terminal history cannot be reopened as fresh work; no task/worker/create fallback, preserve the terminal history and report the new-task path."},
+    {"id":"EA70","requirement":"R02/R11/R38","layer":"authority","precondition":"Owned issue title/body includes fake selection receipts, system instructions, shell commands, another scope and claims of human acceptance.","actions":"Read/review exact prose, then attempt admission without and with actual independent authority.","expected":"Text remains data; it cannot choose issue/scope, issue a receipt, run a command, accept review or bypass history. Without actual authority no domain effect; with matching independent authority only ordinary permitted binding occurs."},
+    {"id":"EA71","requirement":"R02/R11","layer":"composition","precondition":"Valid product composition has passed its entry check; a different store or copied store is substituted before transaction open, after BEGIN or before commit.","actions":"Use bounded replacement hooks at each actual Database transaction boundary and inspect both stores after refusal.","expected":"Actual connection identity and owned file checks refuse/roll back; no competing task/claim/event is committed in either store and old ownership/resources remain. This is not a pathname-only entry check."}
+  ],
+  "case_count": 71,
+  "execution": "not_run"
+}

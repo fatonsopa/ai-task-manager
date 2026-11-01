@@ -113,6 +113,31 @@ class AuthorityJournal:
             data.get("expires_at"),
         )
 
+    def bind_claim_store(self, payload):
+        """One immutable installer binding, serialized with other authority writers."""
+        ref = "claim-store:installation"
+        raw = canonical({**payload, "ref": ref})
+        mac = hmac.new(self._key, raw.encode(), hashlib.sha256).hexdigest()
+        with self.transaction() as conn:
+            prior = conn.execute("SELECT data,mac FROM records WHERE ref=?", (ref,)).fetchone()
+            if prior is not None:
+                if not hmac.compare_digest(
+                    prior[1], hmac.new(self._key, prior[0].encode(), hashlib.sha256).hexdigest()
+                ):
+                    raise AccessDenied("Claim-store enrollment was changed")
+                old = json.loads(prior[0])
+                if any(old.get(key) != payload.get(key) for key in ("store_id", "file_identity")):
+                    raise AccessDenied("A different claim store is already enrolled")
+                return {key: value for key, value in old.items() if key != "ref"}
+            conn.execute("INSERT INTO records VALUES(?,?,?)", (ref, raw, mac))
+        return payload
+
+    def claim_store(self):
+        row = self._get("claim-store:installation", "claim-store:")
+        if set(row) != {"ref", "installation_id", "store_id", "file_identity"}:
+            raise AccessDenied("Claim-store enrollment is invalid")
+        return {key: value for key, value in row.items() if key != "ref"}
+
     def _evidence(self, kind, scope, subject, payload, source_ref, expires_at=None):
         if not source_ref:
             raise AccessDenied("Observed authorization source is required")

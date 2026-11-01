@@ -133,6 +133,9 @@ class ServiceRig:
 
     def configuration(self):
         os.chmod(self.root / "core.sqlite", 0o600)
+        from ai_task_manager.config.claim_store import enroll_claim_store
+
+        enroll_claim_store(self.rig.db, self.authority)
         SessionFile(self.root / "session.json").save(self.rig.handle, self.rig.scope)
         config = {
             "version": 1,

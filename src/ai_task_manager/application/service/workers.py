@@ -10,6 +10,10 @@ def worker_start(service, data, invocation):
     require_owned(service, task)
     service._required("decisions")
     decision, version, revision = authorize(service, task, "In Progress", "start", data, invocation)
+    if service.core.existing.is_imported(service.handle, task.id):
+        service._required("existing").guard(
+            service.core.get_task(service.handle, task.id), startup=True
+        )
     attempt = service._required("workers").start(
         service.handle,
         task.id,

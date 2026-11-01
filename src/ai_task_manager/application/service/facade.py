@@ -23,11 +23,14 @@ class ApplicationService:
         sessions=None,
         inbound=None,
         seal=None,
+        existing=None,
+        claim_store=None,
     ):
         self.core, self.handle, self.writer, self.decisions = core, handle, writer, decisions
         self.grant_ref, self.provider, self.workers = grant_ref, provider, workers
         self.publisher, self.sessions, self.seal = publisher, sessions, seal
         self.inbound = inbound
+        self.existing, self.claim_store = existing, claim_store
         self.session_id, self.scope = core.session_binding(handle)
 
     def confirm(self, task):
@@ -49,6 +52,8 @@ class ApplicationService:
             validate(operation, data)
             if self.seal:
                 self.seal.check()
+            if self.claim_store:
+                self.claim_store.check()
             current_id, current_scope = self.core.session_binding(self.handle)
             if (current_id, current_scope) != (self.session_id, self.scope):
                 raise ValidationError("Session binding changed")
@@ -56,7 +61,12 @@ class ApplicationService:
             if "operation_key" in data:
                 self._required("decisions")
                 invocation = Invocation(
-                    self.decisions.journal, self.scope, operation, data["operation_key"], data
+                    self.decisions.journal,
+                    self.scope,
+                    operation,
+                    data["operation_key"],
+                    data,
+                    claim_store=self.claim_store.context if self.claim_store else None,
                 )
                 cached = invocation.cached()
                 if cached is not None:
@@ -64,6 +74,7 @@ class ApplicationService:
                         "task_action",
                         "task_revise",
                         "task_submit",
+                        "task_admit",
                         "task_accept_external_prose",
                     }:
                         current = self.core.get_task(self.handle, cached["data"]["id"])
