@@ -8,19 +8,23 @@
     },
     {
       "path": "BUILD.md",
-      "sha256": "4a1c8d5bf56519c664daf008e5f336b9114311f2bebb47f70c4b10570be25cd5"
+      "sha256": "af956c8bbea6a0b8d9fd936855d6bc680f2da8ed5202b1798fbd48d9a2ff2185"
     },
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "f7a22501a660f3d2f9805248b933b1a1179ba0ba1d2810bdfda8bc70efe3a0d9"
+      "sha256": "29952209b9caa8b836a6e48d76129f10da026a3e0f38b9de021a555e64d52efb"
     },
     {
       "path": "START-HERE.md",
-      "sha256": "dae9f6970599b4b49addef9d23dcd3575dc4d8efafd4d727cf19255ee0638aad"
+      "sha256": "8312ee942622c357d77c4666f55f228988a1987aa0756618eb19eb29ef2367dd"
     },
     {
       "path": "STATUS.md",
-      "sha256": "1fe3dd7e8f343d751128035c370bc686f0a21d4d2384757b1eb5cffaad17b49d"
+      "sha256": "2f62b8c841bab17c1ea2ba35c887cb368efd1b9a0d223fc465d09209bc15b3f2"
+    },
+    {
+      "path": "TERMINAL-UI.md",
+      "sha256": "836a56e207eadf6a82d83762ef564f21156dfc3249f85721e0d2388495ea52ac"
     },
     {
       "path": "WORKFLOW.md",
@@ -84,15 +88,15 @@
     },
     {
       "path": "config/acceptance-cases.json",
-      "sha256": "270ba717f3a764d1ea5b888d7f9a51073b96aaad3c5659b8dc8b70bacd98cd3e"
+      "sha256": "11ed50e21fab7394deb3a234437d3e420ad41ffa585ab0ab83724601276d044b"
     },
     {
       "path": "config/execution-policy.json",
-      "sha256": "1b129ea4a9686820ce403f03543476d9ce0ba7424b0c1056cc7a3e739c2f8991"
+      "sha256": "c092acc09c429403f1b1ef2b97fe5ce02e1fc035059898098f8c33c94f2b118f"
     },
     {
       "path": "config/requirements.json",
-      "sha256": "f56d0af57d736c6b93a5b5225a38a00cc37ac21a23118cff4b95e4cac335f08a"
+      "sha256": "758aa1c6821569539ee3f6dc309eccd9663d86b8eed4b2cea45567253064fbca"
     },
     {
       "path": "config/research-sources.json",
@@ -100,11 +104,11 @@
     },
     {
       "path": "config/source-baseline.json",
-      "sha256": "4da31f4b8b7947731dfeae56e67b1588e6a04293f0af1296dd5e8c0c144e1423"
+      "sha256": "35070eed0535db007229c0c2dd003cae49649817dc6a4e4ae0ba223ba8a1ea3a"
     },
     {
       "path": "config/work-items.json",
-      "sha256": "d927c0da7ff1346d33b4da19f6de13585eb25fabfb84ac8f8bb3cadef3ec363d"
+      "sha256": "07e32c4af5c54ec3440e3bd0b20845d9ea6bcb918b019661e5f6c6fa20c1d75b"
     },
     {
       "path": "migration/current-contracts.md",
@@ -113,6 +117,18 @@
     {
       "path": "migration/legacy-inventory.json",
       "sha256": "a45787e433057a674b76f174de0c34237c90d5d563432b48ba22e062f00e08d0"
+    },
+    {
+      "path": "mockups/session-task-management.html",
+      "sha256": "58895ebb22f07c77abd0ca3fd3ddebad90f5d2260ebd51cd2b7aaeeee8437f1e"
+    },
+    {
+      "path": "mockups/sidebar-activities.png",
+      "sha256": "1da0b4d0952be0acd38c4d8abd65efe50c3098484e1b5f88519219f0f6b3193a"
+    },
+    {
+      "path": "mockups/sidebar-scrolling.png",
+      "sha256": "bfa046410e08ba1f5876c03f3beead1e599163cb6fc964450a448f5b00316ea5"
     },
     {
       "path": "tools/check_handoff.py",

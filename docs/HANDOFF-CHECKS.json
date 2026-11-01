@@ -21,7 +21,7 @@
   "documents": {
     "BUILD": {
       "checked_delivery": "delivered",
-      "sha256": "4a1c8d5bf56519c664daf008e5f336b9114311f2bebb47f70c4b10570be25cd5",
+      "sha256": "af956c8bbea6a0b8d9fd936855d6bc680f2da8ed5202b1798fbd48d9a2ff2185",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -38,6 +38,30 @@
     "WORKFLOW": {
       "checked_delivery": "delivered",
       "sha256": "06546c25ab343fc85af6afa760399b0398e0244fedd0e91ae1d4130d22fdd6a3",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false
+    },
+    "START-HERE": {
+      "checked_delivery": "delivered",
+      "sha256": "8312ee942622c357d77c4666f55f228988a1987aa0756618eb19eb29ef2367dd",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false
+    },
+    "STATUS": {
+      "checked_delivery": "delivered",
+      "sha256": "2f62b8c841bab17c1ea2ba35c887cb368efd1b9a0d223fc465d09209bc15b3f2",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false
+    },
+    "TERMINAL-UI": {
+      "checked_delivery": "delivered",
+      "sha256": "836a56e207eadf6a82d83762ef564f21156dfc3249f85721e0d2388495ea52ac",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -62,21 +86,82 @@
       "focused_macos_tests_passed": 70,
       "focused_linux_aarch64_tests_passed": 70,
       "live_provider_or_host_acceptance": false
+    },
+    "integrated_backend": {
+      "commit": "4c7b242",
+      "configured_macos_tests_passed": 1790,
+      "failed": 0,
+      "skipped": 0,
+      "lead_rerun": true,
+      "previous_unconfigured_run": {
+        "passed": 1771,
+        "skipped": 19,
+        "retained": true
+      },
+      "live_provider_or_host_acceptance": false
+    },
+    "application_package": {
+      "source_commit": "ccb712a29b53da4944f18c72d980f344441b98ca",
+      "candidate_tree": "894716e3bd7de6e359c6ed0ae4f9da4e8af239e3",
+      "worker_full_suite_passed": 1790,
+      "focused_subset_passed": 100,
+      "subset_in_full_suite": true,
+      "wheel_sha256": "3fa4d0c3d65db3c84bc1c7c88b69875617c252bee90205c0f10ec14569e477f4",
+      "installed_cli_and_sdk_stdio_passed": true,
+      "actual_host_or_live_provider_acceptance": false,
+      "inherited_repository_lint_diagnostics": 36
+    },
+    "subscription_pilots": {
+      "actual_model_invocations": 2,
+      "claude_code": {
+        "profile": "claude_roni",
+        "observed_model": "claude-opus-5",
+        "tool_calls": 0,
+        "passed": true,
+        "api_equivalent_cost_estimate_usd": 0.0266295
+      },
+      "codex_cli": {
+        "observed_model": null,
+        "tool_calls": 0,
+        "passed": true
+      },
+      "full_workflow_acceptance": false,
+      "incremental_charges_recorded_usd": 0,
+      "billing_controls": "User confirmed paid overage, usage credits and automatic reload disabled on both accounts."
+    },
+    "sidebar": {
+      "approved_specification": "TERMINAL-UI.md",
+      "browser_interactions_verified": true,
+      "native_terminal_or_host_acceptance": false
     }
   },
   "product_acceptance_cases_executed": 0,
-  "external_model_invocations": 0,
+  "external_model_invocations": 2,
   "known_blocks": [
     "Live two-user Linear acceptance requires the unavailable second identity."
   ],
   "pending_live_evidence": [
     "Reachable HTTPS receiver and scoped TST webhook delivery.",
-    "Actual tool-enabled Claude Code and Codex execution, installation and complete lifecycle traces."
+    "Actual managed tool-enabled host enrollment, startup/lease guards and complete lifecycle receipts on both hosts.",
+    "Native terminal, clean migration, install/remove and second-project portability acceptance."
   ],
   "skill_versions": {
     "technical_writer_snapshot": "7a0dbe4a69d07de868db1dd56ec1bd74b0870db3e184d4990ab6f2f894deeb72",
     "skill_builder_snapshot": "c3cbe640e61ae548714cddb5a88be7ff2d519bc85424b30508235b96a7bdd7ea",
     "update_policy": "Use current snapshots; audit affected work and rerun impacted checks when the user supplies newer versions."
   },
-  "project_changes": "Application files and merge script unchanged. Code is local; normal sessions remain unmodified."
+  "project_changes": "Application files and merge script unchanged. Code is local; normal sessions remain unmodified.",
+  "source_refresh": {
+    "application_commit": "24d05ac23420b0bb2b062430ff4e9b9c78727b81",
+    "ahead_of_local_checkout": 81,
+    "new_commits_inspected": 9,
+    "merge_script_unchanged": true
+  },
+  "migration_delivery": {
+    "required_runbook": "migrate.md",
+    "planned_path": "docs/migrate.md",
+    "script_and_manifest_tested": false,
+    "status": "required; implementation pending",
+    "interrupted_removal_before_replacement_case": "C33"
+  }
 }

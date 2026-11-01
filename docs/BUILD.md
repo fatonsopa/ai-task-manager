@@ -242,11 +242,11 @@ Gate: the state-machine, process, fault and capacity tests preserve invariants w
 
 ### P07 — Implement the terminal views
 
-Build scoped JSON/text CLI output first, then the interactive right-hand companion pane and passive status line. Group by execution status; clicking a task expands its description immediately beneath it, with keyboard equivalents. Show blockers, worker identity, last progress and synchronization state where useful. Closing a view does not stop jobs.
+Build scoped JSON/text CLI output first, then the interactive right-hand companion pane and passive status line. Follow [the approved sidebar specification](TERMINAL-UI.md): group tasks by configured workflow status with counts, keep compact task rows and show each task's verified activity icon. When the activity differs from its group, repeat the icon and label beneath the expanded description. Preview five rendered description lines with [show more]/[show less]. Keep [hide]/[show] in the sidebar and use one scroll region for the whole sidebar at the CLI pane's height. Preserve the host's native bottom and subagent area; add no top or bottom toolbar. Closing a view does not stop jobs.
 
-Use the status symbols below with visible labels. Keep delivery stage separate. Support `NO_COLOR`, ASCII fallback, narrow terminals, resizing, screen-reader-friendly output and safe rendering of untrusted text.
+Use the activity symbols below with visible labels; the task's workflow group remains separate. Support `NO_COLOR`, ASCII fallback, narrow terminals, resizing, screen-reader-friendly output and safe rendering of untrusted text.
 
-| Execution state | Symbol | Color |
+| Activity or condition | Symbol | Color |
 | --- | --- | --- |
 | Queued | ◻ | Neutral |
 | Reserved | ◌ | Neutral |
@@ -256,7 +256,7 @@ Use the status symbols below with visible labels. Keep delivery stage separate. 
 | Paused | Ⅱ | Yellow |
 | Decision needed | ? | Magenta |
 | Verifying | ◇ | Blue |
-| Merging | ⇢ | Blue |
+| Merging | ⇄ | Blue |
 | Done | ✔ | Green |
 | Failed | ✖ | Red |
 | Canceled | — | Neutral |
@@ -287,6 +287,8 @@ Retain the project's `.claude/standards/task-management.md` path for current con
 Build self-contained Claude and Codex packages from the same core and pinned skill artifacts. Native plugin formats and tool discovery may differ; test the installed artifacts, not just source directories. Implement install/doctor/update/disable/uninstall and state export/recovery. Resolve ownership and compare current settings before restoring any before-image. Do not store authoritative state in plugin caches or remove another integration's files.
 
 Rehearse the clean cutover in a complete application clone with existing tasks, holds, live workers, a merge, pending sync, worktrees, databases and stale sessions. Include every old writer and instruction surface from the inventory. No dual live operation is an acceptable intermediate state. The full cutover and rollback procedure is below.
+
+Deliver `docs/migrate.md` with exact, tested commands to run inside AI Index and an inventory-bound removal/replacement manifest. A migration script performs the work: validate the prepared replacements and backup, fence old writers, remove obsolete files, install replacements, then verify the new authority before enabling it. Preserve protected commands and the merge script. Test interruption between removal and replacement, resumable recovery and rollback without two live writers. The Markdown guides the operator; it is not itself executable code.
 
 Gate: all required records and contracts migrate; old writers are fenced; the new system alone passes installed acceptance; repeated install/remove and interrupted upgrades preserve data.
 

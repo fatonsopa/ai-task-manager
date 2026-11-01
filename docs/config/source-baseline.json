@@ -1,6 +1,6 @@
 {
-  "commit": "c05f40200703e7b8f379a8477502dabd594ba79c",
-  "git_status": "clean at inspection",
+  "commit": "24d05ac23420b0bb2b062430ff4e9b9c78727b81",
+  "git_status": "Remote Git-object inspection; local checkout15992e2 remains clean and unchanged.",
   "files": [
     {
       "path": "scripts/merge-to-dev.sh",
@@ -78,7 +78,8 @@
       "status": "inspected_or_located; test execution not performed in this writing task"
     }
   ],
-  "previous_commit": "15992e2be8b2fe47d4646f92e62c90888a332619",
+  "previous_commit": "c05f40200703e7b8f379a8477502dabd594ba79c",
   "source_ref": "origin/dev-mirror",
-  "working_tree": "original checkout preserved; source bytes read from pinned Git objects"
+  "working_tree": "original checkout preserved; source bytes read from pinned Git objects",
+  "refresh_note": "Nine newer commits inspected; merge and Linear/agent lifecycle scripts unchanged. New application E2E/config helpers bind served app/build to the selected database and discriminate shared stacks."
 }

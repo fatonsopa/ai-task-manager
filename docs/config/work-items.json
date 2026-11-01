@@ -761,7 +761,8 @@
       ],
       "owned_paths": [
         "src/ai_task_manager/migration/",
-        "tests/cutover/"
+        "tests/cutover/",
+        "docs/migrate.md"
       ],
       "requirements": [
         "R18",
@@ -772,7 +773,7 @@
         "R33",
         "R34"
       ],
-      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "result": "Tested state import and single-writer cutover, inventory-bound removal/replacement manifest, docs/migrate.md with verified AI Index commands, and interruption/recovery evidence.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
       "status": "not_started"

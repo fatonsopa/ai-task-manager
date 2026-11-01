@@ -35,7 +35,7 @@
     },
     {
       "id": "R09",
-      "text": "Code normally follows In Progress → In Dev → In Staging → Done with verified delivery evidence. In Review may exit directly to any configured status with destination-specific evidence. No work starts on delivered issues."
+      "text": "Code normally follows In Progress \u2192 In Dev \u2192 In Staging \u2192 Done with verified delivery evidence. In Review may exit directly to any configured status with destination-specific evidence. No work starts on delivered issues."
     },
     {
       "id": "R10",
@@ -111,7 +111,7 @@
     },
     {
       "id": "R28",
-      "text": "Inventory and migrate every legacy caller/writer and task-management rule before one clean project-wide cutover."
+      "text": "Inventory and migrate every legacy caller/writer and task-management rule before one clean project-wide cutover. Deliver docs/migrate.md with tested commands for an inventory-bound script that removes obsolete files before installing replacements and verifies recovery."
     },
     {
       "id": "R29",
@@ -143,7 +143,7 @@
     },
     {
       "id": "R36",
-      "text": "The full user request → reviewed task prose → Linear Backlog → scoped CLI linkage → Todo → confirmed worker/In Progress → verified result → CLI/Linear settlement → lead AI acknowledgement → user report is observable and recoverable."
+      "text": "The full user request \u2192 reviewed task prose \u2192 Linear Backlog \u2192 scoped CLI linkage \u2192 Todo \u2192 confirmed worker/In Progress \u2192 verified result \u2192 CLI/Linear settlement \u2192 lead AI acknowledgement \u2192 user report is observable and recoverable."
     },
     {
       "id": "R37",

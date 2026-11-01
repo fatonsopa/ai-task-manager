@@ -233,9 +233,10 @@
   "canonical_docs": "docs/",
   "application_baseline": {
     "ref": "origin/dev-mirror",
-    "commit": "c05f40200703e7b8f379a8477502dabd594ba79c",
+    "commit": "24d05ac23420b0bb2b062430ff4e9b9c78727b81",
     "older_checkout_commit": "15992e2be8b2fe47d4646f92e62c90888a332619",
-    "ahead_of_checkout": 72
+    "ahead_of_checkout": 81,
+    "previous_commit": "c05f40200703e7b8f379a8477502dabd594ba79c"
   },
   "skill_version_policy": {
     "use_current_snapshots": true,
@@ -273,5 +274,11 @@
     "active_attempts": "pinned version until safe checkpoint",
     "policy_or_permission_expansion": "requires explicit decision"
   },
-  "specification_revision": 2
+  "specification_revision": 2,
+  "document_precedence": {
+    "approved_product_plan_over_legacy_instructions": true,
+    "implementation_must_satisfy_approved_plan": true,
+    "protected_command_and_merge_contracts_preserved": true,
+    "role_document_rewrite_requires_agreed_proposal": true
+  }
 }

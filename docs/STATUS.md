@@ -1,32 +1,43 @@
-# Development status
+# AI task manager development and testing status
 
-Updated: 1 November 2026.
+Reporting period: 1 November 2026, 15:56–19:18 UTC.
+Build: Local main through 4c7b242; component source commits are recorded below.
+Environment: macOS arm64, Python 3.13.13; Linux/aarch64 coverage is limited to the earlier build-runner candidate.
+Status: Implementation and component verification are active; full product acceptance remains incomplete.
 
-Implementation is active in the requested repository. The docs directory is the maintained source of truth. The approved limits remain USD 100 total incremental spending and 48 elapsed hours; private run records preserve the actual start, deadline, assignments and reservations.
+## Progress and results
 
-## Verified components
+The approved limits remain USD 100 incremental spending and 48 elapsed hours, ending 3 November 2026 at 15:56:48 UTC. Private run records retain assignments, reservations, failed attempts and exact artifact evidence. The maintained docs directory owns requirements, plans and diagrams.
 
-TST-74 inventory is integrated: 298 mapped contracts, callers and stores, with 16 regression lessons. TST-75 core is integrated as c9ab1e4 after review and an independent rerun of 1,397 focused tests. It supplies guarded task transitions, session ownership, atomic attempt reservations and distinct provider/lead receipts. These tests do not establish host or provider integration.
+| Scope | Observed result | Limit |
+| --- | --- | --- |
+| Legacy inventory, 597112b | 298 mapped contracts, callers and stores; 16 regression lessons. | Source audit, not an executed legacy integration suite. |
+| Integrated core, Linear and runtime through 264738c | 1,690 tests passed on macOS. | Local transport/process fixtures; no live product webhook. |
+| CLI/MCP composition, 4c7b242 | Lead's configured combined run: 1,790 passed, zero failed or skipped. Worker exact-tree suite and installed-wheel CLI/SDK stdio checks also passed. | The first lead run omitted the external writer setting: 1,771 passed and 19 skipped; that run is retained. |
+| Build controls, 08c0987 | 70 macOS and 70 Linux/aarch64 tests passed. | Linux evidence does not cover the newer complete product. |
+| Approved subscription pilots | One actual Claude Code turn and one actual Codex CLI turn returned the requested token without tools. | Capability probes only; no installed workflow or tool-enabled acceptance. |
+| Sidebar design | Approved compact groups, counts, row activity icons, matching expanded activity labels, five-line descriptions, hide/show and whole-sidebar scrolling. Browser interactions were inspected. | Native terminal implementation and both-host acceptance remain pending. |
 
-TST-73 build controls are integrated as 08c0987 after 70 macOS and 70 Linux/aarch64 tests passed. Retained failures led to module, exit-code and process-group fixes. A completed process leader cannot release capacity while its owned descendants remain live or uncertain.
+The combined suite exercises guarded transitions, ownership, durable retries, signed local webhook fixtures, resource/process supervision, exact writer integration and scoped CLI/MCP boundaries. Writer tests run the actual pinned validator with synthetic semantic-review controls; they do not prove fresh AI writing quality. Component counts overlap and must not be summed as additional acceptance coverage. The acceptance inventory remains 248 authored scenarios across 14 workflows; none has a completed full-product acceptance verdict.
 
-## Active integration
+Both tool-free model pilots used the approved included subscriptions. Claude exposed claude-opus-5; Codex did not expose its actual model identity. The Claude API-equivalent estimate was USD 0.0266295; it is not a billed charge. Recorded incremental external charges remain zero. The user confirmed paid overage, usage credits and automatic reload are disabled on both accounts.
 
-TST-76 is assigned to the Linear adapter worker, and TST-77 covers worker/resource supervision. Each has its own worktree and disposable database. Its scope includes immediate outbound processing, signed durable inbound delivery and policy application. The documented lifecycle connects a user request through Linear, CLI, worker execution, verification, lead acknowledgement and public reporting. The acceptance inventory contains 248 authored scenarios across 14 workflows; authored coverage is separate from executed results.
+## Blockers and risks
 
-Codex CLI and the claude_roni subscription login are authenticated. Docker is running. No external model task, live product webhook or end-to-end acceptance case has run yet. No code has been pushed and no normal-session integration has been activated.
+* The second Linear identity is unavailable by user confirmation. Live two-user acceptance remains blocked; independent work continues.
+* Actual host enrollment, startup/lease enforcement, independently observed human instructions and ordered AI/public-report receipts are being implemented. A waiting harness or queued context cannot establish those facts.
+* Live product webhook delivery, complete TST lifecycle, native terminal interaction, installed host guards, clean cutover, portability and final release checks still require evidence. Development-task writes are separate from product fixture acceptance.
+* The application component reported 36 inherited repository-wide lint diagnostics in documentation tools and Linear test formatting; its source and owned component checks passed. The broader diagnostics remain unresolved.
+* Use claude_roni only. The original claude account remains unavailable. A skill update requires a scoped audit and impacted rechecks while retaining prior evidence.
 
-## Source baseline
+## Next work
 
-Compatibility work uses c05f40200703e7b8f379a8477502dabd594ba79c on origin/dev-mirror, 72 commits ahead of the local AI Index dev checkout. Preserve the latest merge script unchanged, including its behind-dev precheck warning. Application files remain unchanged.
+Assigned workers are auditing the actual task-management and lead-engineer documents, building the managed host bridge and producing the coordination skill through Skill Builder. Document-role changes remain proposals until the user agrees. Continue backend implementation independently of that decision.
 
-## Holds and blockers
+The application compatibility baseline is now 24d05ac23420b0bb2b062430ff4e9b9c78727b81 on origin/dev-mirror, 81 commits ahead of the clean local application checkout. The nine newly inspected commits preserve the merge and Linear/agent lifecycle scripts. The merge script's SHA-256 remains b47d53d4f9861e2a22e1412dd1d9b8c48407bf177c232cb97ff4770acd307022. New E2E changes bind the served application/build to its provided database and require shared-stack discrimination; future application-database rehearsals must use this updated source.
 
-* The original claude account is unavailable. Use claude_roni without fallback.
-* Use both frozen current skills. Audit affected artifacts and rerun impacted checks when the user supplies an update. Task prose is reviewed before Linear publication.
-* A second Linear identity is unavailable by user confirmation. Live two-user acceptance remains blocked; other work continues.
-* A reachable HTTPS receiver and a concretely scoped TST webhook still need setup and live evidence. A valid local tunnel configuration does not establish delivery.
+No code has been pushed and no normal-session integration has been activated. Application files and the merge script remain unchanged.
 
-## Next gates
+## Sources
 
-Integrate the checked build runner, implement the Linear and host/resource adapters, then run the complete request/result path through actual tool-enabled Claude Code and Codex sessions. Keep mechanical, live, behavioral, installation and platform results distinct.
+[The Implementation Plan (IP)](BUILD.md), [task and Linear workflow](WORKFLOW.md), [approved sidebar specification](TERMINAL-UI.md), [execution policy](config/execution-policy.json) and [component evidence summary](HANDOFF-CHECKS.json). Exact local run logs, XML results, package hashes, model traces and source-delta evidence are retained in the private build records for run 20261101T155648Z.

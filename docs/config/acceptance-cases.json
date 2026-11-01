@@ -3294,7 +3294,8 @@
       ],
       "expected": [
         "All required steps occur in order with observed evidence.",
-        "Only declared side effects and scoped records change."
+        "Only declared side effects and scoped records change.",
+        "The released docs/migrate.md commands execute the tested removal-before-replacement script and reproduce the owned manifest and cutover evidence."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -4903,7 +4904,7 @@
         "Render every state with Unicode, NO_COLOR, a narrow terminal and ASCII-only output."
       ],
       "expected": [
-        "Green ✔ Done and ◼ Running have labels; all states remain distinguishable without color; widths align."
+        "Green \u2714 Done and \u25fc Running have labels; all states remain distinguishable without color; widths align."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -5076,10 +5077,12 @@
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Start legacy fixture workers and holds, pending sync, a merge and a stale second session; execute migration."
+        "Start legacy fixture workers and holds, pending sync, a merge and a stale second session; execute migration.",
+        "Use the exact released docs/migrate.md commands from an isolated AI Index clone; verify the script removal/replacement manifest."
       ],
       "expected": [
-        "Old admission stops, merge finishes, all required state reconciles, stale writers fail the epoch check; only new engine writes."
+        "Old admission stops, merge finishes, all required state reconciles, stale writers fail the epoch check; only new engine writes.",
+        "Prepared replacements and backups validate before deletion; obsolete files are removed before replacements are installed; protected commands and merge-script bytes remain intact."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -5105,10 +5108,12 @@
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Inject failure before activation and after new state changes; invoke recovery from snapshots."
+        "Inject failure before activation and after new state changes; invoke recovery from snapshots.",
+        "Interrupt after obsolete-file removal and before replacement installation; attempt recovery with missing or invalid prepared replacement/backup data."
       ],
       "expected": [
-        "No dual writers; post-cutover facts reconciled; no blind database restore or completed-task resurrection."
+        "No dual writers; post-cutover facts reconciled; no blind database restore or completed-task resurrection.",
+        "Admission remains fenced; recovery resumes or restores the owned files safely; invalid recovery material cannot activate a writer or trigger broader deletion."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -5751,7 +5756,8 @@
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Replace the old task-management system with active state and stale sessions present."
+        "Replace the old task-management system with active state and stale sessions present.",
+        "Perform the published docs/migrate.md procedure rather than inventing migration commands."
       ],
       "expected": [
         "Migrate all required records and command contracts, fence old writers and activate only one authority; no dual operation."
