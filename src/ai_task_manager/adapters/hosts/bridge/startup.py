@@ -7,6 +7,8 @@ from ai_task_manager.config.files import digest
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import Scope
 
+from .model_guard import PinnedModelGuard, verify_model_history
+
 
 class StartupObserver:
     def __init__(self, transcript, policy, *, expected_account, claude_auth_ref=None):
@@ -19,6 +21,7 @@ class StartupObserver:
         self.model_source = None
         self.initialization_tool_calls = []
         self.admitted = False
+        self.model_guard = PinnedModelGuard(transcript, policy)
         transcript.listen(self._observe)
 
     def expect(self, identity, method):
@@ -32,6 +35,7 @@ class StartupObserver:
 
     def _observe(self, frame, source):
         self.policy.check()
+        self.model_guard.observe(frame, source)
         if not self.admitted:
             if frame.get("method") == "item/tool/call":
                 self.initialization_tool_calls.append(source)
@@ -73,6 +77,7 @@ class StartupObserver:
                 ):
                     raise AccessDenied("Codex did not confirm the restricted native startup")
                 self.native_session = result["thread"]["id"]
+                self.model_guard.native_ready(result.get("model") or None, source)
                 self.model = result.get("model") or None
                 self.model_source = "thread/start.model" if self.model is not None else None
                 self._ready(tuple(x[1] for x in self.responses.values()))
@@ -106,6 +111,8 @@ class StartupObserver:
             native_session = frame["session_id"]
             if self.native_session is not None and native_session != self.native_session:
                 raise AccessDenied("Claude changed native session without managed rotation")
+            if self.ready_ref is not None:
+                return
             self.native_session, self.model = native_session, frame["model"]
             self.model_source = "system.init.model"
             self._ready((self.claude_auth_ref, source))
@@ -123,10 +130,16 @@ class StartupObserver:
                 "session_id": self.native_session,
                 "model": self.model,
                 "model_source": self.model_source,
+                "requested_model": getattr(self.policy, "model", None),
+                "requested_effort": getattr(self.policy, "effort", None),
+                "observed_effort": None,
             },
             sources=sources,
             expires_at=min(self.binding.deadline, self.journal.clock() + 60),
         )
+
+    def assert_stable(self):
+        self.model_guard.check()
 
 
 class HostStartupReceipts:
@@ -146,6 +159,7 @@ class HostStartupReceipts:
             data["process_start_identity"],
         ):
             raise AccessDenied("Native startup process identity changed")
+        verify_model_history(self.journal, data, vars(identity))
         return HostStartup(
             Scope(**data["scope"]),
             data["attempt_id"],

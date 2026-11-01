@@ -1,7 +1,7 @@
 """Managed host admission composes existing Core policy and observed runtime facts."""
 
 import math
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass
 
 from ai_task_manager.adapters.hosts.bridge.records import HostBinding
@@ -228,15 +228,23 @@ class ManagedWorkers:
     def _short_effect(self, handle, dispatch, version):
         dispatch.host.verify_active()
         fact = self.resources.verify(dispatch.resources)
-        with self.core.execution.work_boundary(handle, dispatch.attempt_id, version):
-            if self.journal.clock() >= self.deadline:
-                raise AccessDenied("Original managed deadline expired")
-            for kind, path in (
-                ("worktree", dispatch.resources.worktree),
-                ("database", dispatch.resources.database),
-            ):
-                unchanged(path, fact[kind]["physical"])
-            yield
+        boundary = getattr(dispatch.host, "effect_boundary", None)
+        if boundary is None:
+            if self.core.get_attempt(handle, dispatch.attempt_id).host in {"claude", "codex"}:
+                raise AccessDenied("A bound native model effect boundary is required")
+            guard = nullcontext()
+        else:
+            guard = boundary()
+        with guard:
+            with self.core.execution.work_boundary(handle, dispatch.attempt_id, version):
+                if self.journal.clock() >= self.deadline:
+                    raise AccessDenied("Original managed deadline expired")
+                for kind, path in (
+                    ("worktree", dispatch.resources.worktree),
+                    ("database", dispatch.resources.database),
+                ):
+                    unchanged(path, fact[kind]["physical"])
+                yield
 
     def stop(self, handle, attempt_id, *, operation_key, reason="requested stop"):
         dispatch = self.dispatches.get(attempt_id)

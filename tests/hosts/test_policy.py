@@ -13,6 +13,7 @@ from ai_task_manager.adapters.hosts.bridge.policy import (
     NativePolicy,
     clean_environment,
     codex_command,
+    policy_digest,
 )
 from ai_task_manager.adapters.hosts.transports.claude import sdk_command, sdk_options
 from ai_task_manager.domains.work.errors import AccessDenied
@@ -32,15 +33,18 @@ def policy(tmp_path, host):
     )
     binary = Path(sys.executable).resolve()
     names = tuple("mcp__aitm__" + name for name in SCHEMAS)
+    model = "fixture-requested-model" if host == "claude" else None
+    executable_hash = hashlib.sha256(binary.read_bytes()).hexdigest()
     return NativePolicy(
         host,
         binary,
-        hashlib.sha256(binary.read_bytes()).hexdigest(),
+        executable_hash,
         env,
         tmp_path,
-        "a" * 64,
+        policy_digest(host, executable_hash, env, tmp_path, {}, model=model),
         (),
         names,
+        model,
     )
 
 

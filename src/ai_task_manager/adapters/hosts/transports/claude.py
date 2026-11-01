@@ -40,6 +40,8 @@ def sdk_options(policy, gateway):
         setting_sources=[],
         strict_mcp_config=True,
         include_hook_events=True,
+        model=policy.model,
+        effort=policy.effort,
         max_turns=4,
         max_budget_usd=0.25,
         max_buffer_size=262144,
@@ -61,6 +63,9 @@ def sdk_command(policy, options, timeout):
         or options.setting_sources != []
         or not options.strict_mcp_config
         or options.permission_mode != "dontAsk"
+        or options.model != policy.model
+        or options.effort != policy.effort
+        or options.fallback_model is not None
         or options.max_turns != 4
         or options.max_budget_usd != 0.25
         or options.max_buffer_size != 262144
