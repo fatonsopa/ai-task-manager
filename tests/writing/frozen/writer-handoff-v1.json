@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "assignment": "WRITER-HANDOFF/TST-83",
+  "product_baseline": "38f65460c97386a759366550d279e4ddc7dad4e4",
+  "writer_source_commit": "685b43225b3367409c73868b4d3da53ad339a011",
+  "writer_snapshot_sha256": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+  "unchanged_inputs": [
+    "writing_prepare",
+    "writing_review",
+    "writing_finalize"
+  ],
+  "unchanged_approval_fields": [
+    "approval_ref",
+    "purpose",
+    "kind",
+    "policy",
+    "digest"
+  ],
+  "additive_response": {
+    "handoff": {
+      "status": "actual delivered literal",
+      "message": "exact UTF-8 finalizer text, including final newline",
+      "message_sha256": "SHA-256 of exact message bytes",
+      "destination": "actual bound accepted document absolute path",
+      "output_sha256": "SHA-256 of exact delivered document bytes",
+      "objective_sha256": "exact prepared packet objective",
+      "reviewer": "exact standard kind/identity/model/method values from accepted receipt",
+      "document_status": "actual finalizer document_status"
+    }
+  },
+  "verification_order": [
+    "Check current policy and exact session scope",
+    "Require actual accepted review within this session",
+    "Run actual current finalizer and retain invocation outcome",
+    "Validate bounded typed finalizer fields against prepared packet, accepted review, actual local delivery receipt/state and owned destination",
+    "Compare exact delivered bytes and exact generated message bytes/digest without trimming or newline normalization",
+    "Run actual current verify-message on that exact generated message and require passed/hash equality",
+    "Recheck current package, scope-bound record and bytes before signed approval issuance/public return"
+  ],
+  "approval_consumption": "Verify current package/policy/scope/purpose plus sealed handoff receipt and unchanged delivered/message bytes before current approval use; never re-finalize to overwrite changed content.",
+  "negative_outcome": "Typed approval_required/denied response; no approval issuance or task/provider/worker/notification acknowledgement effects. Actual failed invocation and existing delivery retained.",
+  "authority_limits": [
+    "Document delivery only",
+    "No Linear publication or status proof",
+    "No worker/host/user/AI acknowledgement proof",
+    "No human identity fabrication",
+    "No raw review record, review path or authority secret in response"
+  ],
+  "scope": [
+    "src/ai_task_manager/adapters/writing/",
+    "tests/writing/",
+    "tests/application/test_configuration_cli.py (only if reusable helper necessary)",
+    "tests/mcp/ (only writing handoff coverage)"
+  ],
+  "cases": [
+    {
+      "id": "WH01",
+      "check": "Actual current validator returns the unchanged additive handoff and existing approval fields; exact original receipt, document/message hashes, actual verify-message invocation; no task/provider/ack effects."
+    },
+    {
+      "id": "WH02",
+      "check": "Installed aitm CLI from outside repository executes existing prepare/review/finalize with sealed scoped config; exact handoff bytes/metadata pass through. Synthetic semantic review provenance retained."
+    },
+    {
+      "id": "WH03",
+      "check": "Installed actual MCP SDK stdio negotiation plus existing prepare/review/finalize returns identical structured/text JSON handoff; input schemas unchanged; no provider/model."
+    },
+    {
+      "id": "WH04",
+      "check": "Individually omit or malform each required finalizer handoff field after an actual finalize; typed refusal and zero signed approval issuance. Retain original runtime receipt."
+    },
+    {
+      "id": "WH05",
+      "check": "Alter message/content hash/objective/destination/reviewer/document status or substitute another session receipt; exact binding refusal before approval; no authority extrapolation."
+    },
+    {
+      "id": "WH06",
+      "check": "Change, remove or symlink actual delivered/message files after actual finalize, including trailing newline-only message change; refuse exact-byte mismatch, preserving legitimate delivery evidence."
+    },
+    {
+      "id": "WH07",
+      "check": "Actual verify-message refusal, missing/false pass or wrong returned message digest cannot become approval; retained invocation outcomes remain distinct."
+    },
+    {
+      "id": "WH08",
+      "check": "Missing review, stale policy, changed draft and each foreign provider/workspace/principal/project/logical-session scope refuse before effect; retained historical receipts remain version-bound."
+    },
+    {
+      "id": "WH09",
+      "check": "Current active signed legacy-style record missing handoff, unknown reference and changed signed record refuse rather than manufacture current approval."
+    },
+    {
+      "id": "WH10",
+      "check": "Mutate delivered artifact/message/receipt after approval; actual task submission refuses with no core task/outbox/ack side effect, without re-finalizing to overwrite it."
+    },
+    {
+      "id": "WH11",
+      "check": "Task/progress cross-purpose or cross-task approvals and using handoff text/ref as unrelated runtime/decision/task evidence remain rejected by existing authorities."
+    },
+    {
+      "id": "WH12",
+      "check": "Exact public response whitelist, standard bounded reviewer metadata and existing CLI/MCP inputs remain unchanged; no raw review, private record or authority secret leaks."
+    }
+  ],
+  "execution_plan": {
+    "initial": "Focused new regression cases, existing tests/writing, relevant application intake/composition/protocol tests; Ruff on changed files; installed wheel entry points in a private env. No full suite.",
+    "retries": "Up to three evidence-driven focused correction batches; preserve failing logs and same criteria, then report if unresolved. No paid/live calls."
+  },
+  "evidence_classification": "Actual local validator, product/CLI/MCP code and disposable databases; semantic positive/negative judgments are authored controls, not fresh AI, human acceptance, provider or host behavior."
+}

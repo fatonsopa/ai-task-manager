@@ -10,8 +10,9 @@ from uuid import uuid4
 from ai_task_manager.application.intake import prose_digest
 from ai_task_manager.config.files import digest, read_private, write_private
 from ai_task_manager.domains.work.errors import ApprovalRequired, ValidationError
-from ai_task_manager.domains.work.models import TaskProse
+from ai_task_manager.domains.work.models import Scope, TaskProse
 
+from .handoff import check_handoff
 from .journal import ApprovalView
 from .package import ISSUE_KINDS
 from .runner import WriterRunner
@@ -132,6 +133,7 @@ class WritingService:
             "digest": prose_digest(prose, rendered),
             "document_sha256": hashlib.sha256(document.encode()).hexdigest(),
             "packet_sha256": digest(packet),
+            "objective_sha256": packet["objective_sha256"],
             "task_id": task.id if task else None,
             "task_prose_digest": task.prose_digest if task else None,
         }
@@ -181,7 +183,11 @@ class WritingService:
     def finalize(self, scope, writing_id):
         folder, record = self._session(writing_id, scope)
         result = read_private(folder / "review-result.json")
-        if not result.get("accepted"):
+        if (
+            not isinstance(result, dict)
+            or result.get("accepted") is not True
+            or not isinstance(result.get("review"), str)
+        ):
             raise ApprovalRequired("Actual accepted semantic/style review is required")
         review_path = Path(result["review"]).resolve()
         if not review_path.is_relative_to((folder / "validator/reviews").resolve()):
@@ -196,13 +202,18 @@ class WritingService:
             "--review",
             review_path,
         )
-        raw = (folder / "accepted.md").read_bytes()
-        if (
-            delivered.get("status") != "delivered"
-            or hashlib.sha256(raw).hexdigest() != record["document_sha256"]
-        ):
-            raise ApprovalRequired("Final writer output changed")
-        record = {**record, "validator_delivery": delivered, "writing_id": writing_id}
+        handoff, seals = check_handoff(self, folder, record, delivered, run_verifier=True)
+        # Recheck after the actual validator command, before issuing authority.
+        self._session(writing_id, scope)
+        if check_handoff(self, folder, record, delivered) != (handoff, seals):
+            raise ApprovalRequired("Writer delivery changed during verification")
+        record = {
+            **record,
+            "validator_delivery": delivered,
+            "writing_id": writing_id,
+            "handoff": handoff,
+            "delivery_seals": seals,
+        }
         ref = self.journal._put("writing-" + record["purpose"] + ":", record)
         return {
             "approval_ref": ref,
@@ -210,4 +221,17 @@ class WritingService:
             "kind": record["kind"],
             "policy": record["policy"],
             "digest": record["digest"],
+            "handoff": handoff,
         }
+
+    def verify_delivery(self, record):
+        """A current approval cannot outlive its exact checked local artifacts."""
+        try:
+            folder, original = self._session(record["writing_id"], Scope(**record["scope"]))
+            if any(record.get(key) != value for key, value in original.items() if key != "ref"):
+                raise ApprovalRequired("Writing approval differs from its original session")
+            checked = check_handoff(self, folder, original, record["validator_delivery"])
+            if checked != (record["handoff"], record["delivery_seals"]):
+                raise ApprovalRequired("Writing approval delivery changed")
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ApprovalRequired("Current writing approval lacks its checked handoff") from exc

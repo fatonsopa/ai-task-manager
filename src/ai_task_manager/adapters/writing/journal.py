@@ -25,6 +25,7 @@ class ApprovalView:
             self.task_prose_digest,
         ):
             raise ApprovalRequired("Progress approval belongs to another task or work scope")
+        self.writer.verify_delivery(data)
         return data
 
     def verify_approval(self, ref):
