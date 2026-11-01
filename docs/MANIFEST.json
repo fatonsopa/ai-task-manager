@@ -12,7 +12,7 @@
     },
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "29952209b9caa8b836a6e48d76129f10da026a3e0f38b9de021a555e64d52efb"
+      "sha256": "061067acc824c9f2145a73689cfffd1e16b473c51808624bd7f0d105c3f0dd99"
     },
     {
       "path": "START-HERE.md",
@@ -20,7 +20,7 @@
     },
     {
       "path": "STATUS.md",
-      "sha256": "2f62b8c841bab17c1ea2ba35c887cb368efd1b9a0d223fc465d09209bc15b3f2"
+      "sha256": "51c67b18452852a8c5218d4531a0fa56a18339f05e08b1206f00fa1798405142"
     },
     {
       "path": "TERMINAL-UI.md",

@@ -53,7 +53,7 @@
     },
     "STATUS": {
       "checked_delivery": "delivered",
-      "sha256": "2f62b8c841bab17c1ea2ba35c887cb368efd1b9a0d223fc465d09209bc15b3f2",
+      "sha256": "51c67b18452852a8c5218d4531a0fa56a18339f05e08b1206f00fa1798405142",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -98,7 +98,11 @@
         "skipped": 19,
         "retained": true
       },
-      "live_provider_or_host_acceptance": false
+      "live_provider_or_host_acceptance": false,
+      "configured_linux_aarch64_tests_passed": 1790,
+      "linux_image_id": "sha256:4206078324d29825cb9d98b342b9535623fc052a818a3a4ed270b648e055e279",
+      "linux_failed": 0,
+      "linux_skipped": 0
     },
     "application_package": {
       "source_commit": "ccb712a29b53da4944f18c72d980f344441b98ca",

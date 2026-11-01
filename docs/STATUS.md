@@ -1,8 +1,8 @@
 # AI task manager development and testing status
 
-Reporting period: 1 November 2026, 15:56–19:18 UTC.
+Reporting period: 1 November 2026, 15:56–20:12 UTC.
 Build: Local main through 4c7b242; component source commits are recorded below.
-Environment: macOS arm64, Python 3.13.13; Linux/aarch64 coverage is limited to the earlier build-runner candidate.
+Environment: macOS arm64 and an isolated Linux/aarch64 container, Python 3.13.13.
 Status: Implementation and component verification are active; full product acceptance remains incomplete.
 
 ## Progress and results
@@ -13,8 +13,8 @@ The approved limits remain USD 100 incremental spending and 48 elapsed hours, en
 | --- | --- | --- |
 | Legacy inventory, 597112b | 298 mapped contracts, callers and stores; 16 regression lessons. | Source audit, not an executed legacy integration suite. |
 | Integrated core, Linear and runtime through 264738c | 1,690 tests passed on macOS. | Local transport/process fixtures; no live product webhook. |
-| CLI/MCP composition, 4c7b242 | Lead's configured combined run: 1,790 passed, zero failed or skipped. Worker exact-tree suite and installed-wheel CLI/SDK stdio checks also passed. | The first lead run omitted the external writer setting: 1,771 passed and 19 skipped; that run is retained. |
-| Build controls, 08c0987 | 70 macOS and 70 Linux/aarch64 tests passed. | Linux evidence does not cover the newer complete product. |
+| CLI/MCP composition, 4c7b242 | Lead's configured combined runs: 1,790 passed on macOS and 1,790 passed on Linux/aarch64, each with zero failures or skipped tests. Worker exact-tree suite and installed-wheel CLI/SDK stdio checks also passed. | The first lead run omitted the external writer setting: 1,771 passed and 19 skipped; that run is retained. |
+| Build controls, 08c0987 | 70 macOS and 70 Linux/aarch64 tests passed. | Earlier component evidence; these cases overlap the combined backend suite. |
 | Approved subscription pilots | One actual Claude Code turn and one actual Codex CLI turn returned the requested token without tools. | Capability probes only; no installed workflow or tool-enabled acceptance. |
 | Sidebar design | Approved compact groups, counts, row activity icons, matching expanded activity labels, five-line descriptions, hide/show and whole-sidebar scrolling. Browser interactions were inspected. | Native terminal implementation and both-host acceptance remain pending. |
 
@@ -32,7 +32,7 @@ Both tool-free model pilots used the approved included subscriptions. Claude exp
 
 ## Next work
 
-Assigned workers are auditing the actual task-management and lead-engineer documents, building the managed host bridge and producing the coordination skill through Skill Builder. Document-role changes remain proposals until the user agrees. Continue backend implementation independently of that decision.
+The source-bound role audit is complete. The user approved bounded lead investigation/support and substantive worker delegation, with all worker communication through the lead. Assigned workers are consolidating the existing material into standard document types, building the managed host bridge and producing the coordination skill through Skill Builder. The document consolidation preserves the approved behavior while clarifying full workflow coverage.
 
 The application compatibility baseline is now 24d05ac23420b0bb2b062430ff4e9b9c78727b81 on origin/dev-mirror, 81 commits ahead of the clean local application checkout. The nine newly inspected commits preserve the merge and Linear/agent lifecycle scripts. The merge script's SHA-256 remains b47d53d4f9861e2a22e1412dd1d9b8c48407bf177c232cb97ff4770acd307022. New E2E changes bind the served application/build to its provided database and require shared-stack discrimination; future application-database rehearsals must use this updated source.
 
