@@ -87,6 +87,10 @@
       "sha256": "0bbf58153c5b8e289ee8eacfe604225ea3b36536470866abf25d4bbe455005b9"
     },
     {
+      "path": "audits/coordination-policy-audit.md",
+      "sha256": "b9dc1ee7ed07b5be8033b028edd3fafa5b433536ca3d1c06f7b27039bb29101c"
+    },
+    {
       "path": "config/acceptance-cases.json",
       "sha256": "11ed50e21fab7394deb3a234437d3e420ad41ffa585ab0ab83724601276d044b"
     },
