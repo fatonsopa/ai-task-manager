@@ -1,5 +1,5 @@
 from ai_task_manager.domains.work.errors import EvidenceRequired, ValidationError
-from ai_task_manager.storage import outbox, sessions
+from ai_task_manager.storage import outbox, sessions, work
 from ai_task_manager.storage.work import fingerprint
 
 
@@ -8,6 +8,31 @@ class Synchronization:
 
     def __init__(self, context):
         self.c = context
+
+    def record_progress_publication(self, handle, task_id, proof_ref):
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            task = work.get(conn, sid, task_id)
+            proof = self.c.proof(proof_ref, "provider_progress", scope, task.id)
+            data = proof.payload
+            if (
+                data.get("issue_id") != task.issue_id
+                or data.get("author_id") != scope.principal
+                or data.get("task_prose_digest") != task.prose_digest
+                or not data.get("comment_id")
+                or not data.get("body_digest")
+                or not data.get("publication_id")
+            ):
+                raise EvidenceRequired("Progress publication receipt does not match this task")
+            key = f"provider-progress:{data['publication_id']}"
+            payload = {"command": "provider_progress", "task_id": task.id, **data}
+            prior = work.replay(conn, sid, key, payload)
+            if prior is not None:
+                return prior
+            self.c.changed(conn, task, "provider_progress_publication_confirmed", data)
+            result = {"publication_id": data["publication_id"], "state": "provider_confirmed"}
+            work.remember(conn, sid, key, payload, result)
+            return result
 
     def list_operations(self, handle):
         with self.c.db.transaction() as conn:
@@ -19,10 +44,12 @@ class Synchronization:
                 ).fetchall()
             ]
 
-    def claim(self, handle, adapter_id, lease_seconds=30):
+    def claim(self, handle, adapter_id, lease_seconds=30, task_id=None):
         with self.c.db.transaction() as conn:
             sid, _ = sessions.resolve(conn, handle)
-            return outbox.claim(conn, sid, adapter_id, self.c.clock(), lease_seconds)
+            if task_id is not None:
+                work.get(conn, sid, task_id)
+            return outbox.claim(conn, sid, adapter_id, self.c.clock(), lease_seconds, task_id)
 
     def record_outcome(self, handle, operation_id, adapter_id, attempt, state, detail):
         with self.c.db.transaction() as conn:
@@ -44,7 +71,8 @@ class Synchronization:
             operation = outbox.get(conn, sid, operation_id)
             proof = self.c.proof(proof_ref, "outbound_absent", scope, operation_id)
             if (
-                operation.state not in {"failed", "uncertain"}
+                operation.fenced_by
+                or operation.state not in {"failed", "uncertain"}
                 or proof.payload.get("safe_to_retry") is not True
             ):
                 raise EvidenceRequired(
@@ -60,9 +88,7 @@ class Synchronization:
             sid, scope = sessions.resolve(conn, handle)
             proof = self.c.proof(ingress_ref, "provider_ingress", scope, delivery_id)
             if proof.payload.get("payload_digest") != fingerprint(payload):
-                raise EvidenceRequired(
-                    "Ingress evidence does not match the authenticated payload"
-                )
+                raise EvidenceRequired("Ingress evidence does not match the authenticated payload")
             return outbox.ingest(conn, sid, delivery_id, payload)
 
     def inbound(self, handle):
@@ -90,9 +116,7 @@ class Synchronization:
                 (sid, delivery_id),
             ).fetchone()
             if not row or proof.payload.get("payload_digest") != row[0]:
-                raise ValidationError(
-                    "Applied receipt must match a durable inbound delivery"
-                )
+                raise ValidationError("Applied receipt must match a durable inbound delivery")
             conn.execute(
                 "UPDATE inbox SET state='applied' WHERE session_id=? AND delivery_id=?",
                 (sid, delivery_id),

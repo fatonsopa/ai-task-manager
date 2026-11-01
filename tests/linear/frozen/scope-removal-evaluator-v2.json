@@ -1,0 +1,12 @@
+{
+  "authority": "lead-approved L16 distinction before execution",
+  "prior_case": "L16 treated a signed known issue move and unrelated foreign input identically; prior passing matrix retained in earlier run logs",
+  "criteria": [
+    "Unknown/unrelated foreign canonical IDs remain403 with no payload retention or task effect.",
+    "Known bound issue plus verified org/webhook and valid raw signature may persist a minimal scope-removal projection only.",
+    "Never retain foreign title/body/project content; retain changed flags, known issue identity, source revision and digests.",
+    "Scope removal revokes/fences prior own-session authority through the shared core, never adopts foreign status or imports work.",
+    "Scope invalidation never mints human acceptance, including null/integration actors.",
+    "Test changed team, project and assignee separately; include forged IDs, repeated moves and gap recovery."
+  ]
+}

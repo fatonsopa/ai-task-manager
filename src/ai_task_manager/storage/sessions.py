@@ -29,9 +29,7 @@ def resolve(conn, handle: SessionHandle) -> tuple[str, Scope]:
     return row["id"], Scope(**json.loads(row["scope"]))
 
 
-def register(
-    conn, scope: Scope, resume_evidence=None, resume_ref=None
-) -> SessionHandle:
+def register(conn, scope: Scope, resume_evidence=None, resume_ref=None) -> SessionHandle:
     if not isinstance(scope, Scope) or not all(
         isinstance(x, str) and x.strip() for x in vars(scope).values()
     ):
@@ -51,9 +49,7 @@ def register(
             "SELECT 1 FROM authority_receipts WHERE proof_ref=?", (resume_ref,)
         ).fetchone():
             raise EvidenceRequired("Session resume evidence was already consumed")
-        conn.execute(
-            "INSERT INTO authority_receipts VALUES(?,?)", (resume_ref, row["id"])
-        )
+        conn.execute("INSERT INTO authority_receipts VALUES(?,?)", (resume_ref, row["id"]))
         conn.execute(
             "UPDATE sessions SET token_hash=?,revoked=0 WHERE id=?",
             (token_hash(token), row["id"]),

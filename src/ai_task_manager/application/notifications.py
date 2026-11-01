@@ -28,9 +28,7 @@ class Notifications:
             events.get(conn, sid, event_id)
             proof = self.c.proof(proof_ref, f"notification_{stage}", scope, event_id)
             if proof.payload.get("target_session_id") != sid:
-                raise EvidenceRequired(
-                    "Notification proof belongs to another target session"
-                )
+                raise EvidenceRequired("Notification proof belongs to another target session")
             events.receipt(conn, event_id, stage, proof_ref)
             return {"stage": stage}
 
@@ -39,9 +37,7 @@ class Notifications:
     def cursor(self, handle):
         with self.c.db.transaction() as conn:
             sid, _ = sessions.resolve(conn, handle)
-            row = conn.execute(
-                "SELECT sequence FROM cursors WHERE session_id=?", (sid,)
-            ).fetchone()
+            row = conn.execute("SELECT sequence FROM cursors WHERE session_id=?", (sid,)).fetchone()
             return row[0] if row else 0
 
     def advance_cursor(self, handle, sequence):
@@ -51,16 +47,9 @@ class Notifications:
                 "SELECT COALESCE(MAX(sequence),0) FROM events WHERE session_id=?",
                 (sid,),
             ).fetchone()[0]
-            old = conn.execute(
-                "SELECT sequence FROM cursors WHERE session_id=?", (sid,)
-            ).fetchone()
-            if (
-                type(sequence) is not int
-                or not (old[0] if old else 0) <= sequence <= maximum
-            ):
-                raise ValidationError(
-                    "Cursor must advance within this session's event stream"
-                )
+            old = conn.execute("SELECT sequence FROM cursors WHERE session_id=?", (sid,)).fetchone()
+            if type(sequence) is not int or not (old[0] if old else 0) <= sequence <= maximum:
+                raise ValidationError("Cursor must advance within this session's event stream")
             conn.execute(
                 "INSERT INTO cursors VALUES(?,?) ON CONFLICT(session_id) DO UPDATE SET sequence=?",
                 (sid, sequence, sequence),

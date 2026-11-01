@@ -12,9 +12,7 @@ from ai_task_manager.storage import events, outbox, sessions, work
 
 
 class Context:
-    def __init__(
-        self, db, approval_policy, principals, approvals, evidence, renderer, clock
-    ):
+    def __init__(self, db, approval_policy, principals, approvals, evidence, renderer, clock):
         self.db, self.approval_policy = db, approval_policy
         self.principals, self.approvals, self.evidence = principals, approvals, evidence
         self.renderer, self.clock = renderer, clock
@@ -45,9 +43,7 @@ class Context:
             proof.payload.get("target") != target
             or proof.payload.get("revision") != task.decision_revision
         ):
-            raise StaleDecision(
-                "Decision does not authorize this destination and revision"
-            )
+            raise StaleDecision("Decision does not authorize this destination and revision")
         if human and proof.payload.get("actor") != "human":
             raise EvidenceRequired("This transition needs explicit human acceptance")
         if task.human_hold and target != "On Hold":
@@ -106,6 +102,4 @@ def valid_prose(prose):
         or any(not isinstance(x, str) or not x.strip() for x in prose.required_work)
         or len(set(prose.required_work)) != len(prose.required_work)
     ):
-        raise ValidationError(
-            "Prose needs a title, body and distinct declared work units"
-        )
+        raise ValidationError("Prose needs a title, body and distinct declared work units")

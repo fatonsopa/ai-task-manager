@@ -59,12 +59,8 @@ def replay(conn, session_id: str, key: str, payload: dict):
         raise IdempotencyConflict("An operation identity is required")
     row = conn.execute("SELECT * FROM operations WHERE key=?", (key,)).fetchone()
     if row:
-        if row["session_id"] != session_id or row["fingerprint"] != fingerprint(
-            payload
-        ):
-            raise IdempotencyConflict(
-                "Operation identity already has a different request"
-            )
+        if row["session_id"] != session_id or row["fingerprint"] != fingerprint(payload):
+            raise IdempotencyConflict("Operation identity already has a different request")
         return json.loads(row["result"])
     return None
 

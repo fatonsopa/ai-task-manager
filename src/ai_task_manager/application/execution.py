@@ -73,42 +73,31 @@ class Execution:
                 S.IN_PROGRESS,
                 human=task.observed_status == S.IN_REVIEW,
             )
-            resumable = (
-                task.observed_status == S.IN_PROGRESS
-                and task.execution_state in {A.FAILED, A.PAUSED, A.CANCELED, A.DONE}
-            )
+            resumable = task.observed_status == S.IN_PROGRESS and task.execution_state in {
+                A.FAILED,
+                A.PAUSED,
+                A.CANCELED,
+                A.DONE,
+            }
             if (
                 task.delivered_once
                 or task.sync_state != SyncState.CONFIRMED
                 or not task.queued_once
-                or (
-                    task.observed_status not in {S.TODO, S.ON_HOLD, S.IN_REVIEW}
-                    and not resumable
-                )
+                or (task.observed_status not in {S.TODO, S.ON_HOLD, S.IN_REVIEW} and not resumable)
             ):
                 raise InvalidTransition(
                     "Work requires confirmed queue history on an undelivered issue"
                 )
             if attempts.active(conn, task.id):
-                raise CapacityExceeded(
-                    "Task already owns an active or unresolved attempt"
-                )
+                raise CapacityExceeded("Task already owns an active or unresolved attempt")
             capacity.check(conn, host, scope)
-            attempt = Attempt(
-                str(uuid4()), task.id, sid, host, A.RESERVED, task.decision_revision
-            )
+            attempt = Attempt(str(uuid4()), task.id, sid, host, A.RESERVED, task.decision_revision)
             attempts.insert(conn, attempt)
-            task = work.save(
-                conn, replace(task, execution_state=A.RESERVED), task.version
-            )
-            self.c.changed(
-                conn, task, "attempt_reserved", {"attempt_id": attempt.id, "host": host}
-            )
+            task = work.save(conn, replace(task, execution_state=A.RESERVED), task.version)
+            self.c.changed(conn, task, "attempt_reserved", {"attempt_id": attempt.id, "host": host})
             return asdict(attempt)
 
-        return attempts.attempt_from(
-            self.c.mutation(handle, operation_key, payload, action)
-        )
+        return attempts.attempt_from(self.c.mutation(handle, operation_key, payload, action))
 
     def start(
         self,
@@ -154,9 +143,7 @@ class Execution:
                 or proof.payload.get("host") != attempt.host
                 or not proof.payload.get("worker_id")
             ):
-                raise EvidenceRequired(
-                    "Trusted startup must bind task, host and worker identity"
-                )
+                raise EvidenceRequired("Trusted startup must bind task, host and worker identity")
             cause = {
                 S.TODO: Cause.START,
                 S.IN_PROGRESS: Cause.START,
@@ -169,9 +156,7 @@ class Execution:
                 task.observed_status,
                 S.IN_PROGRESS,
                 cause,
-                TransitionFacts(
-                    authorized=True, queued=task.queued_once, worker_started=True
-                ),
+                TransitionFacts(authorized=True, queued=task.queued_once, worker_started=True),
             )
             attempt = replace(
                 attempt,
@@ -203,9 +188,7 @@ class Execution:
             )
             return asdict(attempt)
 
-        return attempts.attempt_from(
-            self.c.mutation(handle, operation_key, payload, action)
-        )
+        return attempts.attempt_from(self.c.mutation(handle, operation_key, payload, action))
 
     def running(
         self,
@@ -260,9 +243,7 @@ class Execution:
                     (kind, resource_id),
                 ).fetchone()
                 if row and row[0] != attempt.id:
-                    raise EvidenceRequired(
-                        "Resource is already owned by another attempt"
-                    )
+                    raise EvidenceRequired("Resource is already owned by another attempt")
                 conn.execute(
                     "INSERT OR IGNORE INTO resource_leases VALUES(?,?,?)",
                     (kind, resource_id, attempt.id),
@@ -275,9 +256,7 @@ class Execution:
                 version=attempt.version + 1,
             )
             attempts.save(conn, attempt)
-            task = work.save(
-                conn, replace(task, execution_state=A.RUNNING), task.version
-            )
+            task = work.save(conn, replace(task, execution_state=A.RUNNING), task.version)
             self.c.changed(
                 conn,
                 task,
@@ -286,13 +265,9 @@ class Execution:
             )
             return asdict(attempt)
 
-        return attempts.attempt_from(
-            self.c.mutation(handle, operation_key, payload, action)
-        )
+        return attempts.attempt_from(self.c.mutation(handle, operation_key, payload, action))
 
-    def checkpoint(
-        self, handle, attempt_id, expected_attempt_version, kind, data, operation_key
-    ):
+    def checkpoint(self, handle, attempt_id, expected_attempt_version, kind, data, operation_key):
         payload = {
             "command": "checkpoint",
             "attempt_id": attempt_id,
@@ -360,9 +335,7 @@ class Execution:
             ):
                 raise EvidenceRequired("Outcome belongs to another execution owner")
             if state != A.UNKNOWN and proof.payload.get("quiescent") is not True:
-                raise EvidenceRequired(
-                    "Capacity remains owned until worker quiescence is verified"
-                )
+                raise EvidenceRequired("Capacity remains owned until worker quiescence is verified")
             if attempt.state in {A.DONE, A.FAILED, A.CANCELED, A.PAUSED}:
                 raise InvalidTransition(
                     "Attempt is already settled; retain it and create a new attempt"
@@ -370,9 +343,7 @@ class Execution:
             attempt = replace(attempt, state=state, version=attempt.version + 1)
             attempts.save(conn, attempt)
             if state != A.UNKNOWN:
-                conn.execute(
-                    "DELETE FROM resource_leases WHERE attempt_id=?", (attempt.id,)
-                )
+                conn.execute("DELETE FROM resource_leases WHERE attempt_id=?", (attempt.id,))
             task = work.save(conn, replace(task, execution_state=state), task.version)
             self.c.changed(
                 conn,
@@ -386,9 +357,7 @@ class Execution:
             )
             return asdict(attempt)
 
-        return attempts.attempt_from(
-            self.c.mutation(handle, operation_key, payload, action)
-        )
+        return attempts.attempt_from(self.c.mutation(handle, operation_key, payload, action))
 
     def complete_unit(
         self,
@@ -418,27 +387,17 @@ class Execution:
                 or task.sync_state != SyncState.CONFIRMED
                 or task.observed_status not in {S.IN_PROGRESS, S.IN_REVIEW}
             ):
-                raise InvalidTransition(
-                    "Further work on delivered or held tasks is not admitted"
-                )
+                raise InvalidTransition("Further work on delivered or held tasks is not admitted")
             proof = self.c.proof(proof_ref, "work_unit_complete", scope, task.id)
             if (
                 unit not in task.required_work
                 or proof.payload.get("unit") != unit
                 or proof.payload.get("prose_digest") != task.prose_digest
             ):
-                raise EvidenceRequired(
-                    "Completion must match a declared unit and approved scope"
-                )
-            completed = tuple(
-                x for x in task.required_work if x in {*task.completed_work, unit}
-            )
-            task = work.save(
-                conn, replace(task, completed_work=completed), task.version
-            )
-            self.c.changed(
-                conn, task, "work_unit_verified", {"unit": unit, "proof_ref": proof_ref}
-            )
+                raise EvidenceRequired("Completion must match a declared unit and approved scope")
+            completed = tuple(x for x in task.required_work if x in {*task.completed_work, unit})
+            task = work.save(conn, replace(task, completed_work=completed), task.version)
+            self.c.changed(conn, task, "work_unit_verified", {"unit": unit, "proof_ref": proof_ref})
             return asdict(task)
 
         return self.c.task_mutation(handle, operation_key, payload, action)

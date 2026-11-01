@@ -40,9 +40,7 @@ def test_p21_unknown_or_foreign_schema_is_refused_without_reset(tmp_path):
     with pytest.raises(SchemaError):
         Database(foreign)
     with sqlite3.connect(foreign) as conn:
-        assert (
-            conn.execute("SELECT value FROM valuable_data").fetchone()[0] == "retained"
-        )
+        assert conn.execute("SELECT value FROM valuable_data").fetchone()[0] == "retained"
 
 
 def test_p22_directional_imports_and_no_provider_process_ui_or_legacy_dependency():
@@ -61,14 +59,31 @@ def test_p22_directional_imports_and_no_provider_process_ui_or_legacy_dependency
         "uuid",
         "time",
     }
-    for path in root.rglob("*.py"):
+    core_paths = [
+        *root.joinpath("domains", "work").rglob("*.py"),
+        *root.joinpath("storage").rglob("*.py"),
+        *root.joinpath("application").glob("*.py"),
+    ]
+    for path in core_paths:
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.Import):
                 imports = [alias.name for alias in node.names]
             elif isinstance(node, ast.ImportFrom):
                 if node.level:
-                    continue
-                imports = [node.module]
+                    package = ["ai_task_manager", *path.relative_to(root).parts[:-1]]
+                    base = package[: len(package) - node.level + 1]
+                    imports = [
+                        ".".join(
+                            [
+                                *base,
+                                *(node.module.split(".") if node.module else []),
+                                *([] if node.module else [alias.name]),
+                            ]
+                        )
+                        for alias in node.names
+                    ]
+                else:
+                    imports = [node.module]
             else:
                 continue
             for name in imports:
@@ -76,6 +91,14 @@ def test_p22_directional_imports_and_no_provider_process_ui_or_legacy_dependency
                     path,
                     name,
                 )
+                assert not name.startswith(
+                    (
+                        "ai_task_manager.adapters",
+                        "ai_task_manager.supervisor",
+                        "ai_task_manager.presentation",
+                        "ai_task_manager.legacy",
+                    )
+                ), (path, name)
                 if "domains" in path.parts:
                     assert not name.startswith(
                         ("ai_task_manager.application", "ai_task_manager.storage")

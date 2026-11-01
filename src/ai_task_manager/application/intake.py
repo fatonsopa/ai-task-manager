@@ -67,12 +67,8 @@ class Intake:
             if parent_task_id:
                 parent = work.get(conn, sid, parent_task_id)
                 if not parent.delivered_once:
-                    raise InvalidTransition(
-                        "Delivered-issue follow-up must link a delivered task"
-                    )
-                proof = self.c.proof(
-                    followup_ref, "delivered_followup", scope, parent.id
-                )
+                    raise InvalidTransition("Delivered-issue follow-up must link a delivered task")
+                proof = self.c.proof(followup_ref, "delivered_followup", scope, parent.id)
                 if (
                     proof.payload.get("prose_digest") != digest
                     or proof.payload.get("target") != S.BACKLOG
@@ -142,9 +138,7 @@ class Intake:
                 raise InvalidTransition(
                     "Scope changes require a quiescent undelivered confirmed task"
                 )
-            self.c.decision(
-                conn, task, scope, decision_ref, task.observed_status, human=True
-            )
+            self.c.decision(conn, task, scope, decision_ref, task.observed_status, human=True)
             task = work.save(
                 conn,
                 replace(
@@ -209,9 +203,7 @@ class Intake:
                 or proof.payload.get("body") != task.body
                 or proof.payload.get("representation") != task.representation
             ):
-                raise EvidenceRequired(
-                    "Provider acknowledgement does not match the pending intent"
-                )
+                raise EvidenceRequired("Provider acknowledgement does not match the pending intent")
             issue_id = proof.payload.get("issue_id")
             if (
                 not isinstance(issue_id, str)
@@ -235,9 +227,7 @@ class Intake:
                 (identity_key,),
             ).fetchone()
             if binding and binding[0] != task.id:
-                raise EvidenceRequired(
-                    "Provider issue is already bound to a different task"
-                )
+                raise EvidenceRequired("Provider issue is already bound to a different task")
             conn.execute(
                 "INSERT OR IGNORE INTO issue_bindings VALUES(?,?)",
                 (identity_key, task.id),
@@ -255,8 +245,7 @@ class Intake:
                     sync_state=SyncState.CONFIRMED,
                     execution_state=execution,
                     queued_once=task.queued_once or task.desired_status == S.TODO,
-                    delivered_once=task.delivered_once
-                    or task.desired_status in DELIVERED,
+                    delivered_once=task.delivered_once or task.desired_status in DELIVERED,
                 ),
                 task.version,
             )

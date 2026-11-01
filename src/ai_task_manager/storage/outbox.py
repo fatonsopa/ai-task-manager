@@ -2,6 +2,7 @@ import json
 from uuid import uuid4
 
 from ai_task_manager.domains.work.errors import (
+    EvidenceRequired,
     IdempotencyConflict,
     NotFound,
     ValidationError,
@@ -24,6 +25,7 @@ def from_row(row) -> OutboundOperation:
         row["lease_owner"],
         row["lease_until"],
         row["error"],
+        row["fenced_by"],
     )
 
 
@@ -46,7 +48,7 @@ def append(conn, session_id: str, task_id: str, kind: str, payload: dict) -> str
 
 
 def claim(
-    conn, session_id: str, owner: str, now: float, lease_seconds: float
+    conn, session_id: str, owner: str, now: float, lease_seconds: float, task_id=None
 ) -> OutboundOperation | None:
     if not owner or not 0 < lease_seconds <= 300:
         raise ValidationError("A bounded lease and adapter identity are required")
@@ -65,13 +67,16 @@ def claim(
             (row["id"], row["attempt_count"], "uncertain", "lease expired"),
         )
     row = conn.execute(
-        "SELECT id FROM outbox WHERE session_id=? AND state='pending' ORDER BY rowid LIMIT 1",
-        (session_id,),
+        "SELECT id FROM outbox WHERE session_id=? AND state='pending' "
+        "AND fenced_by IS NULL "
+        "AND (? IS NULL OR task_id=?) ORDER BY rowid LIMIT 1",
+        (session_id, task_id, task_id),
     ).fetchone()
     if row is None:
         return None
     conn.execute(
-        "UPDATE outbox SET state='leased',attempt_count=attempt_count+1,lease_owner=?,lease_until=? "
+        "UPDATE outbox SET state='leased',attempt_count=attempt_count+1,"
+        "lease_owner=?,lease_until=? "
         "WHERE id=?",
         (owner, now + lease_seconds, row[0]),
     )
@@ -97,12 +102,8 @@ def outcome(
     ):
         raise ValidationError("Outbound lease is no longer owned by this attempt")
     if state not in {"uncertain", "failed"} or not detail.strip():
-        raise ValidationError(
-            "Unconfirmed attempts require an explicit failure or uncertainty"
-        )
-    conn.execute(
-        "UPDATE outbox SET state=?,error=? WHERE id=?", (state, detail, operation_id)
-    )
+        raise ValidationError("Unconfirmed attempts require an explicit failure or uncertainty")
+    conn.execute("UPDATE outbox SET state=?,error=? WHERE id=?", (state, detail, operation_id))
     conn.execute(
         "INSERT INTO outbound_attempts(operation_id,attempt,outcome,detail) VALUES(?,?,?,?)",
         (operation_id, attempt, state, detail),
@@ -111,11 +112,11 @@ def outcome(
 
 def confirm(conn, session_id: str, operation_id: str, proof_ref: str):
     operation = get(conn, session_id, operation_id)
+    if operation.fenced_by:
+        raise EvidenceRequired("A newer external observation fenced this operation")
     if operation.state == "confirmed":
         return
-    conn.execute(
-        "UPDATE outbox SET state='confirmed',error=NULL WHERE id=?", (operation_id,)
-    )
+    conn.execute("UPDATE outbox SET state='confirmed',error=NULL WHERE id=?", (operation_id,))
     conn.execute(
         "INSERT INTO outbound_attempts(operation_id,attempt,outcome,detail) VALUES(?,?,?,?)",
         (operation_id, operation.attempt_count, "confirmed", proof_ref),
@@ -132,9 +133,7 @@ def ingest(conn, session_id: str, delivery_id: str, payload: dict) -> bool:
     ).fetchone()
     if row:
         if row[0] != digest:
-            raise IdempotencyConflict(
-                "Provider reused a delivery identity with changed content"
-            )
+            raise IdempotencyConflict("Provider reused a delivery identity with changed content")
         return False
     conn.execute(
         "INSERT INTO inbox(session_id,delivery_id,digest,payload) VALUES(?,?,?,?)",

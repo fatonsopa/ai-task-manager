@@ -17,15 +17,11 @@ def configure(conn, policy: CapacityPolicy):
         policy.host_limit,
         policy.project_limit,
     ):
-        raise ValidationError(
-            "Persisted capacity cannot be replaced by a caller configuration"
-        )
+        raise ValidationError("Persisted capacity cannot be replaced by a caller configuration")
     if not row:
         other = conn.execute("SELECT project_limit FROM capacity LIMIT 1").fetchone()
         if other and other[0] != policy.project_limit:
-            raise ValidationError(
-                "The global project capacity must be consistent across hosts"
-            )
+            raise ValidationError("The global project capacity must be consistent across hosts")
         conn.execute(
             "INSERT INTO capacity VALUES(?,?,?)",
             (policy.host, policy.host_limit, policy.project_limit),
@@ -42,8 +38,7 @@ def check(conn, host: str, scope: Scope):
         (host,),
     ).fetchall()
     project_rows = conn.execute(
-        "SELECT s.scope FROM attempts a JOIN sessions s ON s.id=a.session_id "
-        "WHERE a.active=1"
+        "SELECT s.scope FROM attempts a JOIN sessions s ON s.id=a.session_id WHERE a.active=1"
     ).fetchall()
     project_count = sum(
         1

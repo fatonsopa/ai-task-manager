@@ -1,0 +1,63 @@
+{
+  "assignment": "LINEAR/TST-76",
+  "authority": "lead-approved required progress publisher addition before implementation",
+  "state": "frozen additive cases",
+  "approval_contract": {
+    "title": "Task progress update",
+    "code_bearing": false,
+    "required_work": [
+      "progress"
+    ],
+    "verifier": "contextual trusted progress view bound to scope/task/current task prose digest/purpose; task intake rejects progress refs"
+  },
+  "cases": [
+    {
+      "id": "LP01",
+      "oracle": "Missing/stale/changed body, code literal, skill policy, purpose or scoped contextual approval rejects before durable publication or HTTP."
+    },
+    {
+      "id": "LP02",
+      "oracle": "Submit durably records exact approved body and owned canonical issue before any comment effect; same operation returns one record, changed payload/foreign scope conflicts."
+    },
+    {
+      "id": "LP03",
+      "oracle": "Actual loopback GraphQL commentCreate and comment readback confirm exact canonical owned issue/account/project and provider Markdown; no task/status/worker/AI receipt is fabricated."
+    },
+    {
+      "id": "LP04",
+      "oracle": "Wrong account/project/issue/assignment and changed task prose reject before publication; raw comment text alone cannot bypass trusted approval."
+    },
+    {
+      "id": "LP05",
+      "oracle": "Malformed/false/partial-error/timeout/readback mismatch preserves failed or uncertain result; no blind duplicate comment retry."
+    },
+    {
+      "id": "LP06",
+      "oracle": "Restart after returned UUID or exact readback recovers by canonical comment ID; unknown lost create remains uncertain."
+    },
+    {
+      "id": "LP07",
+      "oracle": "Comment candidate UUID disabled without verified schema; if supported, persist candidate before effect and settle only exact matching readback. Missing/wrong candidate never proves absence."
+    },
+    {
+      "id": "LP08",
+      "oracle": "Concurrent publishers claim one intent; lease expiry becomes uncertain; no second comment is posted."
+    },
+    {
+      "id": "LP09",
+      "oracle": "Contextual progress receipt cannot be replayed as task intake, for another task/session, or after the bound task prose changes."
+    },
+    {
+      "id": "LP10",
+      "oracle": "Provider comment acknowledgement remains separate from progress verification, worker completion, lead AI acknowledgement and user report."
+    },
+    {
+      "id": "LP11",
+      "oracle": "Comment request uses structured variables, preserves literals and redacts credential/provider private text in errors and diagnostics."
+    },
+    {
+      "id": "LP12",
+      "oracle": "The live plan includes one approved run-owned progress comment, exact readback and ledger-owned cleanup; local fixtures do not claim live proof."
+    }
+  ]
+}

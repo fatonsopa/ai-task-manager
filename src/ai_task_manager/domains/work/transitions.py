@@ -47,10 +47,7 @@ def check_transition(source: S, target: S, cause: C, facts: TransitionFacts) -> 
         S.ON_HOLD: facts.reason and facts.quiescent,
         S.IN_REVIEW: facts.review_requested and facts.quiescent,
         S.IN_DEV: facts.complete and facts.merged and facts.quiescent,
-        S.IN_STAGING: facts.complete
-        and facts.merged
-        and facts.staged
-        and facts.quiescent,
+        S.IN_STAGING: facts.complete and facts.merged and facts.staged and facts.quiescent,
         S.DONE: facts.complete
         and facts.quiescent
         and (

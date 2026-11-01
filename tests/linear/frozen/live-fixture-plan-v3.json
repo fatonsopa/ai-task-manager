@@ -1,0 +1,42 @@
+{
+  "version": 3,
+  "execution_status": "not_run",
+  "create_webhook_or_tunnel_now": false,
+  "live_two_user": "blocked_missing_second_identity",
+  "acceptance_claim": "Local HTTP fixtures prove adapter mechanics only; no live webhook, live UUID acceptance or complete host/user loop is claimed.",
+  "preflight": [
+    "Lead reviews exact HTTPS receiver URL, tunnel/provider choice, fixture project and teardown ledger before effects.",
+    "Use existing primary credential through a secret callback; resolve real viewer/workspace/canonical TST team/configured run-owned project and all required workflow IDs.",
+    "Second token must authenticate a different TST user; absent token keeps live two-user tests blocked.",
+    "Generate a fresh random signing secret outside Git; create only one run-owned Issue webhook for the TST team, never allPublicTeams.",
+    "Record run ID, owner, created project/issue/webhook UUIDs, receiver URL, schema hashes and timestamps in private mode600 ledger before effects.",
+    "Use the separately prepared cloudflared2026.10.1 executable for a temporary free run-owned tunnel only after lead review; never reuse, stop or modify an existing ngrok process.",
+    "Use an independent run-owned fixture project; never use the development tracking project as a fixture target.",
+    "A team-scoped Issue webhook receives unrelated TST activity: authenticate it, persist only minimal ignored delivery/digest/reason metadata and return200 without importing or exposing its content."
+  ],
+  "scenarios": [
+    "Create approved canonical prose in explicit Backlog; when schema capability is enabled, verify returned canonical UUID equals the durably supplied candidate and retain exact readback.",
+    "Confirm CLI linkage/Todo, actual worker start and owned resources, then In Progress; observe each API and signed webhook receipt before any reconciliation tick.",
+    "Change a bound issue from Linear and confirm legal guarded local application, scoped CLI events and separate lead/user receipt stages.",
+    "Test outbound echo both arrival orders, duplicate delivery, controlled receiver outage/restart and recovery without duplicate create/status/worker.",
+    "Test illegal remote delivery/reopen, missing stop evidence, assignment away, stale/out-of-order edits and concurrent local intent; retain explicit conflicts and fenced prior uncertainty.",
+    "Verify actual Linear retry delivery-ID/body timestamp behavior; preserve signed raw-body hashes and sanitized diagnostic metadata privately.",
+    "Capture request/provider/receiver/application/CLI/host/AI/user timestamps separately; report observed latency and configured timeout rather than a global guarantee.",
+    "Publish one purpose-bound approved progress comment on a ledger-owned canonical fixture issue; confirm author/issue/exact body readback and any schema-gated candidate UUID; keep comment acknowledgement separate from AI/user receipts."
+  ],
+  "teardown": [
+    "Stop new run-owned admission; drain/checkpoint owned attempts and merges before cleanup.",
+    "Disable/delete only the exact webhook UUID recorded as created by this run, then close its receiver/tunnel; never enumerate-delete team webhooks.",
+    "Cancel or archive only ledger-owned unfinished test issues with a recorded reason; issue deletion is not authorized.",
+    "Archive a fixture project only if the ledger proves this run created it and all its remaining resources are owned; retain diagnostic/receipt history.",
+    "Keep unresolved effects/resources in the private ledger; never declare cleanup complete from a missing response.",
+    "Retain the progress comment with the archived/canceled ledger-owned fixture issue and its receipt evidence; do not delete unrelated comments or issues."
+  ],
+  "blocked_facts": [
+    "Lead must approve the concrete receiver route, cloudflared command/profile and fixture ledger before starting the temporary tunnel or creating a webhook.",
+    "No reviewed live fixture/webhook/tunnel effects have run.",
+    "No second Linear test identity is available.",
+    "Installed host and actual AI/user acknowledgement evidence belongs to later full-loop acceptance."
+  ],
+  "supersedes": "v1/v2 retained unchanged"
+}

@@ -1,0 +1,175 @@
+{
+  "assignment": "LINEAR/TST-76",
+  "version": 1,
+  "state": "frozen proposed cases awaiting review",
+  "cases": [
+    {
+      "id": "L01",
+      "name": "Actual transport boundary",
+      "oracle": "Local HTTP fixture verifies POST body/variables, auth header form, fixed endpoint policy, finite timeout and response size, no secret in diagnostics, redirect refusal.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L02",
+      "name": "Response taxonomy",
+      "oracle": "401/403 auth, 429/RATELIMITED/retry-after, 5xx, GraphQL errors with partial 200, invalid JSON, missing/null/false success and transport timeout remain distinct; mutation failures after possible send are uncertain.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L03",
+      "name": "Complete pagination",
+      "oracle": "Multiple pages, repeated/empty/endless cursors, duplicate nodes, page failure and bounded-page ceiling never become a complete empty result.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L04",
+      "name": "Identity preflight",
+      "oracle": "Viewer, workspace, canonical TST team UUID/key, configured project and all exact states match; wrong/missing/ambiguous IDs refuse before any mutation.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L05",
+      "name": "Explicit initial Backlog",
+      "oracle": "Existing durable core intake creates one explicit Backlog issue with exact approved prose, project and owner; no default Triage or admission before readback.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L06",
+      "name": "Exact provider prose",
+      "oracle": "Declared renderer applies supported presentation before approval; readback changes to title/wording/code literals/representation reject confirmation.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L07",
+      "name": "Creation uncertainty",
+      "oracle": "Timeout/reset/crash after send preserves candidate identity and uncertain operation; recovery reads a verified UUID when supported, never retries by title or invents absence.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L08",
+      "name": "Outbound status lifecycle",
+      "oracle": "Immediate local intent sends and reads back Todo/In Progress/delivery stages through core; actual resource/startup evidence remains required; no provider status launches a worker.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L09",
+      "name": "Stale outbound authority",
+      "oracle": "Human hold/assignment or newer task revision before send fences stale intent. Race during request is explicit uncertainty/conflict and preserves later human authority.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L10",
+      "name": "Concurrent outbound drains",
+      "oracle": "Two stores/connections claim one intent; expired lease is uncertain, never duplicate mutation; crash between wire readback and core confirmation is recoverable.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L11",
+      "name": "Raw signed request",
+      "oracle": "Authentic raw-byte HMAC, UTF-8 and timestamp succeed; JSON reserialization, altered whitespace, wrong secret/signature, truncated or nonhex signature reject.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L12",
+      "name": "Request bounds and ambiguity",
+      "oracle": "Wrong method/content type, duplicate security headers, duplicate JSON keys, malformed UTF-8/JSON, oversized body, missing/boolean/nonfinite timestamp and header/body disagreement reject safely.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L13",
+      "name": "Freshness and header replay",
+      "oracle": "Past/future signed timestamps outside configured freshness reject. Delivery UUID is valid and nonempty; replayed body with changed unsigned delivery ID cannot cause a second domain effect.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L14",
+      "name": "Durable before acknowledgement",
+      "oracle": "Database failure yields non-200; success commits receipt before wake/200. Wake failure leaves accepted durable pending work and is not a false application or AI ack.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L15",
+      "name": "Duplicate delivery",
+      "oracle": "Identical fresh authenticated duplicate returns 200 once; changed payload reusing ID conflicts; concurrent duplicate receivers persist one receipt and effect.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L16",
+      "name": "Scope before effects",
+      "oracle": "Wrong organization/webhook/team/project, unrelated issue, other principal or logical session cannot import backlog, mutate task or expose foreign content; assignment away holds owned work.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L17",
+      "name": "Real inbound human application",
+      "oracle": "Authorized signed status/assignment change applies through core decision/policy APIs before any recovery tick; real scoped domain/lead event is emitted after application.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L18",
+      "name": "Transition and evidence enforcement",
+      "oracle": "Illegal pairs, every review destination with missing destination evidence, delivered-issue reopen, unknown state and provider In Progress without actual worker remain conflicts; no copied policy table.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L19",
+      "name": "Human actor and ordering",
+      "oracle": "Null/integration/untrusted actor cannot mint human authority; older/equal-conflicting updatedAt/source revision cannot replace newer hold/assignment. Exact duplicate business event across delivery IDs is harmless.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L20",
+      "name": "Outbound echo and loop prevention",
+      "oracle": "Exact receipt-correlated provider version is an echo; same actor/status alone is insufficient. Webhook-before-response and response-before-webhook converge without extra issue/status writes or duplicate decisions.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L21",
+      "name": "Pending intent supersession",
+      "oracle": "New human hold/status while stale outbound is pending uses reviewed shared-core supersession; blocks old worker/write, retains audit, does not silently clear provider uncertainty.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L22",
+      "name": "Inbound crash recovery",
+      "oracle": "Failure before/after core decision/transition/readback/application receipt resumes idempotently; durable Received is never labeled Applied early.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L23",
+      "name": "Loss and bounded recovery",
+      "oracle": "Missed webhook or reconnect reconciles registered issue IDs and uncertain operations only; recovery uses pagination where needed and never sweeps unrelated backlog.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L24",
+      "name": "Separate notification facts",
+      "oracle": "Receipt/HTTP 200/core application/cursor/host delivery/AI ack/public report remain distinct; adapter cannot fabricate AI/user evidence.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L25",
+      "name": "Restart and schema integrity",
+      "oracle": "Receipt journal and authority hashes survive reopen; unknown schema is refused; secrets stay outside journal and errors; fixture resources use isolated owned paths.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L26",
+      "name": "Architecture and no bypass",
+      "oracle": "HTTP/wire client and scoped orchestration do not import legacy synchronizer, add a transition matrix, access core SQL tables or launch process/worker directly.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L27",
+      "name": "Bidirectional local full path",
+      "oracle": "Actual loopback HTTP mock plus signed receiver exercises core intake\u2192Backlog\u2192Todo\u2192worker evidence/In Progress\u2192human hold/assignment\u2192CLI/core/Linear convergence before reconciliation tick.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "L28",
+      "name": "Live fixture readiness only",
+      "oracle": "Concrete opt-in live plan lists viewer/TST/run project/issue/webhook allowlist, HTTPS route, signing secret storage, rollback/teardown IDs and two-user blocker; no live effects without lead review.",
+      "execution_status": "not_run"
+    }
+  ]
+}

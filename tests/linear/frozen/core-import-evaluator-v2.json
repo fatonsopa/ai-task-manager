@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "authority": "lead-approved evaluation scope correction",
+  "prior_run": {
+    "retained_log": ".local/linear-core-regression-1.log",
+    "passed": 1396,
+    "failed": 1,
+    "cause": "original core scanner incorrectly included all future adapter modules"
+  },
+  "core_paths": [
+    "domains/work/**/*.py",
+    "storage/**/*.py",
+    "application/*.py"
+  ],
+  "criteria": [
+    "Keep the original core standard-library import allowlist.",
+    "Resolve relative imports using the actual package/module path.",
+    "Reject pure-core imports of adapters, supervisor, presentation or legacy modules.",
+    "Preserve domain -> no storage/application and storage -> no application direction.",
+    "Test provider adapters separately for no direct core SQL, copied transition tables or legacy imports."
+  ],
+  "unchanged_functional_manifest": "24fd526e6dd80e71e06c0b2b7cdd5eb12b8d3e337e4f6e9a7f3ed593079a9b75"
+}

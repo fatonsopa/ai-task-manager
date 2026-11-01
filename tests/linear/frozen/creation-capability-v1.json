@@ -1,0 +1,19 @@
+{
+  "authority": "lead schema-confirmed addendum",
+  "source": "Authenticated official Linear GraphQL schema introspection, no mutation",
+  "query_sha256": "85c97f53a1b669ab7c73b5b0bb0619cb94dd637218e402194cd2d3077a81d6ec",
+  "guards": [
+    "Disabled by default.",
+    "Enable candidate UUID only from trusted schema capability with optional id:String and required creation fields.",
+    "Persist canonical candidate UUID before HTTP.",
+    "Returned ID mismatch remains uncertain and keeps the actual returned identity.",
+    "A lost create response can be settled only by exact UUID/scope/owner/prose/state readback; absence is never inferred from a missing read.",
+    "Schema presence is not live evidence that Linear honors UUID input or retries."
+  ],
+  "new_checks": [
+    "schema absent/wrong id type disables candidate input",
+    "lost response with candidate and exact readback settles once without another mutation",
+    "candidate absent or ownership/content mismatch remains uncertain",
+    "returned UUID mismatch retains returned identity as uncertain"
+  ]
+}

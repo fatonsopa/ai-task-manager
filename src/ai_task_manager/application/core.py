@@ -10,6 +10,7 @@ from ai_task_manager.storage import attempts, capacity, sessions, work
 from .context import Context
 from .decisions import Decisions
 from .execution import Execution
+from .external_sync import ExternalSynchronization
 from .intake import Intake
 from .notifications import Notifications
 from .synchronization import Synchronization
@@ -48,20 +49,13 @@ class Core:
         self.decisions = Decisions(self.context)
         self.notifications = Notifications(self.context)
         self.sync = Synchronization(self.context)
+        self.external = ExternalSynchronization(self.context)
 
     def register_session(self, principal_ref, resume_ref=None):
         scope = self.context.principals.verify_principal(principal_ref)
         with self.context.db.transaction() as conn:
-            proof = (
-                self.context.evidence.verify_evidence(resume_ref)
-                if resume_ref
-                else None
-            )
-            if (
-                proof
-                and proof.expires_at is not None
-                and proof.expires_at <= self.context.clock()
-            ):
+            proof = self.context.evidence.verify_evidence(resume_ref) if resume_ref else None
+            if proof and proof.expires_at is not None and proof.expires_at <= self.context.clock():
                 raise EvidenceRequired("Session resume proof has expired")
             return sessions.register(conn, scope, proof, resume_ref)
 

@@ -26,9 +26,7 @@ class Decisions:
             ):
                 raise StaleDecision("Human decision is older than the current revision")
             if type(proof.payload.get("hold")) is not bool:
-                raise ValidationError(
-                    "Human decision must explicitly retain or release the hold"
-                )
+                raise ValidationError("Human decision must explicitly retain or release the hold")
             task = work.save(
                 conn,
                 replace(

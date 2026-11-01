@@ -1,0 +1,23 @@
+{
+  "authority": "lead-approved routed-event filtering and required staged prose handling",
+  "previous_evaluators_retained": [
+    "linear-cases-v1.json",
+    "linear-cases-v2.json",
+    "scope-removal-evaluator-v2.json"
+  ],
+  "criteria": [
+    "Invalid authentication/org/webhook/security ambiguity remains denied.",
+    "Authentic unrelated TST deliveries are200 ignored after durable minimal delivery/digest/reason metadata; no foreign title/body or core effect.",
+    "Duplicate/repeated unrelated activity never causes retry/disable through deliberate non200 filtering.",
+    "Known canonical scope removal still fences prior authority using minimal metadata, without adoption/human acceptance.",
+    "Changed owned prose emits a staged conflict/event and revokes unsafe authority; no silent adoption or overwrite.",
+    "A reviewed adoption requires task-purpose exact writer approval, matching current trusted provider readback, expected versions, undelivered issue and actual worker quiescence; status and hold settle separately."
+  ],
+  "added_oracles": [
+    "wrong signature/org/webhook stays denied",
+    "unbound wrong project/principal/issue returns200 ignored and retains only hashes/reason",
+    "ignored duplicate/repeated deliveries have no task/inbox/AI effects",
+    "staged prose source is visible through scoped event/reference; current task text is unchanged",
+    "missing writer/readback/version/quiescence refuses revision; successful approved prose resets completion and leaves status unresolved"
+  ]
+}

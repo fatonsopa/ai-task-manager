@@ -193,6 +193,7 @@ class OutboundOperation:
     lease_owner: str | None
     lease_until: float | None
     error: str | None
+    fenced_by: str | None = None
 
 
 @dataclass(frozen=True)
