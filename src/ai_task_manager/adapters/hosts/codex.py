@@ -1,5 +1,7 @@
 """Isolated Codex exec plans; native-tool enforcement needs installed evidence."""
 
+import os
+import pwd
 from pathlib import Path
 
 from ai_task_manager.supervisor.models import Command, RuntimeRefused
@@ -28,6 +30,7 @@ def smoke_command(*, executable, home, codex_home, cwd, prompt):
         {
             "PATH": "/usr/bin:/bin:/usr/local/bin",
             "HOME": str(Path(home).resolve()),
+            "USER": pwd.getpwuid(os.getuid()).pw_name,
             "CODEX_HOME": str(auth_home),
         },
         60,

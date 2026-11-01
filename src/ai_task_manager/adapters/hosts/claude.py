@@ -1,5 +1,7 @@
 """Restricted Claude command construction with an explicit account profile."""
 
+import os
+import pwd
 from pathlib import Path
 
 from ai_task_manager.supervisor.models import Command, RuntimeRefused
@@ -44,6 +46,7 @@ def smoke_command(*, executable, home, cwd, settings, mcp_config, session_id, pr
         {
             "PATH": "/usr/bin:/bin:/usr/local/bin",
             "HOME": str(home),
+            "USER": pwd.getpwuid(os.getuid()).pw_name,
             "CLAUDE_CONFIG_DIR": str(profile),
         },
         60,
