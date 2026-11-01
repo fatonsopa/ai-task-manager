@@ -78,7 +78,16 @@ def verify(root):
     require(policy.get('limits', {}).get('max_elapsed_seconds') == 172800, 'Elapsed cap must remain 48 hours.')
     require(policy.get('limits', {}).get('max_incremental_spend_usd') == 100, 'Spending cap must remain USD 100.')
     require(set(policy.get('acceptance', {}).get('required_hosts', [])) == {'claude-code','codex-cli'}, 'Both hosts are required.')
-    require(policy.get('integration', {}).get('merge_script_changes_allowed') is False, 'Merge script must remain unchanged.')
+    integration = policy.get('integration', {})
+    merge_gate = integration.get('merge_refactor_gate', {})
+    require(integration.get('merge_script_changes_allowed') is True
+            and merge_gate.get('authorization') == 'conditional_user_direction_2026-11-01'
+            and all(merge_gate.get(key) is True for key in (
+                'latest_source_audit_required', 'demonstrated_incompatibility_required',
+                'regression_cases_frozen_before_changes', 'commands_and_intent_preserved',
+                'disposable_copy_verification_required', 'clean_cutover_and_recovery_required'))
+            and merge_gate.get('production_or_normal_session_activation_authorized') is False,
+            'Merge changes require the recorded audit-first exception and preserved command intent.')
     require(policy.get('linear', {}).get('team_wide_start_cleanup_allowed') is False, 'Team-wide cleanup is forbidden.')
     require(policy.get('repository', {}).get('copyright_holder') == 'Manaferra Inc.', 'Copyright holder mismatch.')
     active = policy.get('active_host_profiles', {}).get('claude-code', {})

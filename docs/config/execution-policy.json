@@ -110,10 +110,22 @@
   "integration": {
     "cutover": "single project-wide clean cutover; no parallel live writers",
     "merge_script": "scripts/merge-to-dev.sh",
-    "merge_script_changes_allowed": false,
+    "merge_script_changes_allowed": true,
     "compatibility_entrypoints": "preserve existing commands and argument flow; route solely to new core after cutover",
     "task_management_document": ".claude/standards/task-management.md",
-    "migrate_all_required_legacy_contracts_before_activation": true
+    "migrate_all_required_legacy_contracts_before_activation": true,
+    "merge_refactor_gate": {
+      "authorization": "conditional_user_direction_2026-11-01",
+      "latest_source_audit_required": true,
+      "demonstrated_incompatibility_required": true,
+      "regression_cases_frozen_before_changes": true,
+      "commands_and_intent_preserved": true,
+      "disposable_copy_verification_required": true,
+      "clean_cutover_and_recovery_required": true,
+      "production_or_normal_session_activation_authorized": false,
+      "audit_status": "pending",
+      "default_route": "preserved foreground project workflow; no replacement justified solely by a missing new adapter"
+    }
   },
   "user_decisions": [
     {
@@ -203,6 +215,10 @@
     {
       "id": "D22",
       "decision": "Every task prose write/update goes through Technical Writer with the appropriate reference and Writing Style."
+    },
+    {
+      "id": "D-MERGE-AUDIT",
+      "decision": "Audit the latest merge workflow. If it prevents approved coordinator goals, refactor it into the new system with preserved command intent, regression evidence and tested migration. Existing working behavior remains the baseline until that need is demonstrated."
     }
   ],
   "active_host_profiles": {
@@ -233,10 +249,11 @@
   "canonical_docs": "docs/",
   "application_baseline": {
     "ref": "origin/dev-mirror",
-    "commit": "24d05ac23420b0bb2b062430ff4e9b9c78727b81",
+    "commit": "873155ac73f486912e4e9fe6e3daa719388e0665",
     "older_checkout_commit": "15992e2be8b2fe47d4646f92e62c90888a332619",
-    "ahead_of_checkout": 81,
-    "previous_commit": "c05f40200703e7b8f379a8477502dabd594ba79c"
+    "ahead_of_checkout": 86,
+    "previous_commit": "24d05ac23420b0bb2b062430ff4e9b9c78727b81",
+    "compatibility_audit": "latest delta located; merge compatibility audit pending"
   },
   "skill_version_policy": {
     "use_current_snapshots": true,
@@ -278,7 +295,7 @@
     "active_attempts": "pinned version until safe checkpoint",
     "policy_or_permission_expansion": "requires explicit decision"
   },
-  "specification_revision": 2,
+  "specification_revision": 3,
   "document_precedence": {
     "approved_product_plan_over_legacy_instructions": true,
     "implementation_must_satisfy_approved_plan": true,

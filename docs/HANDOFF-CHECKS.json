@@ -165,10 +165,18 @@
   },
   "project_changes": "Application files and merge script unchanged. Code is local; normal sessions remain unmodified.",
   "source_refresh": {
-    "application_commit": "24d05ac23420b0bb2b062430ff4e9b9c78727b81",
-    "ahead_of_local_checkout": 81,
-    "new_commits_inspected": 9,
-    "merge_script_unchanged": true
+    "application_commit": "873155ac73f486912e4e9fe6e3daa719388e0665",
+    "previous_commit": "24d05ac23420b0bb2b062430ff4e9b9c78727b81",
+    "ahead_of_local_checkout": 86,
+    "new_commits_located": 5,
+    "merge_script_unchanged": true,
+    "latest_compatibility_audit": "pending; recent stack helper and monitor changes located, not runtime-verified",
+    "prior_refresh": {
+      "application_commit": "24d05ac23420b0bb2b062430ff4e9b9c78727b81",
+      "ahead_of_local_checkout": 81,
+      "new_commits_inspected": 9,
+      "merge_script_unchanged": true
+    }
   },
   "migration_delivery": {
     "required_runbook": "migrate.md",
@@ -183,5 +191,12 @@
       "case": "C11",
       "reason": "Align the stale required-polling/optional-webhook case with already approved R37. Prior inventory and oracle retained; no executed result replaced."
     }
-  ]
+  ],
+  "merge_refactor_authorization": {
+    "requirement": "R08 revision3",
+    "scope": "Conditional latest-source audit and necessary refactor; preserve command intent and safe behavior, freeze regressions and verify isolated migration.",
+    "audit_status": "pending",
+    "script_refactor_performed": false,
+    "prior_results_reinterpreted": false
+  }
 }

@@ -31,7 +31,7 @@
     },
     {
       "id": "R08",
-      "text": "Preserve the merge script bytes, arguments, checks, foreground flow, result meanings and database lifecycle."
+      "text": "Preserve merge command names, arguments, checks, foreground flow, result meanings and owned database lifecycle. Retain the latest pinned script bytes as the regression baseline. Refactor the workflow into the new system only where a source-grounded compatibility audit demonstrates that the current implementation prevents approved coordinator goals; freeze regression cases before changes and verify migration."
     },
     {
       "id": "R09",
@@ -152,6 +152,17 @@
     {
       "id": "R38",
       "text": "Every new or updated task prose uses Technical Writer, the appropriate issue-type reference and Writing Style; exact content/version approval precedes publication; skill updates trigger scoped audits and retained evidence."
+    }
+  ],
+  "requirements_revision": 3,
+  "revision_history": [
+    {
+      "revision": 3,
+      "requirement": "R08",
+      "reason": "User conditionally authorized a latest-source merge compatibility audit and necessary refactor; prior absolute byte preservation becomes the default baseline with this explicit exception. Command intent and safe behavior remain protected.",
+      "previous_text": "Preserve the merge script bytes, arguments, checks, foreground flow, result meanings and database lifecycle.",
+      "implementation_status": "audit_pending; no merge script change performed",
+      "prior_results_reinterpreted": false
     }
   ]
 }

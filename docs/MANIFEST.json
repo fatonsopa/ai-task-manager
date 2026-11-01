@@ -12,7 +12,7 @@
     },
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "0beb6461455c761b0861a15966daa7e1a1029b02c3bfd382f561c42b6f1e06e8"
+      "sha256": "eec14b10073700a9b6e443cc073c9683474ab850cdfc4e67b64633d59fece80e"
     },
     {
       "path": "START-HERE.md",
@@ -96,11 +96,11 @@
     },
     {
       "path": "config/execution-policy.json",
-      "sha256": "cccc9d271ac48a347e58c70e9ab1dd4898071e3937d06b8f154645a832df2666"
+      "sha256": "48e328f85bfbe93a423be1570b16d49e670a4e2cbe38e1f27006e8e4cad81278"
     },
     {
       "path": "config/requirements.json",
-      "sha256": "758aa1c6821569539ee3f6dc309eccd9663d86b8eed4b2cea45567253064fbca"
+      "sha256": "b008a08c7ccc8f08844defd7b2ad4372a431843e5fecd7b2377c7336130c004a"
     },
     {
       "path": "config/research-sources.json",
@@ -108,7 +108,7 @@
     },
     {
       "path": "config/source-baseline.json",
-      "sha256": "35070eed0535db007229c0c2dd003cae49649817dc6a4e4ae0ba223ba8a1ea3a"
+      "sha256": "1981388731f19141088da3ac63d9fb3e8bc7b40041f828addce43bb7361a10c8"
     },
     {
       "path": "config/work-items.json",
@@ -136,7 +136,7 @@
     },
     {
       "path": "tools/check_handoff.py",
-      "sha256": "70503d8a489c32b68baad139823403bcffb8aec2932797dcf808e4cda4d77e97"
+      "sha256": "f95b64d4e9f0226c28cb41b9e9db87dd287b57e31526f94d4403d5dce9a7f45d"
     },
     {
       "path": "tools/setup_test_credentials.py",
