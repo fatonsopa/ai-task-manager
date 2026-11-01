@@ -38,6 +38,22 @@ class NotificationObserver:
                 self.receipts[(data["event_id"], data["stage"])] = row["ref"]
                 if data.get("turn_id"):
                     self.turns[data["event_id"]] = data["turn_id"]
+        # Recover source observations, never generated replacement text. Exact
+        # process identity prevents another controller's frame from filling a gap.
+        if self.startup.native_session:
+            identity = vars(self.transcript.process.identity)
+            expected = {
+                "attempt_id": self.binding.attempt_id,
+                "worker_id": self.binding.worker_id,
+                "configuration_digest": self.binding.configuration_digest,
+                "process": identity,
+            }
+            for row in self.journal._history("trace"):
+                data = row["payload"]
+                if isinstance(data.get("frame"), dict) and all(
+                    data.get(key) == value for key, value in expected.items()
+                ):
+                    self._observe(data["frame"], row["ref"])
 
     def prepare(self, event_id, text):
         if not self.startup.ready_ref:

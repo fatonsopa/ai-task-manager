@@ -154,3 +154,45 @@ def test_restart_restores_exact_pending_context_and_completed_receipts(native, b
     )
     with pytest.raises(AccessDenied):
         restarted.reference("event-1", "user_reported")
+
+
+def test_restart_restores_owned_final_output_before_pending_publication(native, binding, journal):
+    transcript, emit, startup, sink, observer, value = setup_observer(native, binding, journal)
+    delivered(emit, observer, value)
+    acknowledged(emit, value)
+    reported(emit)
+    restarted = NotificationObserver(transcript, startup, sink)
+    assert restarted.publish(value.event_id)
+    assert len(sink.outputs) == 1
+
+
+@pytest.mark.parametrize("field", ["attempt_id", "worker_id", "configuration_digest", "process"])
+def test_restart_ignores_stored_final_frame_from_another_owner(native, binding, journal, field):
+    transcript, emit, startup, sink, observer, value = setup_observer(native, binding, journal)
+    delivered(emit, observer, value)
+    acknowledged(emit, value)
+    payload = {
+        "attempt_id": binding.attempt_id,
+        "worker_id": binding.worker_id,
+        "configuration_digest": binding.configuration_digest,
+        "process": vars(transcript.process.identity),
+        "frame": {
+            "method": "item/completed",
+            "params": {
+                "threadId": "native-thread",
+                "turnId": "turn-1",
+                "item": {
+                    "type": "agentMessage",
+                    "id": "foreign",
+                    "phase": "final_answer",
+                    "text": "event-1 finished; foreign source.",
+                },
+            },
+        },
+    }
+    payload[field] = {"pid": -1} if field == "process" else "foreign"
+    journal._append("trace", payload)
+    restarted = NotificationObserver(transcript, startup, sink)
+    with pytest.raises(AccessDenied, match="No actual public"):
+        restarted.publish(value.event_id)
+    assert not sink.outputs
