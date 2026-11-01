@@ -186,7 +186,7 @@
   ],
   "skill_versions": {
     "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-    "skill_builder_snapshot": "12517cc19a49f0cd9903c2a99b7816eb224f15052d65809a0a8529d67360e28f",
+    "skill_builder_snapshot": "cb26e81105888ef9581192f5047f9cfa7075230cacb472842bd5ed74b2fe5992",
     "update_policy": "Use current snapshots; audit affected work and rerun impacted checks when the user supplies newer versions.",
     "historical_snapshots": {
       "technical_writer_snapshot": "7a0dbe4a69d07de868db1dd56ec1bd74b0870db3e184d4990ab6f2f894deeb72",
@@ -195,7 +195,27 @@
     "capture": "20261101T202854Z",
     "audit_status": {
       "documents": "complete for the exact listed document hashes",
-      "generated_skill": "in_progress"
+      "generated_skill": "upstream heading blocker resolved; controlled source-version correction waits for verified product interface pin and actual host evidence"
+    },
+    "later_history": [
+      {
+        "skill_builder_snapshot": "12517cc19a49f0cd9903c2a99b7816eb224f15052d65809a0a8529d67360e28f",
+        "reason": "Retained before the user-announced upstream navigation fix."
+      }
+    ],
+    "skill_builder_source_commit": "7351966a7eff4f8ab51bbe47dc9e2cf99c9f5498",
+    "builder_reload": {
+      "changed_files": [
+        "README.md",
+        "references/readme.md",
+        "scripts/runtime/readme.py",
+        "tests/test_runtime.py"
+      ],
+      "top_level_SKILL_and_AGENTS_unchanged": true,
+      "source_read_directly": true,
+      "actual_candidate_readme_render_probe_passed_current_writer_structure": true,
+      "original_candidate_and_history_unchanged": true,
+      "generated_skill_full_acceptance": false
     }
   },
   "project_changes": "Application files and merge script unchanged. Code is local; normal sessions remain unmodified.",

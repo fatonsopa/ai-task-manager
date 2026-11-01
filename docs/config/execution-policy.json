@@ -263,7 +263,9 @@
     "read_current_sources_directly_on_update": true,
     "approved_capture": "20261101T202854Z",
     "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-    "skill_builder_snapshot": "12517cc19a49f0cd9903c2a99b7816eb224f15052d65809a0a8529d67360e28f"
+    "skill_builder_snapshot": "cb26e81105888ef9581192f5047f9cfa7075230cacb472842bd5ed74b2fe5992",
+    "skill_builder_source_commit": "7351966a7eff4f8ab51bbe47dc9e2cf99c9f5498",
+    "latest_builder_capture": "20261101T221921Z"
   },
   "task_writing": {
     "required_skill": "technical-writer",
