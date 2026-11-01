@@ -179,6 +179,10 @@
     {
       "id": "D17",
       "decision": "Inspect recent AI Index commits and base compatibility work on the newest relevant development snapshot."
+    },
+    {
+      "id": "D18",
+      "decision": "Use both current skills now. Audit and potentially redo affected work when the user supplies an updated version, retaining prior evidence."
     }
   ],
   "active_host_profiles": {
@@ -206,15 +210,30 @@
       "release_requirement_removed": false
     }
   },
-  "skill_holds": {
-    "technical-writer": "Do not invoke, read, modify or validate until user releases hold.",
-    "skill-builder": "Do not invoke, read, modify or validate until user releases hold."
-  },
   "canonical_docs": "docs/",
   "application_baseline": {
     "ref": "origin/dev-mirror",
     "commit": "c05f40200703e7b8f379a8477502dabd594ba79c",
     "older_checkout_commit": "15992e2be8b2fe47d4646f92e62c90888a332619",
     "ahead_of_checkout": 72
+  },
+  "skill_version_policy": {
+    "use_current_snapshots": true,
+    "audit_affected_work_when_user_announces_update": true,
+    "preserve_version_bound_evidence": true,
+    "source_skill_changes_authorized": false
+  },
+  "task_writing": {
+    "required_skill": "technical-writer",
+    "required_references": [
+      "references/issue.md",
+      "references/writing_style.md"
+    ],
+    "extra_reference_by_type": {
+      "Bug": "references/bug_report.md",
+      "Decision": "references/decision_record.md"
+    },
+    "all_task_prose_requires_review": true,
+    "status_fields_require_execution_guards": true
   }
 }

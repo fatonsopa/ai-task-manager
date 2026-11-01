@@ -2,7 +2,7 @@
 
 This repository is the active development workspace. Its docs directory contains the maintained plans, specifications, acceptance cases and diagrams. Earlier handoff downloads are historical; continue work from these files and the current status record.
 
-Implementation is approved now. Use claude_roni for Claude work and testing; keep the default claude account unavailable until the user says otherwise. Do not invoke or modify Technical Writer or Skill Builder while their updates are in progress. The missing second Linear identity blocks live two-user acceptance only.
+Implementation is approved now. Use claude_roni for Claude work and testing; keep the default claude account unavailable until the user says otherwise. Use both frozen current skill versions; audit affected work when the user supplies an update. Every new or updated task prose must pass Technical Writer. The missing second Linear identity blocks live two-user acceptance only.
 
 Read [the Implementation Plan (IP)](BUILD.md), [execution policy](config/execution-policy.json), [architecture](ARCHITECTURE.md), [requirements](config/requirements.json), [work items](config/work-items.json) and [acceptance cases](config/acceptance-cases.json). `BUILD.md` includes the expected behavior, delivery sequence, test strategy and operating procedure. The repository address is in the policy file so personal identifiers do not need to appear in Markdown.
 

@@ -4,7 +4,7 @@ Build the approved standalone task coordinator for Claude Code and Codex CLI. Ke
 
 Use one tracked assignment per worker, a separate Git worktree and a separate disposable fixture database. The lead coordinates and reviews; assigned workers perform substantive implementation and investigation. Delegate only assignments registered by the lead. Workers must not spawn additional workers or write to another worker's scope.
 
-Technical Writer and Skill Builder are being updated. Do not invoke, read, modify or validate either skill until the user explicitly releases that hold. Continue independent engineering and tests.
+Use the current frozen Technical Writer and Skill Builder versions. Every task title, description, acceptance criterion and written progress update must pass Technical Writer with the appropriate reference and Writing Style guide before publication. Scripted status/ownership fields remain governed by the execution policy. When the user announces a new skill version, audit affected work, revise only what needs changing and rerun impacted checks; preserve earlier version-bound evidence. Do not modify either source skill as part of this product build.
 
 Use the Claude account profile named claude_roni. Automated invocations use the unmodified claude executable with CLAUDE_CONFIG_DIR set to the resolved .claude_roni directory under the current user's home. The default claude account is unavailable; do not use it or silently fall back to it. Authentication checks do not establish successful model execution.
 

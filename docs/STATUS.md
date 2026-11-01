@@ -6,7 +6,7 @@ Implementation has started in the requested repository. The docs directory is th
 
 ## Current work
 
-Repository bootstrap and provider/resource preflight are in progress. The product repository has an initial commit, and Docker is running. Codex CLI authentication and the claude_roni subscription login were checked. No external model task or product acceptance case has run yet.
+Repository bootstrap and provider/resource preflight are in progress, and Docker is running. TST-74 inventory is integrated: 298 mapped contracts/callers/stores and 16 regression lessons. TST-73 build controls passed 52 initial tests and are being refactored into focused modules before acceptance. Codex CLI authentication and the claude_roni subscription login were checked. No external model task or product acceptance case has run yet.
 
 ## Source baseline
 
@@ -15,7 +15,7 @@ The newest fetched development mirror is `c05f40200703e7b8f379a8477502dabd594ba7
 ## Holds and blockers
 
 - The original claude account is unavailable. Use claude_roni without silent fallback.
-- Technical Writer and Skill Builder are being updated; all work invoking, modifying or validating either skill is held until the user releases it.
+- Use both frozen current skills. When the user provides an update, audit affected work and rerun impacted checks. Task prose is reviewed before Linear publication.
 - A second Linear identity is unavailable by user confirmation. Live two-user acceptance remains blocked; other implementation and tests continue.
 
 ## Next gates
