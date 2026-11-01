@@ -1,0 +1,21 @@
+{
+  "version": 8,
+  "extends": "host-bridge-cases-v7.json",
+  "preserves_all_prior_cases": true,
+  "reason": "Source review identified missing managed-runtime settlement after a full-assignment model invocation ends or fails. Freeze the regression before changing the path; a process outcome remains distinct from task delivery.",
+  "cases": [
+    {
+      "id": "HB-L14",
+      "expected": "A registered full-assignment model invocation automatically stops its owned native and waiting groups after a terminal result or failure, then settles the Core attempt from actual stop evidence. It cannot leave a stopped assignment marked running."
+    },
+    {
+      "id": "HB-L15",
+      "expected": "Nested fixture-test and protected-merge commands do not finish the model worker by themselves. Unknown native, test or merge ownership retains attempt capacity. A failed final host report cannot erase a prior trusted MERGED observation."
+    },
+    {
+      "id": "HB-L16",
+      "expected": "A controller restart without original process ownership records uncertainty through the existing lead recovery route and refuses competing work; it never recreates the task database or infers complete stop from missing handles."
+    }
+  ],
+  "scope": "Managed invocation lifecycle only. Completion does not fabricate merge, deployment or human acceptance, and protected project-script behavior is unchanged."
+}
