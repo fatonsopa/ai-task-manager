@@ -54,7 +54,10 @@ def run_command(
         "invalid_input",
         "Timeout must be positive and finite.",
     )
-    require_group_monitoring()
+    try:
+        require_group_monitoring()
+    except RuntimeError as error:
+        raise ControlError("process_monitor_unavailable", str(error)) from error
     reserved = control.reserve(
         call_id, label="bounded command", paid=paid, max_cost_usd=max_cost_usd
     )

@@ -1,0 +1,354 @@
+{
+  "assignment": "TST-77",
+  "basis": "Approved runtime review v1 and lead v2 guards",
+  "cases": [
+    {
+      "id": "RT01",
+      "objective": "reserve_before_effects",
+      "expected": "A queued task reserves its attempt and finite capacity before any resource or process effect.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT02",
+      "objective": "concurrent_start",
+      "expected": "Concurrent starts for the same task create one worker and one resource pair.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT03",
+      "objective": "capacity_refusal",
+      "expected": "A full host or project cap creates no process or resources.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT04",
+      "objective": "startup_is_not_running",
+      "expected": "A real waiting worker handshake records Starting; its assigned command has not run.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT05",
+      "objective": "provider_confirmation_gate",
+      "expected": "Missing, stale, wrong-task or failed provider In Progress confirmation cannot grant work.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT06",
+      "objective": "resource_readiness_gate",
+      "expected": "Both observed worktree and database ownership must match task, attempt and worker.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT07",
+      "objective": "valid_composition",
+      "expected": "Confirmed Todo dispatches one real worker, confirms In Progress and executes a disposable fixture command.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT08",
+      "objective": "omitted_startup",
+      "expected": "Resource proof and Running cannot precede observed worker startup.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT09",
+      "objective": "lease_each_boundary",
+      "expected": "Every work command rechecks the current Core lease before execution.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT10",
+      "objective": "human_hold",
+      "expected": "A newer human hold stops the owned runtime before capacity release; no later command runs.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT11",
+      "objective": "reassignment",
+      "expected": "Reassignment or session revocation rejects the next boundary and quiesces the old worker.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT12",
+      "objective": "stale_revision",
+      "expected": "A stale attempt or decision revision cannot resume work.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT13",
+      "objective": "checkpoint_not_completion",
+      "expected": "Heartbeat and checkpoint records do not establish completion.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT14",
+      "objective": "success_requires_outcome",
+      "expected": "Exit zero without required structured outcome does not issue successful host completion.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT15",
+      "objective": "failed_outcome",
+      "expected": "A real nonzero child exit remains a failed attempt with durable diagnostics.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT16",
+      "objective": "timeout_group",
+      "expected": "A deadline stops and confirms the entire owned group, including a TERM-resistant descendant.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT17",
+      "objective": "normal_exit_descendant",
+      "expected": "A leader exiting zero while a descendant lives is failed or unknown, never successful.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT18",
+      "objective": "foreign_group",
+      "expected": "An unrelated process-group sentinel survives normal, timeout and error cleanup.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT19",
+      "objective": "unknown_stop",
+      "expected": "Unavailable process inventory or identity mismatch retains capacity and resources.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT20",
+      "objective": "interrupt",
+      "expected": "An interrupted supervisor stops the owned group or persists uncertainty without erasing the failure.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT21",
+      "objective": "launch_intent_restart",
+      "expected": "Restart after launch intent and before reply never launches a competing worker.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT22",
+      "objective": "resource_intent_restart",
+      "expected": "Restart after ambiguous resource creation reconciles existing ownership instead of recreating it.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT23",
+      "objective": "deadline_restart",
+      "expected": "Restart preserves the original finite deadline.",
+      "status": "not_run"
+    },
+    {
+      "id": "RT24",
+      "objective": "lost_startup",
+      "expected": "Missing or malformed startup acknowledgement retains the launch claim until reconciliation.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS01",
+      "objective": "git_fixture",
+      "expected": "A disposable real Git repository produces a distinct task-owned worktree on the requested base.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS02",
+      "objective": "sqlite_fixture",
+      "expected": "A distinct SQLite application fixture has an internal ownership record and differs from the control store.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS03",
+      "objective": "resource_intent",
+      "expected": "Creation intent is durably committed before Git or database effects.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS04",
+      "objective": "partial_setup",
+      "expected": "A worktree created before database failure remains recorded for reconciliation.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS05",
+      "objective": "confined_paths",
+      "expected": "Absolute escapes, parent traversal, symlinks and existing foreign paths are rejected.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS06",
+      "objective": "shared_database",
+      "expected": "Shared, metadata or differently owned databases are rejected.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS07",
+      "objective": "changed_identity",
+      "expected": "Changed inode, ownership marker, Git common directory or branch prevents deletion.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS08",
+      "objective": "unresolved_cleanup",
+      "expected": "Active, merging or unknown attempts cannot delete owned resources.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS09",
+      "objective": "verified_cleanup",
+      "expected": "A safely settled attempt removes only verified owned disposable worktree/database resources.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS10",
+      "objective": "dirty_worktree",
+      "expected": "Uncommitted work prevents automatic resource deletion.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS11",
+      "objective": "cleanup_idempotent",
+      "expected": "Repeated verified cleanup preserves the tombstone and does not touch foreign resources.",
+      "status": "not_run"
+    },
+    {
+      "id": "RS12",
+      "objective": "foreign_resources",
+      "expected": "Concurrent task resources and sentinel repositories/databases remain unchanged.",
+      "status": "not_run"
+    },
+    {
+      "id": "PF01",
+      "objective": "issuer_separation",
+      "expected": "Explicit prefix and kind routing rejects overlapping issuers and unknown prefixes/kinds.",
+      "status": "not_run"
+    },
+    {
+      "id": "PF02",
+      "objective": "opaque_refs",
+      "expected": "Only typed trusted observation operations issue runtime references; arbitrary Evidence issuance is unavailable.",
+      "status": "not_run"
+    },
+    {
+      "id": "PF03",
+      "objective": "scope_binding",
+      "expected": "Cross-session/task/attempt/worker references fail verification or Core guards.",
+      "status": "not_run"
+    },
+    {
+      "id": "PF04",
+      "objective": "expired_changed_proof",
+      "expected": "Expired references and changed stored receipt content are rejected.",
+      "status": "not_run"
+    },
+    {
+      "id": "PF05",
+      "objective": "private_material",
+      "expected": "Worker argv, environment, worktree and outputs do not receive proof signing material.",
+      "status": "not_run"
+    },
+    {
+      "id": "PF06",
+      "objective": "durable_proofs",
+      "expected": "Restart verifies prior unchanged issued receipts and retains their source observation identity.",
+      "status": "not_run"
+    },
+    {
+      "id": "HS01",
+      "objective": "claude_profile",
+      "expected": "Every Claude argv uses the resolved claude_roni profile and refuses missing/wrong profile or fallback.",
+      "status": "not_run"
+    },
+    {
+      "id": "HS02",
+      "objective": "structured_arguments",
+      "expected": "Host commands use fixed structured argv; prompt and paths cannot inject shell arguments.",
+      "status": "not_run"
+    },
+    {
+      "id": "HS03",
+      "objective": "isolated_configuration",
+      "expected": "Claude restricted/explicit settings/MCP and Codex ignore-user-config/ephemeral use locally supported flags.",
+      "status": "not_run"
+    },
+    {
+      "id": "HS04",
+      "objective": "native_writers",
+      "expected": "Managed profiles exclude native task writers and unmanaged agents; unsupported enforcement remains an explicit capability limit.",
+      "status": "not_run"
+    },
+    {
+      "id": "HS05",
+      "objective": "structured_events",
+      "expected": "Valid host init/thread, tool, usage and final events are recorded distinctly.",
+      "status": "not_run"
+    },
+    {
+      "id": "HS06",
+      "objective": "malformed_events",
+      "expected": "Malformed, oversized, mismatched-session or contradictory event streams fail closed.",
+      "status": "not_run"
+    },
+    {
+      "id": "HS07",
+      "objective": "host_failure",
+      "expected": "Provider error, missing terminal event, host nonzero and timeout cannot become a successful turn.",
+      "status": "not_run"
+    },
+    {
+      "id": "HS08",
+      "objective": "unreviewed_cost",
+      "expected": "A provider invocation without a concrete reviewed cost authorization is refused before launch.",
+      "status": "not_run"
+    },
+    {
+      "id": "HS09",
+      "objective": "usage_not_billing",
+      "expected": "Estimated/token usage does not automatically settle actual incremental charges.",
+      "status": "not_run"
+    },
+    {
+      "id": "AR01",
+      "objective": "import_boundaries",
+      "expected": "Runtime policy flows through Core operations; adapter storage writes only its own journal tables.",
+      "status": "not_run"
+    },
+    {
+      "id": "AR02",
+      "objective": "single_group_implementation",
+      "expected": "Product and bootstrap import the same group implementation; all 70 scaffold behaviors remain covered.",
+      "status": "not_run"
+    },
+    {
+      "id": "AR03",
+      "objective": "standalone_entry",
+      "expected": "The bootstrap absolute entrypoint still works outside the repository.",
+      "status": "not_run"
+    },
+    {
+      "id": "LIVE01",
+      "objective": "claude_smoke",
+      "expected": "Fresh real Claude trace in an isolated fixture proves model execution and exact final response; not run before probe/cost review.",
+      "status": "not_run"
+    },
+    {
+      "id": "LIVE02",
+      "objective": "codex_smoke",
+      "expected": "Fresh real Codex trace in an isolated fixture proves model execution and exact final response; not run before probe/cost review.",
+      "status": "not_run"
+    },
+    {
+      "id": "AR04",
+      "objective": "harness_model_distinction",
+      "expected": "Waiting-harness initialization and actual model startup/completion remain distinct observed records.",
+      "status": "not_run"
+    },
+    {
+      "id": "AR05",
+      "objective": "accounted_launch_deadline",
+      "expected": "An expired deadline or missing accounted launch grant refuses the command before it executes.",
+      "status": "not_run"
+    }
+  ]
+}
