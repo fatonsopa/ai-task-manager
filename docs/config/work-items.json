@@ -19,9 +19,9 @@
         "credential scope check"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "in_progress",
-      "evidence": "Component progress and remaining gates are recorded in the linked work items and STATUS.md; phase exit is not yet accepted."
+      "evidence": "Component progress and remaining gates are recorded in the linked work items and test_status_report.md; phase exit is not yet accepted."
     },
     {
       "id": "P01",
@@ -44,9 +44,9 @@
         "isolated baseline report"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "in_progress",
-      "evidence": "Component progress and remaining gates are recorded in the linked work items and STATUS.md; phase exit is not yet accepted."
+      "evidence": "Component progress and remaining gates are recorded in the linked work items and test_status_report.md; phase exit is not yet accepted."
     },
     {
       "id": "P02",
@@ -68,9 +68,9 @@
         "pure rule tests"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "in_progress",
-      "evidence": "Component progress and remaining gates are recorded in the linked work items and STATUS.md; phase exit is not yet accepted."
+      "evidence": "Component progress and remaining gates are recorded in the linked work items and test_status_report.md; phase exit is not yet accepted."
     },
     {
       "id": "P03",
@@ -92,9 +92,9 @@
         "recovery records"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "in_progress",
-      "evidence": "Component progress and remaining gates are recorded in the linked work items and STATUS.md; phase exit is not yet accepted."
+      "evidence": "Component progress and remaining gates are recorded in the linked work items and test_status_report.md; phase exit is not yet accepted."
     },
     {
       "id": "P04",
@@ -118,9 +118,9 @@
         "live integration fixtures"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "in_progress",
-      "evidence": "Component progress and remaining gates are recorded in the linked work items and STATUS.md; phase exit is not yet accepted."
+      "evidence": "Component progress and remaining gates are recorded in the linked work items and test_status_report.md; phase exit is not yet accepted."
     },
     {
       "id": "P05",
@@ -140,7 +140,7 @@
         "actual installed host smoke evidence"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "not_started"
     },
     {
@@ -162,7 +162,7 @@
         "budget and quota behavior"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "not_started"
     },
     {
@@ -182,7 +182,7 @@
         "real terminal interaction tests"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "not_started"
     },
     {
@@ -205,7 +205,7 @@
         "retained behavioral results"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "not_started"
     },
     {
@@ -232,7 +232,7 @@
         "versioned self-contained host packages"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "not_started"
     },
     {
@@ -256,7 +256,7 @@
         "release decision"
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
-      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
       "status": "not_started"
     }
   ],

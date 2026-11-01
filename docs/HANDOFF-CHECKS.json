@@ -16,63 +16,88 @@
     "authored_cases": 248,
     "phases": 11,
     "planned_work_items": 34,
-    "diagram_pairs": 7
+    "diagram_pairs": 11
   },
   "documents": {
-    "BUILD": {
+    "policy.md": {
       "checked_delivery": "delivered",
-      "sha256": "af956c8bbea6a0b8d9fd936855d6bc680f2da8ed5202b1798fbd48d9a2ff2185",
+      "sha256": "ef4d28254b59185dfdf73be722ed0e634a255ffcbf27865068ab0c33e16dd96e",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
-      "independent_review": false
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
     },
-    "ARCHITECTURE": {
+    "spec_driven_development.md": {
       "checked_delivery": "delivered",
-      "sha256": "80d5862dd6bfac5f7396a4350202278c219a27be732c9ac95480e98929d53a80",
+      "sha256": "eb6781e10a9bcd74680192ab10b7011a3fd4a8265bef84e8b424df50886e0264",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
-      "independent_review": false
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
     },
-    "WORKFLOW": {
+    "high_level_document.md": {
       "checked_delivery": "delivered",
-      "sha256": "06546c25ab343fc85af6afa760399b0398e0244fedd0e91ae1d4130d22fdd6a3",
+      "sha256": "96e7b023354dd2211dda8b1c37b0599aa9946a3fb0b2da8ad6540a8f94dcbde6",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
-      "independent_review": false
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
     },
-    "START-HERE": {
+    "implementation_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "8312ee942622c357d77c4666f55f228988a1987aa0756618eb19eb29ef2367dd",
+      "sha256": "352329a761af0be9f34c4423ea41daa04b4deb2ca5c05a1e36ac7c05ffefd7c5",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
-      "independent_review": false
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
     },
-    "STATUS": {
+    "test_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "51c67b18452852a8c5218d4531a0fa56a18339f05e08b1206f00fa1798405142",
+      "sha256": "627ae72e29841a27e7914e3b21b323772bcdb8c00722d4d2c3eeff84b9c91430",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
-      "independent_review": false
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
     },
-    "TERMINAL-UI": {
+    "terminal/spec_driven_development.md": {
       "checked_delivery": "delivered",
-      "sha256": "836a56e207eadf6a82d83762ef564f21156dfc3249f85721e0d2388495ea52ac",
+      "sha256": "452ade873f356283d311099bad61d6ad00ee274551ed374eea2f1ca5031d5caf",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
-      "independent_review": false
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+    },
+    "readme.md": {
+      "checked_delivery": "delivered",
+      "sha256": "c80a3afba740df07dfe4fae51dc7f65b91bf96ed564988ecfe552610644a952b",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+    },
+    "test_status_report.md": {
+      "checked_delivery": "delivered",
+      "sha256": "ed25e6a96bd723ddf70c1ae3b171f3e2721757d52acd50949c8cbf20f9bf54e0",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
     }
   },
   "diagram_collection": {
     "passed": true,
-    "diagrams": 7,
-    "consumers": 7,
-    "browser_visual_review": "Three new/changed diagrams inspected; lifecycle subtitle corrected to distinguish lead acknowledgement from public reporting."
+    "diagrams": 11,
+    "consumers": 11,
+    "browser_visual_review": "All eleven source/export pairs inspected by the documentation worker; focused delivery labels clarified after lead review. Export and exact explanation/source binding verified.",
+    "product_execution_evidence": false
   },
   "component_evidence": {
     "core": {
@@ -134,9 +159,19 @@
       "billing_controls": "User confirmed paid overage, usage credits and automatic reload disabled on both accounts."
     },
     "sidebar": {
-      "approved_specification": "TERMINAL-UI.md",
+      "approved_specification": "terminal/spec_driven_development.md",
       "browser_interactions_verified": true,
       "native_terminal_or_host_acceptance": false
+    },
+    "writer_handoff": {
+      "commit": "069a1b5",
+      "source_commit": "842e9597b369ceb4d175b1dd4a862582324ef069",
+      "worker_focused_tests_passed": 139,
+      "lead_focused_subset_passed": 8,
+      "subset_not_additive": true,
+      "installed_cli_and_actual_mcp_stdio_passed": true,
+      "actual_ai_public_delivery_or_full_product_acceptance": false,
+      "cached_projection_followup": "Current quarantine handling across cached progress/execute receipts remains pending."
     }
   },
   "product_acceptance_cases_executed": 0,
@@ -159,7 +194,7 @@
     },
     "capture": "20261101T202854Z",
     "audit_status": {
-      "documents": "in_progress",
+      "documents": "complete for the exact listed document hashes",
       "generated_skill": "in_progress"
     }
   },
@@ -204,5 +239,86 @@
     "status": "planned; implementation audit not started",
     "principles": "Current Skill Builder responsibility/ownership/import guidance adapted to a modular application; source skills unchanged.",
     "packaging_prerequisite": true
+  },
+  "historical_document_checks": [
+    {
+      "scope": "Before current standard-document consolidation; prior records retained without changing their source provenance.",
+      "documents": {
+        "BUILD": {
+          "checked_delivery": "delivered",
+          "sha256": "af956c8bbea6a0b8d9fd936855d6bc680f2da8ed5202b1798fbd48d9a2ff2185",
+          "review_kind": "current_host_self_review",
+          "model": null,
+          "meaning_and_style_review": true,
+          "independent_review": false
+        },
+        "ARCHITECTURE": {
+          "checked_delivery": "delivered",
+          "sha256": "80d5862dd6bfac5f7396a4350202278c219a27be732c9ac95480e98929d53a80",
+          "review_kind": "current_host_self_review",
+          "model": null,
+          "meaning_and_style_review": true,
+          "independent_review": false
+        },
+        "WORKFLOW": {
+          "checked_delivery": "delivered",
+          "sha256": "06546c25ab343fc85af6afa760399b0398e0244fedd0e91ae1d4130d22fdd6a3",
+          "review_kind": "current_host_self_review",
+          "model": null,
+          "meaning_and_style_review": true,
+          "independent_review": false
+        },
+        "START-HERE": {
+          "checked_delivery": "delivered",
+          "sha256": "8312ee942622c357d77c4666f55f228988a1987aa0756618eb19eb29ef2367dd",
+          "review_kind": "current_host_self_review",
+          "model": null,
+          "meaning_and_style_review": true,
+          "independent_review": false
+        },
+        "STATUS": {
+          "checked_delivery": "delivered",
+          "sha256": "51c67b18452852a8c5218d4531a0fa56a18339f05e08b1206f00fa1798405142",
+          "review_kind": "current_host_self_review",
+          "model": null,
+          "meaning_and_style_review": true,
+          "independent_review": false
+        },
+        "TERMINAL-UI": {
+          "checked_delivery": "delivered",
+          "sha256": "836a56e207eadf6a82d83762ef564f21156dfc3249f85721e0d2388495ea52ac",
+          "review_kind": "current_host_self_review",
+          "model": null,
+          "meaning_and_style_review": true,
+          "independent_review": false
+        }
+      },
+      "diagram_collection": {
+        "passed": true,
+        "diagrams": 7,
+        "consumers": 7,
+        "browser_visual_review": "Three new/changed diagrams inspected; lifecycle subtitle corrected to distinguish lead acknowledgement from public reporting."
+      }
+    }
+  ],
+  "project_entrypoints": {
+    "AGENTS.md": {
+      "checked_delivery": "delivered",
+      "sha256": "7e1f5a0a6ca72b835116bfc2634137f5d4db14b359f0ae079419650f77c47044",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+    },
+    "README.md": {
+      "checked_delivery": "delivered",
+      "sha256": "70a416fd5fec87afe092b3bdb37109e90c329b283e9cf1bb1c43d664060f0ec5",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+    }
   }
 }

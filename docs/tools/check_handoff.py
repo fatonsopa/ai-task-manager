@@ -28,8 +28,8 @@ def verify(root):
     cases = acceptance.get('cases', [])
     case_ids = {c['id'] for c in cases}
     workflows = acceptance.get('workflows', [])
-    require(len(req_ids) == len(requirements) == 38, 'Expected 38 unique requirements in specification revision 2.')
-    require(len(case_ids) == len(cases) == 248, 'Expected 248 unique authored acceptance cases in specification revision 2.')
+    require(len(req_ids) == len(requirements) == 38, 'Expected 38 unique requirements in the maintained specification.')
+    require(len(case_ids) == len(cases) == 248, 'Expected 248 unique authored acceptance cases.')
     covered = set()
     behavioral = set()
     for case in cases:
@@ -113,8 +113,8 @@ def verify(root):
             if target:
                 require((path.parent / target).is_file(), f'{path.name}: broken local link {target}.')
     diagrams = root / 'assets/diagrams'
-    require(len(list(diagrams.glob('*.mmd'))) == 7, 'Expected seven editable diagram sources.')
-    require(len(list(diagrams.glob('*.svg'))) == 7, 'Expected seven rendered diagrams.')
+    require(len(list(diagrams.glob('*.mmd'))) == 11, 'Expected eleven editable diagram sources.')
+    require(len(list(diagrams.glob('*.svg'))) == 11, 'Expected eleven rendered diagrams.')
     for source in diagrams.glob('*.mmd'):
         require(source.with_suffix('.svg').is_file(), f'{source.name}: missing SVG export.')
     manifest = root / 'MANIFEST.json'
