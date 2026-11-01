@@ -1,0 +1,18 @@
+{
+  "version": 12,
+  "extends": "host-bridge-cases-v11.json",
+  "preserves_all_prior_cases": true,
+  "reason": "Bound native output and model-loop limits before the requested actual component-pilot proposal.",
+  "cases": [
+    {
+      "id": "HB-P10",
+      "expected": "The credential-free relay drains native stdout and stderr through finite per-invocation byte budgets. Overflow stops only the owned group and retains a bounded prefix without a successful model outcome."
+    },
+    {
+      "id": "HB-H12",
+      "expected": "Pinned Claude SDK options include a finite four-turn limit and existing API-equivalent budget bound; changed limits cannot silently bypass the frozen supported option shape. CLI limits do not prove incremental billing or product acceptance."
+    }
+  ],
+  "limits": {"native_stdout_bytes": 4194304, "native_stderr_bytes": 1048576, "claude_max_turns": 4, "claude_api_equivalent_budget_usd": 0.25},
+  "scope": "Local process and SDK-argv tests; no account/model operation. Actual first-host plan remains subject to lead review."
+}

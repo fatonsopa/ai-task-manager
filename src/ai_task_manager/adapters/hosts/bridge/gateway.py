@@ -45,24 +45,38 @@ class ManagedToolGateway:
         deadline,
         commands=None,
         notifications=None,
+        process_registry=None,
     ):
         if not math.isfinite(deadline):
             raise AccessDenied("A finite immutable work deadline is required")
         self.core, self.handle, self.dispatch = core, handle, dispatch
         self.workspace, self.resources, self.journal = workspace, resources, journal
         self.deadline, self.commands, self.notifications = deadline, commands, notifications
+        self.process_registry = process_registry
         self.schemas = {name: tool_schema(name) for name in SCHEMAS}
         self.lock = RLock()
         self._attempt_version = None
 
     def admit(self):
         attempt = self.core.get_attempt(self.handle, self.dispatch.attempt_id)
+        if attempt.host in {"claude", "codex"} and self.process_registry is None:
+            raise AccessDenied("Model workers require registered actual native process ownership")
         self.core.execution.validate_work_lease(self.handle, attempt.id, attempt.version)
         self._attempt_version = attempt.version
+        try:
+            self.check()
+        except BaseException:
+            self._attempt_version = None
+            raise
 
     def check(self):
         if self._attempt_version is None or self.journal.clock() >= self.deadline:
             raise AccessDenied("No current admitted work lease or original deadline expired")
+        if self.process_registry is not None:
+            process = self.process_registry.get(self.dispatch.attempt_id)
+            if process is None:
+                raise AccessDenied("Registered native process ownership is unavailable")
+            process.verify_identity()
         self._resource_fact = self.resources.verify(self.dispatch.resources)
         return self.core.execution.validate_work_lease(
             self.handle,
@@ -88,7 +102,7 @@ class ManagedToolGateway:
             if name == "run_command":
                 if self.commands is None:
                     raise AccessDenied("No reviewed confined command registry is configured")
-                return self.commands.execute_reviewed(
+                return self.commands.execute_worker_command(
                     self.handle,
                     self.dispatch.attempt_id,
                     arguments["command_ref"],

@@ -1,0 +1,17 @@
+{
+  "version": 11,
+  "extends": "host-bridge-cases-v10.json",
+  "preserves_all_prior_cases": true,
+  "reason": "Lead requires the actual production constructor and callback graph to be verified before a live component-pilot proposal.",
+  "cases": [
+    {
+      "id": "HB-S12",
+      "expected": "The real ManagedHostFactory, ManagedNativeHost, ManagedToolGateway, ManagedWorkers, ReviewedExecutions, NativePolicy, HostStartupReceipts, RuntimeProofs, Core and owned process/resource implementations compose without permissive replacement signatures. Synthetic native/provider/account controls are labelled and cannot establish actual host acceptance."
+    },
+    {
+      "id": "HB-L18",
+      "expected": "In the synthetic composition, startup precedes provider confirmation and a current work lease; an owned tool edit succeeds only afterward. Provider failure, missing admission guards or initialization tool attempts produce no work effect or false Running claim, and actual owned groups stop."
+    }
+  ],
+  "scope": "Credential-free deterministic local protocol executable with authored account/provider replies and real Core, process, Git worktree and fixture SQLite controls. No actual Claude/Codex account, model or Linear operation."
+}

@@ -1,0 +1,25 @@
+{
+  "version": 10,
+  "extends": "host-bridge-cases-v9.json",
+  "preserves_all_prior_cases": true,
+  "reason": "Source review found unexercised actual-host admission and teardown boundaries, plus a transport-correlation gap. Freeze narrow fixtures before correcting them.",
+  "cases": [
+    {
+      "id": "HB-S11",
+      "expected": "ManagedNativeHost.admit composes with the real gateway signature and registry. A stopped or missing registered native process cannot perform a later worker effect."
+    },
+    {
+      "id": "HB-P09",
+      "expected": "Failure of an SDK/session disconnect still attempts complete owned process-group stop and records actual stop evidence; private cleanup does not depend on a successful protocol close."
+    },
+    {
+      "id": "HB-L17",
+      "expected": "The worker run_command route accepts only its registered confined or protected-merge commands. A full-assignment model invocation cannot be invoked recursively as a worker command."
+    },
+    {
+      "id": "HB-H11",
+      "expected": "Codex client replies must match an outstanding exact request identity. Foreign, future, stale or duplicated replies never satisfy a later request."
+    }
+  ],
+  "scope": "Local process, SDK-message and Core fixtures only; no actual host/account/model admission."
+}

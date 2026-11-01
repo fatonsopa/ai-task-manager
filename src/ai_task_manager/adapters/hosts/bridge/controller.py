@@ -193,16 +193,35 @@ class ManagedNativeHost:
     def stop(self):
         if self.process is None:
             raise AccessDenied("Native startup outcome is unresolved")
+        errors = []
         try:
             if self.portal is not None:
                 self.portal.call(self.session.close)
             elif self.session is not None:
                 self.session.close()
+        except BaseException as error:
+            errors.append(("session_close", type(error).__name__))
         finally:
-            if self._portal_context is not None:
-                self._portal_context.__exit__(None, None, None)
+            try:
+                if self._portal_context is not None:
+                    self._portal_context.__exit__(None, None, None)
+            except BaseException as error:
+                errors.append(("portal_close", type(error).__name__))
+            finally:
                 self._portal_context = self.portal = None
-        stopped = self.process.stop()
+        try:
+            stopped = self.process.stop()
+        finally:
+            for stage, error in errors:
+                self.journal._append(
+                    "trace",
+                    {
+                        "effect": "native_disconnect_error",
+                        "attempt_id": self.binding.attempt_id,
+                        "stage": stage,
+                        "error": error,
+                    },
+                )
         self.permits.record_host_stop(self.binding, stopped)
         return stopped
 

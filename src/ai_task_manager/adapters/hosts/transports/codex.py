@@ -14,6 +14,7 @@ class CodexSession:
             gateway,
         )
         self._counter, self._responses, self._calls = 0, {}, set()
+        self._pending = set()
         self._active_turn = None
 
     def _send(self, frame):
@@ -22,12 +23,16 @@ class CodexSession:
     def request(self, method, params):
         self._counter += 1
         identity = self._counter
-        if method in {"initialize", "account/read", "thread/start"}:
-            self.startup.expect(identity, method)
-        self._send({"id": identity, "method": method, "params": params})
-        while identity not in self._responses:
-            self.pump()
-        response = self._responses.pop(identity)
+        self._pending.add(identity)
+        try:
+            if method in {"initialize", "account/read", "thread/start"}:
+                self.startup.expect(identity, method)
+            self._send({"id": identity, "method": method, "params": params})
+            while identity not in self._responses:
+                self.pump()
+            response = self._responses.pop(identity)
+        finally:
+            self._pending.discard(identity)
         if "error" in response:
             raise AccessDenied("Native host request refused")
         return response.get("result")
@@ -37,8 +42,13 @@ class CodexSession:
         if frame is None:
             return None
         if "id" in frame and "method" not in frame:
-            if frame["id"] in self._responses:
-                raise AccessDenied("Native response identity repeated")
+            if (
+                type(frame["id"]) is not int
+                or frame["id"] not in self._pending
+                or frame["id"] in self._responses
+                or ("result" in frame) == ("error" in frame)
+            ):
+                raise AccessDenied("Native response identity is unrequested, repeated or invalid")
             self._responses[frame["id"]] = frame
         elif "id" in frame:
             method, params = frame.get("method"), frame.get("params", {})
