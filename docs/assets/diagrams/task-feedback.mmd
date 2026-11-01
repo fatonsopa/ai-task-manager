@@ -1,0 +1,35 @@
+%% Diagram: Flowchart
+%% View: overview
+%% Subtitle: Local and Linear changes, safe handling and separate lead/user receipts.
+flowchart TD
+    accTitle: Task updates and reporting
+    accDescr: The same path handles progress, human decisions and outcomes from every earlier flow. Remote confirmation, CLI display, host delivery, AI processing and the public report are distinct records, detailed in the receipt table.
+    N1@{ shape: lean-r, label: "1. Tool receives a local change or Linear event" }
+    class N1 data
+    N2@{ shape: diam, label: "2. Is the source authentic and permitted?" }
+    class N2 decision
+    N3@{ shape: fr-rect, label: "3. Tool saves and deduplicates the event or operation" }
+    class N3 predefined
+    N4@{ shape: fr-rect, label: "4. Tool applies guards and confirms Linear facts" }
+    class N4 predefined
+    N5@{ shape: fr-rect, label: "5. Tool refuses, fences or retains unresolved work" }
+    class N5 predefined
+    N6@{ shape: fr-rect, label: "6. Tool updates the CLI and delivers the lead event" }
+    class N6 predefined
+    N7@{ shape: diam, label: "7. Did the lead process this exact event?" }
+    class N7 decision
+    N8@{ shape: rect, label: "8. Lead reports; tool records the public receipt" }
+    class N8 process
+    N1 --> N2
+    N2 -->|"Authenticated permitted handling"| N3
+    N2 -->|"Invalid, unrelated or authority removed"| N5
+    N3 -->|"New relevant facts"| N4
+    N3 -->|"Duplicate: no repeated effect"| N6
+    N4 -->|"Applied or confirmed facts"| N6
+    N4 -->|"Conflict or uncertain effect"| N5
+    N5 -->|"Relevant unresolved outcome only"| N6
+    N5 -->|"Verified authorized resolution"| N3
+    N6 -->|"Host delivery observed"| N7
+    N7 -->|"Acknowledged"| N8
+    N7 -->|"Pending or unsupported"| N5
+%% Legend: flow_arrow | Next action or outcome

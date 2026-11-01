@@ -1,19 +1,19 @@
 # AI task manager architecture
 
-Status: Maintained target design. The task-policy core is integrated and has passed focused tests; host, provider and end-to-end integration remain unverified.
-Authority: BUILD.md and config/execution-policy.json include the current status-policy and clean-cutover decisions.
+Status: Maintained target design with focused component evidence. Full live-provider, installed-host and end-to-end acceptance remain incomplete; the Test Status Report (TSR) owns current observations.
+Behavior: the Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), owns observable rules; the Policy (POL), [policy.md](policy.md), owns principles and authority. The Implementation Plan (IP), [implementation_plan.md](implementation_plan.md), owns delivery order.
 
 ## Scope, terms, and drivers
 
 Provide one reusable coordinator for task execution through Claude Code and Codex CLI. The lead coordinates, each independent task owns one assigned worker, worktree and application database, and one transactional metadata store records control state. The current target does not share application databases between role workers.
 
-A task is tracked intent; an attempt is one execution; a worker is its supervised model process. A logical session selects the terminal's authorized work. A principal is the validated tracker identity. Delivery evidence is separate from execution progress. BUILD.md defines the complete transition rules and exceptions.
+A task is tracked intent; an attempt is one execution; a worker is its supervised model process. A logical session selects the terminal's authorized work. A principal is the validated tracker identity. Delivery evidence is separate from execution progress. The Spec Driven Development document (SDD) defines the complete transition rules and exceptions.
 
 ## Context and components
 
-Use a modular core with Work, Execution, Scheduling and Resources domains. Application operations coordinate domain interfaces. Adapters translate host, Linear, Git and database operations without owning independent workflow rules. Presentation reads scoped views. One local supervisor coordinates claims and external actions; network microservices are not required for the first release.
+Use a modular core with Work, Execution, Scheduling and Resources domains. Preserve existing contracts through focused domain/application/provider modules; do not import or extend the legacy monolithic synchronizer. Application operations coordinate domain interfaces. Adapters translate host, Linear, Git and database operations without owning independent workflow rules. Presentation reads scoped views. One local supervisor coordinates claims and external actions; network microservices are not required for the first release.
 
-The architecture image shows the Claude host path. The Codex adapter connects to the same core and scoped-session interfaces; both implementations are required. The product layout in BUILD.md defines their shared packaging.
+The architecture image shows the Claude host path. The Codex adapter connects to the same core and scoped-session interfaces; both implementations are required. The component layout below defines their shared packaging.
 
 ### Architecture view
 
@@ -34,8 +34,9 @@ The plugin is one host adapter around the reusable core. Relationship arrows sho
 **Mermaid source**
 
 ```text
+%% View: overview
 %% Diagram: Architecture diagram
-%% Subtitle: The proposed core connects the session, worker runtime, control store and project integrations.
+%% Subtitle: Session, core, stores and project integration responsibilities.
 flowchart LR
     accTitle: Workflow coordination architecture
     accDescr: The proposed core connects the session, worker runtime, control store and project integrations.
@@ -62,11 +63,72 @@ flowchart LR
 %% Legend: flow_arrow | Relationship
 ```
 
+### Repository responsibility boundaries
+
+T34 is planned to audit the whole product's actual responsibilities, imports and consumers using current Skill Builder domain/separation guidance. It must identify excess executable/runtime/test material under docs, not assume that a filename proves ownership. This documentation task performs no broad moves. The application remains modular; folder separation alone does not justify network services or one module per function.
+
+| Material | Target owner and home |
+| --- | --- |
+| Executable helpers | Product runtime behavior belongs to focused modules under `src/ai_task_manager/`; build/test/package/operator mechanics belong to their owning tools. The current `docs/tools/` paths remain truthful until T34 migrates consumers. |
+| Runtime configuration and machine bookkeeping | The owning configuration/schema area defines versioned machine inputs and required public bookkeeping. Credentials and authoritative runtime state stay outside shipped documentation/install caches. Separate runtime settings from documentation-only indexes by actual use. |
+| Test definitions and fixtures | `tests/` owns automated domain/contract/process fixtures; `evals/` owns behavioral cases, rubrics and execution harnesses. Keep one canonical oracle per case and preserve IDs/counts when relocating the current `docs/config/` inventories. |
+| Generated records and evidence | Runtime storage owns durable operational state. Build/evaluation tools own generated bookkeeping and artifact records; private run evidence stays outside published source/packages. Reviewed summaries may appear in the Test Status Report (TSR), rather than turning docs into live state storage. |
+| Documentation assets | Standard Markdown and explanatory Mermaid/SVG, screenshots and mockups belong in docs with their maintained sources. `docs/assets/` and `docs/mockups/` are legitimate documentation resources; production UI/runtime code belongs to its application module. |
+
+Exact destinations and allowed paths are frozen only after the T34 source/consumer audit, with a before-image, complete move manifest, recovery and boundary/package checks. Existing links and commands remain valid until that separately tracked migration updates every consumer. Apply Skill Builder separation principles to the application; use its actual skill workflow for reusable skills without forcing the product into a skill-repository layout. T34 is a packaging prerequisite, not completed structural evidence.
+
+### Product boundaries and repository layout
+
+Build one modular Python application with one local supervisor and isolated worker processes. Use a supported Python version selected after dependency checks; record it in the lock and compatibility matrix. SQLite stores local control metadata on local disk. Do not introduce network microservices to coordinate claims, attempts and resource reservations that need one transaction boundary.
+
+The proposed source layout below refines the earlier Claude-only packaging so both hosts consume one core:
+
+```text
+ai-task-manager/
+├── pyproject.toml
+├── uv.lock
+├── src/ai_task_manager/
+│   ├── domains/{work,execution,scheduling,resources}/
+│   ├── application/
+│   ├── ports/
+│   ├── adapters/{linear,claude,codex,mcp,project,resources,legacy}/
+│   ├── storage/
+│   ├── supervisor/
+│   ├── migration/
+│   └── presentation/{cli.py,sidebar.py,statusline.py}
+├── integrations/{claude,codex}/
+├── config/{workflow-policy,project-schema}/
+├── tests/{domains,contracts,process,live_tst,hosts,terminal,cutover,install,portability}/
+├── evals/{cases,harness}/
+├── tools/{preflight,build-runner,package,release_check}/
+├── docs/{task-management.md,generated/transitions.md,migration/}
+├── skill-releases.lock.json
+├── .github/workflows/
+├── AGENTS.md
+├── CLAUDE.md
+├── README.md
+└── LICENSE
+```
+
+This is the target layout, not an inventory asserting that every file or command exists. Inspect current source and the Test Status Report (TSR) for implementation evidence. Build self-contained host packages containing the same versioned core wheel and required runtime skill files. Keep a single maintained core source tree; packaging may copy verified artifacts, but installed plugins must not import outside their package roots. Store operational state outside plugin caches and installation directories.
+
+### Data and interface contracts
+
+Define versioned records before adapters: Task holds identity, acceptance, project/principal/session, queue intent, dependencies and human decisions; Attempt holds task, process-start identity, host identifiers, lease, progress and outcome; Resource holds owner, provider, confined path/ID and release state; DeliveryEvidence holds commit, environment, verification and cause; SyncOperation holds operation identity, expected version, remote target, intent, acknowledgement and uncertainty. Events include actor, scope, timestamp, correlation and policy version. Preserve history across retries; one attempt's failure is not erased by another attempt's success.
+
+The target application API exposes typed session registration/resume, intake, enqueue, dispatch, hold/resume, review/decision, cancel/duplicate, progress, verified delivery, transfer, reconciliation and scoped read/explain operations. The full request/result workflow also requires durable notifications with separate queued, session-delivered, AI-acknowledged and user-reported receipts. Cursor advancement alone is not AI acknowledgement. Define schemas and error categories for invalid input, denied authority, invalid transition, blocked prerequisites, stale version, pending synchronization and uncertain external outcome. A rendered label is never a mutation API. CLI and MCP call these same operations.
+
+Bind each host session to a trusted local session capability, principal and project at registration. A shared MCP process cannot select a session by working directory or last-used state. Resume validates the original binding; transfer is one audited operation that prevents two active owners. Keep capabilities out of model-authored issue descriptions and public logs. Test forged, missing, stale and cross-session capabilities directly at the engine boundary.
+
+Skill Builder is for authoring and evaluating focused reusable skills, such as lead coordination and setup/recovery/removal guidance. Its current contract requires one independently installable repository per skill. Produce those skill repositories in the build workspace outside the product checkout, then assemble pinned, hashed releases into the product package. Include reproducible source snapshots and license attribution. Do not modify Builder merely to make the product repository pass its skill layout checks. The product must run without Builder installed.
+
 ## Runtime and data flow
 
 Process startup, local transactions and Linear mutations are separate operations. Use reservations, acknowledgements, readback and reconciliation. A process that starts while its assignment is being confirmed remains Starting and cannot perform assigned work yet. Only a verified admitted task becomes Running. Live synchronization may be pending; expose that fact rather than implying atomic agreement across systems.
 
 ### Dispatch and blocking view
+
+This technical detail view serves adapter authors reviewing atomic claims, external setup and startup/readback ordering. The Spec Driven Development document (SDD) provides the user-facing overview; this view does not define another policy.
 
 ![Task dispatch with Linear](assets/diagrams/dispatch.svg)
 
@@ -74,7 +136,7 @@ Admission, remote status and real worker startup are confirmed before task execu
 
 | Component | Explanation |
 | --- | --- |
-| 1. Queued CLI task and linked issue | The task already has reviewed prose, a confirmed Linear issue and trusted session linkage. This view expands stages 6 through 8 of the full lifecycle. |
+| 1. Queued CLI task and linked issue | The task already has reviewed prose, a confirmed Linear issue and trusted session linkage. This design view explains queue confirmation, resource reservation and startup in [the full behavioral flow](spec_driven_development.md#start-and-supervise-a-worker). |
 | 2. Scope and admission authorized? | Check bound identity, current task/decision version, reviewed content and explicit queue or resume authority. An arbitrary model-supplied identifier grants nothing. |
 | 3. Show blocked or refused reason | Show the exact refusal or prerequisite. Retry eligibility only on a relevant authorized change; do not spin on a failed guard. |
 | 4. Queue or resume confirmed in Linear? | Initial work requires Todo acknowledgement. Authorized On Hold resume checks its prior queue history and current remote facts without inventing a new initial issue. |
@@ -92,10 +154,11 @@ Admission, remote status and real worker startup are confirmed before task execu
 **Mermaid source**
 
 ```text
+%% View: detail
 %% Diagram: Flowchart
-%% Subtitle: Admission, remote status and real worker startup are confirmed before task execution.
+%% Subtitle: Reservations, runtime startup and provider confirmation boundaries.
 flowchart TD
-    accTitle: Task dispatch with Linear
+    accTitle: Worker admission design
     accDescr: Admission, remote status and real worker startup are confirmed before task execution.
     N1@{ shape: lean-r, label: "1. Queued CLI task and linked issue" }
     class N1 data
@@ -159,14 +222,15 @@ The worker keeps responsibility for the existing merge procedure. The controller
 | 4. Worker fixes the reported cause | The worker follows the script’s answer, resolves the named cause or wait, and commits any repair before retrying. |
 | 5. Run existing merge script | Run `bash scripts/merge-to-dev.sh` as the current foreground call. It retains rebase, serialization, checks, database lifecycle and dev-update ownership. |
 | 6. Successful merge result? | `NOT MERGED` remains unfinished work. `MERGED` and `NOTHING TO MERGE` keep their current meanings, including existing warning semantics. |
-| 7. Record the script’s answer | Record the actual command/result and attribution. Add no merge queue, extra checks or alternative cleanup route. |
+| 7. Record the script’s answer | Record the actual command/result and attribution. Add no merge queue, additional merge gate or alternative cleanup route; risk-based verification alone does not authorize a merge rewrite. Necessary refactoring follows the audited R08 exception in the Spec Driven Development document (SDD). |
 | 8. Close execution under existing rules | Close execution under the existing task and merge rules. This does not imply deployment to production. |
 
 **Mermaid source**
 
 ```text
+%% View: overview
 %% Diagram: Flowchart
-%% Subtitle: The worker keeps the existing merge procedure; the proposed controller records its result.
+%% Subtitle: The preserved merge route and verified result handling.
 flowchart TD
     accTitle: Worker merge workflow
     accDescr: The worker keeps the existing merge procedure; the proposed controller records its result.
@@ -218,8 +282,9 @@ Both terminal views use the same authorized local snapshot; neither imports anot
 **Mermaid source**
 
 ```text
+%% View: overview
 %% Diagram: Architecture diagram
-%% Subtitle: Proposed task views are restricted by project, authenticated account and logical session.
+%% Subtitle: Task reads restricted by project, principal and logical session.
 flowchart TD
     accTitle: Session task visibility
     accDescr: Proposed task views are restricted by project, authenticated account and logical session.
@@ -250,6 +315,8 @@ Worker results and questions go into a durable inbox for the owning session. Rep
 
 ### Real-time Linear event flow
 
+This technical detail view serves provider/host adapter authors checking durability, authentication, event application and recovery boundaries. The behavioral overview and receipt meanings remain in the Spec Driven Development document (SDD).
+
 ![Bidirectional Linear synchronization](assets/diagrams/realtime.svg)
 
 Immediate outbound intents and signed inbound events update scoped task views through one policy. Numbers identify the complete steps; each acknowledgement is an observed fact.
@@ -270,10 +337,11 @@ Immediate outbound intents and signed inbound events update scoped task views th
 **Mermaid source**
 
 ```text
+%% View: detail
 %% Diagram: Flowchart
-%% Subtitle: Immediate outbound intents and signed inbound events update scoped task views through one policy.
+%% Subtitle: Durable outbound operations and authenticated inbound events.
 flowchart TD
-    accTitle: Bidirectional Linear synchronization
+    accTitle: Linear synchronization design
     accDescr: Immediate outbound intents and signed inbound events update scoped task views through one policy.
     N1@{ shape: lean-r, label: "1. Authorized local task event" }
     class N1 data
@@ -315,68 +383,63 @@ Host packages contain the same versioned core artifact and pinned skill releases
 
 ### GitHub lifecycle view
 
-![GitHub lifecycle view](assets/diagrams/installation.svg)
+![Plugin installation and removal](assets/diagrams/installation.svg)
 
-This view describes the managed installation/removal procedure. Direct native uninstall has the separate recovery behavior specified below.
+This overview separates installation from managed removal. Direct native uninstall has no assumed cleanup callback; active work and owned settings still require safe handling.
 
 | Component | Explanation |
 | --- | --- |
-| 1. Versioned GitHub release | The proposed GitHub repository publishes its marketplace, source, versioned releases and checksummed artifacts; the actual owner is still a publication setting. |
-| 2. Install selected plugin scope | Use native plugin installation at the selected user, project or local scope. Downloading a plugin does not authorize work. |
-| 3. Register project and principal | Validate project bindings, authenticated identity and runtime capabilities; record the integration settings this installation owns. |
-| 4. Managed sessions use the plugin | Each logical session retains its separate list. Runtime history has an independent persistence lifecycle. |
-| 5. Removal requested | Managed removal identifies the installation scope. Direct native uninstall is a separate path to test. |
-| 6. Active owned work? | Inspect affected work only. Removing one project registration must not interrupt another project or user’s sessions. |
-| 7. Drain or checkpoint work | Drain attempts or perform an explicitly requested safe checkpoint/cancellation. Preserve active resources and do not interrupt a merge unsafely. |
-| 8. Restore owned integration settings | Restore only unchanged settings owned by this installation, including its display setup. Keep unrelated edits and registrations. |
-| 9. Uninstall selected scope | Use native uninstall at the selected scope. Do not assume an uninstall callback runs plugin cleanup. |
-| 10. Retain history and working data | Keep independent history, unfinished work and protected data. A purge is a separate explicit operation. |
+| 1. Publish a verified versioned package | The GitHub marketplace, source, versioned releases and checksummed artifacts support distribution. Repository publication settings and release authorization remain separate; this view is not evidence that a release was published. |
+| 2. Host installs the selected plugin scope | Install only the selected user, project or local scope. Downloading the plugin grants no task or resource authority. |
+| 3. Tool validates project and principal | Verify project bindings, authenticated identity and runtime capabilities; record the exact integration settings this installation owns. |
+| 4. Sessions use their own managed task lists | Each logical session retains a separate authorized task list. Runtime history lives independently from plugin cache/installation data. |
+| 5. User requests removal of one scope | Identify the selected installation. Removing it must not interrupt another project, account or installation scope. |
+| 6. Is owned work still active? | Inspect actual affected attempts and resources. Unknown ownership requires safe resolution, not an assumption that work has stopped. |
+| 7. Tool drains or checkpoints owned work | Let merges finish and drain attempts, or perform an explicitly requested safe checkpoint/cancellation. Recheck ownership before continuing. |
+| 8. Host removes the scope and retains history | First restore only unchanged settings owned by this installation, preserving unrelated edits and display configuration. Use native uninstall for the selected scope without assuming a callback. Retain unfinished work/resources and history; purge is a separate explicit operation. |
 
 **Mermaid source**
 
 ```text
 %% Diagram: Flowchart
-%% Subtitle: Proposed GitHub distribution with scoped installation, safe removal and retained task history.
+%% View: overview
+%% Subtitle: Selected installation scope, safe removal and retained runtime history.
 flowchart TD
     accTitle: Plugin installation and removal
-    accDescr: Proposed GitHub distribution with scoped installation, safe removal and retained task history.
-    A@{ shape: doc, label: "1. Versioned GitHub release" }
-    class A document
-    B@{ shape: fr-rect, label: "2. Install selected plugin scope" }
-    class B predefined
-    C@{ shape: hex, label: "3. Register project and principal" }
-    class C preparation
-    D@{ shape: rect, label: "4. Managed sessions use the plugin" }
-    class D process
-    E@{ shape: lean-r, label: "5. Removal requested" }
-    class E data
-    F@{ shape: diam, label: "6. Active owned work?" }
-    class F decision
-    G@{ shape: rect, label: "7. Drain or checkpoint work" }
-    class G process
-    H@{ shape: rect, label: "8. Restore owned integration settings" }
-    class H process
-    I@{ shape: fr-rect, label: "9. Uninstall selected scope" }
-    class I predefined
-    J@{ shape: stadium, label: "10. Retain history and working data" }
-    class J terminator
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F -->|"Yes"| G
-    G -->|"Recheck ownership"| F
-    F -->|"No"| H
-    H --> I
-    I --> J
-%% Legend: flow_arrow | Managed lifecycle step
+    accDescr: This overview separates installation from managed removal. Direct native uninstall has no assumed cleanup callback; active work and owned settings still require safe handling.
+    N1@{ shape: lean-r, label: "1. Publish a verified versioned package" }
+    class N1 data
+    N2@{ shape: fr-rect, label: "2. Host installs the selected plugin scope" }
+    class N2 predefined
+    N3@{ shape: fr-rect, label: "3. Tool validates project and principal" }
+    class N3 predefined
+    N4@{ shape: rect, label: "4. Sessions use their own managed task lists" }
+    class N4 process
+    N5@{ shape: lean-r, label: "5. User requests removal of one scope" }
+    class N5 data
+    N6@{ shape: diam, label: "6. Is owned work still active?" }
+    class N6 decision
+    N7@{ shape: fr-rect, label: "7. Tool drains or checkpoints owned work" }
+    class N7 predefined
+    N8@{ shape: fr-rect, label: "8. Host removes the scope and retains history" }
+    class N8 predefined
+    N1 --> N2
+    N2 --> N3
+    N3 -->|"Validated capabilities"| N4
+    N4 --> N5
+    N5 --> N6
+    N6 -->|"Yes or unresolved"| N7
+    N7 -->|"Recheck owned work"| N6
+    N6 -->|"No active owned work"| N8
+%% Legend: flow_arrow | Next action or outcome
 ```
 
 ## Decisions and risks
 
-Activation uses one complete project-wide cutover. Stop admission, finish active merges, quiesce workers, fence every legacy writer, import and reconcile all required state, replace instructions and compatibility entry points, then activate exactly one new authority. There is no dual live operation or partial ownership migration. Rollback must retain post-cutover facts and must not enable two writer sets.
+The design uses one local supervisor and transactional metadata store so task claims, attempt ownership and capacity can be atomic locally. External provider/process/resource effects remain separate and use durable operations, evidence and reconciliation. Adapters cannot write another policy or infer a human decision from model prose.
 
-Keep task-management.md as the concise readable contract. Executable policy definitions enforce transitions and generate the transition reference. Existing command surfaces remain callable through tested translation to the sole new engine. The merge script remains byte-identical.
+The Spec Driven Development document (SDD) owns single-cutover, delivery, cleanup and installation guarantees; this design implements them through authority epochs, scoped capabilities, owned settings and durable records. The Implementation Plan (IP) schedules the migration and the future `migrate.md` How-to Guide (HTG) will expose tested script-backed commands.
 
-Resource ownership includes stable owner identifiers so future parent/role grouping can be introduced through a separately reviewed change. Shared application databases remain disabled today. Missing real-host evidence, unsafe migration ambiguity or an unguarded required execution surface blocks acceptance; documentation cannot waive those gaps.
+Keep the pinned merge bytes as the regression baseline and use the existing route by default. The user-authorized R08 exception permits necessary refactoring only after a latest-source audit demonstrates incompatibility, freezes existing-scenario regressions and verifies the preserved command contract, migration and recovery. A missing adapter alone cannot justify a rewrite. Translate legacy task-state entry points only to the sole new engine; the compatibility audit/refactor work remains pending. Resource ownership includes stable owner identifiers for a separately reviewed future parent/role grouping; shared application databases remain disabled today.
+
+Current public lookup/adoption and delivered-follow-up issuer gaps are identified in the Spec Driven Development document (SDD); their required behavior is not evidence of completed API integration. Missing real-host proof, unsafe migration ambiguity or an unguarded required execution surface blocks acceptance. The Test Plan (TP), [test_plan.md](test_plan.md), owns checks; the Test Status Report (TSR), [test_status_report.md](test_status_report.md), owns current results.

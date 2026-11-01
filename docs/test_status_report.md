@@ -40,4 +40,4 @@ No code has been pushed and no normal-session integration has been activated. Ap
 
 ## Sources
 
-[The Implementation Plan (IP)](BUILD.md), [task and Linear workflow](WORKFLOW.md), [approved sidebar specification](TERMINAL-UI.md), [execution policy](config/execution-policy.json) and [component evidence summary](HANDOFF-CHECKS.json). Exact local run logs, XML results, package hashes, model traces and source-delta evidence are retained in the private build records for run 20261101T155648Z.
+[The Implementation Plan (IP)](implementation_plan.md), [task and Linear workflow](spec_driven_development.md), [approved sidebar specification](terminal/spec_driven_development.md), [execution policy](config/execution-policy.json) and [component evidence summary](HANDOFF-CHECKS.json). Exact local run logs, XML results, package hashes, model traces and source-delta evidence are retained in the private build records for run 20261101T155648Z.

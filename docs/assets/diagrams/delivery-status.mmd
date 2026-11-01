@@ -1,0 +1,35 @@
+%% Diagram: Flowchart
+%% View: overview
+%% Subtitle: Code delivery stages, human Review and verified completion exceptions.
+flowchart TD
+    accTitle: Task delivery
+    accDescr: The lead checks acceptance and all required work before choosing the result path. Each delivery subprocess requires its own artifact and provider evidence; the Review destination table preserves every configured target.
+    N1@{ shape: rect, label: "1. Lead checks results and acceptance" }
+    class N1 process
+    N2@{ shape: diam, label: "2. Which outcome is supported by evidence?" }
+    class N2 decision
+    N3@{ shape: fr-rect, label: "3. Worker merges; tool confirms In Dev" }
+    class N3 predefined
+    N4@{ shape: fr-rect, label: "4. Tool verifies staging and confirms In Staging" }
+    class N4 predefined
+    N5@{ shape: fr-rect, label: "5. Tool verifies production and confirms Done" }
+    class N5 predefined
+    N6@{ shape: rect, label: "6. Tool confirms checked non-code Done" }
+    class N6 process
+    N7@{ shape: fr-rect, label: "7. Human chooses the next status after review" }
+    class N7 predefined
+    N8@{ shape: lean-r, label: "8. Tool reports the actual outcome to the lead" }
+    class N8 data
+    N1 --> N2
+    N2 -->|"Code ready; required acceptance satisfied"| N3
+    N2 -->|"Verified non-code"| N6
+    N2 -->|"Explicit human acceptance required"| N7
+    N2 -->|"Partial, failed or unsupported"| N8
+    N3 -->|"Verified staging event"| N4
+    N4 -->|"Verified production event"| N5
+    N3 -->|"Current stage or unresolved merge"| N8
+    N4 -->|"Current stage or staging unresolved"| N8
+    N5 -->|"Confirmed or production unresolved"| N8
+    N6 -->|"Confirmed"| N8
+    N7 -->|"Actual decision or pending review"| N8
+%% Legend: flow_arrow | Next action or outcome

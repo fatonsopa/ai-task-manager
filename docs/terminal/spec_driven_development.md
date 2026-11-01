@@ -1,7 +1,7 @@
 # Session task management specification
 
 Status: Agreed interaction design, approved on 1 November 2026 with the subsequent activity-icon requirements. Native terminal implementation and host acceptance remain pending.
-Source: The user's sidebar review; R04 and R17; WORKFLOW.md.
+Source: The user's sidebar review; R04 and R17; the [Spec Driven Development document (SDD)](../spec_driven_development.md).
 
 ## Purpose and scope
 
@@ -28,9 +28,9 @@ A user expands a long description. The whole sidebar scrolls while the CLI remai
 
 ### Approved sidebar reference
 
-![Task activity icons and expanded merging details](mockups/sidebar-activities.png)
+![Task activity icons and expanded merging details](../mockups/sidebar-activities.png)
 
-The reference uses illustrative tasks. It demonstrates the approved layout, not a live task list or evidence of native host integration. The editable [mockup](mockups/session-task-management.html) is maintained with this specification.
+The reference uses illustrative tasks. It demonstrates the approved layout, not a live task list or evidence of native host integration. The editable [mockup](../mockups/session-task-management.html) is maintained with this specification.
 
 ## Requirements and business rules
 
@@ -50,7 +50,27 @@ Use the same scoped projection as the CLI and MCP service. Canonical provider ID
 
 Activity icons require script or provider evidence. A title, model narrative or branch name cannot establish Running, Merging, Blocked or Done. Pending, stale and unknown observations remain explicit. Symbols and accessible labels must retain meaning without color. Support mouse and keyboard inspection, and recheck wrapping when the terminal width changes.
 
-Layout interactions are local view changes. State transitions, work leases, resource cleanup, merge operations and Linear writes continue through the existing guarded application interfaces.
+Closing a view does not stop jobs. Layout interactions are local view changes. State transitions, work leases, resource cleanup, merge operations and Linear writes continue through the existing guarded application interfaces.
+
+### Activity symbols
+
+Use the following symbols with visible labels. Support `NO_COLOR`, ASCII fallback, narrow terminals, resizing, screen-reader-friendly output and safe rendering of untrusted text. Workflow groups remain separate from these observed activities.
+
+| Activity or condition | Symbol | Color |
+| --- | --- | --- |
+| Queued | ◻ | Neutral |
+| Reserved | ◌ | Neutral |
+| Starting | ↗ | Cyan |
+| Running | ◼ | Cyan |
+| Blocked | ⊘ | Yellow |
+| Paused | Ⅱ | Yellow |
+| Decision needed | ? | Magenta |
+| Verifying | ◇ | Blue |
+| Merging | ⇄ | Blue |
+| Done | ✔ | Green |
+| Failed | ✖ | Red |
+| Canceled | — | Neutral |
+| Unknown | ! | Yellow |
 
 ## Acceptance criteria
 
@@ -68,4 +88,4 @@ No layout decision remains open. Native rendering, host embedding and the full i
 
 ## Related design and work
 
-[WORKFLOW.md](WORKFLOW.md) governs task and reporting behavior. [ARCHITECTURE.md](ARCHITECTURE.md) owns component boundaries. [BUILD.md](BUILD.md), work items T17/T18 and R17 govern implementation and verification. The docs directory remains the maintained source of truth.
+[spec_driven_development.md](../spec_driven_development.md) governs task and reporting behavior. [high_level_document.md](../high_level_document.md) owns component boundaries. [implementation_plan.md](../implementation_plan.md), work items T17/T18 and R17 govern implementation and verification. The docs directory remains the maintained source of truth.

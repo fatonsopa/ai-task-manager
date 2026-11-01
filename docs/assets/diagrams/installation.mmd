@@ -1,36 +1,31 @@
 %% Diagram: Flowchart
-%% Subtitle: Proposed GitHub distribution with scoped installation, safe removal and retained task history.
+%% View: overview
+%% Subtitle: Selected installation scope, safe removal and retained runtime history.
 flowchart TD
     accTitle: Plugin installation and removal
-    accDescr: Proposed GitHub distribution with scoped installation, safe removal and retained task history.
-    A@{ shape: doc, label: "1. Versioned GitHub release" }
-    class A document
-    B@{ shape: fr-rect, label: "2. Install selected plugin scope" }
-    class B predefined
-    C@{ shape: hex, label: "3. Register project and principal" }
-    class C preparation
-    D@{ shape: rect, label: "4. Managed sessions use the plugin" }
-    class D process
-    E@{ shape: lean-r, label: "5. Removal requested" }
-    class E data
-    F@{ shape: diam, label: "6. Active owned work?" }
-    class F decision
-    G@{ shape: rect, label: "7. Drain or checkpoint work" }
-    class G process
-    H@{ shape: rect, label: "8. Restore owned integration settings" }
-    class H process
-    I@{ shape: fr-rect, label: "9. Uninstall selected scope" }
-    class I predefined
-    J@{ shape: stadium, label: "10. Retain history and working data" }
-    class J terminator
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F -->|"Yes"| G
-    G -->|"Recheck ownership"| F
-    F -->|"No"| H
-    H --> I
-    I --> J
-%% Legend: flow_arrow | Managed lifecycle step
+    accDescr: This overview separates installation from managed removal. Direct native uninstall has no assumed cleanup callback; active work and owned settings still require safe handling.
+    N1@{ shape: lean-r, label: "1. Publish a verified versioned package" }
+    class N1 data
+    N2@{ shape: fr-rect, label: "2. Host installs the selected plugin scope" }
+    class N2 predefined
+    N3@{ shape: fr-rect, label: "3. Tool validates project and principal" }
+    class N3 predefined
+    N4@{ shape: rect, label: "4. Sessions use their own managed task lists" }
+    class N4 process
+    N5@{ shape: lean-r, label: "5. User requests removal of one scope" }
+    class N5 data
+    N6@{ shape: diam, label: "6. Is owned work still active?" }
+    class N6 decision
+    N7@{ shape: fr-rect, label: "7. Tool drains or checkpoints owned work" }
+    class N7 predefined
+    N8@{ shape: fr-rect, label: "8. Host removes the scope and retains history" }
+    class N8 predefined
+    N1 --> N2
+    N2 --> N3
+    N3 -->|"Validated capabilities"| N4
+    N4 --> N5
+    N5 --> N6
+    N6 -->|"Yes or unresolved"| N7
+    N7 -->|"Recheck owned work"| N6
+    N6 -->|"No active owned work"| N8
+%% Legend: flow_arrow | Next action or outcome

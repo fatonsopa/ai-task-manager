@@ -1,0 +1,33 @@
+%% Diagram: Flowchart
+%% View: overview
+%% Subtitle: Eligibility, owned resources, confirmed startup and supervised results.
+flowchart TD
+    accTitle: Worker execution
+    accDescr: This is an execution overview. Startup, resource readiness and Linear acknowledgement remain separate observations even though one decision checks that all are present. Detailed guard and recovery rules follow the diagrams.
+    N1@{ shape: lean-r, label: "1. Tool reads queued work or authorized resume" }
+    class N1 data
+    N2@{ shape: diam, label: "2. Do dependencies, holds and limits allow work?" }
+    class N2 decision
+    N3@{ shape: fr-rect, label: "3. Tool reserves resources and starts the worker" }
+    class N3 predefined
+    N4@{ shape: diam, label: "4. Are startup, resources and In Progress confirmed?" }
+    class N4 decision
+    N5@{ shape: rect, label: "5. Tool grants work and shows Running" }
+    class N5 process
+    N6@{ shape: lean-r, label: "6. Worker reports progress and results to the lead" }
+    class N6 data
+    N7@{ shape: fr-rect, label: "7. Lead verifies the result or interruption" }
+    class N7 predefined
+    N8@{ shape: curv-trap, label: "8. CLI shows the blocked, failed or unknown condition" }
+    class N8 display
+    N1 --> N2
+    N2 -->|"Eligible"| N3
+    N2 -->|"Blocked or denied"| N8
+    N3 -->|"Prepared and launched"| N4
+    N4 -->|"All evidence current"| N5
+    N4 -->|"Missing, conflicting or unknown"| N8
+    N5 --> N6
+    N6 -->|"Result, question or checkpoint"| N7
+    N7 -->|"Incomplete or interrupted"| N8
+    N8 -->|"Authorized safe recovery or resume"| N1
+%% Legend: flow_arrow | Next action or outcome
