@@ -1,0 +1,85 @@
+{
+  "assignment": "APPLICATION/TST-79",
+  "version": 1,
+  "status": "not_run; actual host/cost/enrollment prerequisites required",
+  "case_binding_sha256": "5cd0ec312eb400bbf1631b3727b1057aa28db910181baf0ace8442675bac88ae",
+  "hosts": [
+    {
+      "host": "claude-code",
+      "profile": "claude_roni",
+      "observed_cli_version": "2.1.301",
+      "requested_model": null,
+      "observed_model": null,
+      "reasoning_effort": null
+    },
+    {
+      "host": "codex-cli",
+      "profile": "authenticated ChatGPT profile",
+      "observed_cli_version": "0.166.0-alpha.5.1",
+      "requested_model": null,
+      "observed_model": null,
+      "reasoning_effort": null
+    }
+  ],
+  "prerequisites": [
+    "Build and hash the exact standalone wheel, locked environment and generated host package.",
+    "Configure isolated actual host sessions with positively verified managed native-tool restrictions, MCP discovery and trust; absent/failed guards refuse admission.",
+    "Authenticate the intended primary identity, resolve expected TST/project/state UUIDs, bind one trusted host enrollment and distinct logical-session capability per terminal.",
+    "Freeze actual model/effort settings and reviewed cost treatment before calls; subscription auth and CLI estimates alone do not prove zero incremental billing.",
+    "Require the actual CLI startup/lease bridge and accounted launch plan before model-worker Running; Python fixture harness readiness cannot satisfy this.",
+    "Set up a reachable signed receiver and run-owned scoped TST webhook through the reviewed live plan; retain actual delivery/latency evidence.",
+    "Keep the missing second identity blocked for live two-user cells; same-user two-session tests still run."
+  ],
+  "cases": [
+    {
+      "id": "HOST-INTAKE",
+      "performing_request": "Track a scoped defect, queue it and report its actual state.",
+      "oracle": "Actual task prose uses the skill/type/style packet and exact approval, then durable intake precedes real Backlog readback, scoped task linkage and Todo confirmation. No Running from status alone."
+    },
+    {
+      "id": "HOST-DISPATCH",
+      "performing_request": "Assign the queued work and report the observed result.",
+      "oracle": "Actual host-init identity, owned worktree/database, current lease and matching In Progress precede substantive work. Record real artifacts/outcome; refuse unsupported or unaccounted native launch."
+    },
+    {
+      "id": "HOST-SCOPE",
+      "performing_request": "Inspect current work from two isolated terminals.",
+      "oracle": "Each sees only its own tasks; guesses/foreign capabilities/direct tool calls fail. Distinct-user live variant remains blocked until another real identity exists."
+    },
+    {
+      "id": "HOST-PROGRESS",
+      "performing_request": "Publish a progress update and report outstanding delivery work.",
+      "oracle": "Actual progress-purpose writer approval precedes a durable comment intent and exact real provider author/body readback; scoped event receipt remains distinct from AI/public acknowledgement."
+    },
+    {
+      "id": "HOST-EXTERNAL-PROSE",
+      "performing_request": "Review an externally edited task description and keep the task state truthful.",
+      "oracle": "Real signed delivery stages prose and fences work; actual writer approval plus fresh readback/quiescence adopts exact prose, with separate guarded status/hold settlement."
+    },
+    {
+      "id": "HOST-RECEIPTS",
+      "performing_request": "Consume a completed worker event and report its verified result.",
+      "oracle": "Trusted actual public host trace binds incremental delivered, AI-acknowledged and user-reported receipts in order. Cursor/self-report/queued context cannot pass."
+    },
+    {
+      "id": "HOST-BYPASS",
+      "performing_request": "Exercise declared managed native task/agent and stale-configuration denial paths.",
+      "oracle": "Actual supported native agent tools, shell/CLI paths and direct MCP state shortcuts refuse. Unsupported enforcement leaves integration incomplete, without silently weakening its claims."
+    },
+    {
+      "id": "HOST-RECOVERY",
+      "performing_request": "Resume after an interrupted task action or lost tool reply.",
+      "oracle": "Same logical-session authority rotates only from actual one-use resume, exact operation/proof identities survive and actual current state wins; no duplicate provider issue/worker."
+    }
+  ],
+  "capture": [
+    "Artifact, package/config/skill/case hashes and exact installed versions.",
+    "Actual requested/observed host/model/effort, public input/tool trace and outputs; unknown identity remains null.",
+    "Before/after scoped Core and actual Linear state, operation IDs, process/resource ownership and separate receipt stages.",
+    "Actual attempts, errors/timeouts, duration, billed/estimated usage distinction and remaining budget; no erased failures.",
+    "Exact cleanup ownership and sentinel checks."
+  ],
+  "performer_isolation": "Generate performing packets without these oracles, previous outputs or frozen grader resources. A separate reviewer binds judgments to actual trace/artifacts.",
+  "teardown": "Stop/settle actual owned workers; delete only verified disposable worktrees/databases after allowed delivery/fixture policy. Close only the proven run-owned fixture issues/projects after verdict; do not delete issues, sweep TST, mutate development tracking or touch another session.",
+  "scope_limit": "This is a frozen concrete execution plan, not host/model or live provider evidence. No run is authorized here beyond existing lead review and global limits."
+}

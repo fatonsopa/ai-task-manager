@@ -6,7 +6,13 @@ from ai_task_manager.domains.work.errors import (
     EvidenceRequired,
     InvalidTransition,
 )
-from ai_task_manager.domains.work.models import DELIVERED, Approval, SyncState, Task
+from ai_task_manager.domains.work.models import (
+    DELIVERED,
+    Approval,
+    SyncState,
+    Task,
+    valid_display_identifier,
+)
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.storage import attempts, outbox, work
 
@@ -211,6 +217,9 @@ class Intake:
                 or (task.issue_id is not None and task.issue_id != issue_id)
             ):
                 raise EvidenceRequired("Provider issue identity changed or is missing")
+            display_identifier = proof.payload.get("display_identifier")
+            if display_identifier is not None and not valid_display_identifier(display_identifier):
+                raise EvidenceRequired("Provider display identifier is malformed")
             if task.issue_id is None and (
                 task.desired_status != S.BACKLOG or operation.kind != "create_backlog"
             ):
@@ -241,6 +250,7 @@ class Intake:
                 replace(
                     task,
                     issue_id=issue_id,
+                    display_identifier=display_identifier or task.display_identifier,
                     observed_status=task.desired_status,
                     sync_state=SyncState.CONFIRMED,
                     execution_state=execution,

@@ -148,6 +148,18 @@ class Task:
     decision_revision: int = 0
     decision_ref: str | None = None
     human_hold: bool = False
+    display_identifier: str | None = None
+
+
+def valid_display_identifier(value):
+    """Display-only provider label; never a canonical lookup or authority key."""
+    return (
+        isinstance(value, str)
+        and 1 <= len(value) <= 128
+        and value.isascii()
+        and value[0].isalnum()
+        and all(character.isalnum() or character in "-._" for character in value)
+    )
 
 
 @dataclass(frozen=True)

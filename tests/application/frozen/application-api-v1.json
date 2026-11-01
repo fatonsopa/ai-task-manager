@@ -1,0 +1,210 @@
+{
+  "assignment": "APPLICATION/TST-79",
+  "version": 1,
+  "state": "proposed; no implementation started",
+  "sources": {
+    "core_commit": "e958c6f",
+    "official_mcp": [
+      "https://py.sdk.modelcontextprotocol.io/",
+      "https://py.sdk.modelcontextprotocol.io/client/",
+      "https://py.sdk.modelcontextprotocol.io/servers/tools/"
+    ],
+    "pypi_mcp_observed": "2.3.0"
+  },
+  "modules": {
+    "application/service/models.py": "Strict public request/result models and typed error envelope; no authority objects accepted from clients.",
+    "application/service/facade.py": "Small composition facade delegating scoped read/intake/queue/hold/worker/sync/receipt operations to focused use cases.",
+    "application/service/{intake,actions,workers,events}.py": "Use existing core/provider/runtime public APIs, durable operation IDs and current versions. No SQL or duplicated transition policy.",
+    "config/{models,files,sessions}.py": "Pinned operator configuration, confined private files, trusted host enrollment and persisted opaque session capabilities. CWD/user strings cannot select authority.",
+    "adapters/decisions/{journal,authority}.py": "Separate durable decision/session-resume/lead observation receipts. Delegated actions use an explicit trusted grant; actual human acceptance and host/AI/user receipts require trusted observed references, not model assertions.",
+    "adapters/writing/{package,runner,journal,service}.py": "Verify pinned external Technical Writer package, run actual prepare/packet/review/finalize with structured argv in private storage, bind kind/style/reference/version/exact rendered content and metadata to opaque approvals. No guessed semantic review or arbitrary imported receipt trust.",
+    "adapters/mcp/{server,tools}.py": "Official pinned MCP SDK server over stdio; strict input schemas and genuine protocol/client tests. No handcrafted protocol, credentials on stdout or public authority-issuer tools.",
+    "presentation/cli/{main,commands,render}.py": "Installable aitm group commands, JSON output, typed nonzero errors and scoped text lists with status symbols/color-free support.",
+    "__main__.py": "python -m ai_task_manager source/wheel entry point."
+  },
+  "authority_boundary": {
+    "bootstrap": "Trusted installer/host wrapper verifies actual Linear binding, enrolls a host logical-session grant and invokes internal session establishment. Model-visible tools cannot create arbitrary grants, principals or host observations. Public session-open/resume accepts only opaque pre-enrolled references and valid configured capabilities.",
+    "decisions": "General delegated queue/start/cancel/duplicate/hold requests may create only agent-actor decisions under an existing explicit scoped grant. Human acceptance/review exits and scope revision require an independently observed human-instruction reference from a trusted host/provider adapter. Missing host observation remains a typed refusal, never a fabricated human proof.",
+    "writing": "Semantic judgment is residual AI work performed from the actual frozen packet; self-review is honestly labelled. Code runs the validator and checks exact output/content/kind/version. Independent/human reviewer claims cannot be injected through model endpoints. Changing package bytes or approved prose invalidates publication.",
+    "notifications": "MCP tools expose scoped events and apply existing verified receipt references only. No event read/cursor advance or self-reported ack mints host delivery/AI/public evidence. Actual host observer integration is a separate dependency; unsupported modes remain pending.",
+    "provider_runtime": "Linear owns actual identity/status/ingress observations; runtime owns startup/resource/outcome observations. Service composes explicit verifier routes without catch-all authority or table writes."
+  },
+  "packaging_proposal": {
+    "request": "Lead/runtime worker integration of a src wheel backend, project.scripts aitm entry point, and locked mcp==2.3.0 base SDK (not cli extra). Keep Python >=3.12 and product standalone; Technical Writer is an explicitly configured external pinned dependency. Do not edit shared pyproject/lock concurrently.",
+    "mechanical_test_env": "Create private uv environment with reviewed SDK dependency after approval; tests import src and do not use credentials or live provider/model effects."
+  },
+  "public_operations": [
+    {
+      "name": "session_show",
+      "input": {},
+      "authority": "configured session capability",
+      "output": "redacted current binding/capabilities"
+    },
+    {
+      "name": "session_resume",
+      "input": {
+        "enrollment_ref": "opaque",
+        "resume_ref": "opaque"
+      },
+      "authority": "pre-enrolled trusted host + one-use resume",
+      "output": "new persisted capability; no token in normal stdout"
+    },
+    {
+      "name": "writing_prepare",
+      "input": {
+        "kind": "six issue types",
+        "purpose": "task|progress",
+        "title": "text",
+        "body": "text",
+        "code_bearing": "boolean",
+        "required_work": "distinct text array"
+      },
+      "authority": "configured scoped session; facts are content, not approval",
+      "output": "opaque writing id and actual source/guide-bound review packet"
+    },
+    {
+      "name": "writing_review",
+      "input": {
+        "writing_id": "opaque",
+        "review": "typed exact packet review"
+      },
+      "authority": "current host self-review only unless trusted reviewer observation exists",
+      "output": "accepted/rejected review result; no task effect"
+    },
+    {
+      "name": "writing_finalize",
+      "input": {
+        "writing_id": "opaque"
+      },
+      "authority": "actual accepted validator review and unchanged exact draft/package",
+      "output": "opaque version-bound approval"
+    },
+    {
+      "name": "task_submit",
+      "input": {
+        "writing_ref": "opaque approved task prose",
+        "operation_key": "unique",
+        "parent_task_id": "optional scoped delivered parent",
+        "followup_ref": "optional trusted authorization"
+      },
+      "authority": "writing receipt + scoped session",
+      "output": "pending intake/confirmed Backlog with explicit sync fact"
+    },
+    {
+      "name": "task_list",
+      "input": {},
+      "authority": "configured scoped session",
+      "output": "only this session tasks; issue stage, execution and sync separate"
+    },
+    {
+      "name": "task_show",
+      "input": {
+        "task_id": "opaque"
+      },
+      "authority": "same scoped session",
+      "output": "task and scoped attempt/receipt facts"
+    },
+    {
+      "name": "task_action",
+      "input": {
+        "task_id": "opaque",
+        "action": "enqueue|dequeue|hold|request_review|review_decision|cancel|duplicate|merge|stage|release|non_code_complete",
+        "expected_version": "integer",
+        "decision_revision": "integer",
+        "operation_key": "unique",
+        "human_ref": "optional opaque observed instruction",
+        "evidence_refs": "typed opaque references",
+        "review_target": "status only for review_decision",
+        "reason": "optional content"
+      },
+      "authority": "explicit delegated grant or actual human proof; core owns destination/evidence policy",
+      "output": "actual desired/observed/sync result; no raw set-status endpoint"
+    },
+    {
+      "name": "task_revise",
+      "input": {
+        "task_id": "opaque",
+        "writing_ref": "opaque new exact approval",
+        "human_ref": "opaque actual instruction",
+        "expected_version": "integer",
+        "decision_revision": "integer",
+        "operation_key": "unique"
+      },
+      "authority": "actual human scope authorization + core quiescence",
+      "output": "pending/confirmed exact updated prose"
+    },
+    {
+      "name": "task_progress",
+      "input": {
+        "task_id": "opaque",
+        "writing_ref": "opaque reviewed progress",
+        "operation_key": "unique"
+      },
+      "authority": "approved prose + configured actual publisher port",
+      "output": "publication/checkpoint receipt; missing publisher is explicit pending/refusal"
+    },
+    {
+      "name": "worker_start",
+      "input": {
+        "task_id": "opaque",
+        "host": "configured allowlist",
+        "expected_version": "integer",
+        "decision_revision": "integer",
+        "operation_key": "unique"
+      },
+      "authority": "delegated start grant + real runtime accounting and resource/provider gates",
+      "output": "actual attempt phase; no invented model startup"
+    },
+    {
+      "name": "worker_execute",
+      "input": {
+        "attempt_id": "opaque",
+        "command_ref": "opaque reviewed launch plan",
+        "operation_key": "unique"
+      },
+      "authority": "current lease + trusted bounded accounted command plan",
+      "output": "observed result or typed refusal"
+    },
+    {
+      "name": "event_list",
+      "input": {
+        "after": "bounded nonnegative cursor",
+        "timeout_seconds": "0..60"
+      },
+      "authority": "configured session",
+      "output": "scoped durable events; read is not acknowledgement"
+    },
+    {
+      "name": "event_acknowledge",
+      "input": {
+        "event_id": "opaque",
+        "stage": "delivered|ai_acknowledged|user_reported",
+        "observation_ref": "opaque actual host trace receipt",
+        "operation_key": "unique"
+      },
+      "authority": "trusted observer proof matching session/event/stage",
+      "output": "guarded receipt stage"
+    },
+    {
+      "name": "sync_now",
+      "input": {},
+      "authority": "configured scoped session",
+      "output": "immediate pending outbox/inbox application summary; no broad backlog scan"
+    }
+  ],
+  "cli_contract": "aitm --config <pinned-private-config> --session-file <private-capability> [--json] <session|writing|task|worker|event|sync> <action>. Complex inputs via bounded JSON stdin/file. No secrets/tokens printed or accepted as ordinary positional arguments. CLI groups map to the same service operations as MCP.",
+  "errors": {
+    "0": "confirmed successful requested operation",
+    "2": "invalid input/config/protocol or stale request",
+    "3": "denied authority/scope/missing required proof",
+    "4": "blocked/unavailable dependency",
+    "5": "failed operation",
+    "6": "pending/uncertain external settlement"
+  },
+  "open_integration_dependencies": [
+    "Actual trusted host enrollment/human message/lead trace observations must be supplied by installer/host adapter; model self-report cannot substitute.",
+    "Reviewed Linear/runtime branches must be integrated for final composition.",
+    "Progress comment publication needs an actual provider operation or remains explicitly unavailable.",
+    "Actual both-host installed execution is later acceptance, not established by SDK client tests."
+  ]
+}

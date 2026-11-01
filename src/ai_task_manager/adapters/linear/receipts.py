@@ -250,6 +250,10 @@ class ProviderJournal:
             )
 
     def status_receipt(self, scope, task, operation, snapshot):
+        from ai_task_manager.domains.work.models import valid_display_identifier
+
+        if not valid_display_identifier(snapshot.identifier):
+            raise LinearError("invalid_display_identifier", uncertain=True)
         if (
             snapshot.status != task.desired_status
             or snapshot.title != task.title
@@ -266,6 +270,7 @@ class ProviderJournal:
             "representation": task.representation,
             "prose_digest": task.prose_digest,
             "issue_id": snapshot.id,
+            "display_identifier": snapshot.identifier,
             "source_revision": snapshot.revision,
         }
         with self.transaction() as conn:

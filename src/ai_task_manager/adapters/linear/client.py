@@ -1,7 +1,8 @@
 import hashlib
 import json
+import re
 
-from ai_task_manager.domains.work.models import IssueStatus
+from ai_task_manager.domains.work.models import IssueStatus, valid_display_identifier
 
 from .errors import LinearError, ScopeMismatch
 from .models import CommentSnapshot, IssueSnapshot, VerifiedBinding, canonical_id, revision
@@ -182,7 +183,6 @@ class LinearClient:
                 data["team"]["id"] != expected.team_id
                 or data["team"]["key"] != expected.team_key
                 or data["project"]["id"] != expected.project_id
-                or not data["identifier"].startswith(expected.team_key + "-")
             ):
                 raise ScopeMismatch(
                     {
@@ -198,6 +198,11 @@ class LinearClient:
                         ).hexdigest(),
                     }
                 )
+            identifier = data["identifier"]
+            if not valid_display_identifier(identifier) or not re.fullmatch(
+                re.escape(expected.team_key) + r"-[1-9][0-9]*", identifier
+            ):
+                raise LinearError("invalid_display_identifier")
             if not isinstance(data["title"], str) or not isinstance(data["description"], str):
                 raise ValueError()
             canonical_id(data["id"])
@@ -210,7 +215,7 @@ class LinearClient:
             assignee = data.get("assignee")
             return IssueSnapshot(
                 data["id"],
-                data["identifier"],
+                identifier,
                 data["team"]["id"],
                 data["project"]["id"],
                 canonical_id(assignee["id"]) if assignee else None,

@@ -1,0 +1,548 @@
+{
+  "assignment": "APPLICATION/TST-79",
+  "version": 5,
+  "state": "frozen proposed cases awaiting lead review",
+  "workflows": {
+    "writing": [
+      "verify pinned package",
+      "render supported provider form",
+      "prepare actual skill request",
+      "read actual review packet",
+      "submit honest semantic review",
+      "finalize exact validator output",
+      "issue exact scoped approval"
+    ],
+    "intake": [
+      "bind trusted session",
+      "approve prose",
+      "persist core intake/outbox",
+      "apply immediate provider effect",
+      "confirm exact Backlog",
+      "show scoped task"
+    ],
+    "action": [
+      "bind trusted session",
+      "check current task/revision",
+      "resolve delegated or observed human decision",
+      "resolve destination evidence",
+      "invoke core operation",
+      "apply immediate provider effect",
+      "return distinct state facts"
+    ],
+    "notification": [
+      "read scoped event",
+      "observe actual host delivery",
+      "observe actual AI acknowledgement",
+      "observe actual public report",
+      "apply ordered proof receipts"
+    ]
+  },
+  "cases": [
+    {
+      "id": "A01",
+      "name": "Strict configuration",
+      "oracle": "Unknown fields, wrong modes, symlink/parent escapes, changed pins and partial writes fail before effects; no CWD authority.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A02",
+      "name": "Trusted establishment",
+      "oracle": "Actual verified provider binding plus pre-enrolled host session yields one opaque capability; arbitrary principal/logical-session input and absent grants fail.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A03",
+      "name": "Resume and revocation",
+      "oracle": "One-use trusted resume rotates capability; stale/replayed/cross-scope refs and old/revoked capability fail.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A04",
+      "name": "Session isolation",
+      "oracle": "Two accounts/projects/logical sessions see only own tasks through both CLI and MCP, including guessed IDs and direct service calls.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A05",
+      "name": "Exact prose pipeline",
+      "oracle": "Actual frozen skill prepare/packet/review/finalize executes; proper kind/ref/style and exact rendered text/metadata bind approval before task submission.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A06",
+      "name": "Writing bypass",
+      "oracle": "Missing/stale/changed/fake approval, wrong kind, package mutation, code literal/title/body change and metadata reuse reject.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A07",
+      "name": "Semantic review honesty",
+      "oracle": "Model self-review may be honest self-review; injected independent/human reviewer identity, malformed scores and fabricated receipt files cannot publish.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A08",
+      "name": "Writing dependencies",
+      "oracle": "Unavailable Python/skill/ref/style or subprocess failure is an explicit refusal with retained attempt history, not skipped approval.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A09",
+      "name": "Version update",
+      "oracle": "Old receipt remains historical; new policy/package requires audit/new matching approval and cannot silently relabel versions.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A10",
+      "name": "Progress prose",
+      "oracle": "Published progress requires actual issue-type/style approval; internal checkpoint data is not automatically a published comment.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A11",
+      "name": "Intake and immediate sync",
+      "oracle": "Reviewed local intake creates existing durable intent, invokes provider adapter immediately and confirms exact Backlog; uncertainty stays pending.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A12",
+      "name": "No unmanaged state writes",
+      "oracle": "No raw status/evidence/principal issuer tool exists; each action maps through guarded core or trusted adapter.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A13",
+      "name": "Delegated decision limits",
+      "oracle": "Grant scopes/action/expiry/revision constrain agent decisions; no agent grant can mint human acceptance or clear a human hold.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A14",
+      "name": "Human review proof",
+      "oracle": "Every review target remains supported through real observed human proof and destination evidence; caller human=true or prose approval is insufficient.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A15",
+      "name": "Lifecycle guards",
+      "oracle": "Delivered reopen, skipped Backlog/Todo, missing resource/startup/verification, Part-of completion and unknown states refuse through core.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A16",
+      "name": "Idempotency and stale input",
+      "oracle": "Same op replay is idempotent; changed reuse and stale task/decision versions fail with no partial side effects.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A17",
+      "name": "Worker composition",
+      "oracle": "Service delegates real start/admit/execute to runtime and immediate provider confirmer; missing accounting/command authority refuses before a model launch.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A18",
+      "name": "Sync uncertainty",
+      "oracle": "HTTP errors, ambiguous mutation, unavailable ingress and unknown runtime remain typed non-success; no false Running/Done.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A19",
+      "name": "Lead receipts",
+      "oracle": "Event read/cursor advance, arbitrary ack text, forged/wrong-session/stage-skipping proof cannot become actual AI/public acknowledgement.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A20",
+      "name": "CLI entry point",
+      "oracle": "Real source and installed wheel commands return correct JSON/exit classes with no secrets; malformed/bounded input and unknown action reject.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A21",
+      "name": "Scoped presentation",
+      "oracle": "Every state has a distinct symbol/text, ANSI disabled under no-color/JSON, pending/unknown separated from issue delivery state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A22",
+      "name": "MCP stdio",
+      "oracle": "Actual separate SDK client/server process negotiates, lists frozen tools/schemas, calls scoped operations and shuts down; stdout contains only protocol.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A23",
+      "name": "MCP adversarial input",
+      "oracle": "Unknown method/tool/extra key, malformed/wrong/oversized arguments, concurrent calls and canceled requests fail without authority or partial writes.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A24",
+      "name": "Transport parity",
+      "oracle": "CLI and MCP dispatch the same service operations and produce equivalent domain facts/error categories.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A25",
+      "name": "Recovery and schema",
+      "oracle": "Application/writing/authority receipts survive restart, changed schema refuses, pending stages remain pending and failed attempts remain visible.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A26",
+      "name": "Architecture",
+      "oracle": "Focused modules have directional imports; no legacy monolith, adapter table writes to core stores, second policy table or public catch-all issuer.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A27",
+      "name": "Composition fixture",
+      "oracle": "Use real core and reviewed provider/runtime public composition with loopback/owned fixtures; assert lifecycle facts before any reconciliation timer.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A28",
+      "name": "Live host plan",
+      "oracle": "Frozen actual tool-enabled host plan identifies exact package/config/session/model trace/cost/teardown, remains unrun until lead review and missing prerequisites resolved.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-valid",
+      "name": "writing valid path",
+      "oracle": "Exercise exact event order verify pinned package -> render supported provider form -> prepare actual skill request -> read actual review packet -> submit honest semantic review -> finalize exact validator output -> issue exact scoped approval with each required artifact/proof.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-omit-01",
+      "name": "writing omission verify pinned package",
+      "oracle": "Omit verify pinned package; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-omit-02",
+      "name": "writing omission render supported provider form",
+      "oracle": "Omit render supported provider form; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-omit-03",
+      "name": "writing omission prepare actual skill request",
+      "oracle": "Omit prepare actual skill request; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-omit-04",
+      "name": "writing omission read actual review packet",
+      "oracle": "Omit read actual review packet; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-omit-05",
+      "name": "writing omission submit honest semantic review",
+      "oracle": "Omit submit honest semantic review; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-omit-06",
+      "name": "writing omission finalize exact validator output",
+      "oracle": "Omit finalize exact validator output; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-omit-07",
+      "name": "writing omission issue exact scoped approval",
+      "oracle": "Omit issue exact scoped approval; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-order-01",
+      "name": "writing reversed adjacent steps",
+      "oracle": "Attempt render supported provider form before verify pinned package; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-order-02",
+      "name": "writing reversed adjacent steps",
+      "oracle": "Attempt prepare actual skill request before render supported provider form; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-order-03",
+      "name": "writing reversed adjacent steps",
+      "oracle": "Attempt read actual review packet before prepare actual skill request; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-order-04",
+      "name": "writing reversed adjacent steps",
+      "oracle": "Attempt submit honest semantic review before read actual review packet; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-order-05",
+      "name": "writing reversed adjacent steps",
+      "oracle": "Attempt finalize exact validator output before submit honest semantic review; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-writing-order-06",
+      "name": "writing reversed adjacent steps",
+      "oracle": "Attempt issue exact scoped approval before finalize exact validator output; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-valid",
+      "name": "intake valid path",
+      "oracle": "Exercise exact event order bind trusted session -> approve prose -> persist core intake/outbox -> apply immediate provider effect -> confirm exact Backlog -> show scoped task with each required artifact/proof.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-omit-01",
+      "name": "intake omission bind trusted session",
+      "oracle": "Omit bind trusted session; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-omit-02",
+      "name": "intake omission approve prose",
+      "oracle": "Omit approve prose; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-omit-03",
+      "name": "intake omission persist core intake/outbox",
+      "oracle": "Omit persist core intake/outbox; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-omit-04",
+      "name": "intake omission apply immediate provider effect",
+      "oracle": "Omit apply immediate provider effect; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-omit-05",
+      "name": "intake omission confirm exact Backlog",
+      "oracle": "Omit confirm exact Backlog; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-omit-06",
+      "name": "intake omission show scoped task",
+      "oracle": "Omit show scoped task; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-order-01",
+      "name": "intake reversed adjacent steps",
+      "oracle": "Attempt approve prose before bind trusted session; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-order-02",
+      "name": "intake reversed adjacent steps",
+      "oracle": "Attempt persist core intake/outbox before approve prose; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-order-03",
+      "name": "intake reversed adjacent steps",
+      "oracle": "Attempt apply immediate provider effect before persist core intake/outbox; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-order-04",
+      "name": "intake reversed adjacent steps",
+      "oracle": "Attempt confirm exact Backlog before apply immediate provider effect; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-intake-order-05",
+      "name": "intake reversed adjacent steps",
+      "oracle": "Attempt show scoped task before confirm exact Backlog; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-valid",
+      "name": "action valid path",
+      "oracle": "Exercise exact event order bind trusted session -> check current task/revision -> resolve delegated or observed human decision -> resolve destination evidence -> invoke core operation -> apply immediate provider effect -> return distinct state facts with each required artifact/proof.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-omit-01",
+      "name": "action omission bind trusted session",
+      "oracle": "Omit bind trusted session; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-omit-02",
+      "name": "action omission check current task/revision",
+      "oracle": "Omit check current task/revision; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-omit-03",
+      "name": "action omission resolve delegated or observed human decision",
+      "oracle": "Omit resolve delegated or observed human decision; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-omit-04",
+      "name": "action omission resolve destination evidence",
+      "oracle": "Omit resolve destination evidence; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-omit-05",
+      "name": "action omission invoke core operation",
+      "oracle": "Omit invoke core operation; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-omit-06",
+      "name": "action omission apply immediate provider effect",
+      "oracle": "Omit apply immediate provider effect; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-omit-07",
+      "name": "action omission return distinct state facts",
+      "oracle": "Omit return distinct state facts; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-order-01",
+      "name": "action reversed adjacent steps",
+      "oracle": "Attempt check current task/revision before bind trusted session; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-order-02",
+      "name": "action reversed adjacent steps",
+      "oracle": "Attempt resolve delegated or observed human decision before check current task/revision; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-order-03",
+      "name": "action reversed adjacent steps",
+      "oracle": "Attempt resolve destination evidence before resolve delegated or observed human decision; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-order-04",
+      "name": "action reversed adjacent steps",
+      "oracle": "Attempt invoke core operation before resolve destination evidence; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-order-05",
+      "name": "action reversed adjacent steps",
+      "oracle": "Attempt apply immediate provider effect before invoke core operation; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-action-order-06",
+      "name": "action reversed adjacent steps",
+      "oracle": "Attempt return distinct state facts before apply immediate provider effect; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-notification-valid",
+      "name": "notification valid path",
+      "oracle": "Exercise exact event order read scoped event -> observe actual host delivery -> observe actual AI acknowledgement -> observe actual public report -> apply ordered proof receipts with each required artifact/proof.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-notification-omit-01",
+      "name": "notification omission read scoped event",
+      "oracle": "Omit read scoped event; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-notification-omit-02",
+      "name": "notification omission observe actual host delivery",
+      "oracle": "Omit observe actual host delivery; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-notification-omit-03",
+      "name": "notification omission observe actual AI acknowledgement",
+      "oracle": "Omit observe actual AI acknowledgement; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-notification-omit-04",
+      "name": "notification omission observe actual public report",
+      "oracle": "Omit observe actual public report; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-notification-omit-05",
+      "name": "notification omission apply ordered proof receipts",
+      "oracle": "Omit apply ordered proof receipts; refuse premature next effect/receipt and retain prior confirmed facts.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-notification-order-01",
+      "name": "notification reversed adjacent steps",
+      "oracle": "Attempt observe actual host delivery before read scoped event; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-notification-order-02",
+      "name": "notification reversed adjacent steps",
+      "oracle": "Attempt observe actual AI acknowledgement before observe actual host delivery; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-notification-order-03",
+      "name": "notification reversed adjacent steps",
+      "oracle": "Attempt observe actual public report before observe actual AI acknowledgement; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "WF-notification-order-04",
+      "name": "notification reversed adjacent steps",
+      "oracle": "Attempt apply ordered proof receipts before observe actual public report; refuse premature effect and preserve recoverable state.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A29",
+      "name": "Staged external prose",
+      "oracle": "Show staged current-scope observations, require actual task-only writer approval and a fresh exact provider readback before core approval; active/delivered/wrong-scope changes refuse.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A30",
+      "name": "Observed human authority advancement",
+      "oracle": "A captured matching human instruction can release its hold or accept review through a recorded new core revision, while source reuse/stale revision/changed work scope and unobserved callers refuse.",
+      "execution_status": "not_run"
+    },
+    {
+      "id": "A31",
+      "name": "Durable public retry identity",
+      "oracle": "Repeat and restart retain exact request fingerprint/proof references; same operation returns current scoped facts without duplicate effects, changed reuse refuses and newer human state wins.",
+      "execution_status": "not_run"
+    }
+  ],
+  "live_effects_allowed": false,
+  "mechanical_scope": "Actual local subprocess CLI/stdio MCP, actual pinned Technical Writer validator, real core and trusted isolated adapter fixtures. No live models/provider or normal config effects.",
+  "behavioral_scope": "Separate later fresh actual Claude Code and Codex traces; SDK/mechanical results do not establish AI behavior.",
+  "frozen_parent_sha256": "69f10d812ca283a62d775bd9f525b79665b61ff4a6fd103f7e9178d2ba97d64d",
+  "review_addendum": [
+    "Pending intake and uncertain task reads remain readable; tests refuse premature effect or success claims, not legitimate task_show.",
+    "Notification delivery/AI/public stages may be observed and recorded incrementally in order; earlier receipts do not wait for future ones.",
+    "Code proves actual packet delivery/hash matching; AI reading/understanding remains separate fresh behavior evidence.",
+    "Reference policy binds all six issue contracts and referenced guidance; actual kind/purpose and exact prose/metadata remain receipt-bound, and progress approval cannot become task approval.",
+    "Trusted host enrollment/human observation/accounted launch are explicit required ports, never caller-minted identities or fabricated readiness.",
+    "Progress approval uses fixed TaskProse metadata and a task/scope/current-task-prose bound verifier view; Core TaskApprovals rejects progress-purpose refs. Add task_id to writing_prepare for progress.",
+    "Add staged external-prose read/accept operations through real writer and fresh provider readback, with no model-selected readback context.",
+    "Observed human actions atomically record their new core decision revision before derived action proof; grants cannot relabel an agent as human. Scope revision additionally binds proposed prose digest.",
+    "Persist public operation fingerprint and stable proof references before core effects; retries after reply loss do not mint a different core request or reapply changed inputs."
+  ],
+  "integration_addendum": [
+    "Public worker_start accepts an optional opaque observed-human reference so a review/hold can enter In Progress through real guarded startup; a raw status write remains forbidden.",
+    "A current recorded human intent may continue for its exact target/work/decision revision when destination evidence arrives. Superseded records and the original consumed message revision cannot create fresh human authority.",
+    "Default CLI composition supports sealed Linear configuration with official fixed endpoint, verified identity, exact renderer and distinct provider/decision proof owners; test endpoint injection is trusted Python-only fixture configuration."
+  ]
+}
