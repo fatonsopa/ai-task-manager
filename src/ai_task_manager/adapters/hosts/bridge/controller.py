@@ -17,7 +17,7 @@ from ai_task_manager.domains.work.errors import AccessDenied
 
 from .auth_probe import ClaudeAuthProbe
 from .gateway import SCHEMAS, ManagedToolGateway, tool_schema
-from .policy import codex_command
+from .policy import NativeProfile, codex_command
 from .records import ManagedProcesses
 from .startup import HostStartupReceipts, StartupObserver
 from .transcript import OwnedTranscript
@@ -159,6 +159,7 @@ class ManagedNativeHost:
             deadline=self.binding.deadline,
             commands=self.commands,
             process_registry=self.process_registry,
+            model_guard=self.startup.model_guard,
         )
         gateway.admit()
         self.gateway.delegate = gateway
@@ -169,13 +170,20 @@ class ManagedNativeHost:
         if self.journal.clock() >= self.binding.deadline:
             raise AccessDenied("Original managed deadline expired")
         self.policy.check()
+        self.startup.assert_stable()
         return self.core.execution.validate_work_lease(handle, attempt.id, attempt.version)
 
     def verify_active(self):
         self.policy.check()
+        if self.startup is None:
+            raise AccessDenied("Native startup is not ready")
+        self.startup.assert_stable()
         if self.process is None:
             raise AccessDenied("Native host process was not created")
         return self.process.verify_identity()
+
+    def effect_boundary(self):
+        return self.startup.model_guard.effect_boundary()
 
     def execute_model_turn(self, text):
         if not self._turn_lock.acquire(blocking=False):
@@ -237,12 +245,16 @@ class ManagedHostFactory:
         permits,
         accounts,
         process_registry=None,
+        model_profiles=None,
     ):
         self.core, self.resources, self.journal = core, resources, journal
         self.root = Path(root)
         self.policies, self.permits, self.accounts = policy_builder, permits, accounts
         self.owned = {}
         self.commands = None
+        self.model_profiles = dict(model_profiles or {})
+        if any(not isinstance(profile, NativeProfile) for profile in self.model_profiles.values()):
+            raise AccessDenied("Native model profiles must be typed trusted configuration")
         self.process_registry = (
             process_registry if process_registry is not None else ManagedProcesses()
         )
@@ -251,17 +263,29 @@ class ManagedHostFactory:
     def check_admission(self, host):
         # Trusted installer/evaluator port, not a public caller flag. It must
         # positively verify tested native restrictions and current launch authority.
+        if host == "claude" and not isinstance(self.model_profiles.get(host), NativeProfile):
+            raise AccessDenied("A trusted explicit Claude model profile is required")
         self.permits.check_admission(host)
 
     def configuration_digest(self, host, pair):
         policy = self.policies(host, pair)
         policy.check()
+        if host in self.model_profiles and (policy.model, policy.effort) != (
+            self.model_profiles[host].model,
+            self.model_profiles[host].effort,
+        ):
+            raise AccessDenied("The native policy differs from its trusted model profile")
         return policy.configuration_digest
 
     def launch(self, binding, pair):
         if binding.attempt_id in self.owned:
             raise AccessDenied("Existing native host ownership must be reconciled")
         policy = self.policies(binding.host, pair)
+        if binding.host in self.model_profiles and (policy.model, policy.effort) != (
+            self.model_profiles[binding.host].model,
+            self.model_profiles[binding.host].effort,
+        ):
+            raise AccessDenied("The native model profile changed before launch")
         if policy.configuration_digest != binding.configuration_digest:
             raise AccessDenied("Native policy changed between reservation and launch")
         native = ManagedNativeHost(

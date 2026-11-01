@@ -30,6 +30,20 @@ CODEX_RESTRICTIONS = {
 }
 
 
+@dataclass(frozen=True)
+class NativeProfile:
+    model: str
+    effort: str | None = None
+
+    def __post_init__(self):
+        if not isinstance(self.model, str) or not self.model.strip():
+            raise AccessDenied("A trusted explicit model name is required")
+        if self.effort is not None and (
+            not isinstance(self.effort, str) or not self.effort.strip()
+        ):
+            raise AccessDenied("Requested effort must be an explicit configured string")
+
+
 def clean_environment(home, *, claude_profile=None, codex_home=None):
     home = Path(home).resolve()
     env = {
@@ -68,6 +82,8 @@ class NativePolicy:
     configuration_digest: str
     seals: tuple[FileSeal, ...]
     allowed_tools: tuple[str, ...] = ()
+    model: str | None = None
+    effort: str | None = None
     _executable_identity: tuple = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -86,6 +102,12 @@ class NativePolicy:
         object.__setattr__(self, "environment", MappingProxyType(dict(self.environment)))
 
     def check(self):
+        if self.host == "claude" and (not isinstance(self.model, str) or not self.model.strip()):
+            raise AccessDenied("Claude requires a trusted explicit model profile")
+        if self.effort is not None and (
+            not isinstance(self.effort, str) or not self.effort.strip()
+        ):
+            raise AccessDenied("Requested effort must be explicit configured data")
         if (
             self.host not in {"claude", "codex"}
             or not self.executable.is_absolute()
@@ -121,11 +143,15 @@ def codex_command(policy, timeout):
 
     for name, value in CODEX_RESTRICTIONS.items():
         argv.extend(["-c", name + "=" + json.dumps(value)])
+    if policy.model is not None:
+        argv.extend(["-c", "model=" + json.dumps(policy.model)])
+    if policy.effort is not None:
+        argv.extend(["-c", "model_reasoning_effort=" + json.dumps(policy.effort)])
     argv.extend(["app-server", "--strict-config", "--stdio"])
     return Command(tuple(argv), policy.cwd, dict(policy.environment), timeout, "codex")
 
 
-def policy_digest(host, executable_sha256, environment, cwd, files):
+def policy_digest(host, executable_sha256, environment, cwd, files, *, model=None, effort=None):
     """Auth contents never enter the configuration fingerprint."""
     return digest(
         {
@@ -134,6 +160,8 @@ def policy_digest(host, executable_sha256, environment, cwd, files):
             "environment": environment,
             "cwd": str(cwd),
             "files": files,
+            "requested_model": model,
+            "requested_effort": effort,
             "native_restrictions": CODEX_RESTRICTIONS if host == "codex" else "sdk-tools-only",
         }
     )

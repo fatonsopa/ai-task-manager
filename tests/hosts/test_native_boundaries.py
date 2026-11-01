@@ -1,5 +1,6 @@
 """Real local process boundaries; no native model initialization or auth."""
 
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
@@ -9,6 +10,20 @@ from ai_task_manager.adapters.hosts.bridge.records import HostBinding, ManagedPr
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.supervisor.models import RuntimeUncertain
 from tests.hosts.test_managed_terminal import running_managed as running_managed
+
+
+class FixtureStableGuard:
+    """Explicit synthetic control for process API tests, not native model evidence."""
+
+    def __init__(self, binding):
+        self.binding = binding
+
+    def check(self):
+        return None
+
+    @contextmanager
+    def effect_boundary(self):
+        yield
 
 
 def bridge_fixture(running_managed, journal, tmp_path):
@@ -41,7 +56,8 @@ def bridge_fixture(running_managed, journal, tmp_path):
         process_registry=registry,
     )
     bridge.process = fixture.process
-    bridge.startup = SimpleNamespace(admitted=False)
+    guard = FixtureStableGuard(binding)
+    bridge.startup = SimpleNamespace(admitted=False, model_guard=guard, assert_stable=guard.check)
     return r, attempt, workers, fixture, bridge, outcomes
 
 

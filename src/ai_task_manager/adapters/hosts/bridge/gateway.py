@@ -1,6 +1,7 @@
 """Model effect surface: exact registered tools with a current scoped lease."""
 
 import math
+from contextlib import nullcontext
 from threading import RLock
 
 from jsonschema import Draft202012Validator
@@ -46,6 +47,7 @@ class ManagedToolGateway:
         commands=None,
         notifications=None,
         process_registry=None,
+        model_guard=None,
     ):
         if not math.isfinite(deadline):
             raise AccessDenied("A finite immutable work deadline is required")
@@ -53,6 +55,7 @@ class ManagedToolGateway:
         self.workspace, self.resources, self.journal = workspace, resources, journal
         self.deadline, self.commands, self.notifications = deadline, commands, notifications
         self.process_registry = process_registry
+        self.model_guard = model_guard
         self.schemas = {name: tool_schema(name) for name in SCHEMAS}
         self.lock = RLock()
         self._attempt_version = None
@@ -61,6 +64,17 @@ class ManagedToolGateway:
         attempt = self.core.get_attempt(self.handle, self.dispatch.attempt_id)
         if attempt.host in {"claude", "codex"} and self.process_registry is None:
             raise AccessDenied("Model workers require registered actual native process ownership")
+        if attempt.host in {"claude", "codex"} and self.model_guard is None:
+            raise AccessDenied("Model workers require a bound continuous model guard")
+        if self.model_guard is not None:
+            sid, _ = self.core.session_binding(self.handle)
+            binding = self.model_guard.binding
+            if (binding.attempt_id, binding.core_session, binding.worker_id) != (
+                attempt.id,
+                sid,
+                attempt.worker_id,
+            ):
+                raise AccessDenied("Model guard belongs to another execution owner")
         self.core.execution.validate_work_lease(self.handle, attempt.id, attempt.version)
         self._attempt_version = attempt.version
         try:
@@ -77,6 +91,8 @@ class ManagedToolGateway:
             if process is None:
                 raise AccessDenied("Registered native process ownership is unavailable")
             process.verify_identity()
+        if self.model_guard is not None:
+            self.model_guard.check()
         self._resource_fact = self.resources.verify(self.dispatch.resources)
         return self.core.execution.validate_work_lease(
             self.handle,
@@ -120,17 +136,17 @@ class ManagedToolGateway:
                     # A prior intent without atomic filesystem receipt is uncertain, not retry-safe.
                     raise AccessDenied("Existing edit intent requires reconciliation")
             # Core serializes this bounded publication with independent human writers.
-            with self.core.execution.work_boundary(
-                self.handle,
-                self.dispatch.attempt_id,
-                self._attempt_version,
-            ):
-                self.check_deadline_resources()
-                if name == "read_file":
-                    return self.workspace.read(arguments["path"])
-                result = self.workspace.write(
-                    arguments["path"], arguments["text"], arguments["expected_hash"]
-                )
+            guard = self.model_guard.effect_boundary() if self.model_guard else nullcontext()
+            with guard:
+                with self.core.execution.work_boundary(
+                    self.handle, self.dispatch.attempt_id, self._attempt_version
+                ):
+                    self.check_deadline_resources()
+                    if name == "read_file":
+                        return self.workspace.read(arguments["path"])
+                    result = self.workspace.write(
+                        arguments["path"], arguments["text"], arguments["expected_hash"]
+                    )
             self.journal._append(
                 "trace", {"effect": "file_published", "intent": intent, "result": result}
             )
