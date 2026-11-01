@@ -1,0 +1,26 @@
+%% Diagram: Architecture diagram
+%% Subtitle: The proposed core connects the session, worker runtime, control store and project integrations.
+flowchart LR
+    accTitle: Workflow coordination architecture
+    accDescr: The proposed core connects the session, worker runtime, control store and project integrations.
+    T@{ shape: rect, label: "1. Session terminal" }
+    class T process
+    P@{ shape: rect, label: "2. Claude plugin" }
+    class P process
+    C@{ shape: rect, label: "3. Workflow core" }
+    class C process
+    D@{ shape: cyl, label: "4. Control store" }
+    class D datastore
+    L@{ shape: rect, label: "5. Linear adapter" }
+    class L process
+    R@{ shape: rect, label: "6. Project adapters" }
+    class R process
+    W@{ shape: rect, label: "7. Worker runtime" }
+    class W process
+    T -->|"Scoped commands"| P
+    P -->|"Typed operations"| C
+    C -->|"Transactions"| D
+    C -->|"Intent and execution facts"| L
+    C -->|"Existing project procedures"| R
+    C -->|"Supervised attempts"| W
+%% Legend: flow_arrow | Relationship

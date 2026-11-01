@@ -1,0 +1,88 @@
+{
+  "scope": "Historical handoff checks retained; current repository instructions and baseline updated from subsequent user decisions.",
+  "checked_date": "2026-11-01",
+  "counts": {
+    "requirements": 34,
+    "workflows": 10,
+    "acceptance_scenarios_authored": 170,
+    "phases": 11,
+    "initial_work_items": 26,
+    "diagram_pairs": 5
+  },
+  "documents": {
+    "BUILD": {
+      "delivered": true,
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "historical_sha256": "80cf5778f02611eea0b4f296d2db31471fda66281c42aefe197609bae02fec40",
+      "current_sha256": "f21c44fe4ada4b75643c1ae35c3026deea62908960fe39cfe7aa280a7edd6de0",
+      "validation_status": "Current edits recorded while Technical Writer is held; no skill invocation or new skill-based review performed."
+    },
+    "ARCHITECTURE": {
+      "delivered": true,
+      "sha256": "86e525cbcef18fe2725dcacc851f0afd1ec434095f09bab700c4d15e8173d6f6",
+      "review_kind": "current_host_self_review",
+      "model": null
+    }
+  },
+  "diagram_collection": {
+    "passed": true,
+    "diagrams": 5,
+    "consumers": 5
+  },
+  "helper_checks": {
+    "scope": "handoff helper validation only",
+    "passed": true,
+    "checks": [
+      "valid package accepted",
+      "unknown requirement rejected",
+      "task dependency cycle rejected",
+      "broken document link rejected",
+      "changed hard spending cap rejected",
+      "credential init permissions and existing-file preservation passed",
+      "credential newline rejected",
+      "credential directory symlink rejected",
+      "manifest tampering rejected"
+    ],
+    "product_tests_run": 0
+  },
+  "product_acceptance_tests_executed": 0,
+  "deferred_claude_tests": {
+    "previous_date": "2026-11-02",
+    "superseded_by": "user approved implementation now using claude_roni",
+    "original_default_account_available": false
+  },
+  "runtime_prerequisites": [
+    "Existing primary key authenticated and verified TST read access; verify write permission and add a distinct secondary identity before two-user cases.",
+    "Docker daemon must start and pass probes.",
+    "Both installed host profiles and cost limits need real execution proof."
+  ],
+  "project_changes": "No application files or merge script were modified; no code was pushed.",
+  "latest_correction": {
+    "subject": "All configured In Review exits",
+    "policy": "authorized destination-specific guards preserved",
+    "new_package_checks": [
+      "missing review destination rejected",
+      "missing delivery evidence guard rejected",
+      "incomplete review test matrix rejected"
+    ],
+    "product_tests_executed": 0
+  },
+  "credential_source_update": {
+    "primary_source": "application repository .env.local / LINEAR_API_KEY",
+    "authenticated_read": true,
+    "expected_tst_team_matches": true,
+    "writes_attempted": false,
+    "secret_copied_or_displayed": false,
+    "helper_validation": {
+      "passed": true,
+      "checks": [
+        "secondary-only setup works without duplicating primary key",
+        "secondary-only setup preserves configured primary token",
+        "credential file remains mode 600"
+      ],
+      "real_credentials_used": false
+    }
+  },
+  "application_baseline": "c05f40200703e7b8f379a8477502dabd594ba79c"
+}

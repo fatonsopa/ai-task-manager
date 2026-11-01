@@ -1,0 +1,32 @@
+%% Diagram: Flowchart
+%% Subtitle: The worker keeps the existing merge procedure; the proposed controller records its result.
+flowchart TD
+    accTitle: Worker merge workflow
+    accDescr: The worker keeps the existing merge procedure; the proposed controller records its result.
+    A@{ shape: rect, label: "1. Worker commits its changes" }
+    class A process
+    B@{ shape: fr-rect, label: "2. Run merge prechecks" }
+    class B predefined
+    C@{ shape: diam, label: "3. CHECKS PASSED?" }
+    class C decision
+    D@{ shape: rect, label: "4. Worker fixes the reported cause" }
+    class D process
+    E@{ shape: fr-rect, label: "5. Run existing merge script" }
+    class E predefined
+    F@{ shape: diam, label: "6. Successful merge result?" }
+    class F decision
+    G@{ shape: rect, label: "7. Record the script’s answer" }
+    class G process
+    H@{ shape: stadium, label: "8. Close execution under existing rules" }
+    class H terminator
+    A --> B
+    B --> C
+    C -->|"WOULD NOT MERGE"| D
+    C -->|"Yes"| E
+    C -->|"NOTHING TO MERGE"| G
+    D -->|"Commit the repair"| A
+    E --> F
+    F -->|"NOT MERGED"| D
+    F -->|"MERGED or NOTHING TO MERGE"| G
+    G --> H
+%% Legend: flow_arrow | Existing merge flow

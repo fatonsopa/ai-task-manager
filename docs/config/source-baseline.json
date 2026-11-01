@@ -1,0 +1,84 @@
+{
+  "commit": "c05f40200703e7b8f379a8477502dabd594ba79c",
+  "git_status": "clean at inspection",
+  "files": [
+    {
+      "path": "scripts/merge-to-dev.sh",
+      "sha256": "b47d53d4f9861e2a22e1412dd1d9b8c48407bf177c232cb97ff4770acd307022",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/worktree-db.sh",
+      "sha256": "fae53f968db045a0da13e0bcd356ed0315cc49efe177d83cc5cf2442edcd0230",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/worktree-setup.sh",
+      "sha256": "0b7626e7e3f2d57c1f6f56c0a59fe123662eb12b178508a4ad3b421f22e0b0ca",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/linear/issue_cli.py",
+      "sha256": "0a283fd1e924cb99f38a9a787faeb77709f2f8f7bee35be1d9b9749e2dd83f5b",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/linear/status_policy.py",
+      "sha256": "53def358c3ac2dd61bb3861bd191a2bd2c4b39ddaddd7cca39bf7873ea98c222",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/linear/linear_sync.py",
+      "sha256": "4bd42c7f9cfab3078d01a3fe3b24ff99e2af032e2fbfa60b91cfa9badb4a7752",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/linear/subagent_guard.py",
+      "sha256": "f39a1a639f184035eb20f157ecfca35c24022b282ae6b4922d14ec5ad622feeb",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/linear/agent_capacity.py",
+      "sha256": "9aa64b269fc7243ca93ef34745950b27603fadf5270b0448e213c8a268598317",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/linear/test_tasks/setup.py",
+      "sha256": "d33e05d51529cdeaea082a7cf867d5e4e6d61ce167e52f5d73c6a1296a830258",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/linear/test_tasks/fixtures.py",
+      "sha256": "56224848c07145f3dcd10cb855577f72970f1cf9b4c31921e6d7a2193ef9674c",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/linear/test_tasks/check.py",
+      "sha256": "27b74b23787d326a98e7b5cc193b178f2e683cb36ff67b11376cb1aa56602542",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": "scripts/linear/test_tasks/close_out.py",
+      "sha256": "aa18ba0c9b465237dc6948af2cc7abacdb9426bb43638dc21e0a6fd8731712b7",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": ".claude/skills/test-tasks/SKILL.md",
+      "sha256": "d5a474f2ca7c94528396c519ee83806be9e42dbb966b42f8c2a69c3e8e2b1f39",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": ".claude/standards/task-management.md",
+      "sha256": "7579f3b782ac3c2acfcb857dc48d395058dc2fd390c87f38d953688923523600",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    },
+    {
+      "path": ".claude/output-styles/lead-engineer.md",
+      "sha256": "bfe5cadf14e8a047b97d0656bfad31fe3b63af5debd556444fda7dd1e7e9b184",
+      "status": "inspected_or_located; test execution not performed in this writing task"
+    }
+  ],
+  "previous_commit": "15992e2be8b2fe47d4646f92e62c90888a332619",
+  "source_ref": "origin/dev-mirror",
+  "working_tree": "original checkout preserved; source bytes read from pinned Git objects"
+}

@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "product": "ai-task-manager",
+  "cli": "aitm",
+  "status": "planning_handoff; implementation has not started",
+  "repository": {
+    "remote": "https://github.com/fatonsopa/ai-task-manager.git",
+    "visibility": "public",
+    "push_authorized": true,
+    "change_visibility": false,
+    "default_branch_merge_authorized": false,
+    "public_release_authorized": false,
+    "license": "MIT",
+    "copyright_holder": "Manaferra Inc."
+  },
+  "limits": {
+    "max_elapsed_seconds": 172800,
+    "max_incremental_spend_usd": 100,
+    "user_fixed_worker_cap": null,
+    "initial_worker_cap": 2,
+    "resolved_worker_cap_must_be_finite": true,
+    "stop_admission_before_deadline_seconds": 1800,
+    "paid_call_requires_cost_reservation": true,
+    "unknown_paid_cost_action": "block_paid_call",
+    "retry_rounds_per_frozen_case": 5,
+    "unattended_budget_extension_authorized": false
+  },
+  "acceptance": {
+    "required_hosts": [
+      "claude-code",
+      "codex-cli"
+    ],
+    "primary_platform": "macos",
+    "linux_scope": "real Linux-container portability and CLI smoke tests; native Linux services are not claimed",
+    "missing_required_evidence_blocks_release": true,
+    "normal_session_activation_requires_final_review": true
+  },
+  "permissions": {
+    "local_implementation": true,
+    "isolated_host_installation": true,
+    "run_owned_tst_mutations": true,
+    "public_repository_code_pushes": true,
+    "normal_session_installation": false,
+    "production_mutations_or_deployments": false,
+    "other_users_work_mutations": false,
+    "new_paid_infrastructure": false,
+    "delete_linear_issues": false
+  },
+  "linear": {
+    "credential_file": "$HOME/.config/ai-task-manager/test-credentials.env",
+    "token_variables": [
+      "LINEAR_TEST_USER_A_TOKEN",
+      "LINEAR_TEST_USER_B_TOKEN"
+    ],
+    "team_key": "TST",
+    "expected_team_id": "cbe80ecc-8035-407d-b531-63cfe083aafc",
+    "scope_every_fixture_write_by_team_project_run_and_owner": true,
+    "team_wide_start_cleanup_allowed": false,
+    "development_tracking_project_separate_from_fixture_projects": true,
+    "workflow_statuses": [
+      "Backlog",
+      "Todo",
+      "In Progress",
+      "On Hold",
+      "In Review",
+      "In Dev",
+      "In Staging",
+      "Done",
+      "Canceled",
+      "Duplicate"
+    ],
+    "review_exit": {
+      "from": "In Review",
+      "allowed_destinations": [
+        "Backlog",
+        "Todo",
+        "In Progress",
+        "On Hold",
+        "In Review",
+        "In Dev",
+        "In Staging",
+        "Done",
+        "Canceled",
+        "Duplicate"
+      ],
+      "requires_authorized_decision": true,
+      "requires_destination_evidence": true,
+      "same_status_is_idempotent": true,
+      "status_change_alone_launches_worker": false
+    },
+    "primary_credential_fallback": {
+      "source": "application repository .env.local",
+      "variable": "LINEAR_API_KEY",
+      "copy_secret": false
+    },
+    "verify_primary_identity_and_scope_before_live_mutation": true,
+    "verify_distinct_identities_before_two_user_cases": true,
+    "single_user_work_may_proceed_without_secondary_token": true,
+    "primary_read_probe": {
+      "date": "2026-11-01",
+      "authenticated": true,
+      "expected_tst_team_matches": true,
+      "writes_tested": false
+    }
+  },
+  "integration": {
+    "cutover": "single project-wide clean cutover; no parallel live writers",
+    "merge_script": "scripts/merge-to-dev.sh",
+    "merge_script_changes_allowed": false,
+    "compatibility_entrypoints": "preserve existing commands and argument flow; route solely to new core after cutover",
+    "task_management_document": ".claude/standards/task-management.md",
+    "migrate_all_required_legacy_contracts_before_activation": true
+  },
+  "user_decisions": [
+    {
+      "id": "D01",
+      "decision": "Both Claude Code and Codex CLI are required."
+    },
+    {
+      "id": "D02",
+      "decision": "USD 100 total incremental spending; 48 hours elapsed; choose workers within measured capacity."
+    },
+    {
+      "id": "D03",
+      "decision": "Use supplied repository; keep it public and allow code pushes."
+    },
+    {
+      "id": "D04",
+      "decision": "MIT copyright holder is Manaferra Inc."
+    },
+    {
+      "id": "D05",
+      "decision": "Strict code-delivery chain, verified non-code completion, reasoned cancellation and duplication."
+    },
+    {
+      "id": "D06",
+      "decision": "In Review is only for explicit human acceptance."
+    },
+    {
+      "id": "D07",
+      "decision": "Clean cutover; migrate everything required at activation; no overlapping old and new live systems."
+    },
+    {
+      "id": "D08",
+      "decision": "User will prepare two Linear test credentials; actual availability remains a preflight prerequisite."
+    },
+    {
+      "id": "D09",
+      "decision": "Defer all Claude tests until 2 November 2026; reminder scheduled at 09:00 Europe/Belgrade. Required release coverage is unchanged."
+    },
+    {
+      "id": "D10",
+      "decision": "An issue in In Review can move to every configured status, subject to authorization, target-specific evidence and worker-admission rules."
+    },
+    {
+      "id": "D11",
+      "decision": "Reuse the existing LINEAR_API_KEY in the application repository .env.local; do not request or copy a replacement primary key. A second Linear identity gates live two-user isolation only."
+    },
+    {
+      "id": "D12",
+      "decision": "Use claude_roni; default claude account stays unavailable until user says otherwise."
+    },
+    {
+      "id": "D13",
+      "decision": "Plan approved: begin implementation and available Claude-profile/Codex testing now."
+    },
+    {
+      "id": "D14",
+      "decision": "Technical Writer and Skill Builder work is held while those skills are updated; continue independent engineering."
+    },
+    {
+      "id": "D15",
+      "decision": "Second Linear identity unavailable; keep live two-user acceptance blocked while other work proceeds."
+    },
+    {
+      "id": "D16",
+      "decision": "Build in ai-task-management under the projects directory; use its docs directory as the canonical maintained plan/diagram source."
+    },
+    {
+      "id": "D17",
+      "decision": "Inspect recent AI Index commits and base compatibility work on the newest relevant development snapshot."
+    }
+  ],
+  "active_host_profiles": {
+    "claude-code": {
+      "label": "claude_roni",
+      "executable": "claude",
+      "config_dir_relative_to_home": ".claude_roni",
+      "default_account_allowed": false,
+      "authentication_preflight": "signed in via claude.ai; Max; no model invocation yet"
+    },
+    "codex-cli": {
+      "executable": "codex",
+      "authentication": "existing ChatGPT CLI login; checked"
+    }
+  },
+  "unavailable_accounts": {
+    "claude": "Do not use until the user explicitly says this original account is available."
+  },
+  "historical_test_deferral": {
+    "claude-code": {
+      "not_before": "2026-11-02T00:00:00+01:00",
+      "reason": "User deferred all Claude tests until tomorrow; account readiness must be checked.",
+      "reminder_local": "2026-11-02T09:00:00+01:00",
+      "reminder_automation_id": "resume-claude-code-tests",
+      "release_requirement_removed": false
+    }
+  },
+  "skill_holds": {
+    "technical-writer": "Do not invoke, read, modify or validate until user releases hold.",
+    "skill-builder": "Do not invoke, read, modify or validate until user releases hold."
+  },
+  "canonical_docs": "docs/",
+  "application_baseline": {
+    "ref": "origin/dev-mirror",
+    "commit": "c05f40200703e7b8f379a8477502dabd594ba79c",
+    "older_checkout_commit": "15992e2be8b2fe47d4646f92e62c90888a332619",
+    "ahead_of_checkout": 72
+  }
+}

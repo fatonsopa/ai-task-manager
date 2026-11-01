@@ -1,0 +1,36 @@
+%% Diagram: Flowchart
+%% Subtitle: Authorized tasks wait for dependencies and capacity before worker startup is confirmed.
+flowchart TD
+    accTitle: Task dispatch workflow
+    accDescr: Authorized tasks wait for dependencies and capacity before worker startup is confirmed.
+    A@{ shape: lean-r, label: "1. Task submitted" }
+    class A data
+    B@{ shape: diam, label: "2. Authorized scope?" }
+    class B decision
+    C@{ shape: stadium, label: "3. Reject request" }
+    class C terminator
+    D@{ shape: diam, label: "4. Dependencies and capacity ready?" }
+    class D decision
+    E@{ shape: rect, label: "5. Queue with reason" }
+    class E process
+    F@{ shape: fr-rect, label: "6. Reserve task and resources" }
+    class F predefined
+    G@{ shape: rect, label: "7. Prepare and launch worker" }
+    class G process
+    H@{ shape: diam, label: "8. Startup confirmed?" }
+    class H decision
+    I@{ shape: rect, label: "9. Reconcile failed or unknown start" }
+    class I process
+    J@{ shape: stadium, label: "10. Record running" }
+    class J terminator
+    A --> B
+    B -->|"No"| C
+    B -->|"Yes"| D
+    D -->|"No"| E
+    E -->|"Prerequisite changes"| D
+    D -->|"Yes"| F
+    F --> G
+    G --> H
+    H -->|"No"| I
+    H -->|"Yes"| J
+%% Legend: flow_arrow | Next action

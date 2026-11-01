@@ -1,0 +1,5761 @@
+{
+  "schema_version": 1,
+  "status": "authored acceptance requirements; no product cases executed",
+  "freeze_before_implementation": true,
+  "workflows": [
+    {
+      "id": "intake",
+      "requirements": [
+        "R02",
+        "R11",
+        "R12"
+      ],
+      "steps": [
+        "validate authorized request and principal",
+        "create Backlog issue and confirm identity",
+        "bind issue to logical session",
+        "enqueue explicitly and confirm Todo"
+      ]
+    },
+    {
+      "id": "dispatch",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "steps": [
+        "check Todo or authorized On Hold resume",
+        "validate scope dependencies and holds",
+        "reserve attempt and capacity atomically",
+        "prepare owned worktree and database",
+        "launch supervised worker with assignment",
+        "confirm process and host startup",
+        "record Running and synchronize In Progress"
+      ]
+    },
+    {
+      "id": "execution",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "steps": [
+        "load task acceptance and owned paths",
+        "perform assigned work",
+        "record checkpoint and actual progress",
+        "produce change and evidence references",
+        "request verification without claiming completion"
+      ]
+    },
+    {
+      "id": "delivery",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "steps": [
+        "validate checks and commit evidence",
+        "run existing merge prechecks",
+        "run existing merge in foreground",
+        "verify merged commit and existing cleanup",
+        "confirm In Dev from Git evidence",
+        "confirm In Staging from isolated deployment evidence",
+        "confirm Done from production-equivalent fixture evidence"
+      ]
+    },
+    {
+      "id": "hold-resume",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "steps": [
+        "record authorized hold and reason",
+        "checkpoint and quiesce worker",
+        "confirm On Hold",
+        "recheck authorization dependencies and capacity",
+        "resume a verified attempt or admit a new noncompeting attempt",
+        "confirm actual In Progress or explicit Todo or Backlog destination"
+      ]
+    },
+    {
+      "id": "sync",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "steps": [
+        "authenticate and bind scope",
+        "record outbound intent durably",
+        "apply allowed remote mutation",
+        "read back remote facts",
+        "acknowledge operation and publish scoped event"
+      ]
+    },
+    {
+      "id": "recovery",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "steps": [
+        "detect uncertain process or side effect",
+        "freeze competing admission for task",
+        "inspect process Git resources and remote facts",
+        "record reconciled outcome or decision required",
+        "resume or compensate with retained evidence"
+      ]
+    },
+    {
+      "id": "installation",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "steps": [
+        "verify artifact and installed host capability",
+        "capture owned configuration before-image",
+        "install scoped integration",
+        "verify actual tool skill and guard activation",
+        "record installed versions and ownership"
+      ]
+    },
+    {
+      "id": "cutover",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "steps": [
+        "inventory all legacy contracts and writers",
+        "stop admission and finish active merges",
+        "checkpoint stop workers and fence legacy writers",
+        "snapshot and import all required state",
+        "reconcile imported facts and command compatibility",
+        "replace scoped instructions hooks and entrypoints",
+        "activate one new authority under version fence",
+        "verify new path and retain recovery snapshot"
+      ]
+    },
+    {
+      "id": "removal",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "steps": [
+        "stop new admission",
+        "drain or checkpoint workers and finish merges",
+        "retain state and recovery references",
+        "remove only still-owned integration changes",
+        "verify detached behavior and remaining data"
+      ]
+    }
+  ],
+  "matrix": {
+    "behavior_hosts": [
+      "claude-code",
+      "codex-cli"
+    ],
+    "behavior_platform": "macos",
+    "profiles": "Resolve and freeze exact available model and effort per host before the first evaluated batch.",
+    "critical_repeat_cases": [
+      "B01",
+      "B03",
+      "B06",
+      "B08",
+      "B09",
+      "B12",
+      "B14"
+    ],
+    "critical_repeat_count": 3,
+    "linux_required_cases": [
+      "C29"
+    ],
+    "shared_mechanical_platforms": [
+      "macos",
+      "linux-container"
+    ],
+    "live_linear_platform": "macos",
+    "behavior_runs_through_live_tst_when_applicable": true
+  },
+  "cases": [
+    {
+      "id": "WF-intake-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R11",
+        "R12"
+      ],
+      "workflow": "intake",
+      "title": "Complete intake workflow",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "validate authorized request and principal",
+        "create Backlog issue and confirm identity",
+        "bind issue to logical session",
+        "enqueue explicitly and confirm Todo"
+      ],
+      "expected": [
+        "All required steps occur in order with observed evidence.",
+        "Only declared side effects and scoped records change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "intake"
+      ]
+    },
+    {
+      "id": "WF-intake-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R11",
+        "R12"
+      ],
+      "workflow": "intake",
+      "title": "Refuse intake without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: validate authorized request and principal.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "intake"
+      ]
+    },
+    {
+      "id": "WF-intake-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R11",
+        "R12"
+      ],
+      "workflow": "intake",
+      "title": "Refuse intake without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: create Backlog issue and confirm identity.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "intake"
+      ]
+    },
+    {
+      "id": "WF-intake-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R11",
+        "R12"
+      ],
+      "workflow": "intake",
+      "title": "Refuse intake without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: bind issue to logical session.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "intake"
+      ]
+    },
+    {
+      "id": "WF-intake-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R11",
+        "R12"
+      ],
+      "workflow": "intake",
+      "title": "Refuse intake without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: enqueue explicitly and confirm Todo.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "intake"
+      ]
+    },
+    {
+      "id": "WF-intake-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R11",
+        "R12"
+      ],
+      "workflow": "intake",
+      "title": "Refuse reversed steps 1 and 2 in intake",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt create Backlog issue and confirm identity before validate authorized request and principal."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "intake"
+      ]
+    },
+    {
+      "id": "WF-intake-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R11",
+        "R12"
+      ],
+      "workflow": "intake",
+      "title": "Refuse reversed steps 2 and 3 in intake",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt bind issue to logical session before create Backlog issue and confirm identity."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "intake"
+      ]
+    },
+    {
+      "id": "WF-intake-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R11",
+        "R12"
+      ],
+      "workflow": "intake",
+      "title": "Refuse reversed steps 3 and 4 in intake",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt enqueue explicitly and confirm Todo before bind issue to logical session."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "intake"
+      ]
+    },
+    {
+      "id": "WF-dispatch-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Complete dispatch workflow",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "check Todo or authorized On Hold resume",
+        "validate scope dependencies and holds",
+        "reserve attempt and capacity atomically",
+        "prepare owned worktree and database",
+        "launch supervised worker with assignment",
+        "confirm process and host startup",
+        "record Running and synchronize In Progress"
+      ],
+      "expected": [
+        "All required steps occur in order with observed evidence.",
+        "Only declared side effects and scoped records change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse dispatch without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: check Todo or authorized On Hold resume.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse dispatch without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: validate scope dependencies and holds.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse dispatch without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: reserve attempt and capacity atomically.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse dispatch without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: prepare owned worktree and database.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse dispatch without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: launch supervised worker with assignment.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-omit-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse dispatch without step 6",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: confirm process and host startup.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-omit-07",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse dispatch without step 7",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: record Running and synchronize In Progress.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse reversed steps 1 and 2 in dispatch",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt validate scope dependencies and holds before check Todo or authorized On Hold resume."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse reversed steps 2 and 3 in dispatch",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt reserve attempt and capacity atomically before validate scope dependencies and holds."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse reversed steps 3 and 4 in dispatch",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt prepare owned worktree and database before reserve attempt and capacity atomically."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse reversed steps 4 and 5 in dispatch",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt launch supervised worker with assignment before prepare owned worktree and database."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-order-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse reversed steps 5 and 6 in dispatch",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt confirm process and host startup before launch supervised worker with assignment."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-dispatch-order-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R01",
+        "R03",
+        "R05",
+        "R06",
+        "R07"
+      ],
+      "workflow": "dispatch",
+      "title": "Refuse reversed steps 6 and 7 in dispatch",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt record Running and synchronize In Progress before confirm process and host startup."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "dispatch"
+      ]
+    },
+    {
+      "id": "WF-execution-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "workflow": "execution",
+      "title": "Complete execution workflow",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "load task acceptance and owned paths",
+        "perform assigned work",
+        "record checkpoint and actual progress",
+        "produce change and evidence references",
+        "request verification without claiming completion"
+      ],
+      "expected": [
+        "All required steps occur in order with observed evidence.",
+        "Only declared side effects and scoped records change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "execution"
+      ]
+    },
+    {
+      "id": "WF-execution-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "workflow": "execution",
+      "title": "Refuse execution without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: load task acceptance and owned paths.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "execution"
+      ]
+    },
+    {
+      "id": "WF-execution-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "workflow": "execution",
+      "title": "Refuse execution without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: perform assigned work.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "execution"
+      ]
+    },
+    {
+      "id": "WF-execution-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "workflow": "execution",
+      "title": "Refuse execution without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: record checkpoint and actual progress.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "execution"
+      ]
+    },
+    {
+      "id": "WF-execution-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "workflow": "execution",
+      "title": "Refuse execution without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: produce change and evidence references.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "execution"
+      ]
+    },
+    {
+      "id": "WF-execution-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "workflow": "execution",
+      "title": "Refuse execution without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: request verification without claiming completion.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "execution"
+      ]
+    },
+    {
+      "id": "WF-execution-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "workflow": "execution",
+      "title": "Refuse reversed steps 1 and 2 in execution",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt perform assigned work before load task acceptance and owned paths."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "execution"
+      ]
+    },
+    {
+      "id": "WF-execution-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "workflow": "execution",
+      "title": "Refuse reversed steps 2 and 3 in execution",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt record checkpoint and actual progress before perform assigned work."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "execution"
+      ]
+    },
+    {
+      "id": "WF-execution-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "workflow": "execution",
+      "title": "Refuse reversed steps 3 and 4 in execution",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt produce change and evidence references before record checkpoint and actual progress."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "execution"
+      ]
+    },
+    {
+      "id": "WF-execution-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R30"
+      ],
+      "workflow": "execution",
+      "title": "Refuse reversed steps 4 and 5 in execution",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt request verification without claiming completion before produce change and evidence references."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "execution"
+      ]
+    },
+    {
+      "id": "WF-delivery-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Complete delivery workflow",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "validate checks and commit evidence",
+        "run existing merge prechecks",
+        "run existing merge in foreground",
+        "verify merged commit and existing cleanup",
+        "confirm In Dev from Git evidence",
+        "confirm In Staging from isolated deployment evidence",
+        "confirm Done from production-equivalent fixture evidence"
+      ],
+      "expected": [
+        "All required steps occur in order with observed evidence.",
+        "Only declared side effects and scoped records change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse delivery without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: validate checks and commit evidence.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse delivery without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: run existing merge prechecks.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse delivery without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: run existing merge in foreground.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse delivery without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: verify merged commit and existing cleanup.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse delivery without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: confirm In Dev from Git evidence.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-omit-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse delivery without step 6",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: confirm In Staging from isolated deployment evidence.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-omit-07",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse delivery without step 7",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: confirm Done from production-equivalent fixture evidence.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse reversed steps 1 and 2 in delivery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt run existing merge prechecks before validate checks and commit evidence."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse reversed steps 2 and 3 in delivery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt run existing merge in foreground before run existing merge prechecks."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse reversed steps 3 and 4 in delivery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt verify merged commit and existing cleanup before run existing merge in foreground."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse reversed steps 4 and 5 in delivery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt confirm In Dev from Git evidence before verify merged commit and existing cleanup."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-order-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse reversed steps 5 and 6 in delivery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt confirm In Staging from isolated deployment evidence before confirm In Dev from Git evidence."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-delivery-order-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R08",
+        "R09",
+        "R31",
+        "R32"
+      ],
+      "workflow": "delivery",
+      "title": "Refuse reversed steps 6 and 7 in delivery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt confirm Done from production-equivalent fixture evidence before confirm In Staging from isolated deployment evidence."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Complete hold-resume workflow",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "record authorized hold and reason",
+        "checkpoint and quiesce worker",
+        "confirm On Hold",
+        "recheck authorization dependencies and capacity",
+        "resume a verified attempt or admit a new noncompeting attempt",
+        "confirm actual In Progress or explicit Todo or Backlog destination"
+      ],
+      "expected": [
+        "All required steps occur in order with observed evidence.",
+        "Only declared side effects and scoped records change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse hold-resume without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: record authorized hold and reason.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse hold-resume without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: checkpoint and quiesce worker.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse hold-resume without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: confirm On Hold.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse hold-resume without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: recheck authorization dependencies and capacity.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse hold-resume without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: resume a verified attempt or admit a new noncompeting attempt.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-omit-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse hold-resume without step 6",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: confirm actual In Progress or explicit Todo or Backlog destination.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse reversed steps 1 and 2 in hold-resume",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt checkpoint and quiesce worker before record authorized hold and reason."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse reversed steps 2 and 3 in hold-resume",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt confirm On Hold before checkpoint and quiesce worker."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse reversed steps 3 and 4 in hold-resume",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt recheck authorization dependencies and capacity before confirm On Hold."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse reversed steps 4 and 5 in hold-resume",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt resume a verified attempt or admit a new noncompeting attempt before recheck authorization dependencies and capacity."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-hold-resume-order-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R07",
+        "R12",
+        "R14"
+      ],
+      "workflow": "hold-resume",
+      "title": "Refuse reversed steps 5 and 6 in hold-resume",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt confirm actual In Progress or explicit Todo or Backlog destination before resume a verified attempt or admit a new noncompeting attempt."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "WF-sync-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "workflow": "sync",
+      "title": "Complete sync workflow",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "authenticate and bind scope",
+        "record outbound intent durably",
+        "apply allowed remote mutation",
+        "read back remote facts",
+        "acknowledge operation and publish scoped event"
+      ],
+      "expected": [
+        "All required steps occur in order with observed evidence.",
+        "Only declared side effects and scoped records change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "WF-sync-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "workflow": "sync",
+      "title": "Refuse sync without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: authenticate and bind scope.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "WF-sync-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "workflow": "sync",
+      "title": "Refuse sync without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: record outbound intent durably.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "WF-sync-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "workflow": "sync",
+      "title": "Refuse sync without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: apply allowed remote mutation.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "WF-sync-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "workflow": "sync",
+      "title": "Refuse sync without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: read back remote facts.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "WF-sync-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "workflow": "sync",
+      "title": "Refuse sync without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: acknowledge operation and publish scoped event.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "WF-sync-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "workflow": "sync",
+      "title": "Refuse reversed steps 1 and 2 in sync",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt record outbound intent durably before authenticate and bind scope."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "WF-sync-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "workflow": "sync",
+      "title": "Refuse reversed steps 2 and 3 in sync",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt apply allowed remote mutation before record outbound intent durably."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "WF-sync-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "workflow": "sync",
+      "title": "Refuse reversed steps 3 and 4 in sync",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt read back remote facts before apply allowed remote mutation."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "WF-sync-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R04",
+        "R10",
+        "R12",
+        "R23"
+      ],
+      "workflow": "sync",
+      "title": "Refuse reversed steps 4 and 5 in sync",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt acknowledge operation and publish scoped event before read back remote facts."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "WF-recovery-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "workflow": "recovery",
+      "title": "Complete recovery workflow",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "detect uncertain process or side effect",
+        "freeze competing admission for task",
+        "inspect process Git resources and remote facts",
+        "record reconciled outcome or decision required",
+        "resume or compensate with retained evidence"
+      ],
+      "expected": [
+        "All required steps occur in order with observed evidence.",
+        "Only declared side effects and scoped records change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "WF-recovery-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "workflow": "recovery",
+      "title": "Refuse recovery without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: detect uncertain process or side effect.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "WF-recovery-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "workflow": "recovery",
+      "title": "Refuse recovery without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: freeze competing admission for task.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "WF-recovery-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "workflow": "recovery",
+      "title": "Refuse recovery without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: inspect process Git resources and remote facts.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "WF-recovery-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "workflow": "recovery",
+      "title": "Refuse recovery without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: record reconciled outcome or decision required.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "WF-recovery-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "workflow": "recovery",
+      "title": "Refuse recovery without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: resume or compensate with retained evidence.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "WF-recovery-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "workflow": "recovery",
+      "title": "Refuse reversed steps 1 and 2 in recovery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt freeze competing admission for task before detect uncertain process or side effect."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "WF-recovery-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "workflow": "recovery",
+      "title": "Refuse reversed steps 2 and 3 in recovery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt inspect process Git resources and remote facts before freeze competing admission for task."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "WF-recovery-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "workflow": "recovery",
+      "title": "Refuse reversed steps 3 and 4 in recovery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt record reconciled outcome or decision required before inspect process Git resources and remote facts."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "WF-recovery-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14",
+        "R31"
+      ],
+      "workflow": "recovery",
+      "title": "Refuse reversed steps 4 and 5 in recovery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt resume or compensate with retained evidence before record reconciled outcome or decision required."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "WF-installation-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": "installation",
+      "title": "Complete installation workflow",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "verify artifact and installed host capability",
+        "capture owned configuration before-image",
+        "install scoped integration",
+        "verify actual tool skill and guard activation",
+        "record installed versions and ownership"
+      ],
+      "expected": [
+        "All required steps occur in order with observed evidence.",
+        "Only declared side effects and scoped records change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    },
+    {
+      "id": "WF-installation-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": "installation",
+      "title": "Refuse installation without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: verify artifact and installed host capability.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    },
+    {
+      "id": "WF-installation-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": "installation",
+      "title": "Refuse installation without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: capture owned configuration before-image.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    },
+    {
+      "id": "WF-installation-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": "installation",
+      "title": "Refuse installation without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: install scoped integration.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    },
+    {
+      "id": "WF-installation-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": "installation",
+      "title": "Refuse installation without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: verify actual tool skill and guard activation.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    },
+    {
+      "id": "WF-installation-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": "installation",
+      "title": "Refuse installation without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: record installed versions and ownership.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    },
+    {
+      "id": "WF-installation-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": "installation",
+      "title": "Refuse reversed steps 1 and 2 in installation",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt capture owned configuration before-image before verify artifact and installed host capability."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    },
+    {
+      "id": "WF-installation-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": "installation",
+      "title": "Refuse reversed steps 2 and 3 in installation",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt install scoped integration before capture owned configuration before-image."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    },
+    {
+      "id": "WF-installation-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": "installation",
+      "title": "Refuse reversed steps 3 and 4 in installation",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt verify actual tool skill and guard activation before install scoped integration."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    },
+    {
+      "id": "WF-installation-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": "installation",
+      "title": "Refuse reversed steps 4 and 5 in installation",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt record installed versions and ownership before verify actual tool skill and guard activation."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    },
+    {
+      "id": "WF-cutover-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Complete cutover workflow",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "inventory all legacy contracts and writers",
+        "stop admission and finish active merges",
+        "checkpoint stop workers and fence legacy writers",
+        "snapshot and import all required state",
+        "reconcile imported facts and command compatibility",
+        "replace scoped instructions hooks and entrypoints",
+        "activate one new authority under version fence",
+        "verify new path and retain recovery snapshot"
+      ],
+      "expected": [
+        "All required steps occur in order with observed evidence.",
+        "Only declared side effects and scoped records change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse cutover without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: inventory all legacy contracts and writers.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse cutover without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: stop admission and finish active merges.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse cutover without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: checkpoint stop workers and fence legacy writers.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse cutover without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: snapshot and import all required state.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse cutover without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: reconcile imported facts and command compatibility.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-omit-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse cutover without step 6",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: replace scoped instructions hooks and entrypoints.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-omit-07",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse cutover without step 7",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: activate one new authority under version fence.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-omit-08",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse cutover without step 8",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: verify new path and retain recovery snapshot.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse reversed steps 1 and 2 in cutover",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt stop admission and finish active merges before inventory all legacy contracts and writers."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse reversed steps 2 and 3 in cutover",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt checkpoint stop workers and fence legacy writers before stop admission and finish active merges."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse reversed steps 3 and 4 in cutover",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt snapshot and import all required state before checkpoint stop workers and fence legacy writers."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse reversed steps 4 and 5 in cutover",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt reconcile imported facts and command compatibility before snapshot and import all required state."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-order-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse reversed steps 5 and 6 in cutover",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt replace scoped instructions hooks and entrypoints before reconcile imported facts and command compatibility."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-order-06",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse reversed steps 6 and 7 in cutover",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt activate one new authority under version fence before replace scoped instructions hooks and entrypoints."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-cutover-order-07",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": "cutover",
+      "title": "Refuse reversed steps 7 and 8 in cutover",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt verify new path and retain recovery snapshot before activate one new authority under version fence."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "WF-removal-valid",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "workflow": "removal",
+      "title": "Complete removal workflow",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "stop new admission",
+        "drain or checkpoint workers and finish merges",
+        "retain state and recovery references",
+        "remove only still-owned integration changes",
+        "verify detached behavior and remaining data"
+      ],
+      "expected": [
+        "All required steps occur in order with observed evidence.",
+        "Only declared side effects and scoped records change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "WF-removal-omit-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "workflow": "removal",
+      "title": "Refuse removal without step 1",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: stop new admission.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "WF-removal-omit-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "workflow": "removal",
+      "title": "Refuse removal without step 2",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: drain or checkpoint workers and finish merges.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "WF-removal-omit-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "workflow": "removal",
+      "title": "Refuse removal without step 3",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: retain state and recovery references.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "WF-removal-omit-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "workflow": "removal",
+      "title": "Refuse removal without step 4",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: remove only still-owned integration changes.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "WF-removal-omit-05",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "workflow": "removal",
+      "title": "Refuse removal without step 5",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Execute the workflow while omitting: verify detached behavior and remaining data.",
+        "Attempt the next dependent action through the public API."
+      ],
+      "expected": [
+        "The dependent action is refused or remains pending with the missing prerequisite.",
+        "No illegal state, capacity leak, foreign mutation or unsupported success is produced."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "WF-removal-order-01",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "workflow": "removal",
+      "title": "Refuse reversed steps 1 and 2 in removal",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt drain or checkpoint workers and finish merges before stop new admission."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "WF-removal-order-02",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "workflow": "removal",
+      "title": "Refuse reversed steps 2 and 3 in removal",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt retain state and recovery references before drain or checkpoint workers and finish merges."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "WF-removal-order-03",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "workflow": "removal",
+      "title": "Refuse reversed steps 3 and 4 in removal",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt remove only still-owned integration changes before retain state and recovery references."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "WF-removal-order-04",
+      "layer": "mechanical",
+      "requirements": [
+        "R18",
+        "R31",
+        "R34"
+      ],
+      "workflow": "removal",
+      "title": "Refuse reversed steps 4 and 5 in removal",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt verify detached behavior and remaining data before remove only still-owned integration changes."
+      ],
+      "expected": [
+        "Reject premature dependent action; verify durable records and external effects remain consistent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "C01",
+      "layer": "mechanical",
+      "requirements": [
+        "R02",
+        "R09"
+      ],
+      "workflow": null,
+      "title": "Strict initial queue sequence",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt direct creation as Todo, direct Backlog start, and repeated enqueue."
+      ],
+      "expected": [
+        "Creation first confirms Backlog; start requires recorded Todo; repeated enqueue is idempotent."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C02",
+      "layer": "mechanical",
+      "requirements": [
+        "R09",
+        "R13"
+      ],
+      "workflow": null,
+      "title": "Complete transition matrix",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Enumerate every ordered status pair and every declared cause against the frozen policy table."
+      ],
+      "expected": [
+        "Every pair has an allow/refuse result; tests verify exact effects and evidence, including same-status no-ops."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C03",
+      "layer": "mechanical",
+      "requirements": [
+        "R09",
+        "R30"
+      ],
+      "workflow": null,
+      "title": "Delivered issues reject work",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt dispatch and retry for In Dev, In Staging and Done, then create a linked follow-up."
+      ],
+      "expected": [
+        "All old-issue work admissions fail; new issue starts in Backlog and retains the relationship."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C04",
+      "layer": "mechanical",
+      "requirements": [
+        "R12",
+        "R13"
+      ],
+      "workflow": null,
+      "title": "Hold destinations and all review exits",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Exercise On Hold to In Progress, Todo and Backlog; attempt to enter In Review without a human request.",
+        "From independent In Review fixtures, exercise every configured destination, including an idempotent In Review replay; repeat each with missing authorization or destination evidence."
+      ],
+      "expected": [
+        "Hold resume requires actual startup; queue destinations require worker quiescence; invented review requests are refused.",
+        "All configured review destinations are supported when authorized and their guards pass; delivery destinations require real merge/deployment evidence, non-code Done requires checked completion, and Duplicate requires a canonical issue.",
+        "Invalid or unsupported evidence is refused; no status update alone starts a worker or bypasses resource/scope/admission checks."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [],
+      "review_exit_targets": [
+        "Backlog",
+        "Todo",
+        "In Progress",
+        "On Hold",
+        "In Review",
+        "In Dev",
+        "In Staging",
+        "Done",
+        "Canceled",
+        "Duplicate"
+      ]
+    },
+    {
+      "id": "C05",
+      "layer": "mechanical",
+      "requirements": [
+        "R09",
+        "R13"
+      ],
+      "workflow": null,
+      "title": "Non-code and terminal exceptions",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Finish verified research, cancel unfinished work, mark a duplicate, and try to cancel delivered work."
+      ],
+      "expected": [
+        "No fake deployment; reason/evidence/kept-issue link required; delivered history is immutable."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C06",
+      "layer": "mechanical",
+      "requirements": [
+        "R06",
+        "R07"
+      ],
+      "workflow": null,
+      "title": "Competing claims and dependencies",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Race two supervisors and sessions for one task at a capacity boundary; introduce dependency cycles."
+      ],
+      "expected": [
+        "One reservation and worker at most; capacity never negative or exceeded; cycles refused."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C07",
+      "layer": "mechanical",
+      "requirements": [
+        "R03",
+        "R14"
+      ],
+      "workflow": null,
+      "title": "PID reuse and weak heartbeats",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Reuse a PID with different start identity; keep heartbeats but stop progress; lose process telemetry."
+      ],
+      "expected": [
+        "No false adoption or completion; liveness differs from progress; uncertainty blocks competing execution."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C08",
+      "layer": "mechanical",
+      "requirements": [
+        "R06",
+        "R20"
+      ],
+      "workflow": null,
+      "title": "Parallel cost reservations",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Race workers and evaluators for the last dollar; return unknown pricing and overlong elapsed time."
+      ],
+      "expected": [
+        "Global reservations prevent new paid work beyond the cap; unknown charges block; deadline is retained across restarts."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C09",
+      "layer": "mechanical",
+      "requirements": [
+        "R10",
+        "R12"
+      ],
+      "workflow": null,
+      "title": "Human decisions beat stale sync",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Delay an automation write while a person changes hold, assignee, priority or dependency."
+      ],
+      "expected": [
+        "Re-read facts and preserve the human decision; raise a scoped conflict instead of overwriting it."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C10",
+      "layer": "mechanical",
+      "requirements": [
+        "R10",
+        "R14"
+      ],
+      "workflow": null,
+      "title": "Ambiguous create and update",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Drop the response after a remote mutation commits; retry with the same operation identity."
+      ],
+      "expected": [
+        "Reconcile the existing object or quarantine ambiguity; never create a blind duplicate."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C11",
+      "layer": "mechanical",
+      "requirements": [
+        "R10",
+        "R27"
+      ],
+      "workflow": null,
+      "title": "Polling and optional webhook integrity",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Use paginated results, duplicate pages, stale events and invalid webhook signatures if that adapter is enabled."
+      ],
+      "expected": [
+        "Polling is the required local path; pagination is complete; duplicates are harmless; enabled webhook input is authenticated."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C12",
+      "layer": "process",
+      "requirements": [
+        "R05",
+        "R31"
+      ],
+      "workflow": null,
+      "title": "Resource isolation and failure",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Prepare two workers; fail between branch, directory, port and database creation; clean up twice."
+      ],
+      "expected": [
+        "Separate resources; partial setup compensated by ownership evidence; repeated cleanup is safe."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C13",
+      "layer": "process",
+      "requirements": [
+        "R08",
+        "R31"
+      ],
+      "workflow": null,
+      "title": "Existing merge result meanings",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Drive CHECKS PASSED, WOULD NOT MERGE, MERGED, NOT MERGED and NOTHING TO MERGE in disposable copies."
+      ],
+      "expected": [
+        "Preserved outputs retain meaning; no competing queue or rebase; only script-owned cleanup acts at merge time."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C14",
+      "layer": "process",
+      "requirements": [
+        "R08",
+        "R14"
+      ],
+      "workflow": null,
+      "title": "Crash around a committed merge",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Kill the controller before merge, during waiting and after dev moves but before acknowledgement."
+      ],
+      "expected": [
+        "Reconcile Git and script logs; no replayed successful merge or competing branch attempt; warning-only failures stay warnings."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C15",
+      "layer": "process",
+      "requirements": [
+        "R14",
+        "R31"
+      ],
+      "workflow": null,
+      "title": "Disk database and lock failures",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Inject disk-full, SQLite busy, corrupt copied metadata, occupied ports and stuck resource locks."
+      ],
+      "expected": [
+        "Safe errors and recoverable state; no fallback to foreign databases, fabricated free capacity or destructive reset."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C16",
+      "layer": "process",
+      "requirements": [
+        "R14",
+        "R26"
+      ],
+      "workflow": null,
+      "title": "Shutdown quota and detached lead",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Close the pane, disconnect the lead, expire auth and hit a model quota during work."
+      ],
+      "expected": [
+        "Closing a view does not cancel work; new admission stops when authorization is unavailable; checkpoints survive."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C17",
+      "layer": "live_linear",
+      "requirements": [
+        "R02",
+        "R10",
+        "R23"
+      ],
+      "workflow": null,
+      "title": "Real TST intake and dispatch",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Create an issue in Backlog; read it; enqueue Todo; launch worker; read In Progress."
+      ],
+      "expected": [
+        "Distinct remote readbacks prove ordered transitions, task linkage, real worker identity and scoped CLI display."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C18",
+      "layer": "live_linear",
+      "requirements": [
+        "R07",
+        "R12",
+        "R23"
+      ],
+      "workflow": null,
+      "title": "Real holds and resume destinations",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Place a run-owned working issue On Hold; separately exercise approved resume, requeue and backlog paths."
+      ],
+      "expected": [
+        "Worker state and remote state agree; dependencies and authority are rechecked for every destination."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C19",
+      "layer": "live_linear",
+      "requirements": [
+        "R08",
+        "R09",
+        "R23"
+      ],
+      "workflow": null,
+      "title": "Real TST delivery stages",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Perform a real disposable-copy merge; apply only fixture deployment evidence for staging and production stages."
+      ],
+      "expected": [
+        "Actual Linear reads show In Dev then In Staging then Done; no real environment deployment occurs."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C20",
+      "layer": "live_linear",
+      "requirements": [
+        "R09",
+        "R13",
+        "R23"
+      ],
+      "workflow": null,
+      "title": "Real review non-code and terminal paths",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Create separate run-owned In Review fixtures and move one to each configured status through authorized operations; also exercise verified no-code completion, cancel and duplicate.",
+        "Read every actual destination back from Linear and attempt each destination without its required authorization/evidence."
+      ],
+      "expected": [
+        "Every configured review destination is exercised in real TST; all guarded transitions succeed with valid evidence and invalid attempts are refused.",
+        "New work still requires normal admission; delivered statuses cannot start new work; canonical links and reasons are retained."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C21",
+      "layer": "live_linear",
+      "requirements": [
+        "R04",
+        "R12",
+        "R23"
+      ],
+      "workflow": null,
+      "title": "Two actual users and sessions",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Use distinct authenticated test viewers and two logical sessions; try to read, claim, transfer or edit foreign tasks."
+      ],
+      "expected": [
+        "Unauthorized requests fail server-side; authorized handoff is audited; no list/event leak or automatic foreign work admission."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C22",
+      "layer": "live_linear",
+      "requirements": [
+        "R10",
+        "R14",
+        "R23"
+      ],
+      "workflow": null,
+      "title": "Real sync recovery after outage",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Block outbound network after an operation is durably recorded; restore it and restart the supervisor."
+      ],
+      "expected": [
+        "TST converges once; evidence includes pending outbox, restart and fresh remote readback."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C23",
+      "layer": "live_linear",
+      "requirements": [
+        "R23",
+        "R31"
+      ],
+      "workflow": null,
+      "title": "Scoped fixture cleanup",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Create a sentinel issue in another run project; close this run after success, failure and abort."
+      ],
+      "expected": [
+        "Only this run fixture project changes; sentinel and other users work remain unchanged; verdict was captured before cleanup."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C24",
+      "layer": "live_linear",
+      "requirements": [
+        "R12",
+        "R30"
+      ],
+      "workflow": null,
+      "title": "Human reassignment during execution",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Change a run-owned fixture assignee and hold through authorized account actions while its worker is active."
+      ],
+      "expected": [
+        "Admission freezes, execution reaches a safe checkpoint, authority is reconciled and stale writes are not applied."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C25",
+      "layer": "terminal",
+      "requirements": [
+        "R04",
+        "R17"
+      ],
+      "workflow": null,
+      "title": "Real companion pane interactions",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Use a pseudo-terminal to expand a group, click a task, open its description, navigate by keyboard and resize."
+      ],
+      "expected": [
+        "Correct own-session content; focus is retained; no mutation from rendering and no terminal escape injection."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C26",
+      "layer": "terminal",
+      "requirements": [
+        "R17"
+      ],
+      "workflow": null,
+      "title": "Symbols labels and terminal fallbacks",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Render every state with Unicode, NO_COLOR, a narrow terminal and ASCII-only output."
+      ],
+      "expected": [
+        "Green ✔ Done and ◼ Running have labels; all states remain distinguishable without color; widths align."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C27",
+      "layer": "installation",
+      "requirements": [
+        "R16",
+        "R18",
+        "R27"
+      ],
+      "workflow": null,
+      "title": "Actual host installation and trust",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Install released candidate in isolated host configurations; invoke discovered skill and MCP; test untrusted or absent hooks."
+      ],
+      "expected": [
+        "Both CLIs load real components; strict mode refuses absent enforcement; unknown host versions cannot claim support."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C28",
+      "layer": "installation",
+      "requirements": [
+        "R18",
+        "R25"
+      ],
+      "workflow": null,
+      "title": "Update removal and migration failures",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Install old fixture version; interrupt update; retain running task; disable and uninstall; reinstall candidate."
+      ],
+      "expected": [
+        "Verified state retained; only owned configuration removed; recovery works; obsolete plugin cache is not state storage."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C29",
+      "layer": "portability",
+      "requirements": [
+        "R16",
+        "R24"
+      ],
+      "workflow": null,
+      "title": "Linux container and second project",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Run core/contracts and both actual CLI smoke workflows in Linux container; install a second project with a different database binding."
+      ],
+      "expected": [
+        "Recorded Linux kernel and host versions; no hardcoded project paths; native Linux service coverage remains explicitly outside the claim."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C30",
+      "layer": "mechanical",
+      "requirements": [
+        "R15",
+        "R24",
+        "R25"
+      ],
+      "workflow": null,
+      "title": "Domain import boundaries and package independence",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Check imports and install the wheel and each host package outside the checkout and Builder repository."
+      ],
+      "expected": [
+        "No domain imports adapters or CLI; one policy owner; packaged resources are complete and version matched."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C31",
+      "layer": "mechanical",
+      "requirements": [
+        "R28",
+        "R33"
+      ],
+      "workflow": null,
+      "title": "Legacy contract inventory and documentation parity",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Enumerate every task-management rule, legacy writer, command, hook, watcher and pipeline caller; compare generated transition reference."
+      ],
+      "expected": [
+        "Every required item maps to a retained/new owner and case; no unresolved row at cutover; Markdown cannot contradict the policy."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C32",
+      "layer": "process",
+      "requirements": [
+        "R28",
+        "R34"
+      ],
+      "workflow": null,
+      "title": "Clean cutover with unfinished work",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Start legacy fixture workers and holds, pending sync, a merge and a stale second session; execute migration."
+      ],
+      "expected": [
+        "Old admission stops, merge finishes, all required state reconciles, stale writers fail the epoch check; only new engine writes."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C33",
+      "layer": "process",
+      "requirements": [
+        "R28",
+        "R34"
+      ],
+      "workflow": null,
+      "title": "Cutover rollback after new writes",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Inject failure before activation and after new state changes; invoke recovery from snapshots."
+      ],
+      "expected": [
+        "No dual writers; post-cutover facts reconciled; no blind database restore or completed-task resurrection."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C34",
+      "layer": "mechanical",
+      "requirements": [
+        "R20",
+        "R21",
+        "R22",
+        "R29"
+      ],
+      "workflow": null,
+      "title": "Truthful release aggregation",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Supply mixed failed, timed-out, skipped, blocked, replayed and fresh passing reports; try to count authored controls as fresh behavior or include expected answers in a performing packet."
+      ],
+      "expected": [
+        "Categories remain distinct; contaminated packets and substituted replay are refused; all required cells pass on exact artifacts/profiles; deliberate negative controls fail; no selective aggregation or invented success."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C35",
+      "layer": "process",
+      "requirements": [
+        "R19",
+        "R30"
+      ],
+      "workflow": null,
+      "title": "Future ownership boundary",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Represent parent and role metadata but attempt to activate a shared application database today."
+      ],
+      "expected": [
+        "Metadata is extensible; shared database execution is refused; current worker ownership is unchanged."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C36",
+      "layer": "process",
+      "requirements": [
+        "R27",
+        "R34"
+      ],
+      "workflow": null,
+      "title": "Supported bypass surfaces",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Attempt native Agent/spawn tools, task-state tools, direct CLI/MCP operations, shell invocations and stale hooks from managed sessions."
+      ],
+      "expected": [
+        "All declared managed paths require authorized task capability; unsupported unguarded paths fail strict integration acceptance."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C37",
+      "layer": "mechanical",
+      "requirements": [
+        "R13",
+        "R30"
+      ],
+      "workflow": null,
+      "title": "Partial issue work and deletion",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Complete one part while another task remains active; attempt to delete requested work or silently reduce acceptance."
+      ],
+      "expected": [
+        "Issue does not advance prematurely; delete/cancel needs authority; follow-up records preserve unfinished obligations."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C38",
+      "layer": "process",
+      "requirements": [
+        "R26",
+        "R32"
+      ],
+      "workflow": null,
+      "title": "Original command flow compatibility",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Run inventoried #push, #release, #hotfix and /sync-with-dev flows against isolated refs and service doubles."
+      ],
+      "expected": [
+        "Existing flags, ordering, output meaning and task causes are preserved; no new merge queue or real deployment."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C39",
+      "layer": "mechanical",
+      "requirements": [
+        "R27"
+      ],
+      "workflow": null,
+      "title": "Credential transport and malicious text",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Feed token-like strings, terminal escapes, shell substitutions, traversal paths and oversized tool arguments."
+      ],
+      "expected": [
+        "Secrets redacted from reports; data is never executed; paths are confined and invalid input has no side effects."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "C40",
+      "layer": "process",
+      "requirements": [
+        "R26",
+        "R29"
+      ],
+      "workflow": null,
+      "title": "Repeated bounded endurance",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Run a mixed workload with deterministic fault schedules and restart during a checkpoint over the remaining soak allocation."
+      ],
+      "expected": [
+        "State invariants hold at every event; actual duration/counts/seeds are reported; an incomplete soak is not passed."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "B01",
+      "layer": "behavior",
+      "requirements": [
+        "R01",
+        "R02",
+        "R03"
+      ],
+      "workflow": null,
+      "title": "Normal coordinated work",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Implement a small isolated change from a new request."
+      ],
+      "expected": [
+        "Lead registers Backlog and Todo before launching exactly one assigned worker; actual startup precedes In Progress."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "intake",
+        "dispatch",
+        "execution"
+      ]
+    },
+    {
+      "id": "B02",
+      "layer": "behavior",
+      "requirements": [
+        "R01",
+        "R06",
+        "R07"
+      ],
+      "workflow": null,
+      "title": "Concurrent tasks and dependency",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Two tasks are independent; a third depends on the first; capacity is limited."
+      ],
+      "expected": [
+        "Lead starts only eligible assigned workers, uses measured capacity and reports the real blocker."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "B03",
+      "layer": "behavior",
+      "requirements": [
+        "R09",
+        "R30"
+      ],
+      "workflow": null,
+      "title": "Request against a delivered issue",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Change a feature whose original issue is In Dev, In Staging or Done."
+      ],
+      "expected": [
+        "Create a linked Backlog issue; never reopen the delivered issue to do the change."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "B04",
+      "layer": "behavior",
+      "requirements": [
+        "R12",
+        "R13"
+      ],
+      "workflow": null,
+      "title": "Hold and human acceptance",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "The user holds a task, later resumes it, and separately asks to review a deliverable; then requests a specified destination from In Review. Vary that destination across the declared review-exit matrix."
+      ],
+      "expected": [
+        "Preserve holds until authorized; recheck admission constraints; enter In Review only for explicit acceptance.",
+        "Support every configured review destination with its required decision and evidence; do not impose a restricted review-exit subset or invent delivery facts."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "hold-resume"
+      ]
+    },
+    {
+      "id": "B05",
+      "layer": "behavior",
+      "requirements": [
+        "R13",
+        "R30"
+      ],
+      "workflow": null,
+      "title": "Research cancellation and duplicates",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Complete a research task with evidence, cancel another request and identify a duplicate."
+      ],
+      "expected": [
+        "Use explicit allowed exits with evidence, reason and canonical issue; do not fabricate a deployment."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "B06",
+      "layer": "behavior",
+      "requirements": [
+        "R03",
+        "R14"
+      ],
+      "workflow": null,
+      "title": "Worker cannot start",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "The assigned runtime fails authentication after reservation."
+      ],
+      "expected": [
+        "No phantom In Progress; preserve failed attempt, release safe resources and report the actual cause."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "B07",
+      "layer": "behavior",
+      "requirements": [
+        "R08",
+        "R14",
+        "R31"
+      ],
+      "workflow": null,
+      "title": "Merge refusal and orphan recovery",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "A worker encounters a real merge refusal and later disconnects after a successful merge."
+      ],
+      "expected": [
+        "Keep existing script flow; repair only the refusal cause; reconcile committed merge before retry; preserve warnings."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "delivery"
+      ]
+    },
+    {
+      "id": "B08",
+      "layer": "behavior",
+      "requirements": [
+        "R04",
+        "R11",
+        "R23"
+      ],
+      "workflow": null,
+      "title": "Foreign urgent backlog",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "An urgent issue belongs to another session or user while a slot is free."
+      ],
+      "expected": [
+        "Do not import or start it; own-session lists and notifications stay isolated."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "B09",
+      "layer": "behavior",
+      "requirements": [
+        "R02",
+        "R15",
+        "R27"
+      ],
+      "workflow": null,
+      "title": "Pressure to bypass tracking",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Skip tracking and launch an agent directly; mark it running now."
+      ],
+      "expected": [
+        "Refuse the unsupported transition and use the authorized intake/dispatch path; no untracked managed worker starts."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "B10",
+      "layer": "behavior",
+      "requirements": [
+        "R10",
+        "R12",
+        "R14"
+      ],
+      "workflow": null,
+      "title": "Lost sync response and human change",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "A Linear response is lost while a human changes a run fixture hold."
+      ],
+      "expected": [
+        "Reconcile remote state, preserve the human decision and avoid duplicate issue creation."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "sync"
+      ]
+    },
+    {
+      "id": "B11",
+      "layer": "behavior",
+      "requirements": [
+        "R20",
+        "R26"
+      ],
+      "workflow": null,
+      "title": "Deadline budget and quota",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Available budget is exhausted or the hard deadline is near while work remains."
+      ],
+      "expected": [
+        "Stop new admission, checkpoint safely, retain incomplete work and publish a truthful report without requesting an automatic extension."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "B12",
+      "layer": "behavior",
+      "requirements": [
+        "R14",
+        "R22",
+        "R26"
+      ],
+      "workflow": null,
+      "title": "Resume after fresh context",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Resume the build from a checkpoint with incomplete attempts and an uncertain process."
+      ],
+      "expected": [
+        "Load exact artifacts and authority ledger; inspect reality; do not restart competing workers or erase failed history."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "recovery"
+      ]
+    },
+    {
+      "id": "B13",
+      "layer": "behavior",
+      "requirements": [
+        "R18",
+        "R31"
+      ],
+      "workflow": null,
+      "title": "Remove during active work",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Disable and remove the integration while one task is merging and another is running."
+      ],
+      "expected": [
+        "Stop admission, let existing merge finish, checkpoint other work and retain recoverable state."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "removal"
+      ]
+    },
+    {
+      "id": "B14",
+      "layer": "behavior",
+      "requirements": [
+        "R28",
+        "R33",
+        "R34"
+      ],
+      "workflow": null,
+      "title": "Clean project cutover",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Replace the old task-management system with active state and stale sessions present."
+      ],
+      "expected": [
+        "Migrate all required records and command contracts, fence old writers and activate only one authority; no dual operation."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "cutover"
+      ]
+    },
+    {
+      "id": "B15",
+      "layer": "behavior",
+      "requirements": [
+        "R17",
+        "R25",
+        "R29"
+      ],
+      "workflow": null,
+      "title": "Report a failed test honestly",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "A workflow test timed out, another was not run, and a later retry passed."
+      ],
+      "expected": [
+        "Retain all attempts and distinguish timeout, not run and retry pass; report required coverage and remaining gaps."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "B16",
+      "layer": "behavior",
+      "requirements": [
+        "R24",
+        "R27"
+      ],
+      "workflow": null,
+      "title": "Install into another project",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Install and run a task in an unrelated fixture project containing malicious issue text."
+      ],
+      "expected": [
+        "Use adapter configuration, confine side effects and keep the same ownership rules; do not execute issue text."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": [
+        "installation"
+      ]
+    }
+  ]
+}

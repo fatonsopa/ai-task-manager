@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "requirements": [
+    {
+      "id": "R01",
+      "text": "The lead coordinates, scopes and reviews; each substantive tracked task has one assigned worker."
+    },
+    {
+      "id": "R02",
+      "text": "Create each issue in Backlog, explicitly enqueue it as Todo, and confirm the worker before In Progress."
+    },
+    {
+      "id": "R03",
+      "text": "Attempts, startup, process identity, liveness and progress have distinct durable records; no fabricated Running state."
+    },
+    {
+      "id": "R04",
+      "text": "All task reads, events and mutations are scoped to authenticated principal, project and logical session."
+    },
+    {
+      "id": "R05",
+      "text": "Each independent task owns its worktree and application database today; control metadata is separate."
+    },
+    {
+      "id": "R06",
+      "text": "Admission atomically claims tasks and finite host, project and resource capacity; no overload or double claim."
+    },
+    {
+      "id": "R07",
+      "text": "Dependencies, human holds, priority and approved queue membership determine eligibility."
+    },
+    {
+      "id": "R08",
+      "text": "Preserve the merge script bytes, arguments, checks, foreground flow, result meanings and database lifecycle."
+    },
+    {
+      "id": "R09",
+      "text": "Code normally follows In Progress → In Dev → In Staging → Done with verified delivery evidence. In Review may exit directly to any configured status with destination-specific evidence. No work starts on delivered issues."
+    },
+    {
+      "id": "R10",
+      "text": "Linear sync uses durable outbound operations, deduplication, readback and reconciliation of uncertain writes."
+    },
+    {
+      "id": "R11",
+      "text": "Backlog is not automatic admission; the model cannot create work or claim arbitrary backlog to fill slots."
+    },
+    {
+      "id": "R12",
+      "text": "Human status, assignment, acceptance and hold decisions remain authoritative and attributed."
+    },
+    {
+      "id": "R13",
+      "text": "Cancel, duplicate, deletion and non-code completion use explicit allowed causes and evidence. In Review can move to every configured status, with an authorized decision and destination-specific guards."
+    },
+    {
+      "id": "R14",
+      "text": "Crash, timeout, retry, cancellation and unknown state recover without competing attempts or lost work."
+    },
+    {
+      "id": "R15",
+      "text": "CLI, MCP, hooks and presentation use one application API and one transition policy."
+    },
+    {
+      "id": "R16",
+      "text": "Both installed Claude Code and installed Codex CLI integrations execute real acceptance cases."
+    },
+    {
+      "id": "R17",
+      "text": "The companion pane groups own-session tasks by status, expands descriptions and supports keyboard and plain output."
+    },
+    {
+      "id": "R18",
+      "text": "Versioned GitHub distribution supports install, update, disable, uninstall and retained state."
+    },
+    {
+      "id": "R19",
+      "text": "Future parent/resource ownership is representable; shared application databases are not enabled today."
+    },
+    {
+      "id": "R20",
+      "text": "The build stops within 48 elapsed hours and USD 100 total incremental spending, including parallel work and judges."
+    },
+    {
+      "id": "R21",
+      "text": "Every workflow has reviewed mechanical tests and fresh behavioral evidence; replay is separate."
+    },
+    {
+      "id": "R22",
+      "text": "Results are bound to artifact hashes and declared host/model/effort/OS profiles; failed attempts are retained."
+    },
+    {
+      "id": "R23",
+      "text": "Live integration uses actual TST fixtures, real readback and only run-owned cleanup; two-user identity is verified."
+    },
+    {
+      "id": "R24",
+      "text": "The core works in another project through configuration/adapters and exposes no personal names or credentials in Markdown."
+    },
+    {
+      "id": "R25",
+      "text": "Reproducible builds, structured diagnostics, test reports and immutable result records support release decisions."
+    },
+    {
+      "id": "R26",
+      "text": "The fresh builder has bounded phases, tracked work, durable checkpoints, recovery and a truthful terminal report."
+    },
+    {
+      "id": "R27",
+      "text": "Authenticate operations, validate paths and command arguments, redact secrets and test all supported bypass surfaces."
+    },
+    {
+      "id": "R28",
+      "text": "Inventory and migrate every legacy caller/writer and task-management rule before one clean project-wide cutover."
+    },
+    {
+      "id": "R29",
+      "text": "Any failed, blocked or unrun required case prevents accepted release; coverage is reported by layer and profile."
+    },
+    {
+      "id": "R30",
+      "text": "Partial work, multiple attempts, reopened requests and follow-up issues preserve task and delivery distinctions."
+    },
+    {
+      "id": "R31",
+      "text": "Resource stop/removal is owned, idempotent and compatible with merges; orphan recovery never removes foreign resources."
+    },
+    {
+      "id": "R32",
+      "text": "Preserve #push, #release, #hotfix, /sync-with-dev and current command intent; test deployments only with isolated fixtures."
+    },
+    {
+      "id": "R33",
+      "text": "Task-management Markdown remains the concise policy/user contract; generated transition references match executable rules."
+    },
+    {
+      "id": "R34",
+      "text": "Old writers are fenced off before new admission; rollback never enables two live authorities or loses post-cutover facts."
+    }
+  ]
+}

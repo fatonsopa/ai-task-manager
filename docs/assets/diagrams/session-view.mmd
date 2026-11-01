@@ -1,0 +1,26 @@
+%% Diagram: Architecture diagram
+%% Subtitle: Proposed task views are restricted by project, authenticated account and logical session.
+flowchart TD
+    accTitle: Session task visibility
+    accDescr: Proposed task views are restricted by project, authenticated account and logical session.
+    A@{ shape: lean-r, label: "1. Registered session context" }
+    class A data
+    B@{ shape: rect, label: "2. Verify identity and scope" }
+    class B process
+    C@{ shape: rect, label: "3. Read matching task records" }
+    class C process
+    D@{ shape: cyl, label: "4. Shared control store" }
+    class D datastore
+    E@{ shape: lean-r, label: "5. Scoped local snapshot" }
+    class E data
+    F@{ shape: rect, label: "6. Sidebar and status line" }
+    class F process
+    G@{ shape: rect, label: "7. Task and blocker details" }
+    class G process
+    A --> B
+    B -->|"Authorized query"| C
+    D -->|"Matching records only"| C
+    C --> E
+    E -->|"Read-only rendering"| F
+    E -->|"Authorized detail"| G
+%% Legend: flow_arrow | Scoped data flow

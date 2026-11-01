@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "files": [
+    {
+      "path": ".DS_Store",
+      "sha256": "31a5af1adf0aebf35c0c75ecf54eac354c0f4cead6d8b8a9b8cc5590ad56bb70"
+    },
+    {
+      "path": "ARCHITECTURE.md",
+      "sha256": "86e525cbcef18fe2725dcacc851f0afd1ec434095f09bab700c4d15e8173d6f6"
+    },
+    {
+      "path": "BUILD.md",
+      "sha256": "f21c44fe4ada4b75643c1ae35c3026deea62908960fe39cfe7aa280a7edd6de0"
+    },
+    {
+      "path": "HANDOFF-CHECKS.json",
+      "sha256": "fc0db9fdb7d08f2bac98267e8a2d1099a607b8b0cc4dc53415f453f0d2e222d2"
+    },
+    {
+      "path": "START-HERE.md",
+      "sha256": "46ef0b5bcfe8c8aba8340f48c0c69e2bf88e8a86a71b3a7f8f161ef3d1e1b351"
+    },
+    {
+      "path": "STATUS.md",
+      "sha256": "198b79ffac1a5984494de7a7d4021c8004f79ff1cf91685e979eb7536df025b5"
+    },
+    {
+      "path": "assets/diagrams/architecture.mmd",
+      "sha256": "9ed1d8d127bfa741c1873f3cbef3905099141eddbf20a03135a5183b428be02f"
+    },
+    {
+      "path": "assets/diagrams/architecture.svg",
+      "sha256": "fea44fc6160acf3875dd7f89ec74290f1d8ee1a038c060e4bb0262a486d46c28"
+    },
+    {
+      "path": "assets/diagrams/dispatch.mmd",
+      "sha256": "3104f00b3ba01bd724ec3e64ee2a1ef3803ab06d600bb1bb6a103ea4d12a55f7"
+    },
+    {
+      "path": "assets/diagrams/dispatch.svg",
+      "sha256": "735095e90269483e7e5764cebe6714be204e2d0d9c1312d5e4c8e9163046df69"
+    },
+    {
+      "path": "assets/diagrams/installation.mmd",
+      "sha256": "37762506ade6d0c00c92c1bff13f7feec7eb73505d022b6cdb61d8624b447c1a"
+    },
+    {
+      "path": "assets/diagrams/installation.svg",
+      "sha256": "d2e07332d517963e0a4a86b1f7b2936ee50609786d972fc7e0c0c7ff90eb2473"
+    },
+    {
+      "path": "assets/diagrams/session-view.mmd",
+      "sha256": "ddc88894e06356e0d513e1a38ce0c91c3be237519a9294058f8dad290ef3acf9"
+    },
+    {
+      "path": "assets/diagrams/session-view.svg",
+      "sha256": "d8c4c04e80d99ab11b56f0d2b8d675898f1e5b8a9b8a375f90a0b836862a80ac"
+    },
+    {
+      "path": "assets/diagrams/worker-merge.mmd",
+      "sha256": "c4a1777f9f7db69b7d9ec900abbf4bc44f2397de3fabd7d556aa1d36a32a9f20"
+    },
+    {
+      "path": "assets/diagrams/worker-merge.svg",
+      "sha256": "0bbf58153c5b8e289ee8eacfe604225ea3b36536470866abf25d4bbe455005b9"
+    },
+    {
+      "path": "config/acceptance-cases.json",
+      "sha256": "82f7974dd23a2e2b9c6691724a0fe45519e65c45ec6786bb347668cbfa06aba9"
+    },
+    {
+      "path": "config/execution-policy.json",
+      "sha256": "fcc0c86949ca8670880070ede232c22a0b34fe6ebef2dfb0162e58df681799a7"
+    },
+    {
+      "path": "config/requirements.json",
+      "sha256": "fda0cdf71d4547a546d7f11c24ce8f3cdf30c95c773d9ec09e40aa9515d6492c"
+    },
+    {
+      "path": "config/research-sources.json",
+      "sha256": "cb0eaf9232060a64cf666b2309892d1f7330c3bb281e711ab3572a16b48e6789"
+    },
+    {
+      "path": "config/source-baseline.json",
+      "sha256": "4da31f4b8b7947731dfeae56e67b1588e6a04293f0af1296dd5e8c0c144e1423"
+    },
+    {
+      "path": "config/work-items.json",
+      "sha256": "af48579bcb583f8e70beae7b5d18bc80e7734f42d5661881e9acf4cc57707c6e"
+    },
+    {
+      "path": "tools/check_handoff.py",
+      "sha256": "b2ce034d3cdfe0c3e08ebedda3f313a5ecbe048f1c042bf38138d5d0dd101197"
+    },
+    {
+      "path": "tools/setup_test_credentials.py",
+      "sha256": "0cc9998df178caa40df53ee9f53e22448ebef354ce40ed27a2ffb94136836013"
+    }
+  ]
+}

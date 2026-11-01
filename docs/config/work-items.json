@@ -1,0 +1,860 @@
+{
+  "schema_version": 1,
+  "status": "planned; no agents or tracker tasks launched by this handoff",
+  "phases": [
+    {
+      "id": "P00",
+      "title": "Bootstrap and verify prerequisites",
+      "depends_on": [],
+      "requirements": [
+        "R20",
+        "R23",
+        "R26",
+        "R27"
+      ],
+      "result": [
+        "environment inventory",
+        "repository and source hashes",
+        "cost/time admission guard",
+        "credential scope check"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    },
+    {
+      "id": "P01",
+      "title": "Freeze contracts and baseline",
+      "depends_on": [
+        "P00"
+      ],
+      "requirements": [
+        "R02",
+        "R08",
+        "R09",
+        "R21",
+        "R28",
+        "R33"
+      ],
+      "result": [
+        "legacy rule/caller inventory",
+        "complete transition matrix",
+        "reviewed executable test plan",
+        "isolated baseline report"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    },
+    {
+      "id": "P02",
+      "title": "Implement core records and admission",
+      "depends_on": [
+        "P01"
+      ],
+      "requirements": [
+        "R03",
+        "R04",
+        "R06",
+        "R07",
+        "R15"
+      ],
+      "result": [
+        "typed domain API",
+        "metadata schema/migrations",
+        "transactions and capacity",
+        "pure rule tests"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    },
+    {
+      "id": "P03",
+      "title": "Implement supervised workers and resources",
+      "depends_on": [
+        "P02"
+      ],
+      "requirements": [
+        "R01",
+        "R05",
+        "R14",
+        "R19",
+        "R31"
+      ],
+      "result": [
+        "attempt lifecycle",
+        "owned resource providers",
+        "real one-worker vertical path",
+        "recovery records"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    },
+    {
+      "id": "P04",
+      "title": "Implement Linear adapter and live TST",
+      "depends_on": [
+        "P03"
+      ],
+      "requirements": [
+        "R02",
+        "R09",
+        "R10",
+        "R12",
+        "R13",
+        "R23",
+        "R30"
+      ],
+      "result": [
+        "durable outbox",
+        "scoped readback",
+        "status and human-decision policy",
+        "live integration fixtures"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    },
+    {
+      "id": "P05",
+      "title": "Integrate both execution hosts",
+      "depends_on": [
+        "P04"
+      ],
+      "requirements": [
+        "R15",
+        "R16",
+        "R27"
+      ],
+      "result": [
+        "Claude integration",
+        "Codex integration",
+        "capability and guard probes",
+        "actual installed host smoke evidence"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    },
+    {
+      "id": "P06",
+      "title": "Complete failure and scheduling behavior",
+      "depends_on": [
+        "P04"
+      ],
+      "requirements": [
+        "R06",
+        "R07",
+        "R14",
+        "R20"
+      ],
+      "result": [
+        "dependencies and priority",
+        "concurrent reservations",
+        "crash recovery",
+        "budget and quota behavior"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    },
+    {
+      "id": "P07",
+      "title": "Implement terminal views",
+      "depends_on": [
+        "P05"
+      ],
+      "requirements": [
+        "R04",
+        "R17"
+      ],
+      "result": [
+        "scoped CLI JSON/text",
+        "companion pane",
+        "status line",
+        "real terminal interaction tests"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    },
+    {
+      "id": "P08",
+      "title": "Build and evaluate reusable skills",
+      "depends_on": [
+        "P05",
+        "P06"
+      ],
+      "requirements": [
+        "R01",
+        "R16",
+        "R21",
+        "R22"
+      ],
+      "result": [
+        "independent skill artifacts",
+        "frozen host/model evaluation matrix",
+        "fresh public traces",
+        "retained behavioral results"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    },
+    {
+      "id": "P09",
+      "title": "Implement complete cutover and distribution",
+      "depends_on": [
+        "P06",
+        "P07",
+        "P08"
+      ],
+      "requirements": [
+        "R18",
+        "R24",
+        "R25",
+        "R28",
+        "R32",
+        "R33",
+        "R34"
+      ],
+      "result": [
+        "all legacy compatibility entrypoints",
+        "state import/reconciliation",
+        "single-writer activation and rollback",
+        "versioned self-contained host packages"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    },
+    {
+      "id": "P10",
+      "title": "Run complete acceptance and prepare delivery",
+      "depends_on": [
+        "P09"
+      ],
+      "requirements": [
+        "R21",
+        "R22",
+        "R24",
+        "R25",
+        "R29"
+      ],
+      "result": [
+        "all mandatory case/profile evidence",
+        "Linux container and second project proof",
+        "endurance report",
+        "install/remove and cutover rehearsal",
+        "release decision"
+      ],
+      "entry": "All predecessor gates passed; task registered and assigned before substantive implementation.",
+      "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in BUILD.md.",
+      "status": "not_started"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T01",
+      "phase": "P00",
+      "title": "Prepare isolated build runner",
+      "depends_on": [],
+      "owned_paths": [
+        "tools/build-runner/",
+        "config/build-policy/"
+      ],
+      "requirements": [
+        "R20",
+        "R23",
+        "R26",
+        "R27"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T02",
+      "phase": "P00",
+      "title": "Capture environment and identity prerequisites",
+      "depends_on": [
+        "T01"
+      ],
+      "owned_paths": [
+        "tools/preflight/"
+      ],
+      "requirements": [
+        "R20",
+        "R23",
+        "R26",
+        "R27"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T03",
+      "phase": "P01",
+      "title": "Inventory legacy policy and all writers",
+      "depends_on": [
+        "T02"
+      ],
+      "owned_paths": [
+        "docs/migration/",
+        "tests/legacy_contracts/"
+      ],
+      "requirements": [
+        "R02",
+        "R08",
+        "R09",
+        "R21",
+        "R28",
+        "R33"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T04",
+      "phase": "P01",
+      "title": "Freeze policy and reviewed acceptance fixtures",
+      "depends_on": [
+        "T03"
+      ],
+      "owned_paths": [
+        "config/workflow-policy/",
+        "tests/fixtures/",
+        "evals/cases/"
+      ],
+      "requirements": [
+        "R02",
+        "R08",
+        "R09",
+        "R21",
+        "R28",
+        "R33"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T05",
+      "phase": "P02",
+      "title": "Implement task scope and transition domain",
+      "depends_on": [
+        "T04"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/domains/work/"
+      ],
+      "requirements": [
+        "R03",
+        "R04",
+        "R06",
+        "R07",
+        "R15"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T06",
+      "phase": "P02",
+      "title": "Implement attempt and capacity transactions",
+      "depends_on": [
+        "T05"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/domains/execution/",
+        "src/ai_task_manager/domains/scheduling/",
+        "src/ai_task_manager/storage/"
+      ],
+      "requirements": [
+        "R03",
+        "R04",
+        "R06",
+        "R07",
+        "R15"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T07",
+      "phase": "P03",
+      "title": "Implement owned resource providers",
+      "depends_on": [
+        "T06"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/domains/resources/",
+        "src/ai_task_manager/adapters/resources/"
+      ],
+      "requirements": [
+        "R01",
+        "R05",
+        "R14",
+        "R19",
+        "R31"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T08",
+      "phase": "P03",
+      "title": "Implement supervised worker lifecycle",
+      "depends_on": [
+        "T07"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/supervisor/",
+        "src/ai_task_manager/ports/worker.py"
+      ],
+      "requirements": [
+        "R01",
+        "R05",
+        "R14",
+        "R19",
+        "R31"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T09",
+      "phase": "P03",
+      "title": "Prove existing merge integration",
+      "depends_on": [
+        "T08"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/adapters/project/",
+        "tests/merge_compatibility/"
+      ],
+      "requirements": [
+        "R01",
+        "R05",
+        "R14",
+        "R19",
+        "R31"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T10",
+      "phase": "P04",
+      "title": "Implement scoped Linear transport and outbox",
+      "depends_on": [
+        "T09"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/adapters/linear/",
+        "tests/linear/"
+      ],
+      "requirements": [
+        "R02",
+        "R09",
+        "R10",
+        "R12",
+        "R13",
+        "R23",
+        "R30"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T11",
+      "phase": "P04",
+      "title": "Prove live TST status and ownership cases",
+      "depends_on": [
+        "T10"
+      ],
+      "owned_paths": [
+        "tests/live_tst/"
+      ],
+      "requirements": [
+        "R02",
+        "R09",
+        "R10",
+        "R12",
+        "R13",
+        "R23",
+        "R30"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T12",
+      "phase": "P05",
+      "title": "Implement shared MCP application interface",
+      "depends_on": [
+        "T11"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/application/",
+        "src/ai_task_manager/adapters/mcp/"
+      ],
+      "requirements": [
+        "R15",
+        "R16",
+        "R27"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T13",
+      "phase": "P05",
+      "title": "Implement Claude host integration",
+      "depends_on": [
+        "T12"
+      ],
+      "owned_paths": [
+        "integrations/claude/",
+        "tests/hosts/claude/"
+      ],
+      "requirements": [
+        "R15",
+        "R16",
+        "R27"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T14",
+      "phase": "P05",
+      "title": "Implement Codex host integration",
+      "depends_on": [
+        "T12"
+      ],
+      "owned_paths": [
+        "integrations/codex/",
+        "tests/hosts/codex/"
+      ],
+      "requirements": [
+        "R15",
+        "R16",
+        "R27"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T15",
+      "phase": "P06",
+      "title": "Complete dependency scheduling and holds",
+      "depends_on": [
+        "T11"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/domains/scheduling/",
+        "tests/scheduling/"
+      ],
+      "requirements": [
+        "R06",
+        "R07",
+        "R14",
+        "R20"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T16",
+      "phase": "P06",
+      "title": "Complete fault recovery and accounting",
+      "depends_on": [
+        "T15"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/supervisor/",
+        "tests/recovery/",
+        "tests/budget/"
+      ],
+      "requirements": [
+        "R06",
+        "R07",
+        "R14",
+        "R20"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T17",
+      "phase": "P07",
+      "title": "Implement scoped CLI and passive status line",
+      "depends_on": [
+        "T13",
+        "T14"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/presentation/cli.py",
+        "src/ai_task_manager/presentation/statusline.py"
+      ],
+      "requirements": [
+        "R04",
+        "R17"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T18",
+      "phase": "P07",
+      "title": "Implement companion sidebar",
+      "depends_on": [
+        "T17"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/presentation/sidebar.py",
+        "tests/terminal/"
+      ],
+      "requirements": [
+        "R04",
+        "R17"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T19",
+      "phase": "P08",
+      "title": "Author and validate coordination skills",
+      "depends_on": [
+        "T13",
+        "T14",
+        "T16"
+      ],
+      "owned_paths": [
+        "skill-releases.lock.json",
+        "evals/skill_assembly/"
+      ],
+      "requirements": [
+        "R01",
+        "R16",
+        "R21",
+        "R22"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T20",
+      "phase": "P08",
+      "title": "Run actual host behavioral evaluations",
+      "depends_on": [
+        "T19"
+      ],
+      "owned_paths": [
+        "evals/harness/",
+        "evals/reports-index/"
+      ],
+      "requirements": [
+        "R01",
+        "R16",
+        "R21",
+        "R22"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T21",
+      "phase": "P09",
+      "title": "Implement complete legacy command compatibility",
+      "depends_on": [
+        "T16",
+        "T18",
+        "T20"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/adapters/legacy/",
+        "tests/legacy_contracts/"
+      ],
+      "requirements": [
+        "R18",
+        "R24",
+        "R25",
+        "R28",
+        "R32",
+        "R33",
+        "R34"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T22",
+      "phase": "P09",
+      "title": "Implement state import and single-writer cutover",
+      "depends_on": [
+        "T21"
+      ],
+      "owned_paths": [
+        "src/ai_task_manager/migration/",
+        "tests/cutover/"
+      ],
+      "requirements": [
+        "R18",
+        "R24",
+        "R25",
+        "R28",
+        "R32",
+        "R33",
+        "R34"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T23",
+      "phase": "P09",
+      "title": "Package both hosts and install lifecycle",
+      "depends_on": [
+        "T22"
+      ],
+      "owned_paths": [
+        "integrations/",
+        "tools/package/",
+        "tests/install/"
+      ],
+      "requirements": [
+        "R18",
+        "R24",
+        "R25",
+        "R28",
+        "R32",
+        "R33",
+        "R34"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T24",
+      "phase": "P09",
+      "title": "Write final task-management instructions",
+      "depends_on": [
+        "T23"
+      ],
+      "owned_paths": [
+        "docs/task-management.md",
+        "docs/generated/transitions.md",
+        "AGENTS.md",
+        "CLAUDE.md"
+      ],
+      "requirements": [
+        "R18",
+        "R24",
+        "R25",
+        "R28",
+        "R32",
+        "R33",
+        "R34"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T25",
+      "phase": "P10",
+      "title": "Run full native and Linux acceptance",
+      "depends_on": [
+        "T24"
+      ],
+      "owned_paths": [
+        "tests/portability/",
+        "tests/end_to_end/"
+      ],
+      "requirements": [
+        "R21",
+        "R22",
+        "R24",
+        "R25",
+        "R29"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    },
+    {
+      "id": "T26",
+      "phase": "P10",
+      "title": "Run fault endurance and release review",
+      "depends_on": [
+        "T25"
+      ],
+      "owned_paths": [
+        "tools/release_check/",
+        "docs/release/"
+      ],
+      "requirements": [
+        "R21",
+        "R22",
+        "R24",
+        "R25",
+        "R29"
+      ],
+      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+      "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+      "status": "not_started"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "inspected_date": "2026-11-01",
+  "sources": [
+    {
+      "id": "OAI-NONINTERACTIVE",
+      "url": "https://learn.chatgpt.com/docs/non-interactive-mode",
+      "finding": "JSONL event capture; current documentation removes --full-auto; confirm installed CLI flags.",
+      "provenance": "opened official documentation during handoff preparation"
+    },
+    {
+      "id": "OAI-MCP",
+      "url": "https://learn.chatgpt.com/docs/extend/mcp?surface=cli",
+      "finding": "Codex CLI uses configured MCP servers.",
+      "provenance": "opened official documentation during handoff preparation"
+    },
+    {
+      "id": "OAI-PLUGINS",
+      "url": "https://developers.openai.com/plugins/build/plugins",
+      "finding": "Portable root manifest; Codex compatibility overlay; hook trust is separate from installation.",
+      "provenance": "opened official documentation during handoff preparation"
+    },
+    {
+      "id": "OAI-APPSERVER",
+      "url": "https://learn.chatgpt.com/docs/app-server",
+      "finding": "Persistent agent lifecycle protocol exists; only use if concrete lifecycle needs exceed the CLI adapter.",
+      "provenance": "opened official documentation during handoff preparation"
+    },
+    {
+      "id": "CLAUDE-HEADLESS",
+      "url": "https://code.claude.com/docs/en/headless",
+      "finding": "claude -p supports programmatic execution and structured output; inspect actual result as well as exit code.",
+      "provenance": "opened official documentation during handoff preparation"
+    },
+    {
+      "id": "CLAUDE-HOOKS",
+      "url": "https://code.claude.com/docs/en/hooks",
+      "finding": "Lifecycle events and decision control; check event-specific blocking behavior.",
+      "provenance": "opened official documentation during handoff preparation"
+    },
+    {
+      "id": "CLAUDE-MARKETPLACE",
+      "url": "https://code.claude.com/docs/en/plugin-marketplaces",
+      "finding": "GitHub marketplace packaging and self-contained plugin boundaries.",
+      "provenance": "opened official documentation during handoff preparation"
+    },
+    {
+      "id": "LINEAR-API",
+      "url": "https://linear.app/developers/graphql",
+      "finding": "GraphQL endpoint, identity and permission binding; current schema must be inspected.",
+      "provenance": "opened official documentation during handoff preparation"
+    },
+    {
+      "id": "LINEAR-LIMITS",
+      "url": "https://linear.app/developers/rate-limiting",
+      "finding": "Read actual request/complexity limits and retry guidance; do not bake old numeric quotas into the adapter.",
+      "provenance": "opened official documentation during handoff preparation"
+    },
+    {
+      "id": "LINEAR-WEBHOOKS",
+      "url": "https://linear.app/developers/webhooks",
+      "finding": "Webhook setup requires privileges; local polling avoids a public endpoint; enabled webhooks need signature and freshness verification.",
+      "provenance": "opened official documentation during handoff preparation"
+    }
+  ],
+  "local_tools": {
+    "python": "3.14.4",
+    "git": "2.50.1",
+    "uv": "0.11.16",
+    "node": "23.11.0",
+    "docker": "29.8.2; daemon unavailable at inspection",
+    "gh": "2.90.0",
+    "claude": "2.1.301",
+    "codex": "0.166.0-alpha.5.1",
+    "tmux": "not found"
+  },
+  "observed_limits": [
+    "CLI versions do not prove authenticated model access.",
+    "No product acceptance case has run.",
+    "A later read-only primary-key probe authenticated and verified the expected TST team; no task mutations or product acceptance cases were executed."
+  ]
+}
