@@ -12,7 +12,7 @@
     },
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "061067acc824c9f2145a73689cfffd1e16b473c51808624bd7f0d105c3f0dd99"
+      "sha256": "0beb6461455c761b0861a15966daa7e1a1029b02c3bfd382f561c42b6f1e06e8"
     },
     {
       "path": "START-HERE.md",
@@ -92,11 +92,11 @@
     },
     {
       "path": "config/acceptance-cases.json",
-      "sha256": "11ed50e21fab7394deb3a234437d3e420ad41ffa585ab0ab83724601276d044b"
+      "sha256": "5fa99d0b4304258880442f8869b417f01011c94a06e6327f425f5fbd1dd4819b"
     },
     {
       "path": "config/execution-policy.json",
-      "sha256": "c092acc09c429403f1b1ef2b97fe5ce02e1fc035059898098f8c33c94f2b118f"
+      "sha256": "cccc9d271ac48a347e58c70e9ab1dd4898071e3937d06b8f154645a832df2666"
     },
     {
       "path": "config/requirements.json",

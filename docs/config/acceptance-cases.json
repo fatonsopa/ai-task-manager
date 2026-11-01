@@ -4452,17 +4452,21 @@
       "layer": "mechanical",
       "requirements": [
         "R10",
-        "R27"
+        "R27",
+        "R37"
       ],
       "workflow": null,
-      "title": "Polling and optional webhook integrity",
+      "title": "Immediate Linear events and recovery synchronization",
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Use paginated results, duplicate pages, stale events and invalid webhook signatures if that adapter is enabled."
+        "Apply a scoped local change and a signed inbound Linear event before any reconciliation tick; exercise paginated recovery reads, duplicate pages, duplicate/reordered events, stale payloads and invalid signatures.",
+        "Interrupt and restore the receiver, then reconcile missed facts without admitting unrelated backlog or repeating confirmed effects."
       ],
       "expected": [
-        "Polling is the required local path; pagination is complete; duplicates are harmless; enabled webhook input is authenticated."
+        "Normal changes propagate through immediate outbound work and authenticated inbound events; polling is recovery only and cannot satisfy the real-time path.",
+        "Pagination remains complete; valid duplicates are idempotent; stale or invalid ingress cannot cause unauthorized effects. Receiver success follows durable acceptance, not completed domain application.",
+        "Recovery preserves owned issue/task identities, explicit uncertainty and scope; no duplicate work or automatic admission of unrelated backlog."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -8537,5 +8541,17 @@
     "requirements": 38,
     "workflows": 14,
     "cases": 248
-  }
+  },
+  "case_revision": 3,
+  "case_revision_history": [
+    {
+      "revision": 3,
+      "changed_cases": [
+        "C11"
+      ],
+      "superseded_inventory_sha256": "11ed50e21fab7394deb3a234437d3e420ad41ffa585ab0ab83724601276d044b",
+      "reason": "Correct the stale required-polling/optional-webhook oracle to match the already approved mandatory real-time requirement R37 and RT01\u2013RT03. Retain pagination, deduplication and authentication coverage.",
+      "timing": "After component implementation and before any full product acceptance execution; earlier inventory retained in Git and the private correction record."
+    }
+  ]
 }

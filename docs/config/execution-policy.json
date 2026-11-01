@@ -242,7 +242,11 @@
     "use_current_snapshots": true,
     "audit_affected_work_when_user_announces_update": true,
     "preserve_version_bound_evidence": true,
-    "source_skill_changes_authorized": false
+    "source_skill_changes_authorized": false,
+    "read_current_sources_directly_on_update": true,
+    "approved_capture": "20261101T202854Z",
+    "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+    "skill_builder_snapshot": "12517cc19a49f0cd9903c2a99b7816eb224f15052d65809a0a8529d67360e28f"
   },
   "task_writing": {
     "required_skill": "technical-writer",

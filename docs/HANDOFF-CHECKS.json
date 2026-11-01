@@ -150,9 +150,18 @@
     "Native terminal, clean migration, install/remove and second-project portability acceptance."
   ],
   "skill_versions": {
-    "technical_writer_snapshot": "7a0dbe4a69d07de868db1dd56ec1bd74b0870db3e184d4990ab6f2f894deeb72",
-    "skill_builder_snapshot": "c3cbe640e61ae548714cddb5a88be7ff2d519bc85424b30508235b96a7bdd7ea",
-    "update_policy": "Use current snapshots; audit affected work and rerun impacted checks when the user supplies newer versions."
+    "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+    "skill_builder_snapshot": "12517cc19a49f0cd9903c2a99b7816eb224f15052d65809a0a8529d67360e28f",
+    "update_policy": "Use current snapshots; audit affected work and rerun impacted checks when the user supplies newer versions.",
+    "historical_snapshots": {
+      "technical_writer_snapshot": "7a0dbe4a69d07de868db1dd56ec1bd74b0870db3e184d4990ab6f2f894deeb72",
+      "skill_builder_snapshot": "c3cbe640e61ae548714cddb5a88be7ff2d519bc85424b30508235b96a7bdd7ea"
+    },
+    "capture": "20261101T202854Z",
+    "audit_status": {
+      "documents": "in_progress",
+      "generated_skill": "in_progress"
+    }
   },
   "project_changes": "Application files and merge script unchanged. Code is local; normal sessions remain unmodified.",
   "source_refresh": {
@@ -167,5 +176,12 @@
     "script_and_manifest_tested": false,
     "status": "required; implementation pending",
     "interrupted_removal_before_replacement_case": "C33"
-  }
+  },
+  "acceptance_inventory_revision": 3,
+  "case_oracle_corrections": [
+    {
+      "case": "C11",
+      "reason": "Align the stale required-polling/optional-webhook case with already approved R37. Prior inventory and oracle retained; no executed result replaced."
+    }
+  ]
 }
