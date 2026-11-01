@@ -1,0 +1,392 @@
+{
+  "version": 1,
+  "task": "HOST-BRIDGE",
+  "implementation_status": "not_started",
+  "scope": "mechanical and isolated local-process verification; no live host acceptance",
+  "cases": [
+    {
+      "id": "HB-J01",
+      "group": "journal",
+      "expected": "Opaque signed host receipts survive restart and retain source hashes",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-J02",
+      "group": "journal",
+      "expected": "Changed, missing, foreign-prefix and expired receipts refuse",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-J03",
+      "group": "journal",
+      "expected": "Duplicate launch intent is idempotent only for matching immutable bindings",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-J04",
+      "group": "journal",
+      "expected": "Unknown launched process retains ownership and blocks duplicate admission",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-J05",
+      "group": "journal",
+      "expected": "Secrets and raw authentication messages are excluded from durable traces",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-J06",
+      "group": "journal",
+      "expected": "Foreign Core, provider and authority stores are never written",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-P01",
+      "group": "process",
+      "expected": "Actual bidirectional fixture process returns framed host records",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-P02",
+      "group": "process",
+      "expected": "Original finite deadline is preserved across commands and reconnect",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-P03",
+      "group": "process",
+      "expected": "Controller pipe loss terminates a TERM-resistant descendant with escalation",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-P04",
+      "group": "process",
+      "expected": "Normal leader exit cleans its descendant and does not claim model success",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-P05",
+      "group": "process",
+      "expected": "Inaccessible group identity retains uncertainty and capacity",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-P06",
+      "group": "process",
+      "expected": "Only the invocation-owned process group is signaled",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-P07",
+      "group": "process",
+      "expected": "Malformed, oversized or partial frames fail without manufacturing startup",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-P08",
+      "group": "process",
+      "expected": "Child environment is an exact whitelist with USER derived from uid",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-S01",
+      "group": "startup",
+      "expected": "Codex startup requires actual correlated initialize/account/thread responses",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-S02",
+      "group": "startup",
+      "expected": "Codex API-key, Bedrock, missing, different or changing account refuses",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-S03",
+      "group": "startup",
+      "expected": "Claude startup requires actual intended-profile auth plus native init session/model",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-S04",
+      "group": "startup",
+      "expected": "Harness readiness, caller UUID, generated text and replayed file refuse startup",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-S05",
+      "group": "startup",
+      "expected": "Process start identity, native session, config digest, scope and attempt bind exactly",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-S06",
+      "group": "startup",
+      "expected": "Expired source observation cannot issue a longer startup receipt",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-S07",
+      "group": "startup",
+      "expected": "Unknown, extra or disabled guard configuration refuses model admission",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-S08",
+      "group": "startup",
+      "expected": "Task context and effect tools remain unavailable during neutral initialization",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-S09",
+      "group": "startup",
+      "expected": "Actual model identity remains unknown if the host never reports it",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L01",
+      "group": "lease",
+      "expected": "Reserve precedes resource preparation and real host initialization",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L02",
+      "group": "lease",
+      "expected": "Startup precedes provider In Progress confirmation and work lease",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L03",
+      "group": "lease",
+      "expected": "Provider failure or readback mismatch never grants model work",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L04",
+      "group": "lease",
+      "expected": "Every edit and command validates current attempt/session/deadline/resource ownership",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L05",
+      "group": "lease",
+      "expected": "Hold, revocation, rotation or changed attempt version prevents subsequent effects",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L06",
+      "group": "lease",
+      "expected": "Effect checks and execution use one controller serialization boundary",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L07",
+      "group": "lease",
+      "expected": "Only trusted exact command references are accepted; arbitrary shell argv refuses",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L08",
+      "group": "lease",
+      "expected": "Workspace read/write rejects escape, symlink, authority/config and foreign resources",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L09",
+      "group": "lease",
+      "expected": "Trusted command runner receives no provider credentials or authority mounts",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L10",
+      "group": "lease",
+      "expected": "Confined test runner edits/tests only the assigned fixture with finite limits",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L11",
+      "group": "lease",
+      "expected": "Runtime/model completion does not establish merge, deployment or human acceptance",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-L12",
+      "group": "lease",
+      "expected": "Uncertain launch or teardown blocks competing attempts and retains evidence",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-E01",
+      "group": "sessions",
+      "expected": "Enrollment derives from owned authenticated host and exact provider principal",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-E02",
+      "group": "sessions",
+      "expected": "Caller-supplied grant/human/observer dataclasses cannot enter public tool APIs",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-E03",
+      "group": "sessions",
+      "expected": "Trusted foreground operator input binds exact scope/task/revision/destination",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-E04",
+      "group": "sessions",
+      "expected": "Model text or ASK request cannot manufacture human acceptance or hold release",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-E05",
+      "group": "sessions",
+      "expected": "Human instructions cannot widen scope or reopen delivered work without Core policy",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-E06",
+      "group": "sessions",
+      "expected": "Resume rotates the same logical capability and reloads its owned service",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-E07",
+      "group": "sessions",
+      "expected": "Stale host and service references fail after rotation",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-E08",
+      "group": "sessions",
+      "expected": "Partial reload stays fenced; restart reconciles intent without duplicate rotation",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-E09",
+      "group": "sessions",
+      "expected": "Disconnected unmanaged sessions cannot be silently enrolled",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-N01",
+      "group": "notifications",
+      "expected": "Queued context and cursor advance produce no delivered receipt",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-N02",
+      "group": "notifications",
+      "expected": "Actual bound host acceptance of event context establishes delivered only",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-N03",
+      "group": "notifications",
+      "expected": "Observed model tool request for exact event/challenge establishes AI acknowledgement",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-N04",
+      "group": "notifications",
+      "expected": "Caller event text, forged transcript and foreign native session do not acknowledge",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-N05",
+      "group": "notifications",
+      "expected": "Actual final public assistant output and accepted sink establish user report",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-N06",
+      "group": "notifications",
+      "expected": "Generated internal text or failed/disconnected sink leaves public report pending",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-N07",
+      "group": "notifications",
+      "expected": "All three stages require order and exact event/core session binding",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-N08",
+      "group": "notifications",
+      "expected": "Duplicate observed records replay idempotently without a second receipt",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-N09",
+      "group": "notifications",
+      "expected": "Reconnect preserves pending receipts without claiming idle-host wakeup",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-N10",
+      "group": "notifications",
+      "expected": "Observation refs are injected by trusted gateway, never minted by model tools",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-H01",
+      "group": "host-contracts",
+      "expected": "Claude uses explicit installed CLI, restricted tools and exact approved account",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-H02",
+      "group": "host-contracts",
+      "expected": "Claude SDK custom transport never inherits API, OAuth or provider fallback variables",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-H03",
+      "group": "host-contracts",
+      "expected": "Codex isolated home reuses only approved ChatGPT auth and leaves normal profile unchanged",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-H04",
+      "group": "host-contracts",
+      "expected": "Codex initializes read-only native sandbox with shell/agents/apps/browser/search disabled",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-H05",
+      "group": "host-contracts",
+      "expected": "Missing or untrusted native guards refuse supported admission",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-H06",
+      "group": "host-contracts",
+      "expected": "Native guard errors and unsupported tool paths do not become confirmed safe admission",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-H07",
+      "group": "host-contracts",
+      "expected": "Unknown host protocol version or configuration fields fail closed",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-H08",
+      "group": "host-contracts",
+      "expected": "Native tool observations never become product task authority",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-H09",
+      "group": "host-contracts",
+      "expected": "Package imports and host modules preserve the pure-Core dependency boundary",
+      "status": "not_run"
+    },
+    {
+      "id": "HB-H10",
+      "group": "host-contracts",
+      "expected": "Existing runtime, process-group, scaffold and application regression suites remain compatible",
+      "status": "not_run"
+    }
+  ]
+}

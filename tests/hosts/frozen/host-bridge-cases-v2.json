@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "extends": "host-bridge-cases-v1.json",
+  "reason": "Installed native Codex strict parser accepts the planner disable key and rejects an unknown key; primary public response schema omits this setting.",
+  "preserves_all_prior_cases": true,
+  "case": {
+    "id": "HB-H11",
+    "expected": "Managed Codex policy includes tools.update_plan.enabled=false, requires strict native configuration acceptance and does not infer live tool absence from parser success.",
+    "status": "not_run"
+  },
+  "offline_plan_sha256": "97b6303640634b9615f8d26839f4265e08b3ef4871b0e2cda68e33a384296a48",
+  "live_gate": "Actual native tool visibility and adversarial bypass tests remain pending."
+}

@@ -1,0 +1,19 @@
+{
+  "version": 4,
+  "extends": "host-bridge-cases-v3.json",
+  "preserves_all_prior_cases": true,
+  "reason": "The resumed resource review requires finite retained output and disk use. These limits are frozen before any container case executes.",
+  "limits": {
+    "maximum_retained_jobs_per_runner": 4,
+    "maximum_selected_files_per_snapshot": 64,
+    "maximum_relative_path_depth": 8,
+    "maximum_relative_path_characters": 256,
+    "host_watchdog_file_size_limit_bytes": 2097152
+  },
+  "case": {
+    "id": "HB-D09",
+    "expected": "A runner refuses additional jobs after its finite retained-snapshot budget. The host watchdog caps output file sizes independently of untrusted container code; command snapshots and container writable filesystems remain bounded.",
+    "status": "not_run"
+  },
+  "trust_limit": "This fixture runner uses read-only selected inputs and size-limited Linux tmpfs snapshots. It does not establish native macOS sandbox behavior, application database integration or protection against a malicious process running as the host operating-system user."
+}
