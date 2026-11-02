@@ -10,7 +10,11 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from uuid import uuid4
 
-from .ledger import DriverRefused
+from .ledger import DriverRefused, uuid
+
+
+def receiver_route(run_id):
+    return "/hooks/linear/" + uuid(run_id)
 
 
 class HeaderLimit(ValueError):
@@ -273,6 +277,18 @@ class Server(HTTPServer):
             lease.finish("handler")
             self.owner.record("handler_failed", request_id=lease.id, code="handler_exception")
 
+    def shutdown_request(self, request):
+        # The input handler may finish while the deadline watcher still sends.
+        # Share its response lock until the original hard deadline; closing a
+        # timed-out response still makes no claim about underlying adapter work.
+        lock = request.lease.response_lock
+        acquired = lock.acquire(timeout=request.hard_remaining)
+        try:
+            super().shutdown_request(request)
+        finally:
+            if acquired:
+                lock.release()
+
     def reap(self):
         # A worker cannot attest its own thread exit. Release only from an observer.
         with self.lock:
@@ -476,7 +492,7 @@ class BoundedReceiver:
             output_reserve,
             maximum,
         )
-        self.route, self.health_route = "/hooks/linear/" + ledger.run_id, "/health/" + ledger.run_id
+        self.route, self.health_route = receiver_route(ledger.run_id), "/health/" + ledger.run_id
         self.stopping, self.started = False, False
         self.diagnostic_failures = 0
         self.thread = self.shutdown_thread = None

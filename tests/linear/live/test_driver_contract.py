@@ -25,6 +25,7 @@ from tests.linear.helpers import EXPECTED, STATES, WEBHOOK, LinearRig, ProviderF
 from . import receiver as receiver_module
 from .client import send_request
 from .fixture_control import FixtureControl, Observation
+from .http_observation import ReceiverTrace, clock_rows
 from .ledger import DriverRefused, Limits, RunLedger, Scope
 from .receiver import BoundedReceiver
 from .run_primary import BudgetedTransport, DrainWorker, PrimaryRun
@@ -1311,52 +1312,47 @@ def request_bytes(server, body=b"{}", *, headers=()):
     )
 
 
-def wire_until_closed(raw):
+def wire_until_closed(raw, observations=None):
     chunks = []
+    state = {"started_at": time.monotonic(), "read_error": None}
     try:
         while data := raw.recv(8192):
             chunks.append(data)
-    except ConnectionResetError:
-        pass
+        state["ended_by"] = "eof"
+    except ConnectionResetError as error:
+        state.update(ended_by="reset", read_error=type(error).__name__, errno=error.errno)
+    except OSError as error:
+        state.update(ended_by="error", read_error=type(error).__name__, errno=error.errno)
+        raise
+    finally:
+        if observations is not None:
+            wire = b"".join(chunks)
+            observations.update(
+                state,
+                finished_at=time.monotonic(),
+                wire_size=len(wire),
+                wire_hex=wire.hex(),
+                wire_sha256=hashlib.sha256(wire).hexdigest(),
+            )
     return b"".join(chunks)
 
 
 def clock_records(server, tmp_path):
-    rows = []
-    for lease in server.server.leases:
-        connection = lease.connection
-        row = {
-            "accepted_at": connection.accepted_at,
-            "work_deadline": connection.work_deadline,
-            "hard_deadline": connection.deadline,
-            "response_status": lease.response_status,
-            "response_started_at": lease.response_started_at,
-            "response_completed": lease.response_completed,
-            "response_completed_at": lease.response_completed_at,
-            "response_finished_at": lease.response_finished_at,
-            "adapter_started_at": lease.adapter_started_at,
-            "handler_done": lease.handler_done,
-            "adapter_done": lease.adapter_done,
-            "watcher_done": lease.watcher_done,
-            "workers_alive": [
-                thread.name
-                for thread in [lease.handler, lease.adapter, lease.watcher]
-                if thread is not None and thread.is_alive()
-            ],
-        }
-        if lease.response_completed:
-            assert (
-                connection.accepted_at
-                <= lease.response_started_at
-                <= lease.response_completed_at
-                <= connection.deadline
-            )
-        else:
-            assert lease.response_completed_at is None
-        rows.append(row)
+    rows = clock_rows(server)
+    # Persist actual facts before checking their consistency, including failures.
     (tmp_path / "http-clock-records.json").write_text(
         json.dumps(rows, indent=2, sort_keys=True) + "\n"
     )
+    for row in rows:
+        if row["response_completed"]:
+            assert (
+                row["accepted_at"]
+                <= row["response_started_at"]
+                <= row["response_completed_at"]
+                <= row["hard_deadline"]
+            )
+        else:
+            assert row["response_completed_at"] is None
     return rows
 
 
@@ -1381,13 +1377,16 @@ def test_hd01_hd15_actual_signed_ingest_uses_observed_monotonic_clock(rig, tmp_p
 
 
 @pytest.mark.parametrize("part", ["headers", "body"])
-def test_hd02_hd03_frequent_drip_cannot_refresh_absolute_deadline(tmp_path, part):
+def test_hd02_hd03_frequent_drip_cannot_refresh_absolute_deadline(tmp_path, part, monkeypatch):
     counter, record = HttpCounter(), ledger(tmp_path)
     server = BoundedReceiver(
         counter, record, response_budget=0.8, output_reserve=0.2, read_timeout=0.2
     )
     halt = threading.Event()
     raw = thread = None
+    trace = ReceiverTrace(monkeypatch, receiver_module)
+    client = {}
+    stopped = None
     try:
         server.start()
         raw = owned_socket(server)
@@ -1405,22 +1404,197 @@ def test_hd02_hd03_frequent_drip_cannot_refresh_absolute_deadline(tmp_path, part
 
         thread = threading.Thread(target=drip, name="owned-authored-drip")
         thread.start()
-        wire = wire_until_closed(raw)
+        wire = wire_until_closed(raw, client)
         received = time.monotonic()
         assert wire.startswith(b"HTTP/1.0 503 ") and wire.count(b"HTTP/1.0 ") == 1
         lease = server.server.leases[0]
         assert received - lease.connection.accepted_at <= 0.8
         assert counter.calls == 0
     finally:
-        halt.set()
-        if thread is not None:
-            thread.join(1)
-            assert not thread.is_alive()
-        if raw is not None:
-            raw.close()
-        assert server.stop(3)["stopped"]
-    rows = clock_records(server, tmp_path)
+        active_error = sys.exc_info()[0]
+        trace.save(
+            tmp_path / "socket-before-cleanup.json",
+            clocks=clock_rows(server),
+            client=client,
+            counter_calls=counter.calls,
+            assertion_error=active_error.__name__ if active_error else None,
+        )
+        try:
+            halt.set()
+            if thread is not None:
+                thread.join(1)
+                assert not thread.is_alive()
+            if raw is not None:
+                raw.close()
+            stopped = server.stop(3)
+            assert stopped["stopped"]
+        finally:
+            trace.save(
+                tmp_path / "socket-after-cleanup.json",
+                clocks=clock_rows(server),
+                client=client,
+                stop=stopped,
+                counter_calls=counter.calls,
+                client_descriptor=raw.fileno() if raw is not None else None,
+                drip_alive=thread.is_alive() if thread is not None else None,
+            )
+            rows = clock_records(server, tmp_path)
     assert rows[0]["response_completed"] and not rows[0]["workers_alive"]
+
+
+@pytest.mark.parametrize("part", ["headers", "body"])
+def test_hd16_handler_shutdown_waits_for_actual_deadline_send(tmp_path, monkeypatch, part):
+    counter, record = HttpCounter(), ledger(tmp_path)
+    server = BoundedReceiver(
+        counter, record, response_budget=0.8, output_reserve=0.2, read_timeout=0.2
+    )
+    trace = ReceiverTrace(monkeypatch, receiver_module)
+    writer_entered, close_finished = threading.Event(), threading.Event()
+    shutdown_attempted, reader_waited = threading.Event(), threading.Event()
+    original_send = receiver_module.DeadlineConnection.sendall
+    original_read = receiver_module.DeadlineReader.readinto
+    original_shutdown = receiver_module.Server.shutdown_request
+
+    def paused_send(connection, data):
+        if threading.current_thread().name.startswith("owned-deadline-"):
+            trace.record("controlled_writer_pause", hard_remaining=connection.hard_remaining)
+            writer_entered.set()
+            close_finished.wait(0.04)
+            trace.record("controlled_writer_release", hard_remaining=connection.hard_remaining)
+        return original_send(connection, data)
+
+    def late_read(reader, buffer):
+        if 0 < reader.connection.work_remaining < 0.09:
+            reader_waited.set()
+            trace.record("controlled_late_reader_wait")
+            writer_entered.wait(0.12)
+        return original_read(reader, buffer)
+
+    def observed_shutdown(owned_server, connection):
+        shutdown_attempted.set()
+        trace.record(
+            "controlled_shutdown_attempt", response_done=connection.lease.response_done.is_set()
+        )
+        try:
+            return original_shutdown(owned_server, connection)
+        finally:
+            close_finished.set()
+
+    monkeypatch.setattr(receiver_module.DeadlineConnection, "sendall", paused_send)
+    monkeypatch.setattr(receiver_module.DeadlineReader, "readinto", late_read)
+    monkeypatch.setattr(receiver_module.Server, "shutdown_request", observed_shutdown)
+    halt = threading.Event()
+    raw = thread = stopped = None
+    client = {}
+    try:
+        server.start()
+        raw = owned_socket(server)
+        initial = f"POST {server.route} HTTP/1.1\r\nX-Private: ".encode()
+        if part == "body":
+            initial = f"POST {server.route} HTTP/1.1\r\nContent-Length: 100000\r\n\r\n".encode()
+        raw.sendall(initial)
+
+        def drip():
+            while not halt.wait(0.04):
+                try:
+                    raw.sendall(b"a")
+                except OSError:
+                    return
+
+        thread = threading.Thread(target=drip, name="owned-interleaving-drip")
+        thread.start()
+        wire = wire_until_closed(raw, client)
+        received = time.monotonic()
+        assert writer_entered.is_set() and reader_waited.is_set() and shutdown_attempted.is_set()
+        assert wire.startswith(b"HTTP/1.0 503 ") and wire.count(b"HTTP/1.0 ") == 1
+        assert wire.endswith(b"\r\n\r\n")
+        assert received - server.server.leases[0].connection.accepted_at <= 0.8
+        assert counter.calls == 0
+    finally:
+        active_error = sys.exc_info()[0]
+        trace.save(
+            tmp_path / "interleaving-before-cleanup.json",
+            clocks=clock_rows(server),
+            client=client,
+            writer_entered=writer_entered.is_set(),
+            reader_waited=reader_waited.is_set(),
+            shutdown_attempted=shutdown_attempted.is_set(),
+            close_finished=close_finished.is_set(),
+            assertion_error=active_error.__name__ if active_error else None,
+        )
+        try:
+            halt.set()
+            if thread is not None:
+                thread.join(1)
+                assert not thread.is_alive()
+            if raw is not None:
+                raw.close()
+            stopped = server.stop(3)
+            assert stopped["stopped"]
+        finally:
+            trace.save(
+                tmp_path / "interleaving-after-cleanup.json",
+                clocks=clock_rows(server),
+                client=client,
+                stop=stopped,
+                client_descriptor=raw.fileno() if raw is not None else None,
+                drip_alive=thread.is_alive() if thread is not None else None,
+            )
+            rows = clock_records(server, tmp_path)
+    assert rows[0]["response_completed"] and not rows[0]["workers_alive"]
+
+
+def test_hd17_shutdown_lock_wait_is_bounded_by_original_deadline(tmp_path):
+    server = BoundedReceiver(None, ledger(tmp_path), response_budget=0.3, output_reserve=0.1)
+    owned, peer = socket.socketpair()
+    connection = receiver_module.DeadlineConnection(owned, time.monotonic(), server)
+    connection.lease = receiver_module.Lease(server.server, connection)
+    lock = connection.lease.response_lock
+    lock.acquire()
+    entered, done = threading.Event(), threading.Event()
+    result = {}
+
+    def close():
+        entered.set()
+        try:
+            server.server.shutdown_request(connection)
+            result["returned_at"] = time.monotonic()
+        finally:
+            done.set()
+
+    thread = threading.Thread(target=close, name="owned-held-response-close")
+    try:
+        thread.start()
+        assert entered.wait(0.1)
+        assert not done.wait(0.05) and connection.fileno() >= 0
+        thread.join(0.5)
+        assert not thread.is_alive() and done.is_set()
+        assert connection.deadline <= result["returned_at"] <= connection.deadline + 0.1
+        assert connection.fileno() == -1
+        peer.settimeout(0.1)
+        assert peer.recv(1) == b""
+        assert not connection.lease.response_completed and not connection.lease.response_claimed
+        assert connection.lease.adapter is None
+    finally:
+        lock.release()
+        thread.join(0.5)
+        owned.close()
+        peer.close()
+        assert not thread.is_alive()
+        assert server.stop(1)["stopped"]
+        (tmp_path / "held-close-observation.json").write_text(
+            json.dumps(
+                {
+                    "hard_deadline": connection.deadline,
+                    "result": result,
+                    "thread_alive": thread.is_alive(),
+                    "descriptor": connection.fileno(),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        )
 
 
 def test_hd04_idle_headers_refuse_without_waiting_for_a_new_read_budget(tmp_path):
