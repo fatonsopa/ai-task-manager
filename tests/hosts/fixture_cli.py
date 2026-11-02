@@ -35,6 +35,19 @@ def tool(call_id, turn_id):
 
 
 def main():
+    if sys.argv[-2:] == ["login", "status"]:
+        sys.stderr.write("Logged in using ChatGPT\n")
+        return
+    configuration = {"mcp_servers": {}}
+    for index, argument in enumerate(sys.argv):
+        if argument != "-c":
+            continue
+        key, raw = sys.argv[index + 1].split("=", 1)
+        cursor = configuration
+        parts = key.split(".")
+        for part in parts[:-1]:
+            cursor = cursor.setdefault(part.strip('"'), {})
+        cursor[parts[-1]] = json.loads(raw)
     for line in sys.stdin:
         value = json.loads(line)
         if value.get("id") == 91 and "result" in value:
@@ -57,6 +70,22 @@ def main():
         elif method == "account/read":
             assert value["params"] == {"refreshToken": False}
             result = {"account": ACCOUNT}
+        elif method == "config/read":
+            result = {
+                "config": configuration,
+                "origins": {},
+                "layers": [
+                    {
+                        "name": {"type": "user", "file": os.environ["CODEX_HOME"] + "/config.toml"},
+                        "version": "authored-fixture-version",
+                        "config": configuration,
+                    }
+                ],
+            }
+        elif method == "configRequirements/read":
+            result = {"requirements": None}
+        elif method == "mcpServerStatus/list":
+            result = {"data": [], "nextCursor": None}
         elif method == "thread/start":
             if ADVERSARIAL_INIT:
                 tool("synthetic-early-call", "synthetic-early-turn")
@@ -66,6 +95,8 @@ def main():
                 "modelProvider": "openai",
                 "approvalPolicy": "never",
                 "approvalsReviewer": "user",
+                "reasoningEffort": "high",
+                "instructionSources": [],
                 "sandbox": {"type": "readOnly"},
                 "cwd": os.getcwd(),
             }

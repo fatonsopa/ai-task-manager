@@ -25,8 +25,8 @@ class CodexSession:
         identity = self._counter
         self._pending.add(identity)
         try:
-            if method in {"initialize", "account/read", "thread/start"}:
-                self.startup.expect(identity, method)
+            if method in getattr(self.startup, "METHODS", ()):
+                self.startup.expect(identity, method, params)
             self._send({"id": identity, "method": method, "params": params})
             while identity not in self._responses:
                 self.pump()
@@ -99,7 +99,11 @@ class CodexSession:
         )
         self._send({"method": "initialized"})
         self.request("account/read", {"refreshToken": False})
-        return self.request(
+        if self.startup.configuration is not None:
+            self.request("config/read", {"includeLayers": True, "cwd": str(cwd)})
+            self.request("configRequirements/read", {})
+            self.startup.configuration.pre_thread()
+        result = self.request(
             "thread/start",
             {
                 "cwd": str(cwd),
@@ -119,6 +123,22 @@ class CodexSession:
                 ],
             },
         )
+        if self.startup.configuration is not None:
+            cursor = None
+            while True:
+                page = self.request(
+                    "mcpServerStatus/list",
+                    {
+                        "threadId": self.startup.native_session,
+                        "detail": "full",
+                        "cursor": cursor,
+                        "limit": 64,
+                    },
+                )
+                cursor = page.get("nextCursor")
+                if cursor is None:
+                    break
+        return result
 
     def turn(self, text, *, input_id=None):
         params = {

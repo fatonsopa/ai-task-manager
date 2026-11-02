@@ -11,33 +11,50 @@ from .model_guard import PinnedModelGuard, verify_model_history
 
 
 class StartupObserver:
-    def __init__(self, transcript, policy, *, expected_account, claude_auth_ref=None):
+    METHODS = frozenset(
+        {
+            "initialize",
+            "account/read",
+            "thread/start",
+            "config/read",
+            "configRequirements/read",
+            "mcpServerStatus/list",
+        }
+    )
+
+    def __init__(
+        self,
+        transcript,
+        policy,
+        *,
+        expected_account,
+        claude_auth_ref=None,
+        configuration=None,
+        codex_auth_ref=None,
+    ):
         self.transcript, self.policy = transcript, policy
         self.binding, self.journal = transcript.binding, transcript.journal
         self.expected_account, self.claude_auth_ref = expected_account, claude_auth_ref
         self.requests, self.responses = {}, {}
         self.request_sources = {}
+        self.request_context = {}
+        self.configuration, self.codex_auth_ref = configuration, codex_auth_ref
         self.ready_ref = None
         self.native_session, self.model = None, None
         self.model_source = None
         self.initialization_tool_calls = []
         self.admitted = False
-        self.model_guard = PinnedModelGuard(transcript, policy)
+        self.model_guard = PinnedModelGuard(transcript, policy, configuration=configuration)
+        if configuration is not None:
+            configuration.fence_callback = self.model_guard.configuration_changed
         transcript.listen(self._observe)
 
-    def expect(self, identity, method):
-        if (
-            type(identity) is not int
-            or identity in self.requests
-            or method
-            not in {
-                "initialize",
-                "account/read",
-                "thread/start",
-            }
-        ):
+    def expect(self, identity, method, params=None):
+        if type(identity) is not int or identity in self.requests or method not in self.METHODS:
             raise AccessDenied("Unexpected startup request identity")
         self.requests[identity] = method
+        self.request_context[identity] = params or {}
+        self.transcript.expect_response(identity, method)
         self.request_sources[identity] = self.journal._append(
             "trace",
             {
@@ -68,7 +85,12 @@ class StartupObserver:
                 return
             if "error" in frame or not isinstance(frame.get("result"), dict):
                 raise AccessDenied("Native startup request failed")
-            self.responses[method] = (frame["result"], source)
+            self.responses[method] = (
+                None
+                if method in {"config/read", "configRequirements/read", "mcpServerStatus/list"}
+                else frame["result"],
+                source,
+            )
             if method == "initialize":
                 result = frame["result"]
                 if result.get("codexHome") != self.policy.environment["CODEX_HOME"]:
@@ -83,10 +105,27 @@ class StartupObserver:
                     raise AccessDenied(
                         "Actual native authentication is not the approved subscription"
                     )
+                if self.configuration is not None:
+                    self.configuration.observe_account(source)
+            elif method in {"config/read", "configRequirements/read", "mcpServerStatus/list"}:
+                if self.configuration is None:
+                    raise AccessDenied("Native configuration observer is unavailable")
+                self.configuration.accept(
+                    method, frame["result"], source, self.request_context.pop(frame["id"])
+                )
+                if method == "mcpServerStatus/list" and self.configuration.inventory_complete:
+                    configuration_ref = self.configuration.ready()
+                    self._ready(
+                        (
+                            *tuple(x[1] for x in self.responses.values()),
+                            self.codex_auth_ref,
+                            configuration_ref,
+                        )
+                    )
             elif method == "thread/start":
                 result = frame["result"]
                 if (
-                    set(self.responses) != {"initialize", "account/read", "thread/start"}
+                    not {"initialize", "account/read", "thread/start"} <= set(self.responses)
                     or result.get("modelProvider") != "openai"
                     or result.get("approvalPolicy") != "never"
                     or result.get("sandbox", {}).get("type") != "readOnly"
@@ -100,8 +139,13 @@ class StartupObserver:
                 self.native_session = result["thread"]["id"]
                 self.model = result.get("model") or None
                 self.model_source = "thread/start.model" if self.model is not None else None
-                self._ready(tuple(x[1] for x in self.responses.values()))
+                if self.configuration is not None:
+                    self.configuration.thread(result)
+                else:
+                    self._ready(tuple(x[1] for x in self.responses.values()))
         elif self.binding.host == "codex" and frame.get("method") == "account/updated":
+            if self.configuration is not None:
+                self.configuration.account_changed()
             if frame.get("params", {}).get("authMode") != "chatgpt":
                 raise AccessDenied("Native authentication changed; stop and reconcile")
         elif (
@@ -138,6 +182,8 @@ class StartupObserver:
             self._ready((self.claude_auth_ref, source))
 
     def _ready(self, sources):
+        if self.ready_ref is not None:
+            return
         identity = self.transcript.process.verify_identity()
         if self.policy.configuration_digest != self.binding.configuration_digest:
             raise AccessDenied("Native configuration and attempt bindings differ")
@@ -166,6 +212,8 @@ class StartupObserver:
         )
 
     def assert_stable(self):
+        if self.configuration is not None:
+            self.configuration.check()
         self.model_guard.check()
 
 

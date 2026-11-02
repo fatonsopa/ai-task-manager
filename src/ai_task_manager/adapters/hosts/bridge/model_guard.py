@@ -87,7 +87,7 @@ def verify_model_history(journal, owner, identity):
 
 
 class PinnedModelGuard:
-    def __init__(self, transcript, policy):
+    def __init__(self, transcript, policy, *, configuration=None):
         self.transcript, self.journal, self.binding = (
             transcript,
             transcript.journal,
@@ -96,6 +96,7 @@ class PinnedModelGuard:
         self.requested = getattr(policy, "model", None)
         self.requested_effort = getattr(policy, "effort", None)
         self.cwd = str(policy.cwd)
+        self.configuration = configuration
         if self.binding.host == "claude" and not self.requested:
             raise AccessDenied("Claude requires an explicitly configured model")
         self.observed, self.refusal = None, None
@@ -106,6 +107,10 @@ class PinnedModelGuard:
         )
         self._lock = RLock()
         self._restore(self._history())
+
+    def configuration_changed(self, source):
+        with self._lock:
+            self._refuse("native_configuration_continuity_failed", source, record=True)
 
     def _history(self):
         identity = self.transcript.process.identity
@@ -209,6 +214,8 @@ class PinnedModelGuard:
             raise AccessDenied("No matching observed model is ready for managed effects")
 
     def check(self):
+        if self.configuration is not None:
+            self.configuration.check()
         rows = self._history()
         with self._lock:
             self._check(rows)
@@ -217,6 +224,8 @@ class PinnedModelGuard:
     def effect_boundary(self):
         # Read durable history before taking the local state lock and before the
         # caller enters Core. No store/network/model wait occurs inside its yield.
+        if self.configuration is not None:
+            self.configuration.check()
         rows = self._history()
         with self._lock:
             self._check(rows)
