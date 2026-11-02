@@ -9,6 +9,7 @@ import multiprocessing
 import os
 import socket
 import sqlite3
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -1813,6 +1814,9 @@ def test_hd16_bounded_header_prefix_refuses_over_limit_input(tmp_path, shape):
 def startup_case_worker(folder, scenario, queue):
     """All dangerous lifecycle calls stay in this owned child, never pytest main."""
     folder = Path(folder)
+    original_stderr = sys.stderr
+    captured_stderr = (folder / "startup-stderr.log").open("w")
+    sys.stderr = captured_stderr
     server = BoundedReceiver(HttpCounter(), ledger(folder))
     original_start = threading.Thread.start
     original_bind = server.server.server_bind
@@ -1973,6 +1977,13 @@ def startup_case_worker(folder, scenario, queue):
             cleanup_loop.join(1)
         facts_out["helper_cleanup"] = server.stop(1)
         facts_out["helper_final"] = snapshot()
+        captured_stderr.flush()
+        facts_out["private_exception_in_stderr"] = (
+            b"PRIVATE_AUTHORED_START_FAILURE" in (folder / "startup-stderr.log").read_bytes()
+        )
+        facts_out["diagnostics"] = server.ledger.summary()["observations"]
+        sys.stderr = original_stderr
+        captured_stderr.close()
         (folder / "startup-result.json").write_text(
             json.dumps(facts_out, indent=2, sort_keys=True) + "\n"
         )
@@ -1990,6 +2001,7 @@ def test_ss01_to_ss11_startup_lifecycle_in_owned_child(tmp_path, scenario):
         child.join(timeout=1)
         assert child.exitcode == 0 and not child.is_alive()
         assert "worker_error" not in facts_out
+        assert not facts_out["private_exception_in_stderr"]
         assert facts_out["stop"]["stopped"]
         assert facts_out["helper_cleanup"]["stopped"]
         assert facts_out["helper_final"]["socket_closed"]
@@ -2028,6 +2040,11 @@ def test_ss01_to_ss11_startup_lifecycle_in_owned_child(tmp_path, scenario):
                 and not facts_out["before_stop"]["loop_witness"]
             )
             assert not facts_out["final_before_helper_cleanup"]["shutdown_created"]
+            assert any(
+                row["kind"] == "server_failed"
+                and json.loads(row["payload"])["code"] == "server_exception"
+                for row in facts_out["diagnostics"]
+            )
         if scenario == "SS11":
             assert not facts_out["first_stop"]["stopped"] and facts_out["first_stop_seconds"] <= 0.2
             assert (
