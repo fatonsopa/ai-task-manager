@@ -1,0 +1,132 @@
+{
+  "version": 17,
+  "extends": "host-bridge-cases-v16.json",
+  "preserves_all_prior_cases": true,
+  "status": "frozen_not_run",
+  "reason": "Coherent native authentication requires protected source provenance, a positive existing-auth preflight and native effective configuration observations without credential copies or assumed exclusions.",
+  "contract": ".local/host-bridge-plan/codex-configuration-contract-v1.json",
+  "contract_sha256": "e2c4467c88d31391d6476c0a6bfc4bb1ab41ccc59c4548c717665e0dc3a3dcfe",
+  "cases": [
+    {
+      "id": "HB-C01",
+      "test": "tests/hosts/test_codex_home.py::test_owned_nonwritable_by_others_home_is_accepted_without_chmod",
+      "expected": "Owned no-symlink0700/0755 homes are accepted without mode changes; wrong ownership, group/other write, symlink ancestor/leaf or unavailable metadata refuses without repair."
+    },
+    {
+      "id": "HB-C02",
+      "test": "tests/hosts/test_codex_home.py::test_protected_credential_and_user_config_files_are_exact",
+      "expected": "auth.json metadata and bounded config reads require regular current-UID no-follow single-link exact0600 files. Missing, special, linked, foreign or weaker files refuse; no credential contents are read or logged."
+    },
+    {
+      "id": "HB-C03",
+      "test": "tests/hosts/test_codex_home.py::test_acl_write_grants_and_unknown_acl_inspection_refuse",
+      "expected": "A positive supported no-access-ACL observation is required. Write grants, nontrivial access ACLs and inaccessible/unsupported inspection refuse; mode bits alone never establish ACL safety."
+    },
+    {
+      "id": "HB-C04",
+      "test": "tests/hosts/test_codex_home.py::test_directory_or_file_replacement_race_invalidates_the_source_binding",
+      "expected": "Deterministic swaps between no-follow open, fstat and final path recheck cannot redirect a credential/config read or keep an old home/source identity valid."
+    },
+    {
+      "id": "HB-C05",
+      "test": "tests/hosts/test_codex_home.py::test_config_source_seals_reject_content_identity_and_permission_changes",
+      "expected": "Changed bytes, inode, ownership, mode or declared source version refuse before the next native launch/submission/effect; no automatic re-seal or normal configuration rewrite occurs."
+    },
+    {
+      "id": "HB-C06",
+      "test": "tests/hosts/test_codex_home.py::test_configuration_inventory_preserves_unknown_and_expected_absence",
+      "expected": "New or vanished config/profile/project/managed sources, expected-absent files appearing, incomplete enumeration and exceeded count/size limits refuse. Unknown MDM/cloud sources are not treated as absent."
+    },
+    {
+      "id": "HB-C07",
+      "test": "tests/hosts/test_codex_home.py::test_native_cache_refresh_has_a_distinct_metadata_lifecycle",
+      "expected": "A changed credential during read-only preflight refuses. After explicitly admitted native use, safe atomic native refresh remains coherent under the same home, with permissions revalidated and principal continuity required; no credential copy/hash is used."
+    },
+    {
+      "id": "HB-C08",
+      "test": "tests/hosts/test_codex_configuration.py::test_trusted_codex_environment_excludes_all_auth_and_provider_fallbacks",
+      "expected": "The actual launcher environment has the exact whitelist and UID-derived USER. Caller API/OAuth/access-token/base-URL/workload/provider/profile variables cannot pass through or select another account."
+    },
+    {
+      "id": "HB-C09",
+      "test": "tests/hosts/test_codex_auth.py::test_actual_factory_preflight_precedes_every_forced_login_launch",
+      "expected": "The actual factory/controller path starts no forced-method host without a fresh positive scoped preflight. The status argv contains no forced restriction or login/account-change option; a boolean or historical receipt cannot substitute."
+    },
+    {
+      "id": "HB-C10",
+      "test": "tests/hosts/test_codex_auth.py::test_positive_status_has_confirmed_stop_and_scoped_safe_receipt",
+      "expected": "An owned real status fixture emits the exact reviewed stderr marker with empty stdout, exit0, unchanged credential metadata and confirmed whole-group stop. Only the safe enum/scope/source/command/accounting projection is issued."
+    },
+    {
+      "id": "HB-C11",
+      "test": "tests/hosts/test_codex_auth.py::test_wrong_unknown_or_ambiguous_status_never_leaks_credentials",
+      "expected": "API, absent, unknown, extra/malformed output and misleading ChatGPT substrings refuse even with exit0. Synthetic credential sentinels emitted by the fixture never appear in files, logs, receipts or exception text."
+    },
+    {
+      "id": "HB-C12",
+      "test": "tests/hosts/test_codex_auth.py::test_preflight_timeout_output_limit_or_unknown_stop_cannot_launch",
+      "expected": "Timeout, resistant descendants, output overflow, failure or unknown owned-group observation denies forced launch and retains failure/ownership rather than releasing uncertain capacity or trying another authentication path."
+    },
+    {
+      "id": "HB-C13",
+      "test": "tests/hosts/test_codex_auth.py::test_auth_receipt_is_fresh_single_launch_and_exactly_bound",
+      "expected": "Expired or replayed status receipts and mismatched attempt/worker/UID/home/config/executable/accounting bindings refuse. Source or credential mutation between status and forced launch invalidates the receipt."
+    },
+    {
+      "id": "HB-C14",
+      "test": "tests/hosts/test_codex_auth.py::test_existing_auth_constraints_are_not_used_to_discover_a_mismatch",
+      "expected": "Before status, incompatible/unknown declared auth or managed restrictions refuse. The launcher never introduces a potentially destructive forced-method/workspace restriction to discover whether the existing credentials match."
+    },
+    {
+      "id": "HB-C15",
+      "test": "tests/hosts/test_codex_configuration.py::test_supported_exclusions_are_explicit_immutable_and_private",
+      "expected": "The sealed canonical High profile binds exact supported feature/tool/hook/MCP/plugin exclusions. Known per-ID MCP disables are explicit; empty tables, disabledPluginIds, mutable aliases and unsupported app-server ignore-user-config flags do not establish exclusion."
+    },
+    {
+      "id": "HB-C16",
+      "test": "tests/hosts/test_codex_configuration.py::test_effective_native_configuration_is_positive_and_correlated_before_thread",
+      "expected": "Actual production constructors and an owned authored protocol process require correlated config/read layers/origins and supported effective feature observations before thread/start. Missing effective booleans, request-only flags, stale or foreign replies cannot pass."
+    },
+    {
+      "id": "HB-C17",
+      "test": "tests/hosts/test_codex_configuration.py::test_managed_requirements_cannot_silently_override_the_profile",
+      "expected": "Actual null or an exact compatible configRequirements/read result is required. Missing/error/unknown sources, forced hooks/provider/auth changes and incompatible requirements refuse instead of weakening policy."
+    },
+    {
+      "id": "HB-C18",
+      "test": "tests/hosts/test_codex_configuration.py::test_complete_thread_mcp_inventory_is_required_before_model_admission",
+      "expected": "Complete paginated thread-scoped MCP inventory must match the expected empty foreign-server set. Repeated cursors, incomplete pages, tool errors, stale/null runtime observations or foreign thread identity cannot become an absence proof or grant model work."
+    },
+    {
+      "id": "HB-C19",
+      "test": "tests/hosts/test_codex_configuration.py::test_loaded_instruction_sources_are_observed_not_assumed_from_a_flag",
+      "expected": "Explicit actual thread instructionSources must match the sealed reviewed allowlist. Omitted/defaulted sources, foreign guidance and requested max-bytes0 alone cannot prove loaded-source exclusion or select a new role."
+    },
+    {
+      "id": "HB-C20",
+      "test": "tests/hosts/test_codex_configuration.py::test_configuration_and_inventory_traces_omit_arbitrary_secret_values",
+      "expected": "Config/layer/MCP/env/header fixtures with randomly named secret sentinels are projected before persistence. Only reviewed fields and source hashes remain; raw response digests are labelled distinctly from complete retained frames, while profile-change event sources remain unchanged."
+    },
+    {
+      "id": "HB-C21",
+      "test": "tests/hosts/test_codex_configuration.py::test_native_account_or_source_change_fences_effects_until_fresh_observation",
+      "expected": "A changed source or native account/config signal stops subsequent effects. Same authMode, cached method or replayed observation cannot prove current principal/config continuity; actual matching fresh reads are required outside effect locks."
+    },
+    {
+      "id": "HB-C22",
+      "test": "tests/hosts/test_codex_configuration.py::test_real_production_composition_keeps_unverified_tool_modes_refused",
+      "expected": "The actual factory/gateway/controller/startup/supervisor constructors enforce all configuration/auth stages and the separate current native-tool conformance gate. Authored controls cannot mint actual host acceptance, worker_start or a model lease. managed.py callback semantics and original failed/live-unrun evidence stay intact."
+    }
+  ],
+  "scope": "Mechanical metadata/process/protocol/composition controls only. No native account/thread/model operation or normal-home permission/config change is authorized.",
+  "schema_hashes": {
+    "v1/InitializeResponse.json": "62ad689c2cb6379913c1d72749cfd8de5089d35760214123518eb92eef11acc9",
+    "v2/ConfigReadParams.json": "257c54a423b47c1d209ff1076765a1564d82322fd5161670fd489a2874de1bac",
+    "v2/ConfigReadResponse.json": "4ec77e1a3eed746037149799c3b6bb8fe7b4b593e5930fc9f410e6282de9df50",
+    "v2/ConfigRequirementsReadResponse.json": "dc8bf6de721c39360741ac62b32b1fce38754074bbde4ac102415bf6b5b8825f",
+    "v2/ListMcpServerStatusParams.json": "30b978c6502b37c9f0002aeba241f41c91d4c6adf0f92d89242b62ffde415a2d",
+    "v2/ListMcpServerStatusResponse.json": "c5a6c05092a9b1fa90c7cb3a319685a769a67c16e19048e8bbab5007b358be74",
+    "v2/ThreadStartResponse.json": "d82d7322a000e715eeac6ae4f7398fc78fc29b4e9a7e8d17aba034ec8d51e348",
+    "ClientRequest.json": "7a671e8037fa2f5173ec49d2463e0080553bd284e640074a656504f541eab8e7"
+  }
+}

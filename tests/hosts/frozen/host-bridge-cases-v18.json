@@ -1,0 +1,23 @@
+{
+  "version": 18,
+  "extends": "host-bridge-cases-v17.json",
+  "preserves_all_prior_cases": true,
+  "status": "frozen_not_run",
+  "source_commit": "29118cfb83528e890ac78fe67dd7f7c5b4d19dc2",
+  "reason": "Lead review requires actual startup proof consumption to reject a late configuration/cache fence before Core start and provider In Progress; test both proof issuance and later consumption.",
+  "cases": [
+    {
+      "id": "HB-C21-LATE-KNOWN",
+      "basis": "HB-C21/HB-C22",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_known_configuration_fence_precedes_core_start_for_every_proof_phase",
+      "expected": "For both after-ready/before-proofs.startup and after-worker_start-proof/before-Core.start, an already-known configuration/cache fence prevents Core worker_started event/desired In Progress and any provider confirmation. Original ready_ref/expiry and every failure remain preserved."
+    },
+    {
+      "id": "HB-C22-LATE-METADATA",
+      "basis": "HB-C21/HB-C22",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_unobserved_cache_change_is_rechecked_at_startup_proof_consumption",
+      "expected": "For both proof phases, an owned atomic0600 cache replacement not yet inspected by the live observer is positively rechecked at the actual startup proof/start boundary. It cannot cause Core worker_started/provider In Progress before a later native.verify_active refusal."
+    }
+  ],
+  "method": "Actual production Core/runtime proof/factory/controller/observer/session/provider-fixture composition and owned authored process/metadata only. No product edit, actual native account/status/thread/model operation or application change during first reproduction. Each alias records both phase observations before asserting, so an early mismatch does not hide the other phase."
+}

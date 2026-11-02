@@ -12,10 +12,13 @@ from ai_task_manager.adapters.hosts.transports.claude import (
     sdk_options,
 )
 from ai_task_manager.adapters.hosts.transports.codex import CodexSession
+from ai_task_manager.adapters.hosts.transports.native_exit import require_exit_monitoring
 from ai_task_manager.adapters.hosts.transports.process import HostProcess
 from ai_task_manager.domains.work.errors import AccessDenied
 
 from .auth_probe import ClaudeAuthProbe
+from .codex_auth import CodexAuthProbe
+from .codex_configuration import CodexConfigurationObserver
 from .gateway import SCHEMAS, ManagedToolGateway, tool_schema
 from .policy import NativeProfile, codex_command
 from .records import ManagedProcesses
@@ -94,13 +97,22 @@ class ManagedNativeHost:
             )
         else:
             auth_ref = None
+            codex_probe = CodexAuthProbe(self.journal, self.permits)
+            codex_auth_ref = codex_probe.observe(self.policy, self.binding, self.directory)
+            codex_probe.consume(self.policy, self.binding, codex_auth_ref)
             command = codex_command(self.policy, self.binding.deadline - self.journal.clock())
+
+        def native_boundary():
+            self.policy.check()
+            if self.binding.host == "codex" and self.process.process is None:
+                codex_probe.check_launch(self.policy, self.binding, codex_auth_ref)
+
         self.process = HostProcess(
             command,
             self.directory,
             deadline=self.binding.deadline,
             clock=self.journal.clock,
-            boundary=self.policy.check,
+            boundary=native_boundary,
         )
         self.process_registry.attach(self.binding.attempt_id, self.process)
         transcript = OwnedTranscript(self.process, self.journal, self.binding)
@@ -109,6 +121,18 @@ class ManagedNativeHost:
             self.policy,
             expected_account=self.expected_account,
             claude_auth_ref=auth_ref,
+            codex_auth_ref=codex_auth_ref if self.binding.host == "codex" else None,
+            configuration=(
+                CodexConfigurationObserver(
+                    self.policy.codex_settings,
+                    self.journal,
+                    self.binding,
+                    self.policy,
+                    self.permits,
+                )
+                if self.binding.host == "codex"
+                else None
+            ),
         )
         if self.binding.host == "claude":
             transport = ClaudeTransport(self.process, transcript)
@@ -258,11 +282,14 @@ class ManagedHostFactory:
         self.process_registry = (
             process_registry if process_registry is not None else ManagedProcesses()
         )
-        self.startup_verifier = HostStartupReceipts(journal, self.process_registry)
+        self.startup_verifier = HostStartupReceipts(
+            journal, self.process_registry, hosts=self.owned
+        )
 
     def check_admission(self, host):
         # Trusted installer/evaluator port, not a public caller flag. It must
         # positively verify tested native restrictions and current launch authority.
+        require_exit_monitoring()
         if host == "claude" and not isinstance(self.model_profiles.get(host), NativeProfile):
             raise AccessDenied("A trusted explicit Claude model profile is required")
         self.permits.check_admission(host)

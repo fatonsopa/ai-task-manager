@@ -16,6 +16,7 @@ from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
 from ai_task_manager.supervisor.models import RuntimeUncertain
 
 from ..bridge.records import ProcessIdentity
+from .native_exit import NativeExitWatch, require_exit_monitoring
 
 
 class HostProcess:
@@ -32,13 +33,14 @@ class HostProcess:
                 "An exact executable, work directory and future deadline are required"
             )
         require_group_monitoring()
+        require_exit_monitoring()
         self.command, self.deadline, self.clock, self.boundary = command, deadline, clock, boundary
         self.directory = Path(directory).absolute()
         self.directory.mkdir(parents=True, mode=0o700, exist_ok=True)
         if self.directory.is_symlink() or self.directory.stat().st_mode & 0o077:
             raise AccessDenied("Host output needs an owned private directory")
         self._buffer, self._closed = b"", False
-        self.process = self.group = self.identity = None
+        self.process = self.group = self.identity = self.native_exit = None
 
     def start(self):
         if self.process is not None:
@@ -98,6 +100,7 @@ class HostProcess:
             ):
                 raise RuntimeUncertain("Actual native process ownership is not established")
             self.identity = ProcessIdentity(native.pid, native.start_identity, self.group.group_id)
+            self.native_exit = NativeExitWatch.capture(self)
             return self.identity
         except BaseException:
             if self.group is not None:
@@ -125,6 +128,12 @@ class HostProcess:
         ):
             raise RuntimeUncertain("Native process identity is unknown or no longer active")
         return self.identity
+
+    def check_current_liveness(self):
+        self._deadline()
+        if self._closed or self.native_exit is None or self.process is None:
+            raise RuntimeUncertain("Native process lacks its original kernel exit handle")
+        self.native_exit.check_current(self.identity, self.process.pid, self.group.start_identity)
 
     def _control(self, data):
         if self._closed or self.process is None or self.process.stdin is None:
@@ -185,7 +194,11 @@ class HostProcess:
             self.process.stdin.close()
         if result.confirmed:
             self._closed = True
-            self.group.reap_exited_leader()
-            if self.process.stdout:
-                self.process.stdout.close()
+            try:
+                if self.native_exit is not None:
+                    self.native_exit.close()
+            finally:
+                self.group.reap_exited_leader()
+                if self.process.stdout:
+                    self.process.stdout.close()
         return result

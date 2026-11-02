@@ -25,7 +25,12 @@ class HostStartup:
 class HostStartupVerifier(Protocol):
     def verify_host_ready(self, opaque_ref: str) -> HostStartup: ...
 
+    def check_prepared_host_ready(self, observed: HostStartup) -> HostStartup: ...
+
 
 class RejectHostStartup:
     def verify_host_ready(self, opaque_ref):
         raise EvidenceRequired("An observed authenticated host startup bridge is required")
+
+    def check_prepared_host_ready(self, observed):
+        raise EvidenceRequired("A prepared current authenticated host startup is required")

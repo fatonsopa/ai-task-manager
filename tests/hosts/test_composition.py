@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from ai_task_manager.adapters.hosts.bridge.codex_home import CodexHomeBoundary
+from ai_task_manager.adapters.hosts.bridge.codex_settings import CodexSettings
 from ai_task_manager.adapters.hosts.bridge.controller import ManagedHostFactory
 from ai_task_manager.adapters.hosts.bridge.executions import ModelWork, ReviewedExecutions
 from ai_task_manager.adapters.hosts.bridge.policy import (
@@ -42,10 +44,14 @@ class AuthoredPermits:
         self.outcomes.append(("initialization", outcome))
 
     def authorize_auth(self, policy, binding):
-        raise AssertionError("No actual auth command is allowed in this fixture")
+        assert policy.executable.name == "synthetic-cli"
 
     def record_auth(self, binding, completion):
-        raise AssertionError("No actual auth result is allowed in this fixture")
+        self.outcomes.append(("authored-status-control", completion["outcome"]))
+
+    def require_native_conformance(self, policy, binding):
+        assert policy.executable.name == "synthetic-cli"
+        return "authored-fixture-control-not-native-conformance"
 
     def authorize_neutral_start(self, policy, binding):
         raise AssertionError("No neutral model turn is allowed in this fixture")
@@ -106,6 +112,10 @@ def composition(tmp_path, journal):
         home, profile = root / "home", root / "private-codex"
         home.mkdir(mode=0o700)
         profile.mkdir(mode=0o700)
+        for name in ("auth.json", "config.toml"):
+            (profile / name).write_text("{}" if name == "auth.json" else "")
+            (profile / name).chmod(0o600)
+        settings = CodexSettings(CodexHomeBoundary(profile), "synthetic-no-model", "high")
         source = Path(__file__).with_name("fixture_cli.py").read_text()
         source = source.replace("ADVERSARIAL_INIT = False", f"ADVERSARIAL_INIT = {early_tool!r}")
         executable = root / "synthetic-cli"
@@ -115,9 +125,26 @@ def composition(tmp_path, journal):
 
         def policy(host, pair):
             env = clean_environment(home, codex_home=profile)
-            fingerprint = policy_digest(host, executable_hash, env, pair.worktree, {})
+            fingerprint = policy_digest(
+                host,
+                executable_hash,
+                env,
+                pair.worktree,
+                {"codex_settings": settings.fingerprint},
+                model=settings.model,
+                effort=settings.effort,
+            )
             return NativePolicy(
-                host, executable, executable_hash, env, pair.worktree, fingerprint, ()
+                host,
+                executable,
+                executable_hash,
+                env,
+                pair.worktree,
+                fingerprint,
+                (),
+                model=settings.model,
+                effort=settings.effort,
+                codex_settings=settings,
             )
 
         permits, accounting = AuthoredPermits(deny), AuthoredAccounting()

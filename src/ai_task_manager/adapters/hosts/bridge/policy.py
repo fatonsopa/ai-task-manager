@@ -11,23 +11,9 @@ from ai_task_manager.config.files import FileSeal, digest
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.supervisor.models import Command
 
-CODEX_RESTRICTIONS = {
-    "forced_login_method": "chatgpt",
-    "model_provider": "openai",
-    "agents.enabled": False,
-    "features.multi_agent": False,
-    "features.shell_tool": False,
-    "tools.update_plan.enabled": False,
-    "features.apps": False,
-    "features.plugins": False,
-    "features.browser_use": False,
-    "features.computer_use": False,
-    "features.code_mode_host": False,
-    "features.sleep_tool": False,
-    "web_search": "disabled",
-    "approval_policy": "never",
-    "sandbox_mode": "read-only",
-}
+from .codex_settings import RESTRICTIONS, CodexSettings
+
+CODEX_RESTRICTIONS = {**RESTRICTIONS, "forced_login_method": "chatgpt"}
 
 
 @dataclass(frozen=True)
@@ -66,8 +52,13 @@ def clean_environment(home, *, claude_profile=None, codex_home=None):
         env["CLAUDE_CODE_ENTRYPOINT"] = "sdk-py"
     else:
         profile = Path(codex_home)
-        if profile.is_symlink() or not profile.is_dir() or profile.stat().st_mode & 0o077:
-            raise AccessDenied("Codex requires a separate private managed home")
+        if (
+            profile.is_symlink()
+            or not profile.is_dir()
+            or profile.stat().st_mode & 0o022
+            or profile.stat().st_uid != os.getuid()
+        ):
+            raise AccessDenied("Codex requires an owned home that others cannot replace")
         env["CODEX_HOME"] = str(profile.absolute())
     return env
 
@@ -84,6 +75,7 @@ class NativePolicy:
     allowed_tools: tuple[str, ...] = ()
     model: str | None = None
     effort: str | None = None
+    codex_settings: CodexSettings | None = None
     _executable_identity: tuple = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -127,6 +119,28 @@ class NativePolicy:
             raise AccessDenied("Native executable changed or is not explicitly approved")
         for seal in self.seals:
             seal.check()
+        if self.codex_settings is not None:
+            if not isinstance(self.codex_settings, CodexSettings):
+                raise AccessDenied("Codex configuration must be typed trusted input")
+            self.codex_settings.check()
+            if (
+                self.host != "codex"
+                or (self.model, self.effort)
+                != (self.codex_settings.model, self.codex_settings.effort)
+                or self.environment.get("CODEX_HOME") != str(self.codex_settings.sources.home)
+            ):
+                raise AccessDenied("Native profile differs from its coherent source plan")
+            expected_digest = policy_digest(
+                self.host,
+                self.executable_sha256,
+                dict(self.environment),
+                self.cwd,
+                {"codex_settings": self.codex_settings.fingerprint},
+                model=self.model,
+                effort=self.effort,
+            )
+            if self.configuration_digest != expected_digest:
+                raise AccessDenied("Native configuration digest omits its protected source plan")
         allowed = {"PATH", "HOME", "USER", "LANG", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_ENTRYPOINT"}
         if self.host == "codex":
             allowed = {"PATH", "HOME", "USER", "LANG", "CODEX_HOME"}
@@ -135,12 +149,49 @@ class NativePolicy:
         if self.environment["USER"] != pwd.getpwuid(os.getuid()).pw_name:
             raise AccessDenied("Native ordinary user identity changed")
 
+    def _admission_metadata(self):
+        try:
+            if self.executable.is_symlink():
+                raise AccessDenied("Prepared native executable became a symbolic link")
+            info = self.executable.lstat()
+            executable = (
+                info.st_dev,
+                info.st_ino,
+                info.st_uid,
+                info.st_mode,
+                info.st_nlink,
+                info.st_size,
+                info.st_mtime_ns,
+                info.st_ctime_ns,
+            )
+            if self.codex_settings is not None:
+                self.codex_settings.sources.check_metadata()
+            return executable, tuple((seal, seal.metadata()) for seal in self.seals)
+        except OSError:
+            raise AccessDenied("Prepared native metadata is unavailable") from None
+
+    def prepare_admission(self):
+        """Full validation happens outside Core between matching metadata snapshots."""
+        before = self._admission_metadata()
+        self.check()
+        if before != self._admission_metadata():
+            raise AccessDenied("Native source changed during admission preparation")
+        return before
+
+    def check_admission_metadata(self, prepared):
+        if self._admission_metadata() != prepared:
+            raise AccessDenied("Native policy metadata changed after preparation")
+
 
 def codex_command(policy, timeout):
     policy.check()
     argv = [str(policy.executable)]
     import json
 
+    if policy.codex_settings is not None:
+        argv.extend(policy.codex_settings.arguments(forced=True))
+        argv.extend(["app-server", "--strict-config", "--stdio"])
+        return Command(tuple(argv), policy.cwd, dict(policy.environment), timeout, "codex")
     for name, value in CODEX_RESTRICTIONS.items():
         argv.extend(["-c", name + "=" + json.dumps(value)])
     if policy.model is not None:

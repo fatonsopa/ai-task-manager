@@ -87,7 +87,7 @@ def verify_model_history(journal, owner, identity):
 
 
 class PinnedModelGuard:
-    def __init__(self, transcript, policy):
+    def __init__(self, transcript, policy, *, configuration=None):
         self.transcript, self.journal, self.binding = (
             transcript,
             transcript.journal,
@@ -96,6 +96,7 @@ class PinnedModelGuard:
         self.requested = getattr(policy, "model", None)
         self.requested_effort = getattr(policy, "effort", None)
         self.cwd = str(policy.cwd)
+        self.configuration = configuration
         if self.binding.host == "claude" and not self.requested:
             raise AccessDenied("Claude requires an explicitly configured model")
         self.observed, self.refusal = None, None
@@ -106,6 +107,10 @@ class PinnedModelGuard:
         )
         self._lock = RLock()
         self._restore(self._history())
+
+    def configuration_changed(self, source, *, record=True):
+        with self._lock:
+            self._refuse("native_configuration_continuity_failed", source, record=record)
 
     def _history(self):
         identity = self.transcript.process.identity
@@ -203,12 +208,26 @@ class PinnedModelGuard:
 
     def _check(self, rows):
         self._restore(rows)
+        self._check_bound()
+
+    def _check_bound(self):
+        if self.refusal:
+            raise AccessDenied("The owned model refusal fence remains active")
         if self.codex is not None and self.codex.thread_id is None:
             raise AccessDenied("No correlated native Codex thread is ready for managed effects")
         if self.binding.host == "claude" and self.observed != self.requested:
             raise AccessDenied("No matching observed model is ready for managed effects")
 
+    def check_current(self):
+        """Inspect prepared live state without replaying durable history."""
+        with self._lock:
+            if self.configuration is not None:
+                self.configuration.check_metadata()
+            self._check_bound()
+
     def check(self):
+        if self.configuration is not None:
+            self.configuration.check()
         rows = self._history()
         with self._lock:
             self._check(rows)
@@ -217,6 +236,8 @@ class PinnedModelGuard:
     def effect_boundary(self):
         # Read durable history before taking the local state lock and before the
         # caller enters Core. No store/network/model wait occurs inside its yield.
+        if self.configuration is not None:
+            self.configuration.check()
         rows = self._history()
         with self._lock:
             self._check(rows)
