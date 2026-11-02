@@ -2,7 +2,7 @@
   "schema_version": 3,
   "scope": "Documentation and declared supporting inputs; not whole-product or runtime attestation.",
   "path_base": "repository_root",
-  "previous_manifest_sha256": "202bdfb0278fc95056d62317542284f42592ac3cfadb019f0a1f7d4bb297ddac",
+  "previous_manifest_sha256": "81be01992215bbdd647a329d499ebc75a900fc42ac6872486226515760e40eb6",
   "files": [
     {
       "path": ".gitignore",
@@ -150,7 +150,7 @@
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "cecd133a7b537228b5b326d58774ee94e461f5316fe5fc859a0c16f8f11f2e10"
+      "sha256": "3a14d40939b5aef716724dec2500f6ea36a3e9c9866d3c791ec243ff829217e4"
     },
     {
       "path": "docs/merge/decision_record.md",
