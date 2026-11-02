@@ -197,7 +197,7 @@
     },
     "build_limit_policy": {
       "status": "isolated_candidate_verified_original_ledger_migration_pending",
-      "focused_macos_tests_passed": 201,
+      "focused_macos_tests_passed": 285,
       "failed": 0,
       "skipped": 0,
       "earlier_focused_batch_passed": 175,
@@ -207,7 +207,18 @@
       "original_ledger_migrated": false,
       "frozen_case_groups": 55,
       "frozen_case_manifest_sha256": "e273e2bc42bcdfff12c9356ea280b97b31a96f89b4e08d1ee6ad5c54d7f11fe5",
-      "current_focused_scope": "183 policy/storage/process/old-writer tests, 16 distinct planning/profile/integrity tests and 2 additional actual CLI/backup-durability variants; unique nodes, no model/provider acceptance."
+      "current_focused_scope": "Original 201 directly affected control/process/planning checks plus 84 additive LP13 format, creation and disposable-storage checks; all pass on corrected source. Earlier passes and the actual pre-correction failed reproduction remain retained.",
+      "historical_candidates": [
+        {
+          "commit": "a59ef610c6b529a98b38ba1aff0e716cd7799116",
+          "focused_checks_passed": 201,
+          "later_located_finding": "Hash-valid policy with missing fields passed the pure format validator; not a live-ledger observation or exploit claim.",
+          "original_evidence_retained": true
+        }
+      ],
+      "lp13_addendum_sha256": "6a5cfd800a4bb37afa960e639d09d93925cc2f027a9bcde379493737d0ad9214",
+      "pre_correction_failed_reproduction_retained": true,
+      "format_validation": "One shared complete format validator checks creation and storage, explicit null/field/type relationships and the selected four High profiles."
     }
   },
   "product_acceptance_cases_executed": 0,

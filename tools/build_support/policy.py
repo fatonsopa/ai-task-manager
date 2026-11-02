@@ -5,10 +5,46 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from datetime import timedelta
 from typing import Any
 
-from .values import ControlError, _money, _require, _utc
+from .values import (
+    IDENTIFIER,
+    MAX_BUDGET_MICRO,
+    MAX_SECONDS,
+    ControlError,
+    _money,
+    _require,
+    _utc,
+)
+
+POLICY_FIELDS = frozenset(
+    {
+        "format",
+        "revision",
+        "max_incremental_spend_micro",
+        "deadline",
+        "max_elapsed_seconds",
+        "max_total_retry_rounds",
+        "authorization_id",
+        "authorization_sha256",
+        "authorization_recorded_at",
+        "matrix_sha256",
+        "required_profiles",
+    }
+)
+PROFILE_FIELDS = ("host", "model", "reasoning_effort")
+# Format 1 implements the current explicitly selected matrix. A later matrix
+# needs a versioned authorized contract, not silent acceptance of other profiles.
+FORMAT1_PROFILES = frozenset(
+    {
+        ("claude-code", "claude-opus-5-5", "high"),
+        ("claude-code", "claude-sonnet-5-5", "high"),
+        ("codex-cli", "gpt-6.1-sol", "high"),
+        ("codex-cli", "gpt-6-astra", "high"),
+    }
+)
 
 
 def encoded(value: Any) -> str:
@@ -45,7 +81,7 @@ def finite_count(value: Any) -> int:
 
 
 def baseline(run: dict[str, Any]) -> dict[str, Any]:
-    return {
+    value = {
         "format": 1,
         "revision": 0,
         "max_incremental_spend_micro": run["budget_micro"],
@@ -60,6 +96,7 @@ def baseline(run: dict[str, Any]) -> dict[str, Any]:
         "matrix_sha256": None,
         "required_profiles": [],
     }
+    return validate_policy(value, digest(value))
 
 
 def lifted_policy(
@@ -70,7 +107,9 @@ def lifted_policy(
     revision: int,
 ) -> dict[str, Any]:
     _require(
-        authorization.get("origin") == "user" and bool(authorization.get("instruction")),
+        authorization.get("origin") == "user"
+        and isinstance(authorization.get("instruction"), str)
+        and bool(authorization["instruction"].strip()),
         "invalid_authorization",
         "A pinned recorded user instruction is required.",
     )
@@ -84,74 +123,134 @@ def lifted_policy(
         "invalid_authorization",
         "This amendment only implements the recorded lifted totals.",
     )
-    _require(
-        isinstance(authorization.get("id"), str) and authorization["id"],
-        "invalid_authorization",
-        "The recorded authorization needs an identity.",
-    )
-    recorded_at = _utc(authorization.get("recorded_at_utc")).isoformat()
-    profiles = matrix.get("selected_profiles", [])
+    try:
+        recorded_at = _utc(authorization.get("recorded_at_utc")).isoformat()
+    except ControlError as error:
+        raise ControlError("invalid_authorization", "Invalid authorization timestamp.") from error
+    profiles = matrix.get("selected_profiles")
     _require(
         isinstance(profiles, list)
+        and type(matrix.get("minimum_models_per_host")) is int
         and matrix.get("minimum_models_per_host") == 2
+        and isinstance(matrix.get("excluded_model_family"), str)
         and matrix.get("excluded_model_family", "").casefold() == "fable",
         "invalid_authorization",
         "The pinned two-model matrix and exclusion are required.",
     )
-    keys: set[tuple[str, str, str]] = set()
-    for profile in profiles:
-        _require(isinstance(profile, dict), "invalid_authorization", "Invalid profile.")
-        key = tuple(profile.get(k) for k in ("host", "model", "reasoning_effort"))
-        _require(
-            all(isinstance(v, str) and v for v in key)
-            and key[0] in {"claude-code", "codex-cli"}
-            and "fable" not in key[1].casefold()
-            and key not in keys,
-            "invalid_authorization",
-            "Profiles must be distinct, explicit and permitted.",
-        )
-        keys.add(key)
-    _require(
-        all(
-            len({model for h, model, _ in keys if h == host}) >= 2
-            for host in ("claude-code", "codex-cli")
-        ),
-        "invalid_authorization",
-        "At least two models on each host are required.",
-    )
-    return {
+    try:
+        # Source records may include discovery notes; persisted policy has only
+        # the three canonical profile fields validated below.
+        normalized = [{field: profile[field] for field in PROFILE_FIELDS} for profile in profiles]
+    except (KeyError, TypeError) as error:
+        raise ControlError("invalid_authorization", "Incomplete source profile.") from error
+    value = {
         "format": 1,
         "revision": revision,
         "max_incremental_spend_micro": None,
         "deadline": None,
         "max_elapsed_seconds": None,
         "max_total_retry_rounds": None,
-        "authorization_id": authorization["id"],
+        "authorization_id": authorization.get("id"),
         "authorization_sha256": authorization_sha,
         "authorization_recorded_at": recorded_at,
         "matrix_sha256": matrix_sha,
-        "required_profiles": [
-            dict(zip(("host", "model", "reasoning_effort"), k)) for k in sorted(keys)
-        ],
+        "required_profiles": normalized,
     }
+    try:
+        validate_policy(value, digest(value))
+    except ControlError as error:
+        raise ControlError("invalid_authorization", "Invalid authorized policy format.") from error
+    value["required_profiles"].sort(key=lambda profile: tuple(profile[k] for k in PROFILE_FIELDS))
+    return value
+
+
+def _canonical_utc(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        return _utc(value).isoformat() == value
+    except ControlError:
+        return False
+
+
+def _sha256(value: Any) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def _format1_profiles(value: Any) -> bool:
+    if not isinstance(value, list) or len(value) != len(FORMAT1_PROFILES):
+        return False
+    if not all(
+        isinstance(profile, dict)
+        and set(profile) == set(PROFILE_FIELDS)
+        and all(isinstance(profile[field], str) for field in PROFILE_FIELDS)
+        for profile in value
+    ):
+        return False
+    keys = [tuple(profile[field] for field in PROFILE_FIELDS) for profile in value]
+    return len(set(keys)) == len(keys) and set(keys) == FORMAT1_PROFILES
 
 
 def validate_policy(value: dict[str, Any], expected_digest: str) -> dict[str, Any]:
     _require(
         isinstance(value, dict)
-        and value.get("format") == 1
-        and type(value.get("revision")) is int
-        and value["revision"] >= 0
-        and digest(value) == expected_digest,
+        and set(value) == POLICY_FIELDS
+        and type(value["format"]) is int
+        and value["format"] == 1
+        and type(value["revision"]) is int
+        and value["revision"] >= 0,
         "invalid_ledger",
-        "Unsupported or corrupt build policy.",
+        "Unsupported or incomplete build policy format.",
     )
-    cap = value.get("max_incremental_spend_micro")
+    try:
+        actual_digest = digest(value)
+    except ControlError as error:
+        raise ControlError("invalid_ledger", "Invalid policy JSON values.") from error
     _require(
-        cap is None or type(cap) is int and cap > 0, "invalid_ledger", "Invalid policy budget."
+        _sha256(expected_digest) and actual_digest == expected_digest,
+        "invalid_ledger",
+        "Corrupt build policy digest.",
     )
-    if value.get("deadline") is not None:
-        _utc(value["deadline"])
+    _require(
+        value["max_total_retry_rounds"] is None,
+        "invalid_ledger",
+        "Unsupported total retry ceiling.",
+    )
+    if value["revision"] == 0:
+        _require(
+            type(value["max_incremental_spend_micro"]) is int
+            and 0 < value["max_incremental_spend_micro"] <= MAX_BUDGET_MICRO
+            and type(value["max_elapsed_seconds"]) is int
+            and 0 < value["max_elapsed_seconds"] <= MAX_SECONDS
+            and _canonical_utc(value["deadline"])
+            and all(
+                value[field] is None
+                for field in (
+                    "authorization_id",
+                    "authorization_sha256",
+                    "authorization_recorded_at",
+                    "matrix_sha256",
+                )
+            )
+            and value["required_profiles"] == [],
+            "invalid_ledger",
+            "Invalid legacy baseline policy relationships.",
+        )
+    else:
+        _require(
+            all(
+                value[field] is None
+                for field in ("max_incremental_spend_micro", "max_elapsed_seconds", "deadline")
+            )
+            and isinstance(value["authorization_id"], str)
+            and IDENTIFIER.fullmatch(value["authorization_id"]) is not None
+            and _sha256(value["authorization_sha256"])
+            and _sha256(value["matrix_sha256"])
+            and _canonical_utc(value["authorization_recorded_at"])
+            and _format1_profiles(value["required_profiles"]),
+            "invalid_ledger",
+            "Invalid amended policy relationships or metadata.",
+        )
     return value
 
 
