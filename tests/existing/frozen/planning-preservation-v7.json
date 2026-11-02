@@ -1,0 +1,17 @@
+{
+  "task": "TST-85",
+  "case": "LP48 integration extension",
+  "source_checkpoint": "45145aae474774ecb6945709c9d248c66945c68c",
+  "preserved_policy_only_baseline": {
+    "path": "tests/fixtures/build_control/planning-before-authorization.json",
+    "sha256": "0d7f85e8a60c6ad2d8542c36f73394532e674a8697cae91e9f238e96da8f8809",
+    "mutated": false
+  },
+  "scope": "Extend the formerly policy-only LP48 check to the combined TST-85 candidate, preserving the original applicability note as historical scope. Permit exactly one source-approved ### Existing-issue intake heading in implementation_plan.md, immediately after ## Current context and approach and before the next original ### Tools and prerequisite checks heading. No other heading addition, deletion or reordering is permitted. Preserve all original fenced command hashes in every covered document.",
+  "checks": [
+    "Actual current combined documents match the exact augmented heading list and every original command-block hash.",
+    "Controls for a missing or duplicate approved heading, unrelated new heading, reordered original heading and altered command block make the same actual preservation assertion fail.",
+    "Actual installed CLI/MCP and original schema/config boundaries execute separately, without a live provider/model or normal-session installation."
+  ],
+  "execution": "not_run"
+}
