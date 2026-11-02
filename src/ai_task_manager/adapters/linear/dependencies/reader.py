@@ -101,6 +101,7 @@ class DependencyReader:
 
     def _scan(self, task, local):
         pending, seen, graph, relations, nodes = [task.issue_id], set(), {}, {}, {}
+        placements = {}
         while pending:
             issue = pending.pop()
             if issue in seen:
@@ -160,6 +161,7 @@ class DependencyReader:
                             if rid in relations and relations[rid] != row:
                                 raise LinearError("dependency_relation_changed")
                             relations[rid] = row
+                            placements.setdefault(rid, set()).add((issue, direction))
                             if len(relations) > self.max_relations:
                                 raise LinearError("dependency_relation_limit")
                             if (
@@ -191,6 +193,16 @@ class DependencyReader:
             if any(predecessor not in local for predecessor in predecessors):
                 raise LinearError("dependency_predecessor_unresolved")
             pending.extend(predecessors - seen)
+        for rid, relation in relations.items():
+            if relation["source"] in nodes and relation["target"] in nodes:
+                if (
+                    not {
+                        (relation["source"], "relations"),
+                        (relation["target"], "inverseRelations"),
+                    }
+                    <= placements[rid]
+                ):
+                    raise LinearError("incomplete_dependency_direction")
         try:
             check_cycles(graph)
         except ValidationError as exc:
@@ -208,13 +220,14 @@ class DependencyReader:
                 self.expected,
                 max_pages=min(original.max_pages, 100),
             )
-            self.client.verify_binding()
+            initial_binding = self.client.verify_binding()
             schema_hash = DependencySchema.verify(self.client.request(SCHEMA, {})).sha256
             first = self._scan(task, local)
             second = self._scan(task, local)
             if digest(first) != digest(second):
                 raise LinearError("dependency_graph_changed_between_scans")
-            self.client.verify_binding()
+            if self.client.verify_binding() != initial_binding:
+                raise LinearError("dependency_binding_changed")
             self._check_scope()
             raw = {
                 "first": first,

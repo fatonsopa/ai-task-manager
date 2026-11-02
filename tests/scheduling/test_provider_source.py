@@ -1,7 +1,7 @@
 """Real Core/client scheduling boundaries with authored, never live, Linear data."""
 
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -342,3 +342,251 @@ def test_normal_worker_start_refresh_order_and_retry(provider, tmp_path, kind):
         second = service.call("worker_start", data)
         assert second["ok"] and second["data"]["id"] == first["data"]["id"]
         assert len(p.calls) == before and len(calls) == 1
+
+
+def test_final_workflow_map_change_is_not_a_stable_observation(provider):
+    task = provider.task()
+    preflights = 0
+
+    def changed(query, variables):
+        nonlocal preflights
+        if "VerifyBinding" in query:
+            preflights += 1
+            if preflights == 2:
+                provider.states["Done"] = str(uuid4())
+
+    provider.callback = changed
+    assert provider.refresh(task)["state"] == "unknown"
+
+
+def test_missing_opposite_direction_is_not_complete(provider):
+    a, task = provider.task(), provider.task()
+    provider.edge(a, task)
+    original = provider.send
+
+    def missing(query, variables, credentials):
+        response = original(query, variables, credentials)
+        data = json.loads(response.body)
+        if "relations(" in query and variables["id"] == a.issue_id:
+            data["data"]["issue"]["relations"]["nodes"] = []
+        return WireResponse(200, {}, json.dumps(data).encode())
+
+    provider.send = missing
+    assert provider.refresh(task)["state"] == "unknown"
+
+
+def test_foreign_predecessor_is_checked_before_its_prose(provider):
+    a, task = provider.task(), provider.task()
+    provider.edge(a, task)
+    provider.nodes[a.issue_id]["assignee"]["id"] = str(uuid4())
+    assert provider.refresh(task)["state"] == "unknown"
+    assert not any("DependencyProse" in q and v.get("id") == a.issue_id for q, v in provider.calls)
+
+
+def test_other_session_cannot_consume_a_valid_signed_snapshot(provider):
+    p, r = provider, provider.rig
+    task = p.task()
+    prepared = p.source.prepare(task.id, "own")
+    handle = r.session(replace(p.scope, logical_session="other"))
+    other = p.task(handle=handle)
+    with pytest.raises(EvidenceRequired):
+        r.core.scheduling.observe(
+            handle,
+            other.id,
+            other.version,
+            other.decision_revision,
+            prepared.snapshot_ref,
+            "foreign",
+        )
+    assert r.core.scheduling.explain(handle, other.id)["state"] == "unknown"
+
+
+def test_signed_receipt_does_not_authorize_changed_operation_context(provider):
+    task = provider.task()
+    provider.source.prepare(task.id, "own")
+    with provider.receipts.transaction() as conn:
+        row = conn.execute("SELECT id,context FROM dependency_operations").fetchone()
+        context = json.loads(row[1])
+        context["task_version"] += 1
+        conn.execute(
+            "UPDATE dependency_operations SET context=? WHERE id=?", (json.dumps(context), row[0])
+        )
+    with pytest.raises(AccessDenied, match="context changed"):
+        provider.source.refresh(task.id, "own")
+
+
+def test_configured_linear_service_uses_production_dependency_sources(provider, tmp_path):
+    import os
+
+    from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
+    from ai_task_manager.application.service.linear import LinearComponents
+    from ai_task_manager.config.claim_store import enroll_claim_store
+    from ai_task_manager.config.files import write_private
+    from ai_task_manager.config.service import load_service
+    from ai_task_manager.config.sessions import SessionFile
+    from ai_task_manager.domains.work.models import ApprovalPolicy
+
+    p, r = provider, provider.rig
+    r.policy = ApprovalPolicy("a" * 64, "b" * 64, "c" * 64)
+    r.core.context.approval_policy = r.policy
+    task = p.task()
+    root = tmp_path / "owned"
+    authority = AuthorityJournal(root / "configured.sqlite", root / "configured.key")
+    os.chmod(r.db.path, 0o600)
+    enroll_claim_store(r.db, authority)
+    SessionFile(root / "session.json").save(r.handle, p.scope)
+    token = root / "credential.env"
+    token.write_text("LINEAR_API_KEY=authored-token\n")
+    token.chmod(0o600)
+    linear = {
+        "expected": asdict(p.expected),
+        "credential_file": str(token),
+        "credential_key": "LINEAR_API_KEY",
+        "journal": str(root / "linear.sqlite"),
+    }
+    components = LinearComponents(
+        linear,
+        client_factory=lambda credentials, expected: type(p.client)(p, credentials, expected),
+    )
+    config = {
+        "version": 1,
+        "core_database": r.db.path,
+        "authority_database": str(authority.path),
+        "authority_key": str(authority.key_path),
+        "session_file": str(root / "session.json"),
+        "approval_policy": asdict(r.policy),
+        "linear": linear,
+    }
+    path = root / "config.json"
+    write_private(path, config)
+    service = load_service(path, linear_components=components)
+    assert isinstance(service.core.scheduling.sources, DependencyReceipts)
+    assert service.dependencies.receipts is components.scheduling_sources
+    assert service.dependencies.refresh(task.id, "configured")["state"] == "ready"
+
+
+def test_actual_loopback_http_transport_dependency_reads_and_owned_stop(provider, tmp_path):
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from ai_task_manager.adapters.linear.client import LinearClient
+    from ai_task_manager.adapters.linear.dependencies.source import DependencySource
+    from ai_task_manager.adapters.linear.transport import HttpTransport
+
+    p = provider
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            size = int(self.headers["Content-Length"])
+            assert size < 1048576
+            payload = json.loads(self.rfile.read(size))
+            response = p.send(payload["query"], payload["variables"], None)
+            self.send_response(response.status)
+            self.send_header("Content-Length", str(len(response.body)))
+            self.end_headers()
+            self.wfile.write(response.body)
+
+    entered = threading.Event()
+
+    class Server(ThreadingHTTPServer):
+        def service_actions(self):
+            entered.set()
+
+    server = Server(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+    )
+    try:
+        thread.start()
+        assert entered.wait(1), "Owned HTTP loop did not enter"
+        client = LinearClient(
+            HttpTransport(timeout=2, _test_endpoint="http://127.0.0.1:" + str(server.server_port)),
+            p.client.credentials,
+            p.expected,
+        )
+        client.verify_binding()
+        source = DependencySource(p.rig.core, p.rig.handle, client, p.receipts)
+        task = p.task()
+        assert source.refresh(task.id, "http-empty")["state"] == "ready"
+        a = p.task()
+        p.edge(a, task)
+        assert source.refresh(task.id, "http-blocked")["state"] == "blocked"
+    finally:
+        if entered.is_set():
+            server.shutdown()
+        server.server_close()
+        if thread.ident is not None:
+            thread.join(2)
+        assert not thread.is_alive() and server.socket.fileno() == -1
+        (tmp_path / "http-stop.json").write_text(
+            json.dumps(
+                {
+                    "thread_alive": thread.is_alive(),
+                    "socket_fileno": server.socket.fileno(),
+                    "actual_transport": "HttpTransport",
+                    "live_provider": False,
+                }
+            )
+            + "\n"
+        )
+
+
+def test_credential_rotation_during_collection_blocks(provider):
+    from ai_task_manager.adapters.linear.models import Credentials
+
+    task = provider.task()
+    token = ["authored-token"]
+    provider.client.credentials = lambda: Credentials(token[0])
+
+    def rotate(query, variables):
+        if "DependencyMetadata" in query:
+            token[0] = "authored-rotated"
+
+    provider.callback = rotate
+    assert provider.refresh(task)["state"] == "unknown"
+
+
+@pytest.mark.parametrize("limit", ["nodes", "relations", "pages"])
+def test_finite_collection_limits_are_not_partial_empty_graphs(provider, limit):
+    from ai_task_manager.adapters.linear.dependencies.reader import DependencyReader
+
+    a, b, task = provider.task(), provider.task(), provider.task()
+    provider.edge(a, task)
+    provider.edge(b, task)
+    if limit == "pages":
+        provider.page_size = 1
+        provider.client.max_pages = 1
+    reader = DependencyReader(
+        provider.client,
+        provider.scope,
+        max_nodes=1 if limit == "nodes" else 128,
+        max_relations=1 if limit == "relations" else 2048,
+    )
+    observation = reader.observe(
+        task, {x.issue_id: x for x in provider.rig.core.list_tasks(provider.rig.handle)}
+    )
+    assert not observation.complete and "limit" in observation.raw["unavailable"]
+
+
+def test_provider_error_body_is_not_retained_in_scheduling_receipts(provider):
+    task = provider.task()
+    original = provider.send
+
+    def failure(query, variables, credentials):
+        if "DependencyMetadata" in query:
+            return WireResponse(
+                200,
+                {},
+                json.dumps(
+                    {"errors": [{"message": "foreign-private-sentinel", "extensions": {}}]}
+                ).encode(),
+            )
+        return original(query, variables, credentials)
+
+    provider.send = failure
+    assert provider.refresh(task, "privacy")["state"] == "unknown"
+    ref = provider.receipts.lookup(provider.scope, task.id, "privacy")["receipt"]
+    assert "foreign-private-sentinel" not in json.dumps(provider.receipts._get(ref, PREFIX))
