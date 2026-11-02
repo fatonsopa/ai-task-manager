@@ -12,6 +12,7 @@ from ai_task_manager.adapters.hosts.transports.claude import (
     sdk_options,
 )
 from ai_task_manager.adapters.hosts.transports.codex import CodexSession
+from ai_task_manager.adapters.hosts.transports.native_exit import require_exit_monitoring
 from ai_task_manager.adapters.hosts.transports.process import HostProcess
 from ai_task_manager.domains.work.errors import AccessDenied
 
@@ -288,6 +289,7 @@ class ManagedHostFactory:
     def check_admission(self, host):
         # Trusted installer/evaluator port, not a public caller flag. It must
         # positively verify tested native restrictions and current launch authority.
+        require_exit_monitoring()
         if host == "claude" and not isinstance(self.model_profiles.get(host), NativeProfile):
             raise AccessDenied("A trusted explicit Claude model profile is required")
         self.permits.check_admission(host)

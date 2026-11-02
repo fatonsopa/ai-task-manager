@@ -1,0 +1,51 @@
+{
+  "version": 22,
+  "extends": "host-bridge-cases-v21.json",
+  "preserves_all_prior_cases": true,
+  "status": "frozen_before_product_implementation",
+  "contract": "native-child-current-liveness-contract-v2.json",
+  "source_commit": "58151ad152943bd3e5fc302516b5ad266c85bbd4",
+  "cases": [
+    {
+      "id": "HB-LIVE-01",
+      "alias": "tests/hosts/test_native_exit_watch.py::test_live_owned_generation_has_nonblocking_current_observation",
+      "expected": "Actual owned local process plus registered kernel handle permits current check without waiting."
+    },
+    {
+      "id": "HB-LIVE-02",
+      "alias": "tests/hosts/test_native_exit_watch.py::test_exit_is_sticky_and_does_not_rebind_a_pid",
+      "expected": "Actual exit observed through the original handle always refuses; no reopening for reused/unrelated PID."
+    },
+    {
+      "id": "HB-LIVE-03",
+      "alias": "tests/hosts/test_native_exit_watch.py::test_registration_gap_or_identity_change_refuses",
+      "expected": "Authored before/after registration change and actual early exit refuse; no partial handle grants."
+    },
+    {
+      "id": "HB-LIVE-04",
+      "alias": "tests/hosts/test_native_exit_watch.py::test_unknown_kernel_error_or_closed_watch_refuses",
+      "expected": "Unsupported API, access error, event error/foreign ident, closed handle or missing registration stays unknown/refused."
+    },
+    {
+      "id": "HB-LIVE-05",
+      "alias": "tests/hosts/test_native_exit_watch.py::test_generation_checks_retain_parent_without_reaping",
+      "expected": "Current checking never uses Popen.poll/wait to discard the group anchor; process group cleanup keeps its existing ownership."
+    },
+    {
+      "id": "HB-LIVE-06",
+      "alias": "tests/hosts/test_startup_configuration_fence.py::test_consumption_checks_metadata_without_full_validation_inside_core",
+      "expected": "Extend the existing actual-composition instrumentation: handle polling uses timeout0 with no registration/ps/history/content/model/provider work inside Core."
+    },
+    {
+      "id": "HB-LIVE-07",
+      "alias": "tests/hosts/test_startup_child_exit.py::test_exited_native_child_with_stopped_live_relay_cannot_start",
+      "expected": "The same retained actual-child-exit criterion denies before Core/provider effects once the approved gate exists; prior failures remain."
+    },
+    {
+      "id": "HB-LIVE-08",
+      "alias": "tests/hosts/test_native_exit_watch.py::test_unknown_stop_retains_watch_and_confirmed_stop_closes_it",
+      "expected": "Unknown cleanup retains watch ownership; actual confirmed stop closes only the owned descriptors without discarding the original outcome."
+    }
+  ],
+  "evidence_rule": "Same retained child-exit objective/counter; no new alias resets earlier executions. The immutable-stage correction changes only future recorded snapshots. Mac actual owned processes are the execution tier; Linux and actual host/account/model/provider integration remain unverified."
+}

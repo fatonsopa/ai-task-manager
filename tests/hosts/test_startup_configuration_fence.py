@@ -13,6 +13,7 @@ from ai_task_manager.config.files import FileSeal
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from tests.hosts.test_composition import composition as composition
 from tests.hosts.test_composition import start
+from tests.hosts.test_native_exit_watch import QueueProbe
 from tests.hosts.test_policy import policy as native_policy
 
 
@@ -183,6 +184,15 @@ def guard_core_checks(value, monkeypatch):
 
         def initialized():
             ref = initialize()
+            watched = native.process.native_exit
+            original_queue = watched._queue
+
+            def current_only(changes, maximum, timeout):
+                if active[0]:
+                    assert changes is None and timeout == 0, "Kernel registration/wait under Core"
+                return original_queue.control(changes, maximum, timeout)
+
+            monkeypatch.setattr(watched, "_queue", QueueProbe(original_queue, action=current_only))
             for target, name in (
                 (native.process, "verify_identity"),
                 (native.startup, "assert_stable"),

@@ -265,6 +265,7 @@ class HostStartupReceipts:
                 observed,
                 owner,
                 process,
+                process.native_exit,
                 owner.startup,
                 owner.startup.model_guard,
                 owner.startup.configuration,

@@ -10,6 +10,7 @@ class PreparedStartup:
     observed: object
     owner: object
     process: object
+    native_exit: object
     observer: object
     guard: object
     configuration: object
@@ -25,6 +26,7 @@ class PreparedStartup:
             or owners.get(observed.attempt_id) is not self.owner
             or processes.get(observed.attempt_id) is not self.process
             or self.owner.process is not self.process
+            or self.process.native_exit is not self.native_exit
             or self.owner.startup is not self.observer
             or self.owner.policy is not self.policy
             or self.owner.binding != self.binding
@@ -50,6 +52,7 @@ class PreparedStartup:
             or self.binding.scope != observed.scope
         ):
             raise AccessDenied("Prepared startup no longer has its exact live owner")
+        self.process.check_current_liveness()
         self.guard.check_current()
         try:
             self.policy.check_admission_metadata(self.policy_metadata)

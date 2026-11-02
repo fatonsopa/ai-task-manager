@@ -1,0 +1,17 @@
+{
+  "version": 21,
+  "extends": "host-bridge-cases-v20.json",
+  "preserves_all_prior_cases": true,
+  "status": "frozen_not_run",
+  "source_commit": "e11638ab2016ffefedd398998ef690d5a58819aa",
+  "reason": "Lead source review requests a narrow actual owned native-child exit after preparation while the trusted owner and registry remain. No production transport edit is approved in this checkpoint.",
+  "cases": [
+    {
+      "id": "HB-START-NATIVE-CHILD-EXIT",
+      "test": "tests/hosts/test_startup_child_exit.py::test_exited_native_child_with_stopped_live_relay_cannot_start",
+      "expected": "An owned authored native child is confirmed nonlive outside Core after proof preparation while its relay is stopped/alive and cached owner/registry remain. Core consumption must refuse with zero worker_started/provider confirmation. A cached relay/kill(pid,0) check cannot substitute for generation-bound native-child liveness."
+    }
+  ],
+  "method": "Freeze source and one exact local process control; stop only the created owned process group. No actual native account/status/thread/model call. Preserve a failure as a new dependency and return the checkpoint before any transport implementation.",
+  "lock_coverage": "PinnedModelGuard.check_current holds its RLock only while reading protected metadata and sticky state. It releases the lock before RuntimeProofs returns Evidence and before Core changes attempt/task/event/outbox state. It does not serialize the entire admission or external cache writers."
+}
