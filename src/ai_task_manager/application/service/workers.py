@@ -11,6 +11,7 @@ def worker_start(service, data, invocation):
     service._required("decisions")
     decision, version, revision = authorize(service, task, "In Progress", "start", data, invocation)
     if service.dependencies is not None:
+        service._required("workers").bind_dependencies(service.dependencies)
         service.dependencies.refresh_for_start(
             task.id,
             data["operation_key"],

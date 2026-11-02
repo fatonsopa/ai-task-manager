@@ -49,6 +49,7 @@ class ManagedToolGateway:
         process_registry=None,
         model_guard=None,
         invocation_source=None,
+        authority=None,
     ):
         if not math.isfinite(deadline):
             raise AccessDenied("A finite immutable work deadline is required")
@@ -58,6 +59,7 @@ class ManagedToolGateway:
         self.process_registry = process_registry
         self.model_guard = model_guard
         self.invocation_source = invocation_source
+        self.authority = authority
         self.schemas = {name: tool_schema(name) for name in SCHEMAS}
         self.lock = RLock()
         self._attempt_version = None
@@ -90,6 +92,8 @@ class ManagedToolGateway:
     def check(self):
         if self._attempt_version is None or self.journal.clock() >= self.deadline:
             raise AccessDenied("No current admitted work lease or original deadline expired")
+        if self.authority is not None:
+            self.authority.ensure_current()
         if self.process_registry is not None:
             process = self.process_registry.get(self.dispatch.attempt_id)
             if process is None:
@@ -162,6 +166,8 @@ class ManagedToolGateway:
         with self.core.execution.work_boundary(
             self.handle, self.dispatch.attempt_id, self._attempt_version
         ):
+            if self.authority is not None:
+                self.authority.check_prepared()
             self.check_deadline_resources()
             yield
 

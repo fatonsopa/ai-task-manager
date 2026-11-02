@@ -1,0 +1,50 @@
+{
+  "task": "TST-81",
+  "call": "HOST-BRIDGE-16",
+  "head": "4bec28df1b8179760979312c55ef36047322fdba",
+  "source_before_sha256": "24d43bf95c5bf24c973e99bffa92fe7043fab3715549fc568642dc2b79c7f643",
+  "version": 1,
+  "scope": "immutable original identity not-after separate from refreshed freshness; restrict-only execution/parent cap",
+  "invariants": [
+    "identity cap comes from original signed startup receipt; never renewed by continuity",
+    "execution cap captures existing HostBinding/HostProcess/native/relay limits, never increases",
+    "every prepare/check/acknowledge/renewal stays within both original caps",
+    "at or after identity expiry refuses, including a forged oversized current observation field",
+    "no new account authentication, provider/model call or historical packet change"
+  ],
+  "controls": [
+    "identity-first limit",
+    "execution/parent-first limit",
+    "prepare just before/at/after identity expiry",
+    "acknowledge just before/at/after expiry",
+    "consumption just before/at/after expiry",
+    "oversized acknowledgement refuses without changing current expiry",
+    "identity-limit/process-cap/original-source/owner-cap drift refuses",
+    "expiry during full preparation emits no new continuity receipt",
+    "one actual owned synthetic native remains alive while expired identity prevents a Core-bounded file effect"
+  ],
+  "execution": "virtual-clock signed authored receipts with real disposable controller and production PreparedStartup checks; one owned synthetic process adds actual generation/liveness evidence; no real account/model/provider/Docker; bounded60s red and120s affected green batches",
+  "case_ids": [
+    "tests/hosts/test_continuity_limits.py::test_identity_expiry_is_not_extended_by_a_fresh_continuity_observation",
+    "tests/hosts/test_continuity_limits.py::test_original_execution_parent_limit_remains_distinct_and_earlier",
+    "tests/hosts/test_continuity_limits.py::test_identity_boundary_refuses_at_and_after_expiry[-0.001-prepare]",
+    "tests/hosts/test_continuity_limits.py::test_identity_boundary_refuses_at_and_after_expiry[-0.001-acknowledge]",
+    "tests/hosts/test_continuity_limits.py::test_identity_boundary_refuses_at_and_after_expiry[-0.001-consume]",
+    "tests/hosts/test_continuity_limits.py::test_identity_boundary_refuses_at_and_after_expiry[0-prepare]",
+    "tests/hosts/test_continuity_limits.py::test_identity_boundary_refuses_at_and_after_expiry[0-acknowledge]",
+    "tests/hosts/test_continuity_limits.py::test_identity_boundary_refuses_at_and_after_expiry[0-consume]",
+    "tests/hosts/test_continuity_limits.py::test_identity_boundary_refuses_at_and_after_expiry[0.001-prepare]",
+    "tests/hosts/test_continuity_limits.py::test_identity_boundary_refuses_at_and_after_expiry[0.001-acknowledge]",
+    "tests/hosts/test_continuity_limits.py::test_identity_boundary_refuses_at_and_after_expiry[0.001-consume]",
+    "tests/hosts/test_continuity_limits.py::test_oversized_acknowledgement_cannot_replace_the_identity_limit",
+    "tests/hosts/test_continuity_limits.py::test_original_cap_or_owner_drift_cannot_be_renewed[identity_limit]",
+    "tests/hosts/test_continuity_limits.py::test_original_cap_or_owner_drift_cannot_be_renewed[process_cap]",
+    "tests/hosts/test_continuity_limits.py::test_original_cap_or_owner_drift_cannot_be_renewed[identity_source]",
+    "tests/hosts/test_continuity_limits.py::test_original_cap_or_owner_drift_cannot_be_renewed[owner_cap]",
+    "tests/hosts/test_continuity_limits.py::test_original_cap_or_owner_drift_cannot_be_renewed[observation_expiry]",
+    "tests/hosts/test_continuity_limits.py::test_expiry_during_preparation_cannot_issue_an_observation",
+    "tests/hosts/test_continuity_limits.py::test_expired_identity_refuses_effect_while_actual_owned_native_is_alive"
+  ],
+  "expected_node_count": 19,
+  "red_result": "Original4bec candidate failed the cap assertion after a valid prepare; raw1failed retained. No setup error."
+}

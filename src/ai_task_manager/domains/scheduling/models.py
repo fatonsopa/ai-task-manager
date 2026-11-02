@@ -70,3 +70,35 @@ class SchedulingSources(Protocol):
 class RejectSchedulingSources:
     def verify_snapshot(self, opaque_ref):
         raise EvidenceRequired("A trusted complete dependency snapshot is unavailable")
+
+
+@dataclass(frozen=True)
+class WorkRenewal:
+    """A configured trusted observer binds freshness to one existing execution."""
+
+    scope: Scope
+    store_identity: str
+    session_id: str
+    task_id: str
+    task_version: int
+    decision_revision: int
+    attempt_id: str
+    attempt_version: int
+    worker_id: str | None
+    host: str
+    configuration_digest: str
+    execution_deadline: float
+    observed_at: float
+    expires_at: float
+    snapshot: DependencySnapshot
+
+
+class RejectRenewalSources:
+    def verify_renewal(self, opaque_ref):
+        raise EvidenceRequired("A trusted current execution observation is required")
+
+
+class RenewalSources(Protocol):
+    def verify_renewal(self, opaque_ref: str) -> WorkRenewal:
+        """Resolve prepared current local facts; never perform provider/process work."""
+        ...
