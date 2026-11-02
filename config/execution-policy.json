@@ -147,23 +147,39 @@
     }
   },
   "integration": {
+    "revision": 2,
+    "architecture": "standalone",
     "cutover": "single project-wide clean cutover; no parallel live writers",
-    "merge_script": "scripts/merge-to-dev.sh",
-    "merge_script_changes_allowed": true,
-    "compatibility_entrypoints": "preserve existing commands and argument flow; route solely to new core after cutover",
-    "task_management_document": ".claude/standards/task-management.md",
-    "migrate_all_required_legacy_contracts_before_activation": true,
+    "merge_interface": {
+      "owner": "standalone_product_contract",
+      "status": "contract_pending",
+      "command_name": null,
+      "retired_entrypoints": [
+        "scripts/merge-to-dev.sh"
+      ],
+      "compatibility_wrappers_allowed": false
+    },
+    "copied_application_scripts_allowed": false,
+    "original_application_access": "read_only_scenario_analysis",
+    "historical_source_storage": "outside_product_repository",
+    "legacy_instruction_paths_required": false,
+    "preserve_required_state_and_history": true,
+    "target_cutover": {
+      "after_standalone_acceptance": true,
+      "requires_user_request": true,
+      "fresh_all_file_and_markdown_audit": true,
+      "remove_superseded_whole_files_or_overlap": true,
+      "dual_writers_allowed": false
+    },
     "merge_refactor_gate": {
-      "authorization": "conditional_user_direction_2026-11-01",
-      "latest_source_audit_required": true,
-      "demonstrated_incompatibility_required": true,
+      "authorization": "explicit_user_standalone_direction_2026-11-02",
+      "scenario_audit_required": true,
       "regression_cases_frozen_before_changes": true,
-      "commands_and_intent_preserved": true,
-      "disposable_copy_verification_required": true,
+      "independently_authored_projects_required": true,
       "clean_cutover_and_recovery_required": true,
+      "original_application_mutation_allowed": false,
       "production_or_normal_session_activation_authorized": false,
-      "audit_status": "pending",
-      "default_route": "preserved foreground project workflow; no replacement justified solely by a missing new adapter"
+      "audit_status": "partial_source_findings_retained; final_target_audit_later"
     }
   },
   "user_decisions": [
@@ -377,6 +393,33 @@
         "unattended_budget_extension_authorized": false
       },
       "reason": "Actual later native-user instructions lift earlier overall ceilings and select at least two non-Fable models per CLI. This does not grant a new account, paid infrastructure, normal-session activation or production effects.",
+      "prior_results_reinterpreted": false
+    },
+    {
+      "kind": "standalone_integration_policy",
+      "integration_revision": 2,
+      "source": "Actual current user retirement, no-source-copies and standalone-project directions of2November2026.",
+      "previous_integration": {
+        "cutover": "single project-wide clean cutover; no parallel live writers",
+        "merge_script": "scripts/merge-to-dev.sh",
+        "merge_script_changes_allowed": true,
+        "compatibility_entrypoints": "preserve existing commands and argument flow; route solely to new core after cutover",
+        "task_management_document": ".claude/standards/task-management.md",
+        "migrate_all_required_legacy_contracts_before_activation": true,
+        "merge_refactor_gate": {
+          "authorization": "conditional_user_direction_2026-11-01",
+          "latest_source_audit_required": true,
+          "demonstrated_incompatibility_required": true,
+          "regression_cases_frozen_before_changes": true,
+          "commands_and_intent_preserved": true,
+          "disposable_copy_verification_required": true,
+          "clean_cutover_and_recovery_required": true,
+          "production_or_normal_session_activation_authorized": false,
+          "audit_status": "pending",
+          "default_route": "preserved foreground project workflow; no replacement justified solely by a missing new adapter"
+        }
+      },
+      "original_run_or_accounting_mutated": false,
       "prior_results_reinterpreted": false
     }
   ],

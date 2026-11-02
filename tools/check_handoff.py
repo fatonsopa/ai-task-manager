@@ -9,6 +9,74 @@ import sys
 from pathlib import Path
 
 
+def verify_standalone_integration(policy, require):
+    """Validate declarations; this is not runtime or source-tree attestation."""
+    integration = policy.get("integration", {})
+    if not isinstance(integration, dict):
+        require(False, "Integration must be an object.")
+        return
+    interface = integration.get("merge_interface", {})
+    gate = integration.get("merge_refactor_gate", {})
+    target = integration.get("target_cutover", {})
+    if not all(isinstance(item, dict) for item in (interface, gate, target)):
+        require(False, "Interface, merge gate and target cutover must be objects.")
+        return
+    require(
+        integration.get("revision") == 2 and integration.get("architecture") == "standalone",
+        "Integration must use the current standalone contract.",
+    )
+    retired_settings = {"merge_script", "compatibility_entrypoints", "task_management_document"}
+    require(
+        not retired_settings & integration.keys()
+        and interface.get("retired_entrypoints") == ["scripts/merge-to-dev.sh"]
+        and interface.get("compatibility_wrappers_allowed") is False,
+        "The retired merge script must have no active entrypoint, wrapper "
+        "or required legacy guide.",
+    )
+    require(
+        interface.get("owner") == "standalone_product_contract"
+        and interface.get("status") in {"contract_pending", "implemented"}
+        and (interface.get("status") != "contract_pending" or interface.get("command_name") is None)
+        and (
+            interface.get("status") != "implemented"
+            or (
+                isinstance(interface.get("contract_ref"), str)
+                and bool(interface["contract_ref"].strip())
+            )
+        ),
+        "A pending merge contract cannot invent an implemented public command.",
+    )
+    require(
+        integration.get("copied_application_scripts_allowed") is False
+        and integration.get("original_application_access") == "read_only_scenario_analysis"
+        and integration.get("historical_source_storage") == "outside_product_repository"
+        and integration.get("legacy_instruction_paths_required") is False
+        and integration.get("preserve_required_state_and_history") is True,
+        "Source scripts stay outside the product; original files and required history "
+        "remain protected.",
+    )
+    require(
+        all(target.get(key) is True for key in (
+            "after_standalone_acceptance", "requires_user_request",
+            "fresh_all_file_and_markdown_audit", "remove_superseded_whole_files_or_overlap",
+        )) and target.get("dual_writers_allowed") is False,
+        "Target cutover needs the later request, fresh audit and granular removal "
+        "without dual writers.",
+    )
+    require(
+        gate.get("authorization") == "explicit_user_standalone_direction_2026-11-02"
+        and all(gate.get(key) is True for key in (
+            "scenario_audit_required", "regression_cases_frozen_before_changes",
+            "independently_authored_projects_required", "clean_cutover_and_recovery_required",
+        ))
+        and gate.get("original_application_mutation_allowed") is False
+        and gate.get("production_or_normal_session_activation_authorized") is False
+        and "demonstrated_incompatibility_required" not in gate,
+        "Merge replacement needs reviewed standalone scenarios and safe recovery, "
+        "without legacy compatibility restrictions.",
+    )
+
+
 def verify_execution_limits(policy, require):
     limits = policy.get("limits", {})
     for key in ("max_elapsed_seconds", "max_incremental_spend_usd", "max_total_retry_rounds"):
@@ -221,25 +289,7 @@ def verify(root):
         set(policy.get("acceptance", {}).get("required_hosts", [])) == {"claude-code", "codex-cli"},
         "Both hosts are required.",
     )
-    integration = policy.get("integration", {})
-    merge_gate = integration.get("merge_refactor_gate", {})
-    require(
-        integration.get("merge_script_changes_allowed") is True
-        and merge_gate.get("authorization") == "conditional_user_direction_2026-11-01"
-        and all(
-            merge_gate.get(key) is True
-            for key in (
-                "latest_source_audit_required",
-                "demonstrated_incompatibility_required",
-                "regression_cases_frozen_before_changes",
-                "commands_and_intent_preserved",
-                "disposable_copy_verification_required",
-                "clean_cutover_and_recovery_required",
-            )
-        )
-        and merge_gate.get("production_or_normal_session_activation_authorized") is False,
-        "Merge changes require the recorded audit-first exception and preserved command intent.",
-    )
+    verify_standalone_integration(policy, require)
     require(
         policy.get("linear", {}).get("team_wide_start_cleanup_allowed") is False,
         "Team-wide cleanup is forbidden.",
