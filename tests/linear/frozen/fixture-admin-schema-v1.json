@@ -1,0 +1,605 @@
+{
+  "i0": {
+    "inputFields": [
+      {
+        "name": "content",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "description",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "id",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "leadId",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "name",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "String",
+            "ofType": null
+          }
+        }
+      },
+      {
+        "name": "teamIds",
+        "type": {
+          "kind": "LIST",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "String"
+          }
+        }
+      }
+    ],
+    "name": "ProjectCreateInput"
+  },
+  "i1": {
+    "inputFields": [
+      {
+        "name": "allPublicTeams",
+        "type": {
+          "kind": "SCALAR",
+          "name": "Boolean",
+          "ofType": null
+        }
+      },
+      {
+        "name": "enabled",
+        "type": {
+          "kind": "LIST",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "String"
+          }
+        }
+      },
+      {
+        "name": "id",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "label",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "resourceTypes",
+        "type": {
+          "kind": "LIST",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "String"
+          }
+        }
+      },
+      {
+        "name": "secret",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "teamId",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "url",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "String",
+            "ofType": null
+          }
+        }
+      }
+    ],
+    "name": "WebhookCreateInput"
+  },
+  "i2": {
+    "inputFields": [
+      {
+        "name": "enabled",
+        "type": {
+          "kind": "SCALAR",
+          "name": "Boolean",
+          "ofType": null
+        }
+      }
+    ],
+    "name": "WebhookUpdateInput"
+  },
+  "i3": {
+    "inputFields": [
+      {
+        "name": "assigneeId",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "description",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "id",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "projectId",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "stateId",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "teamId",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "String",
+            "ofType": null
+          }
+        }
+      },
+      {
+        "name": "title",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      }
+    ],
+    "name": "IssueCreateInput"
+  },
+  "i4": {
+    "inputFields": [
+      {
+        "name": "body",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "id",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      },
+      {
+        "name": "issueId",
+        "type": {
+          "kind": "SCALAR",
+          "name": "String",
+          "ofType": null
+        }
+      }
+    ],
+    "name": "CommentCreateInput"
+  },
+  "t0": {
+    "fields": [
+      {
+        "args": [],
+        "name": "archivedAt"
+      },
+      {
+        "args": [],
+        "name": "content"
+      },
+      {
+        "args": [],
+        "name": "creator"
+      },
+      {
+        "args": [],
+        "name": "description"
+      },
+      {
+        "args": [],
+        "name": "id"
+      },
+      {
+        "args": [],
+        "name": "lead"
+      },
+      {
+        "args": [
+          {
+            "name": "after"
+          },
+          {
+            "name": "before"
+          },
+          {
+            "name": "filter"
+          },
+          {
+            "name": "first"
+          },
+          {
+            "name": "includeArchived"
+          },
+          {
+            "name": "last"
+          },
+          {
+            "name": "orderBy"
+          }
+        ],
+        "name": "teams"
+      },
+      {
+        "args": [],
+        "name": "trashed"
+      },
+      {
+        "args": [],
+        "name": "updatedAt"
+      }
+    ],
+    "name": "Project"
+  },
+  "t1": {
+    "fields": [
+      {
+        "args": [],
+        "name": "allPublicTeams"
+      },
+      {
+        "args": [],
+        "name": "archivedAt"
+      },
+      {
+        "args": [],
+        "name": "creator"
+      },
+      {
+        "args": [],
+        "name": "enabled"
+      },
+      {
+        "args": [],
+        "name": "id"
+      },
+      {
+        "args": [],
+        "name": "label"
+      },
+      {
+        "args": [],
+        "name": "resourceTypes"
+      },
+      {
+        "args": [],
+        "name": "team"
+      },
+      {
+        "args": [],
+        "name": "teamIds"
+      },
+      {
+        "args": [],
+        "name": "updatedAt"
+      },
+      {
+        "args": [],
+        "name": "url"
+      }
+    ],
+    "name": "Webhook"
+  },
+  "t2": {
+    "fields": [
+      {
+        "args": [],
+        "name": "archivedAt"
+      },
+      {
+        "args": [],
+        "name": "assignee"
+      },
+      {
+        "args": [],
+        "name": "creator"
+      },
+      {
+        "args": [],
+        "name": "description"
+      },
+      {
+        "args": [],
+        "name": "id"
+      },
+      {
+        "args": [],
+        "name": "project"
+      },
+      {
+        "args": [],
+        "name": "state"
+      },
+      {
+        "args": [],
+        "name": "team"
+      },
+      {
+        "args": [],
+        "name": "title"
+      },
+      {
+        "args": [],
+        "name": "updatedAt"
+      }
+    ],
+    "name": "Issue"
+  },
+  "t3": {
+    "fields": [
+      {
+        "args": [],
+        "name": "project"
+      },
+      {
+        "args": [],
+        "name": "success"
+      }
+    ],
+    "name": "ProjectPayload"
+  },
+  "t4": {
+    "fields": [
+      {
+        "args": [],
+        "name": "entity"
+      },
+      {
+        "args": [],
+        "name": "success"
+      }
+    ],
+    "name": "ProjectArchivePayload"
+  },
+  "t5": {
+    "fields": [
+      {
+        "args": [],
+        "name": "entity"
+      },
+      {
+        "args": [],
+        "name": "success"
+      }
+    ],
+    "name": "IssueArchivePayload"
+  },
+  "t6": {
+    "fields": [
+      {
+        "args": [],
+        "name": "success"
+      },
+      {
+        "args": [],
+        "name": "webhook"
+      }
+    ],
+    "name": "WebhookPayload"
+  },
+  "t7": {
+    "fields": [
+      {
+        "args": [],
+        "name": "entityId"
+      },
+      {
+        "args": [],
+        "name": "success"
+      }
+    ],
+    "name": "DeletePayload"
+  },
+  "t8": {
+    "fields": [
+      {
+        "args": [
+          {
+            "name": "id"
+          }
+        ],
+        "name": "issue"
+      },
+      {
+        "args": [],
+        "name": "organization"
+      },
+      {
+        "args": [],
+        "name": "project"
+      },
+      {
+        "args": [
+          {
+            "name": "id"
+          }
+        ],
+        "name": "team"
+      },
+      {
+        "args": [],
+        "name": "viewer"
+      },
+      {
+        "args": [
+          {
+            "name": "id"
+          }
+        ],
+        "name": "webhook"
+      },
+      {
+        "args": [
+          {
+            "name": "after"
+          },
+          {
+            "name": "before"
+          },
+          {
+            "name": "first"
+          },
+          {
+            "name": "includeArchived"
+          },
+          {
+            "name": "last"
+          },
+          {
+            "name": "orderBy"
+          }
+        ],
+        "name": "webhooks"
+      }
+    ],
+    "name": "Query"
+  },
+  "t9": {
+    "fields": [
+      {
+        "args": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "trash"
+          }
+        ],
+        "name": "issueArchive"
+      },
+      {
+        "args": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "trash"
+          }
+        ],
+        "name": "projectArchive"
+      },
+      {
+        "args": [
+          {
+            "name": "aiConversationId"
+          },
+          {
+            "name": "input"
+          },
+          {
+            "name": "projectDraftId"
+          },
+          {
+            "name": "slackChannelName"
+          }
+        ],
+        "name": "projectCreate"
+      },
+      {
+        "args": [
+          {
+            "name": "input"
+          }
+        ],
+        "name": "webhookCreate"
+      },
+      {
+        "args": [
+          {
+            "name": "id"
+          }
+        ],
+        "name": "webhookDelete"
+      },
+      {
+        "args": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "input"
+          }
+        ],
+        "name": "webhookUpdate"
+      }
+    ],
+    "name": "Mutation"
+  }
+}
