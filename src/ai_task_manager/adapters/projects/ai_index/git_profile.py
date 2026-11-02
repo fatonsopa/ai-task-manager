@@ -181,7 +181,10 @@ class GitProfile:
 
     @property
     def env(self):
-        return self.environment(self.home, self.executable.exec_path)
+        return dict(
+            self.environment(self.home, self.executable.exec_path),
+            GIT_CEILING_DIRECTORIES=str(self.root),
+        )
 
     def _inside(self, path):
         p = Path(path).absolute()
@@ -268,15 +271,61 @@ class GitProfile:
             )
         return r
 
+    def _configuration(self, metadata, common):
+        """Read only owned config files, without repository discovery or includes."""
+        directories = dict.fromkeys((metadata, common))
+        for directory in directories:
+            head = directory / "HEAD"
+            physical(head, directory=False)
+            if head.stat().st_size > 4096:
+                raise AccessDenied("Oversized repository HEAD metadata")
+            worktree_config = directory / "config.worktree"
+            if worktree_config.exists() or worktree_config.is_symlink():
+                raise AccessDenied("Worktree configuration is unsupported")
+        for directory in directories:
+            config = directory / "config"
+            if not config.exists() and directory != common and not config.is_symlink():
+                continue
+            physical(config, directory=False)
+            if config.stat().st_size > MAX_OUTPUT:
+                raise AccessDenied("Repository configuration is oversized")
+            # Explicit file mode and an empty owned cwd prevent config setup from
+            # consuming repository includes before their keys are rejected.
+            reply = subprocess.run(
+                [
+                    self.executable.path,
+                    "config",
+                    "--file",
+                    str(config),
+                    "--no-includes",
+                    "--null",
+                    "--list",
+                ],
+                cwd=self.home,
+                env=self.env,
+                capture_output=True,
+                timeout=QUERY_SECONDS,
+            )
+            if reply.returncode or len(reply.stdout) + len(reply.stderr) > MAX_OUTPUT:
+                raise AccessDenied("Repository configuration is unavailable")
+            for field in reply.stdout.split(b"\0"):
+                if not field:
+                    continue
+                key, sep, _ = field.partition(b"\n")
+                try:
+                    supported = bool(sep) and key.decode("ascii", "strict").lower() in SAFE_CONFIG
+                except UnicodeError:
+                    supported = False
+                if not supported:
+                    raise AccessDenied("Repository contains unsupported configuration")
+
     def enroll(self, path, *, worktree_id, common_git_id):
         p = self._inside(path)
         ident = physical(p)
         metadata, common_candidate = self._routing(p)
-        for directory in (metadata, common_candidate):
-            for name in ("config", "config.worktree"):
-                if (directory / name).exists():
-                    physical(directory / name, directory=False)
-        # Resolve .git using an isolated configuration read, then bind its physical identity.
+        self.executable.validate()
+        self._configuration(metadata, common_candidate)
+        # Configuration is already checked without includes before Git resolves metadata.
         common = Path(
             self.query(p, "rev-parse", "--path-format=absolute", "--git-common-dir")
             .stdout.decode()
@@ -326,14 +375,7 @@ class GitProfile:
         ):
             if p.exists():
                 raise AccessDenied("Object alternates or grafts are unsupported")
-        physical(common / "config", directory=False)
-        config = self.query(repo, "config", "--local", "--no-includes", "--null", "--list").stdout
-        for field in config.split(b"\0"):
-            if not field:
-                continue
-            key, sep, _ = field.partition(b"\n")
-            if not sep or key.decode("ascii", "strict").lower() not in SAFE_CONFIG:
-                raise AccessDenied("Repository contains unsupported configuration")
+        self._configuration(Path(r["gitdir"]), common)
         if self.query(repo, "rev-parse", "--show-object-format").stdout.strip() != b"sha1":
             raise AccessDenied("Object format is unsupported by the publication journal")
         if self.query(repo, "for-each-ref", "--format=%(refname)", "refs/replace").stdout.strip():

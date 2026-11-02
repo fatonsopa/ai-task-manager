@@ -225,3 +225,22 @@ class Rig:
 
     def events(self):
         return self.journal.events(self.ref)
+
+
+def observe_profile_calls(profile, monkeypatch):
+    """Record actual Git/config calls without replacing their results or effects."""
+    query, run = profile.query, subprocess.run
+    observed = {"queries": [], "commands": []}
+
+    def record_query(repo, *args, **kwargs):
+        observed["queries"].append(list(args))
+        return query(repo, *args, **kwargs)
+
+    def record_run(argv, *args, **kwargs):
+        if argv[0] == profile.executable.path:
+            observed["commands"].append({"argv": list(argv), "cwd": str(kwargs.get("cwd"))})
+        return run(argv, *args, **kwargs)
+
+    monkeypatch.setattr(profile, "query", record_query)
+    monkeypatch.setattr(subprocess, "run", record_run)
+    return observed

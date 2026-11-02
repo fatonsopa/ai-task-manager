@@ -575,3 +575,182 @@ def test_orig_head_second_writer_before_prepare_prevents_checkout(ff):
     assert result["checkout_state"] == "not_started" and not result["repair_required"]
     assert (ff.repo / "a.txt").read_bytes() == before and ff.dev() == ff.old
     assert ff.git("rev-parse", "ORIG_HEAD").stdout.decode().strip() == ff.new
+
+
+@pytest.mark.parametrize("phase", ["enroll", "publish"])
+@pytest.mark.parametrize("include_kind", ["plain", "conditional"])
+def test_existing_outside_include_is_refused_before_repository_reads(
+    rig, monkeypatch, phase, include_kind
+):
+    import subprocess
+
+    from f1_fixtures import observe_profile_calls
+
+    config = rig.repo / ".git/config"
+    original, sentinel = config.read_bytes(), rig.foreign.read_bytes()
+    section = (
+        "include"
+        if include_kind == "plain"
+        else 'includeIf "gitdir:' + str(rig.repo / ".git") + '"'
+    )
+    config.write_text(original.decode() + "\n[" + section + "]\npath = " + str(rig.foreign) + "\n")
+    try:
+        # Positive mechanism control: the same actual Git consumes this existing
+        # malformed owned outside file when repository config setup is allowed.
+        baseline = subprocess.run(
+            [rig.binary, "-C", str(rig.repo), "rev-parse", "--git-common-dir"],
+            env=rig.env,
+            capture_output=True,
+            timeout=10,
+        )
+        assert baseline.returncode and b"bad config line" in baseline.stderr
+        assert str(rig.foreign).encode() in baseline.stderr
+        profile = (
+            GitProfile(root=rig.root, executable=rig.executable, home=rig.home)
+            if phase == "enroll"
+            else rig.profile
+        )
+        with monkeypatch.context() as patch:
+            calls = observe_profile_calls(profile, patch)
+            with pytest.raises(AccessDenied, match="unsupported configuration") as error:
+                if phase == "enroll":
+                    profile.enroll(rig.repo, worktree_id="new", common_git_id="new")
+                else:
+                    rig.publish()
+        assert calls["queries"] == []
+        assert calls["commands"] and all(
+            row["argv"][1:]
+            == ["config", "--file", str(config), "--no-includes", "--null", "--list"]
+            and row["cwd"] == str(rig.home)
+            for row in calls["commands"]
+        )
+        assert str(rig.foreign) not in str(error.value) and "bad config" not in str(error.value)
+        assert not rig.journal.current(rig.ref)["facts"].get("local_git")
+        assert (rig.repo / ".git/refs/heads/dev").read_text().strip() == rig.old
+        assert rig.foreign.read_bytes() == sentinel
+        (rig.root / "bootstrap-read-control.json").write_text(
+            json.dumps(
+                {
+                    "phase": phase,
+                    "include_kind": include_kind,
+                    "positive_control_returncode": baseline.returncode,
+                    "positive_control_stderr": baseline.stderr.decode(),
+                    "product_calls": calls,
+                    "product_refusal": str(error.value),
+                    "outside_sentinel_unchanged": True,
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+    finally:
+        config.write_bytes(original)
+
+
+def test_symbolic_config_is_refused_before_git_consumption(rig, monkeypatch):
+    from f1_fixtures import observe_profile_calls
+
+    config = rig.repo / ".git/config"
+    original, sentinel = config.read_bytes(), rig.foreign.read_bytes()
+    config.unlink()
+    config.symlink_to(rig.foreign)
+    try:
+        with monkeypatch.context() as patch:
+            calls = observe_profile_calls(rig.profile, patch)
+            with pytest.raises(AccessDenied, match="Symbolic physical paths"):
+                rig.publish()
+        assert not calls["queries"] and not calls["commands"]
+        assert rig.foreign.read_bytes() == sentinel
+        assert not rig.journal.current(rig.ref)["facts"].get("local_git")
+    finally:
+        config.unlink()
+        config.write_bytes(original)
+
+
+def test_worktree_config_is_refused_before_repository_queries(rig, monkeypatch):
+    from f1_fixtures import observe_profile_calls
+
+    config = rig.repo / ".git/config.worktree"
+    config.write_text("[include]\npath = " + str(rig.foreign) + "\n")
+    try:
+        with monkeypatch.context() as patch:
+            calls = observe_profile_calls(rig.profile, patch)
+            with pytest.raises(AccessDenied, match="Worktree configuration is unsupported"):
+                rig.publish()
+        assert not calls["queries"] and not calls["commands"]
+        assert not rig.journal.current(rig.ref)["facts"].get("local_git")
+    finally:
+        config.unlink()
+
+
+def test_symbolic_head_is_refused_before_repository_discovery(rig, monkeypatch):
+    from f1_fixtures import observe_profile_calls
+
+    head = rig.repo / ".git/HEAD"
+    original, sentinel = head.read_bytes(), rig.foreign.read_bytes()
+    head.unlink()
+    head.symlink_to(rig.foreign)
+    try:
+        profile = GitProfile(root=rig.root, executable=rig.executable, home=rig.home)
+        with monkeypatch.context() as patch:
+            calls = observe_profile_calls(profile, patch)
+            with pytest.raises(AccessDenied, match="Symbolic physical paths"):
+                profile.enroll(rig.repo, worktree_id="new", common_git_id="new")
+        assert not calls["queries"] and not calls["commands"]
+        assert rig.foreign.read_bytes() == sentinel
+    finally:
+        head.unlink()
+        head.write_bytes(original)
+
+
+def test_invalid_repository_discovery_stops_at_confined_root(rig, monkeypatch):
+    import subprocess
+
+    from f1_fixtures import observe_profile_calls
+
+    parent = rig.root.parent
+    assert not (parent / ".git").exists()
+    setup = subprocess.run(
+        [rig.binary, "-C", str(parent), "init", "-q", "-b", "owned-parent"],
+        env=rig.env,
+        capture_output=True,
+        timeout=10,
+    )
+    assert setup.returncode == 0
+    with (parent / ".git/config").open("a") as stream:
+        stream.write("\n[include]\npath = " + str(rig.foreign) + "\n")
+    head = rig.repo / ".git/HEAD"
+    original, sentinel = head.read_bytes(), rig.foreign.read_bytes()
+    head.write_text("not a valid Git HEAD\n")
+    try:
+        baseline = subprocess.run(
+            [rig.binary, "-C", str(rig.repo), "rev-parse", "--git-common-dir"],
+            env=rig.env,
+            capture_output=True,
+            timeout=10,
+        )
+        assert baseline.returncode and b"bad config line" in baseline.stderr
+        assert str(rig.foreign).encode() in baseline.stderr
+        profile = GitProfile(root=rig.root, executable=rig.executable, home=rig.home)
+        with monkeypatch.context() as patch:
+            calls = observe_profile_calls(profile, patch)
+            with pytest.raises(AccessDenied, match="not a git repository") as error:
+                profile.enroll(rig.repo, worktree_id="new", common_git_id="new")
+        assert calls["queries"] == [["rev-parse", "--path-format=absolute", "--git-common-dir"]]
+        assert str(rig.foreign) not in str(error.value) and "bad config" not in str(error.value)
+        assert rig.foreign.read_bytes() == sentinel
+        (rig.root / "discovery-ceiling-control.json").write_text(
+            json.dumps(
+                {
+                    "baseline_returncode": baseline.returncode,
+                    "baseline_stderr": baseline.stderr.decode(),
+                    "product_calls": calls,
+                    "product_refusal": str(error.value),
+                    "outside_sentinel_unchanged": True,
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+    finally:
+        head.write_bytes(original)
