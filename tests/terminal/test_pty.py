@@ -2,11 +2,13 @@
 
 import sys
 
+import pytest
+
 from ai_task_manager.domains.work.models import TaskProse
 from ai_task_manager.presentation.cli.main import main
 from tests.application.helpers import ServiceRig
 
-from .pty_driver import Terminal
+from .pty_driver import Terminal, color_codes
 
 
 def fixture_task(fixture):
@@ -92,9 +94,20 @@ def test_actual_pty_keyboard_mouse_resize_and_no_color(tmp_path):
         terminal.pump(0.2)
         terminal.frame("view-quit")
         # NO_COLOR permits control/style codes but emits no foreground/background colors.
-        import re
-
-        assert not re.search(rb"\x1b\[[0-9;]*(?:3[0-9]|4[0-9]|38;|48;)[0-9;]*m", terminal.raw)
+        assert not color_codes(terminal.raw)
     finally:
         terminal.close()
     assert terminal.closed["group"]["confirmed_stop"]
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        (b"\x1b[31m", True),
+        (b"\x1b[38;2;255;0;0m", True),
+        (b"\x1b[48;5;1m", True),
+        (b"\x1b[1;39;49m", False),
+    ],
+)
+def test_color_oracle_distinguishes_selection_from_default_reset(raw, expected):
+    assert bool(color_codes(raw)) is expected

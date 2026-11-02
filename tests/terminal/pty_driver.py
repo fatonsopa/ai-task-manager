@@ -4,6 +4,7 @@ import codecs
 import fcntl
 import json
 import os
+import re
 import select
 import struct
 import subprocess
@@ -13,6 +14,22 @@ import time
 import pyte
 
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup
+
+
+def color_codes(raw):
+    forbidden = (
+        set(range(30, 38))
+        | set(range(40, 48))
+        | set(range(90, 98))
+        | set(range(100, 108))
+        | {38, 48, 58}
+    )
+    return [
+        int(value)
+        for group in re.findall(rb"\x1b\[([0-9;]*)m", raw)
+        for value in group.split(b";")
+        if value and int(value) in forbidden
+    ]
 
 
 class Terminal:
@@ -108,8 +125,19 @@ class Terminal:
         if self.closed is not None:
             return self.closed
         self.frame("before-stop")
-        stop = self.group.stop()
-        evidence = self.group.evidence(stop, orphaned=False)
+        attempts = []
+        deadline = time.monotonic() + 1
+        for _ in range(3):
+            stop = self.group.stop()
+            evidence = self.group.evidence(stop, orphaned=False)
+            attempts.append(evidence)
+            if (
+                stop.confirmed
+                or stop.observation.reason != "leader_exit_race_unconfirmed"
+                or time.monotonic() >= deadline
+            ):
+                break
+            time.sleep(0.02)
         if stop.confirmed:
             self.group.reap_exited_leader()
         os.close(self.master)
@@ -117,6 +145,7 @@ class Terminal:
             "pid": self.process.pid,
             "returncode": self.process.returncode,
             "group": evidence,
+            "stop_attempts": attempts,
             "master_closed": True,
         }
         (self.folder / "stop.json").write_text(

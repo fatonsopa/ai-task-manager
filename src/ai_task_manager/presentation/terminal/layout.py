@@ -1,5 +1,6 @@
 """Owned tmux companion layout; view controls receive only resize capability."""
 
+import hashlib
 import json
 import os
 import re
@@ -11,6 +12,7 @@ import time
 from pathlib import Path
 
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup
+from ai_task_manager.config.files import write_private
 
 from .pane_control import binding_digest, process_identity
 
@@ -151,7 +153,7 @@ class OwnedLayout:
         if (info.st_dev, info.st_ino) != self.socket_identity or info.st_uid != os.getuid():
             raise LayoutUnavailable("Owned terminal socket changed")
 
-    def panes(self):
+    def panes(self, *, complete=True):
         self._check()
         rows = []
         for line in self._command(
@@ -184,7 +186,9 @@ class OwnedLayout:
                     )
                 )
             )
-        if {row["id"] for row in rows} != {self.host_pane, self.sidebar_pane}:
+        found = {row["id"] for row in rows}
+        owned = {self.host_pane, self.sidebar_pane}
+        if (complete and found != owned) or not found <= owned:
             raise LayoutUnavailable("Owned terminal panes changed")
         return rows
 
@@ -194,9 +198,7 @@ class OwnedLayout:
             "version": 1,
             "binding": binding_digest(service),
             "binary": self.binary,
-            "binary_sha256": __import__("hashlib")
-            .sha256(Path(self.binary).read_bytes())
-            .hexdigest(),
+            "binary_sha256": hashlib.sha256(Path(self.binary).read_bytes()).hexdigest(),
             "socket": str(self.socket),
             "socket_identity": list(self.socket_identity),
             "server_pid": self.process.pid,
@@ -207,9 +209,9 @@ class OwnedLayout:
             "sidebar_width": self.preferred_width,
         }
         path = self.root / "context.json"
-        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(descriptor, "w") as output:
-            json.dump(value, output, sort_keys=True)
+        if path.exists():
+            raise LayoutUnavailable("Terminal context already exists")
+        write_private(path, value)
         return path
 
     def resize(self, hidden):
@@ -219,7 +221,7 @@ class OwnedLayout:
         self._command("resize-pane", "-t", self.sidebar_pane, "-x", str(desired))
 
     def capture(self, pane):
-        self.panes()
+        self.panes(complete=False)
         if pane not in {self.host_pane, self.sidebar_pane}:
             raise LayoutUnavailable("Foreign terminal pane refused")
         return self._command("capture-pane", "-p", "-t", pane)
