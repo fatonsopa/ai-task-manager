@@ -287,11 +287,17 @@ def service_fixture(p, root, *, fail_first=False):
     decisions = SimpleNamespace(
         journal=journal, decision=lambda scope, task, target, action, **kw: r.decision(task, target)
     )
+
+    def bind_dependencies(source):
+        # Exact new trusted composition port; no authored readiness receipt.
+        assert source is p.source
+        assert source.binding == r.core.session_binding(r.handle)
+
     service = ApplicationService(
         r.core,
         r.handle,
         decisions=decisions,
-        workers=SimpleNamespace(start=start),
+        workers=SimpleNamespace(start=start, bind_dependencies=bind_dependencies),
         dependencies=p.source,
         grant_ref="authored",
     )

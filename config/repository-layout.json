@@ -121,7 +121,15 @@
       "before_sha256": "4731f88c821f781ff0b7ead6f2df9a0f055db6844410bf6f42d4f5a992874b1e",
       "owner": "machine_configuration",
       "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
-      "byte_preserved": true
+      "byte_preserved": false,
+      "byte_preserved_during_relocation": true,
+      "post_relocation_revision": {
+        "authority": "Actual user standalone/retired-entrypoint/no-source-copy directions of2November2026",
+        "source_commit": "2f754ebad0a8f19af40e14d5d7b1168b16a0343a",
+        "previous_sha256": "4731f88c821f781ff0b7ead6f2df9a0f055db6844410bf6f42d4f5a992874b1e",
+        "current_sha256": "f054db4d103bf20b87ff41aea969d27f9ae0159fe132c10102a014c0650f63e9",
+        "reason": "The relocation preserved original bytes. A later explicitly versioned content change is separate; requirements revision6 and integration revision2 retain previous texts and all historical evidence. Current file integrity remains checked by documentation-manifest/check_handoff."
+      }
     },
     {
       "old": "docs/config/requirements.json",
@@ -129,7 +137,15 @@
       "before_sha256": "aa12979ab21934d91ce29cb60ebd46005e68fbe36ab4d832d5af1f265c27e9c0",
       "owner": "machine_configuration",
       "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
-      "byte_preserved": true
+      "byte_preserved": false,
+      "byte_preserved_during_relocation": true,
+      "post_relocation_revision": {
+        "authority": "Actual user standalone/retired-entrypoint/no-source-copy directions of2November2026",
+        "source_commit": "2f754ebad0a8f19af40e14d5d7b1168b16a0343a",
+        "previous_sha256": "aa12979ab21934d91ce29cb60ebd46005e68fbe36ab4d832d5af1f265c27e9c0",
+        "current_sha256": "a4ba1bd7282663ce6e21e6412c5a320aaff067e5c3c3de52ae1b5a2675e63a8c",
+        "reason": "The relocation preserved original bytes. A later explicitly versioned content change is separate; requirements revision6 and integration revision2 retain previous texts and all historical evidence. Current file integrity remains checked by documentation-manifest/check_handoff."
+      }
     },
     {
       "old": "docs/config/work-items.json",
