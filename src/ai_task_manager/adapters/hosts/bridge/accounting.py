@@ -6,6 +6,8 @@ authentication, provider status and decision authority remain independent ports.
 
 import math
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+from threading import Lock, get_ident
 
 from ai_task_manager.adapters.process.groups import GroupStop
 from ai_task_manager.domains.work.errors import AccessDenied
@@ -89,6 +91,10 @@ class HostInvocationAccounting:
         self._owner_binding = None
         self._calls, self._permits = {}, {}
         self._initialization = None
+        self._initialization_lock = Lock()
+        self._initialization_attempted = False
+        self._initialization_token = None
+        self._initialization_thread = None
 
     def _current(self):
         if any(
@@ -186,7 +192,11 @@ class HostInvocationAccounting:
         )
         # Retain ownership even if claiming or decoding fails after reservation.
         self._calls[key] = call_id
-        call = self.control.claim_launch(call_id, worker_identity=binding.worker_id)
+        call = self.control.claim_launch(
+            call_id,
+            worker_identity=binding.worker_id,
+            not_after=datetime.fromtimestamp(min(binding.deadline, self.plan.deadline), UTC),
+        )
         state = self.control.snapshot()
         observed = InvocationBinding.observed(
             {
@@ -202,20 +212,103 @@ class HostInvocationAccounting:
         return permit
 
     def authorize_initialization(self, policy, binding):
-        attempt = self._owner(policy, binding)
-        if attempt.state != "reserved" or self._initialization is not None:
-            raise AccessDenied("Native initialization requires the reserved Core attempt")
-        self._policy = policy
-        host = self._claim(policy, binding, "host", self.plan.host_seconds, worker=True)
-        relay = self._claim(
-            policy,
-            binding,
-            "relay",
-            host.binding.deadline - self.control.clock().timestamp(),
-            parent=host.binding.call_id,
+        if not self._initialization_lock.acquire(blocking=False):
+            raise AccessDenied("Native initialization authorization is already in progress")
+        try:
+            if self._initialization_attempted:
+                raise AccessDenied("Native initialization authorization was already attempted")
+            attempt = self._owner(policy, binding)
+            if attempt.state != "reserved" or self._initialization is not None:
+                raise AccessDenied("Native initialization requires the reserved Core attempt")
+            self._policy = policy
+            self._initialization_attempted = True
+            token = self._initialization_token = object()
+            self._initialization_thread = get_ident()
+            try:
+                host = self._claim(policy, binding, "host", self.plan.host_seconds, worker=True)
+                relay = self._claim(
+                    policy,
+                    binding,
+                    "relay",
+                    host.binding.deadline - self.control.clock().timestamp(),
+                    parent=host.binding.call_id,
+                )
+                self._initialization = InitializationInvocation(host, relay)
+                return self._initialization
+            except BaseException as error:
+                try:
+                    self._abort_unreturned_initialization(binding, token, type(error).__name__)
+                except BaseException as abort_error:
+                    error.initialization_abort_error = type(abort_error).__name__
+                raise
+            finally:
+                self._initialization_token = None
+                self._initialization_thread = None
+        finally:
+            self._initialization_lock.release()
+
+    def _abort_unreturned_initialization(self, binding, token, reason):
+        """Only this producer's pre-return catch can attest that it handed out no launch."""
+        self._current()
+        if (
+            token is None
+            or token is not self._initialization_token
+            or self._initialization_thread != get_ident()
+            or not self._initialization_lock.locked()
+            or self._initialization is not None
+            or self._owner_binding != binding
+        ):
+            raise AccessDenied("Initialization abort is outside its original pre-return owner")
+        snapshot = {row["call_id"]: row for row in self.control.snapshot()["calls"]}
+        owned = []
+        for purpose in ("host", "relay"):
+            call_id = self._calls.get(purpose)
+            if call_id is None:
+                continue
+            row = snapshot[call_id]
+            expected = {
+                "attempt_id": binding.attempt_id,
+                "host": binding.host,
+                "configuration_digest": binding.configuration_digest,
+                "model": self._policy.model,
+                "effort": self._policy.effort,
+                "purpose": purpose,
+            }
+            if (
+                row["metadata"].get("invocation_binding") != expected
+                or row["metadata"].get("billing_basis_ref") != self.plan.billing_basis_ref
+                or row["metadata"].get("parent_call_id")
+                != (self._calls.get("host") if purpose == "relay" else None)
+                or row["paid"]
+                or row["uses_worker"] is not (purpose == "host")
+                or row["status"] not in {"reserved", "launching"}
+                or row["worker_identity"]
+                != (None if row["status"] == "reserved" else binding.worker_id)
+                or row["worker_state"] != ("reserved" if purpose == "host" else "released")
+                or row["process_stopped"]
+                or any(
+                    row.get(key) is not None
+                    for key in ("started_at", "process_pid", "process_start_identity")
+                )
+            ):
+                raise AccessDenied("Started, changed or uncertain initialization remains held")
+            owned.append(row)
+        if not owned:
+            return
+        evidence = self.journal._append(
+            "trace",
+            {
+                "effect": "initialization_authorization_aborted_before_return",
+                "binding": asdict(binding),
+                "reason": reason,
+                "calls": owned,
+                "native_launch_capability_returned": False,
+                "group_stop": "not_issued; no native construction was reached",
+            },
         )
-        self._initialization = InitializationInvocation(host, relay)
-        return self._initialization
+        self.control._abort_unreturned_claims(
+            owned, worker_identity=binding.worker_id, evidence_ref=evidence
+        )
 
     def _evidence(self, effect, **data):
         self._current()
@@ -235,7 +328,13 @@ class HostInvocationAccounting:
     def authorize_auth(self, policy, binding):
         if self._initialization is None:
             raise AccessDenied("Authentication needs a registered initialization owner")
-        return self._claim(policy, binding, "auth", self.plan.auth_seconds)
+        return self._claim(
+            policy,
+            binding,
+            "auth",
+            self.plan.auth_seconds,
+            parent=self._initialization.native.reference,
+        )
 
     def record_auth(self, binding, completion):
         if binding != self._owner_binding:

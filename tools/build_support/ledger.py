@@ -160,7 +160,12 @@ class BuildControl:
         return result
 
     def _execution_deadline(
-        self, transaction: LedgerTransaction, call_id: str, *, establish: bool
+        self,
+        transaction: LedgerTransaction,
+        call_id: str,
+        *,
+        establish: bool,
+        not_after: datetime | None = None,
     ) -> str | None:
         policy = transaction.policy()
         bound = transaction.bound(call_id)
@@ -180,6 +185,8 @@ class BuildControl:
                 ).isoformat()
                 if policy["deadline"] is not None:
                     deadline = min(_utc(deadline), _utc(policy["deadline"])).isoformat()
+                if not_after is not None:
+                    deadline = min(_utc(deadline), not_after).isoformat()
                 transaction.set_execution_deadline(call_id, deadline)
             return deadline
         return policy["deadline"]
@@ -397,9 +404,16 @@ class BuildControl:
             result = self._call(transaction, transaction.call(call_id))
         return result
 
-    def claim_launch(self, call_id: str, *, worker_identity: str) -> dict[str, Any]:
+    def claim_launch(
+        self,
+        call_id: str,
+        *,
+        worker_identity: str,
+        not_after: datetime | str | None = None,
+    ) -> dict[str, Any]:
         """Claim the external launch before spawning; a lost claim stays reserved."""
         _text(worker_identity, "worker_identity")
+        owner_cap = _utc(not_after) if not_after is not None else None
         with self._store.transaction() as transaction:
             run = self._write_run(transaction, admission=True)
             _require(
@@ -413,16 +427,48 @@ class BuildControl:
                 "already_executed",
                 "Another caller already claimed or executed this invocation.",
             )
-            deadline = self._execution_deadline(transaction, call_id, establish=True)
+            cap, cap_record = owner_cap, None
+            parent_id = json.loads(call["metadata"]).get("parent_call_id")
+            if owner_cap is not None:
+                _require(
+                    transaction.schema_version() == SCHEMA_VERSION,
+                    "invocation_bound_required",
+                    "An absolute launch cap needs a persisted invocation bound.",
+                )
+                cap_record = {"owner_not_after": owner_cap.isoformat()}
+            if parent_id is not None and transaction.schema_version() == SCHEMA_VERSION:
+                _identifier(parent_id, "parent_call_id")
+                _require(parent_id != call_id, "call_conflict", "A call cannot parent itself.")
+                parent = transaction.call(parent_id)
+                parent_bound = transaction.bound(parent_id)
+                _require(
+                    parent["status"] in {"launching", "running"}
+                    and not parent["process_stopped"]
+                    and parent["worker_identity"] == worker_identity
+                    and parent_bound is not None
+                    and parent_bound["execution_deadline"] is not None,
+                    "parent_call_conflict",
+                    "The actual parent invocation is unavailable or belongs to another owner.",
+                )
+                parent_cap = _utc(parent_bound["execution_deadline"])
+                cap = parent_cap if cap is None else min(cap, parent_cap)
+                cap_record = (cap_record or {}) | {
+                    "parent_call_id": parent_id,
+                    "parent_not_after": parent_cap.isoformat(),
+                }
+            if cap_record is not None:
+                cap_record["effective_not_after"] = cap.isoformat()
+            deadline = self._execution_deadline(transaction, call_id, establish=True, not_after=cap)
             _require(
                 deadline is not None and _utc(self.clock()) < _utc(deadline),
                 "deadline_reached",
                 "The hard deadline has passed; do not launch a reserved invocation.",
             )
             transaction.update_call(call_id, status="launching", worker_identity=worker_identity)
-            self._event(
-                transaction, "launch_claimed", call_id, {"worker_identity": worker_identity}
-            )
+            details = {"worker_identity": worker_identity}
+            if cap_record is not None:
+                details["deadline_cap"] = cap_record
+            self._event(transaction, "launch_claimed", call_id, details)
             return self._call(transaction, transaction.call(call_id))
 
     def mark_started(
@@ -479,6 +525,76 @@ class BuildControl:
             )
             self._event(transaction, "call_started", call_id, {"worker_identity": worker_identity})
             return self._call(transaction, transaction.call(call_id))
+
+    def _abort_unreturned_claims(
+        self,
+        expected_calls: list[dict[str, Any]],
+        *,
+        worker_identity: str,
+        evidence_ref: str,
+    ) -> None:
+        """Trusted producer port: no launch capability may have left its catch scope.
+
+        The producer journals that provenance before entering this operation. These
+        atomic row checks supplement it; missing PIDs alone never prove no spawn.
+        This operation is deliberately absent from the CLI and model tool surface.
+        """
+        _text(worker_identity, "worker_identity")
+        _text(evidence_ref, "evidence_ref")
+        _require(
+            isinstance(expected_calls, list) and 0 < len(expected_calls) <= 2,
+            "invalid_input",
+            "An exact pre-return host/relay set is required.",
+        )
+        with self._store.transaction() as transaction:
+            self._write_run(transaction)
+            targets = []
+            for expected in expected_calls:
+                call = transaction.call(expected["call_id"])
+                _require(
+                    call["status"] in {"reserved", "launching"}
+                    and call["worker_identity"]
+                    == (None if call["status"] == "reserved" else worker_identity)
+                    and not call["paid"]
+                    and not call["process_stopped"]
+                    and call["outcome"] is None
+                    and call["finished_at"] is None
+                    and call["reserved_micro"] == 0
+                    and call["actual_micro"] in (None, 0)
+                    and call["worker_state"] == ("reserved" if call["uses_worker"] else "released")
+                    and all(
+                        call[key] is None
+                        for key in ("started_at", "process_pid", "process_start_identity")
+                    )
+                    and json.loads(call["metadata"]) == expected["metadata"]
+                    and bool(call["uses_worker"]) is expected["uses_worker"],
+                    "prelaunch_abort_uncertain",
+                    "A started, changed or uncertain claim remains held.",
+                )
+                _require(
+                    call["call_id"] not in {item["call_id"] for item in targets},
+                    "invalid_input",
+                    "A pre-return claim may be reconciled only once.",
+                )
+                targets.append(call)
+            for call in targets:
+                transaction.update_call(
+                    call["call_id"],
+                    status="failed",
+                    outcome="failed",
+                    worker_state="released",
+                    finished_at=self._now(),
+                    actual_micro=0,
+                    evidence=evidence_ref,
+                    process_stopped=1,
+                    reason="producer initialization failed before launch capability return",
+                )
+                self._event(
+                    transaction,
+                    "unreturned_launch_aborted",
+                    call["call_id"],
+                    {"worker_identity": worker_identity, "evidence_ref": evidence_ref},
+                )
 
     def record_outcome(
         self,
