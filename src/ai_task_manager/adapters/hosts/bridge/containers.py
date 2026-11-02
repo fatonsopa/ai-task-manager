@@ -8,16 +8,28 @@ import stat
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup, require_group_monitoring
-from ai_task_manager.config.files import read_private, write_private
+from ai_task_manager.config.files import digest, read_private, write_private
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.supervisor.models import RuntimeUncertain
 
 from .container_admission import ContainerAdmissions
 from .container_inspection import restrictions
 from .container_plan import ContainerPlan, snapshot
+
+
+@dataclass(frozen=True)
+class VerifiedContainerResult:
+    trace_ref: str
+    attempt_id: str
+    command_ref: str
+    input_digest: str
+    files: tuple[tuple[str, str], ...]
+    result_digest: str
+    expires_at: float
 
 
 class DockerCommands:
@@ -309,7 +321,7 @@ class DockerCommands:
             and cleanup.get("watcher_pid") == process.pid
             and cleanup.get("container", {}).get("confirmed_stop") is True
         )
-        self.journal._append(
+        stop_ref = self.journal._append(
             "trace",
             {
                 "effect": "container_outcome",
@@ -339,7 +351,59 @@ class DockerCommands:
             raise AccessDenied(
                 "Reviewed container command failed: " + str(result.get("outcome", trigger))
             )
+        terminal = {
+            "effect": "container_command_verified",
+            "attempt_id": job["record"]["attempt_id"],
+            "command_ref": job["record"]["command_ref"],
+            "container_name": job["record"]["name"],
+            "result": result,
+        }
+        job["verified_ref"] = self.journal._append(
+            "trace",
+            terminal,
+            sources=(stop_ref,),
+            expires_at=min(self.deadline, self.journal.clock() + 60),
+        )
+        job["verified_result"] = digest(result)
         return result
+
+    def verified_result(self, attempt_id, command_ref):
+        """Read only one actual successful owned result; restart/ambiguity refuses."""
+        matches = [
+            job
+            for job in self.jobs.values()
+            if job["record"]["attempt_id"] == attempt_id
+            and job["record"]["command_ref"] == command_ref
+            and job.get("verified_ref")
+        ]
+        if len(matches) != 1:
+            raise AccessDenied("One actual successful registered command result is required")
+        job = matches[0]
+        if not job.get("stop") or not job["stop"].confirmed:
+            raise AccessDenied("The owned command group is not confirmed stopped")
+        stored = self.journal._read(job["verified_ref"], "trace")
+        value = stored["payload"]
+        result = value.get("result", {})
+        if (
+            value.get("effect") != "container_command_verified"
+            or (value.get("attempt_id"), value.get("command_ref"), value.get("container_name"))
+            != (attempt_id, command_ref, job["record"]["name"])
+            or digest(result) != job["verified_result"]
+            or result.get("outcome") != "succeeded"
+            or result.get("confirmed_stop") is not True
+            or result.get("container_removed") is not True
+            or result.get("input") != job["record"]["input"]
+        ):
+            raise AccessDenied("The actual command result changed or is incomplete")
+        return VerifiedContainerResult(
+            stored["ref"],
+            attempt_id,
+            command_ref,
+            result["input"]["digest"],
+            tuple(sorted(result["input"]["files"].items())),
+            digest(result),
+            stored["expires_at"],
+        )
 
     def reconcile_stopped(self, attempt_id):
         matching = [

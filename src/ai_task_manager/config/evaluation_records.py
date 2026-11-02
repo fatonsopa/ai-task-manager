@@ -12,7 +12,14 @@ from ai_task_manager.domains.work.errors import AccessDenied
 
 from .files import MAX_JSON_BYTES, private_path, strict_json
 
-PURPOSES = frozenset({"native_bootstrap_review", "evaluation_grant", "evaluation_dependencies"})
+PURPOSES = frozenset(
+    {
+        "native_bootstrap_review",
+        "evaluation_grant",
+        "evaluation_dependencies",
+        "evaluation_report_oracle",
+    }
+)
 
 
 @dataclass(frozen=True)
