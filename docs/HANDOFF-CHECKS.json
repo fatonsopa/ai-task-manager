@@ -96,16 +96,16 @@
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "ad0b82380bbd0a8849f04cdec4bebdc610aba2ce20e0cfc2e5462a2cc75461cb",
+      "sha256": "b2453fedb0006e3d1a13267d5006ac00276d205222851acf80738255e91b2cb7",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "ea132ac9e7e47994c1eb424af6090f3ebf05015d1496ac3f0f24df631b87828b",
+      "objective_sha256": "5242097af391acd66a471f74b3cf3e4ca94263c89b418935a45c71ee3a2347b5",
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
-      "scope": "Cumulative reporting period through 2026-11-02 02:30 UTC",
-      "reporting_period": "2026-11-01 15:56 UTC through 2026-11-02 02:30 UTC"
+      "scope": "New reporting period; current main9a distinguished from full-tested e713",
+      "reporting_period": "2026-11-02 02:30\u201304:57 UTC"
     },
     "merge/decision_record.md": {
       "checked_delivery": "delivered",
@@ -159,21 +159,25 @@
       "live_provider_or_host_acceptance": false
     },
     "integrated_backend": {
-      "commit": "a3d0aca883f9f5302aac079e6a564fae892ae494",
-      "tree": "685c75bde46507f9e85747c211cc0df4d1655cd3",
-      "configured_macos_tests_passed": 2440,
+      "commit": "e713d8641ec946e7de3b74546cb3688f9e4e57de",
+      "tree": "ac3ad93388eb760c1532c3085b6e761f81a86713",
+      "configured_macos_tests_passed": 2490,
       "failed": 0,
+      "errors": 0,
       "skipped": 0,
       "container_cases": 6,
       "exact_owned_containers_removed": 7,
       "test_group_stop_verified": true,
       "source_and_cleanup_independently_reviewed": true,
       "lead_reran_entire_suite": false,
-      "wrapper_elapsed_seconds": 422.4067320418544,
-      "wrapper_timeout_seconds": 900,
+      "frozen_source_files_checked": 667,
+      "wrapper_elapsed_seconds": 560.8022971153259,
+      "wrapper_timeout_seconds": 840,
+      "junit_sha256": "0361cc568f77427c0cc6d50e3bbbacc631eaed340a8f748bce5616b8b195458b",
       "configured_linux_current_candidate": "not_run",
       "live_provider_or_host_acceptance": false,
-      "junit_sha256": "e72f41fdbe8b66e2511a8ced6248e0e9b03ccb4528e76bdf6ec92ff91a2e063f"
+      "later_main_source": "9a9599be81c4d5f4b0a10f9e38efb997597e6b45",
+      "later_main_combined_full_run": "not_run"
     },
     "application_package": {
       "source_commit": "ccb712a29b53da4944f18c72d980f344441b98ca",
@@ -256,14 +260,32 @@
       },
       "configuration_candidate": {
         "source_commit": "29118cfb83528e890ac78fe67dd7f7c5b4d19dc2",
-        "integrated": false,
+        "integrated": true,
         "earlier_host_batch_passed": 185,
         "earlier_host_batch_skipped": 6,
         "later_frozen_startup_failures": 2,
-        "current_observation_repair": "in_progress",
+        "current_observation_repair": "implemented; fullMac2490passed",
         "actual_native_operations_in_reproduction": 0,
-        "original_live_pilot_remains_failed": true
-      }
+        "original_live_pilot_remains_failed": true,
+        "integrated_via": "e713d864",
+        "current_observation_source": "e11638ab2016ffefedd398998ef690d5a58819aa",
+        "native_exit_source": "c608534bc6c32b89f531b4a2c97c12e1194b2fa2",
+        "native_exit_focused_passed": 14,
+        "normal_ancestor_ACL": "implementation assigned; focused checks not run",
+        "actual_host_acceptance": false
+      },
+      "historical_configuration_candidates": [
+        {
+          "source_commit": "29118cfb83528e890ac78fe67dd7f7c5b4d19dc2",
+          "integrated": false,
+          "earlier_host_batch_passed": 185,
+          "earlier_host_batch_skipped": 6,
+          "later_frozen_startup_failures": 2,
+          "current_observation_repair": "in_progress",
+          "actual_native_operations_in_reproduction": 0,
+          "original_live_pilot_remains_failed": true
+        }
+      ]
     },
     "build_limit_policy": {
       "status": "integrated_and_original_ledger_amendment_verified",
@@ -326,6 +348,23 @@
         "linux_image_id": "sha256:4206078324d29825cb9d98b342b9535623fc052a818a3a4ed270b648e055e279",
         "linux_failed": 0,
         "linux_skipped": 0
+      },
+      {
+        "commit": "a3d0aca883f9f5302aac079e6a564fae892ae494",
+        "tree": "685c75bde46507f9e85747c211cc0df4d1655cd3",
+        "configured_macos_tests_passed": 2440,
+        "failed": 0,
+        "skipped": 0,
+        "container_cases": 6,
+        "exact_owned_containers_removed": 7,
+        "test_group_stop_verified": true,
+        "source_and_cleanup_independently_reviewed": true,
+        "lead_reran_entire_suite": false,
+        "wrapper_elapsed_seconds": 422.4067320418544,
+        "wrapper_timeout_seconds": 900,
+        "configured_linux_current_candidate": "not_run",
+        "live_provider_or_host_acceptance": false,
+        "junit_sha256": "e72f41fdbe8b66e2511a8ced6248e0e9b03ccb4528e76bdf6ec92ff91a2e063f"
       }
     ],
     "existing_issue_admission": {
@@ -355,6 +394,33 @@
         "hostile_same_user_protection": false,
         "live_replacement_supported": false
       }
+    },
+    "linear_local_driver": {
+      "source_commit": "7a59b22cae98dcb3cb92c44bd4b1532809c34526",
+      "integration_commit": "4659330f0252a4ae631c045b4b0f15653bea93cf",
+      "passed": 88,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "original_cases_preserved": 46,
+      "new_cases": 42,
+      "owned_process_stop_verified": true,
+      "absolute_HTTP_deadline": "implementation assigned; focused checks not run",
+      "live_cases_passed": 0,
+      "live_cases_not_run": 18
+    },
+    "ai_index_f0": {
+      "source_commit": "cda5b2a74a312741491a33e8c439db75a2c48b55",
+      "integration_commit": "9a9599be81c4d5f4b0a10f9e38efb997597e6b45",
+      "passed": 123,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "groups": 16,
+      "owned_fixture_removed": true,
+      "scope": "typed recording contracts only",
+      "real_runner_available": false,
+      "real_Git_application_provider_host_or_cutover_acceptance": false
     }
   },
   "product_acceptance_cases_executed": 0,
@@ -784,6 +850,22 @@
         "independent_review": false,
         "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
         "reporting_period": "2026-11-01 15:56 UTC through 2026-11-02 00:45 UTC"
+      }
+    },
+    {
+      "reporting_period": "2026-11-01 15:56 UTC through 2026-11-02 02:30 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "ad0b82380bbd0a8849f04cdec4bebdc610aba2ce20e0cfc2e5462a2cc75461cb",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+        "objective_sha256": "ea132ac9e7e47994c1eb424af6090f3ebf05015d1496ac3f0f24df631b87828b",
+        "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+        "scope": "Cumulative reporting period through 2026-11-02 02:30 UTC",
+        "reporting_period": "2026-11-01 15:56 UTC through 2026-11-02 02:30 UTC"
       }
     }
   ],
