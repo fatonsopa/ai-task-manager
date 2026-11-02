@@ -1,0 +1,218 @@
+{
+  "version": 33,
+  "extends": "host-bridge-cases-v32.json",
+  "preserves_all_prior_cases": true,
+  "status": "frozen_component_scope_before_source_edit; no_execution",
+  "contract_sha256": "5ea371fa8342a6f0d86ae0b0a96106a3437833a442476e78c83405ad220848bd",
+  "primary_decision": "host-invocation-scope-primary-decision-v1.json",
+  "objectives_preserved": [
+    {
+      "id": "PC04-01",
+      "alias": "reject_foreign_or_stale_invocation",
+      "criterion": "Missing/stale revision,batch,owner,attempt,host,model,effort,configuration or call refuses before a launch/submission; default absent trusted port refuses."
+    },
+    {
+      "id": "PC04-02",
+      "alias": "serialize_pause_and_submission",
+      "criterion": "Two independent SQLite connections/processes demonstrate pause-first means no effect; final short effect first means pause waits, then every later effect refuses. No provider/model waits in either transaction."
+    },
+    {
+      "id": "PC04-03",
+      "alias": "persist_deadline_and_restart",
+      "criterion": "Auth/host/turn effective bounds are min(original task/host,actual persisted invocation deadline,existing operation timeout). Restart never extends or retrofits a running call."
+    },
+    {
+      "id": "PC04-04",
+      "alias": "stage_without_effect_and_commit_once",
+      "criterion": "Large input is staged outside authority locks. A tiny nonblocking commit binds exact staged content/call. No commit means no native/model submission; stale/repeated/foreign/partial commit refuses or remains unknown without resend."
+    },
+    {
+      "id": "PC04-05",
+      "alias": "refuse_pipe_backpressure_safely",
+      "criterion": "Real owned controller-input,native-input and controller-output backpressure cannot block a Root transaction or the runnable relay watchdog. Exact zero-write and uncertain partial commit remain distinct; no duplicate retry. Keep the separate stopped-relay monitor limitation explicit."
+    },
+    {
+      "id": "PC04-06",
+      "alias": "retain_rollback_after_external_commit",
+      "criterion": "A database commit failure after an external Popen/queue commit does not imply rollback of that effect; owned resources/cost remain held and exact trace is reconciled."
+    },
+    {
+      "id": "PC04-07",
+      "alias": "stop_after_controller_loss",
+      "criterion": "Actual owned authored relay/native descendant ignores TERM, controller loss/deadline still reaches owned group KILL via existing relay. Unknown inspection cannot release capacity."
+    },
+    {
+      "id": "PC04-08",
+      "alias": "preserve_root_host_capacity",
+      "criterion": "One counted host reservation exists before any preparation/auth/turn. Explicit finite parent-bound child calls do not double-count host slots or evade batch count/cost controls."
+    },
+    {
+      "id": "PC04-09",
+      "alias": "distinguish_submission_and_model_success",
+      "criterion": "Waiting relay/IPC commit/account preflight cannot mint actual native startup,Core worker lease,provider InProgress or successful model completion. Actual observer/refusal/fallback facts retain their issuers."
+    },
+    {
+      "id": "PC04-10",
+      "alias": "preserve_short_effect_order",
+      "criterion": "Full source reads,ps/group capture,SDK initialization,pipe waits,auth reads,network/model pumping and cleanup stay outside Core/root short-effect locks; current small prepared/sticky checks retain their allowed point-check scope."
+    },
+    {
+      "id": "PC04-11",
+      "alias": "record_outcome_and_stop_separately",
+      "criterion": "Turn completion/error does not release a live host. Actual cost reconciliation and capacity release require the exact owned stop facts; unknown charge is never zero by default."
+    },
+    {
+      "id": "PC04-12",
+      "alias": "reject_legacy_helper_and_model_issuer",
+      "criterion": "Old closed component helper is immutable and never reused. A new fixture helper receives the exact revision1 controller explicitly; no cached old source,arbitrary Evidence,model boolean or public permit-mint tool."
+    },
+    {
+      "id": "PC04-13",
+      "alias": "retain_auth_contracts",
+      "criterion": "Original auth argv/whitelist/profile isolation and10/15second bounds remain. API/provider/account/model fallback refuses. Codex coherent cache is not copied; observed refresh still fences/restarts conservatively."
+    },
+    {
+      "id": "PC04-14",
+      "alias": "exercise_actual_composition",
+      "criterion": "Use real factory/controller/supervisor/Core/source-readback callbacks with typed authored accounting ports and real owned subprocess/pipe effects; fixture permits are labelled synthetic,never native acceptance."
+    }
+  ],
+  "component_cases": [
+    {
+      "id": "LE01",
+      "alias": "tests/test_build_control_effect_boundaries.py::test_effect_requires_exact_running_owner",
+      "variants": [
+        "reserved",
+        "launching",
+        "succeeded",
+        "failed",
+        "unknown",
+        "wrong_owner"
+      ],
+      "node_count": 6
+    },
+    {
+      "id": "LE02",
+      "alias": "tests/test_build_control_effect_boundaries.py::test_effect_uses_current_revision_pause_and_bound",
+      "variants": [
+        "paused",
+        "stale_revision",
+        "deadline",
+        "missing_bound"
+      ],
+      "node_count": 4
+    },
+    {
+      "id": "LE03",
+      "alias": "tests/test_build_control_effect_boundaries.py::test_effect_preserves_bound_and_records_after_restart",
+      "variants": [],
+      "node_count": 1
+    },
+    {
+      "id": "LE04",
+      "alias": "tests/test_build_control_effect_boundaries.py::test_effect_scope_is_read_only_on_success",
+      "variants": [],
+      "node_count": 1
+    },
+    {
+      "id": "LE05",
+      "alias": "tests/test_build_control_effect_boundaries.py::test_effect_failure_keeps_owned_call_and_external_effect",
+      "variants": [],
+      "node_count": 1
+    },
+    {
+      "id": "LE06",
+      "alias": "tests/test_build_control_effect_boundaries.py::test_pause_and_effect_serialize",
+      "variants": [
+        "pause_first",
+        "effect_first"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "LE07",
+      "alias": "tests/test_build_control_effect_boundaries.py::test_launch_boundary_contract_remains_unchanged",
+      "variants": [],
+      "node_count": 1
+    },
+    {
+      "id": "IP01",
+      "alias": "tests/hosts/test_invocation_boundaries.py::test_registered_invocation_matches_actual_call",
+      "variants": [
+        "run",
+        "revision",
+        "owner",
+        "attempt",
+        "host",
+        "configuration",
+        "model",
+        "effort",
+        "purpose",
+        "deadline",
+        "call"
+      ],
+      "node_count": 11
+    },
+    {
+      "id": "IP02",
+      "alias": "tests/hosts/test_invocation_boundaries.py::test_unregistered_authority_cannot_enter_effect",
+      "variants": [
+        "missing",
+        "foreign",
+        "rebound"
+      ],
+      "node_count": 3
+    },
+    {
+      "id": "IP03",
+      "alias": "tests/hosts/test_invocation_boundaries.py::test_live_root_refusal_prevents_pipe_effect",
+      "variants": [
+        "pause",
+        "deadline",
+        "unknown"
+      ],
+      "node_count": 3
+    },
+    {
+      "id": "IP04",
+      "alias": "tests/hosts/test_invocation_boundaries.py::test_persisted_deadline_clamps_consumer_window",
+      "variants": [],
+      "node_count": 1
+    },
+    {
+      "id": "IP05",
+      "alias": "tests/hosts/test_invocation_boundaries.py::test_real_pipe_effect_requires_registered_permit",
+      "variants": [
+        "accepted",
+        "foreign_scope"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "MG01",
+      "alias": "tests/hosts/test_invocation_boundaries.py::test_prepared_guard_keeps_history_outside_current_boundary",
+      "variants": [],
+      "node_count": 1
+    },
+    {
+      "id": "MG02",
+      "alias": "tests/hosts/test_invocation_boundaries.py::test_prepared_guard_refuses_owner_or_sticky_drift",
+      "variants": [
+        "foreign_guard",
+        "replaced_process",
+        "sticky"
+      ],
+      "node_count": 3
+    },
+    {
+      "id": "MG03",
+      "alias": "tests/hosts/test_invocation_boundaries.py::test_current_guard_uses_only_metadata_port",
+      "variants": [],
+      "node_count": 1
+    }
+  ],
+  "expected_component_nodes": 41,
+  "component_limit": "Only the ledger running boundary,registered typed permits,and model-guard preparation/current port are implemented in this component. Actual relay Popen/current-policy binding,parent-owned native-input framing,nonblocking relay watchdog,producer wiring and real profiles remain pending under their original objectives.",
+  "framing_addendum": "Stage a syntactically incomplete JSON object in a parent-owned native-input pipe; commit its final closing brace and delimiter nonblockingly under current authority. Newline alone is unsafe at EOF. Relay must use the same trusted current policy at actual native Popen. These transport changes are not part of the current component implementation.",
+  "fixture_boundaries": "Disposable schema2 ledgers and owned authored processes only. No original/root ledger or account/model/provider operations. Bounded test-only interleaving barriers are distinct from production waits. Runtime/source/stop plan still requires exact root admission."
+}

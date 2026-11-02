@@ -241,6 +241,37 @@ class BuildControl:
                 reported, "launch_uncertain", "The launch boundary lacks an actual start report."
             )
 
+    @contextmanager
+    def effect_boundary(self, call_id: str, *, worker_identity: str):
+        """Serialize one short effect of an existing, bounded owned invocation.
+
+        Preparation and blocking I/O belong outside this context. Entering it
+        cannot start, renew, settle or otherwise change the invocation.
+        """
+        _text(call_id, "call_id")
+        _text(worker_identity, "worker_identity")
+        with self._store.transaction() as transaction:
+            self._write_run(transaction, admission=True)
+            call = transaction.call(call_id)
+            _require(
+                call["status"] == "running" and call["worker_identity"] == worker_identity,
+                "call_conflict",
+                "This effect is not owned by the current running invocation.",
+            )
+            bound = transaction.bound(call_id)
+            _require(
+                bound is not None
+                and bound["execution_deadline"] is not None
+                and _utc(self.clock()) < _utc(bound["execution_deadline"]),
+                "deadline_reached",
+                "The registered invocation cannot perform another effect now.",
+            )
+            yield {
+                "run_id": transaction.run()["run_id"],
+                "policy_revision": transaction.policy()["revision"],
+                "call": self._call(transaction, call),
+            }
+
     def reserve(
         self,
         call_id: str,

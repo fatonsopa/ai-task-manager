@@ -1,13 +1,28 @@
 """A native model fence is sticky and scoped to the complete owned trace."""
 
 from contextlib import contextmanager
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from threading import RLock
 
 from ai_task_manager.domains.work.errors import AccessDenied
 
 from .codex_history import binding_sources, replay_profile
 from .codex_profile import CodexProfile, ProfileViolation
+
+
+@dataclass(frozen=True)
+class PreparedModelEffect:
+    owner: object
+    binding: object
+    transcript: object
+    journal: object
+    process: object
+    configuration: object
+    identity: tuple | None
+    requested: object
+    effort: object
+    cwd: str
+    thread_id: str | None
 
 
 def _owned_history(journal, owner, identity=None):
@@ -232,13 +247,65 @@ class PinnedModelGuard:
         with self._lock:
             self._check(rows)
 
+    def _effect_owner(self):
+        identity = self.transcript.process.identity
+        return PreparedModelEffect(
+            self,
+            self.binding,
+            self.transcript,
+            self.journal,
+            self.transcript.process,
+            self.configuration,
+            tuple(sorted(vars(identity).items())) if identity is not None else None,
+            self.requested,
+            self.requested_effort,
+            self.cwd,
+            self.codex.thread_id if self.codex is not None else None,
+        )
+
+    def _same_effect_owner(self, prepared):
+        current = self._effect_owner()
+        return all(
+            getattr(current, name) is getattr(prepared, name)
+            for name in ("owner", "binding", "transcript", "journal", "process", "configuration")
+        ) and all(
+            getattr(current, name) == getattr(prepared, name)
+            for name in ("identity", "requested", "effort", "cwd", "thread_id")
+        )
+
+    def prepare_effect(self):
+        """Complete source/history preparation before acquiring a Root/Core lock."""
+        with self._lock:
+            prepared = self._effect_owner()
+        self.check()
+        with self._lock:
+            if not self._same_effect_owner(prepared):
+                raise AccessDenied("Model-effect owner changed during preparation")
+            self._check_bound()
+        return prepared
+
+    @contextmanager
+    def current_boundary(self, prepared):
+        """Hold only current state/metadata checks over the bounded caller effect.
+
+        The cached identity comparison binds the prepared owner; it is not a
+        new process-liveness observation. Consumers retain their separate owned
+        process checks outside policy locks.
+        """
+        if not isinstance(prepared, PreparedModelEffect):
+            raise AccessDenied("A prepared model-effect owner is required")
+        with self._lock:
+            if not self._same_effect_owner(prepared):
+                raise AccessDenied("The prepared model-effect owner changed")
+            if self.configuration is not None:
+                self.configuration.check_metadata()
+            self._check_bound()
+            yield
+
     @contextmanager
     def effect_boundary(self):
         # Read durable history before taking the local state lock and before the
         # caller enters Core. No store/network/model wait occurs inside its yield.
-        if self.configuration is not None:
-            self.configuration.check()
-        rows = self._history()
-        with self._lock:
-            self._check(rows)
+        prepared = self.prepare_effect()
+        with self.current_boundary(prepared):
             yield
