@@ -1,0 +1,73 @@
+{
+  "version": 15,
+  "extends": "host-bridge-cases-v14.json",
+  "preserves_all_prior_cases": true,
+  "reason": "The pinned Codex native protocol exposes rerouting and configured thread settings. Continuous guards must cover these events without inventing provider-internal model telemetry.",
+  "execution_status": "not_run",
+  "cases": [
+    {
+      "id": "HB-H18",
+      "test": "tests/hosts/test_codex_model_stability.py::test_owned_native_reroute_fences_before_tool_dispatch",
+      "expected": "A model/rerouted frame from the owned native stream refuses before tool routing, retains the first model and records its actual source; the controller does not retry around the provider refusal."
+    },
+    {
+      "id": "HB-H19",
+      "test": "tests/hosts/test_codex_model_stability.py::test_codex_model_and_effort_changes_fence_queued_effects",
+      "expected": "Changed configured model or requested effort in thread/settings/updated fences queued file or command effects; unchanged model names in assistant text do not affect the guard."
+    },
+    {
+      "id": "HB-H20",
+      "test": "tests/hosts/test_codex_model_stability.py::test_codex_execution_setting_changes_refuse",
+      "expected": "Changes or unknown values for modelProvider, cwd, approvalPolicy, approvalsReviewer, sandboxPolicy or collaboration model/effort refuse. readOnly with networkAccess=true is not accepted as the sealed policy."
+    },
+    {
+      "id": "HB-H21",
+      "test": "tests/hosts/test_codex_model_stability.py::test_identical_codex_settings_preserve_original_startup",
+      "expected": "An identical settings notification is idempotent; the original startup receipt, observed model, sources and expiry remain unchanged."
+    },
+    {
+      "id": "HB-H22",
+      "test": "tests/hosts/test_codex_model_stability.py::test_foreign_and_malformed_codex_profile_events_cannot_rebind",
+      "expected": "A foreign, missing or malformed thread identity on a profile notification cannot establish or replace owned-thread evidence. Ambiguous owned-stream configuration is refused without claiming the foreign model was executed."
+    },
+    {
+      "id": "HB-H23",
+      "test": "tests/hosts/test_codex_model_stability.py::test_initial_codex_profile_must_match_requested_configuration",
+      "expected": "The correlated thread/start response must acknowledge the requested model and effort and constrained execution settings. A mismatching or missing requested effort refuses before readiness."
+    },
+    {
+      "id": "HB-H24",
+      "test": "tests/hosts/test_codex_model_stability.py::test_codex_profile_binding_requires_correlated_owned_source",
+      "expected": "An unsolicited thread-shaped response cannot mint profile binding. Durable binding records must resolve their signed owned native source and match the correlated result; missing or inconsistent source refuses."
+    },
+    {
+      "id": "HB-H25",
+      "test": "tests/hosts/test_codex_model_stability.py::test_codex_model_fence_survives_observer_and_verifier_restart",
+      "expected": "A reroute or changed settings frame remains a refusal when a new observer or verifier reads the same owned history. An earlier valid startup cannot hide a later change."
+    },
+    {
+      "id": "HB-H26",
+      "test": "tests/hosts/test_codex_model_stability.py::test_task_text_is_not_codex_configuration_protocol",
+      "expected": "Assistant text, task prose and nested notification-shaped content do not become native configuration events."
+    },
+    {
+      "id": "HB-H27",
+      "test": "tests/hosts/test_codex_model_stability.py::test_codex_configuration_is_distinct_from_execution_identity",
+      "expected": "The configured model and effort are recorded as native thread acknowledgements, with provider-internal execution model and actual execution effort null when the protocol does not expose them."
+    },
+    {
+      "id": "HB-H28",
+      "test": "tests/hosts/test_codex_model_stability.py::test_pending_codex_settings_cannot_grant_unbound_effects",
+      "expected": "Settings observed before a correlated thread/start can be checked against that eventual thread but cannot independently grant effects; foreign pending scope or unresolved binding refuses."
+    }
+  ],
+  "scope": "Mechanical owned-process frames and controller-source validation only. No account, thread or model operation; no reopening of the failed live packet.",
+  "schema_hashes": {
+    "ServerNotification.json": "aea3f632e93d846119aa80ac6e9b212b08505a5c56d3874db93ec0bb8ad26dc9",
+    "v2/ModelReroutedNotification.json": "37cd3c1b3a3560b85b01d4061a07d830fc9ed93b80e4663f975f9197cdb501ef",
+    "v2/ThreadSettingsUpdatedNotification.json": "5e0f512bcca5fbf3cfea9f13574928ad26e790d5bc765ea92cd024a7ac96f86e",
+    "v2/ThreadStartResponse.json": "d82d7322a000e715eeac6ae4f7398fc78fc29b4e9a7e8d17aba034ec8d51e348",
+    "v2/TurnStartedNotification.json": "f5b0ea97eea0d28c8b009a82b9ede7bba5c194dc5bbf91b8e268b2874e0d9eee",
+    "v2/TurnStartResponse.json": "85da8d16c86432da14440504ae1e76d13527058920d4ed81632dd50c3fbd054d"
+  }
+}

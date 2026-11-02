@@ -6,6 +6,9 @@ from threading import RLock
 
 from ai_task_manager.domains.work.errors import AccessDenied
 
+from .codex_history import binding_sources, replay_profile
+from .codex_profile import CodexProfile, ProfileViolation
+
 
 def _owned_history(journal, owner, identity=None):
     result = []
@@ -18,10 +21,7 @@ def _owned_history(journal, owner, identity=None):
             continue
         if identity is not None and payload.get("process") != identity:
             continue
-        if payload.get("effect") == "model_stability_refused":
-            result.append((None, row["ref"], payload["reason"]))
-        elif isinstance(payload.get("frame"), dict):
-            result.append((payload["frame"], row["ref"], None))
+        result.append(row)
     return result
 
 
@@ -50,10 +50,35 @@ def verify_model_history(journal, owner, identity):
     """An old valid startup receipt cannot hide later owned refusal/change frames."""
     if owner["host"] == "claude" and not owner.get("requested_model"):
         raise AccessDenied("Claude startup must bind an explicitly configured model")
+    rows = _owned_history(journal, owner, identity)
+    if owner["host"] == "codex":
+        try:
+            state = replay_profile(
+                rows,
+                owner.get("requested_model"),
+                owner.get("requested_effort"),
+                owner.get("cwd"),
+            )
+        except ProfileViolation as error:
+            raise AccessDenied("Owned Codex history failed its frozen profile") from error
+        if (
+            state.thread_id is None
+            or state.thread_id != owner.get("session_id")
+            or state.model != owner.get("model")
+            or state.configured_effort != owner.get("native_configuration_effort")
+            or owner.get("provider_internal_model") is not None
+            or owner.get("observed_effort") is not None
+        ):
+            raise AccessDenied("Codex startup lacks its exact source-bound profile")
+        return
     observed = None
-    for frame, _, fence in _owned_history(journal, owner, identity):
-        if fence:
+    for row in rows:
+        payload = row["payload"]
+        if payload.get("effect") == "model_stability_refused":
             raise AccessDenied("Owned model history contains an unresolved refusal fence")
+        frame = payload.get("frame")
+        if not isinstance(frame, dict):
+            continue
         observed, error = _model_event(frame, owner["host"], owner.get("requested_model"), observed)
         if error:
             raise AccessDenied("Owned model history failed its frozen profile")
@@ -69,9 +94,16 @@ class PinnedModelGuard:
             transcript.binding,
         )
         self.requested = getattr(policy, "model", None)
+        self.requested_effort = getattr(policy, "effort", None)
+        self.cwd = str(policy.cwd)
         if self.binding.host == "claude" and not self.requested:
             raise AccessDenied("Claude requires an explicitly configured model")
         self.observed, self.refusal = None, None
+        self.codex = (
+            CodexProfile(self.requested, self.requested_effort, self.cwd)
+            if self.binding.host == "codex"
+            else None
+        )
         self._lock = RLock()
         self._restore(self._history())
 
@@ -105,10 +137,21 @@ class PinnedModelGuard:
     def _restore(self, rows):
         if self.refusal:
             raise AccessDenied("The owned model refusal fence remains active")
+        if self.codex is not None:
+            try:
+                state = replay_profile(rows, self.requested, self.requested_effort, self.cwd)
+            except ProfileViolation as error:
+                self._refuse(error.reason, None, record=False)
+            self.codex, self.observed = state, state.model
+            return
         observed = None
-        for frame, source, fence in rows:
-            if fence:
-                self._refuse(fence, source, record=False)
+        for row in rows:
+            payload, source = row["payload"], row["ref"]
+            if payload.get("effect") == "model_stability_refused":
+                self._refuse(payload["reason"], source, record=False)
+            frame = payload.get("frame")
+            if not isinstance(frame, dict):
+                continue
             observed, error = _model_event(frame, self.binding.host, self.requested, observed)
             if error:
                 self._refuse(error, source, record=False)
@@ -119,22 +162,49 @@ class PinnedModelGuard:
         with self._lock:
             if self.refusal:
                 raise AccessDenied("The owned model refusal fence remains active")
+            if self.codex is not None:
+                try:
+                    self.codex.observe(frame)
+                except ProfileViolation as error:
+                    self._refuse(error.reason, source, record=True)
+                return
             observed, error = _model_event(frame, self.binding.host, self.requested, self.observed)
             if error:
                 self._refuse(error, source, record=True)
             self.observed = observed
 
-    def native_ready(self, model, source):
-        """Bind reported Codex startup metadata without inventing unknown identity."""
+    def bind_codex(self, result, source, request_id, request_ref=None):
+        """Controller-only correlated binding; no model-facing readiness issuer."""
+        rows = self._history()
         with self._lock:
-            if self.requested is not None and model != self.requested:
-                self._refuse("native_model_changed", source, record=True)
-            if self.observed is not None and model != self.observed:
-                self._refuse("native_model_changed", source, record=True)
-            self.observed = model
+            if self.codex is None or self.refusal:
+                raise AccessDenied("Codex profile binding is unavailable or refused")
+            try:
+                binding_sources(rows, result, source, request_ref, request_id)
+                state = replay_profile(rows, self.requested, self.requested_effort, self.cwd)
+                state.bind(result)
+            except ProfileViolation as error:
+                self._refuse(error.reason, source, record=True)
+            self.journal._append(
+                "trace",
+                {
+                    "effect": "codex_profile_bound",
+                    "attempt_id": self.binding.attempt_id,
+                    "worker_id": self.binding.worker_id,
+                    "configuration_digest": self.binding.configuration_digest,
+                    "process": vars(self.transcript.process.verify_identity()),
+                    "request_id": request_id,
+                    "request_ref": request_ref,
+                    "response_ref": source,
+                },
+                sources=(request_ref, source),
+            )
+            self.codex, self.observed = state, state.model
 
     def _check(self, rows):
         self._restore(rows)
+        if self.codex is not None and self.codex.thread_id is None:
+            raise AccessDenied("No correlated native Codex thread is ready for managed effects")
         if self.binding.host == "claude" and self.observed != self.requested:
             raise AccessDenied("No matching observed model is ready for managed effects")
 

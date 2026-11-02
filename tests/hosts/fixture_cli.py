@@ -65,6 +65,7 @@ def main():
                 "model": "synthetic-no-model",
                 "modelProvider": "openai",
                 "approvalPolicy": "never",
+                "approvalsReviewer": "user",
                 "sandbox": {"type": "readOnly"},
                 "cwd": os.getcwd(),
             }
