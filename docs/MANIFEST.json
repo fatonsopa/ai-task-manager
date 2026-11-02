@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "fba7c4b3ffd360cb26b8bbb575965732b1402f34714928938a27642039d83c11"
+      "sha256": "cb31775a5fa672f9122f8be9f45ea977cbaf227ab76d15a9f80c729e88067bf8"
     },
     {
       "path": "assets/diagrams/architecture.mmd",
@@ -129,6 +129,14 @@
     {
       "path": "implementation_plan.md",
       "sha256": "b01a1db3b7067a94722b2ed62f1c9d004d4b2b81b445cdf168be4a122c2b9683"
+    },
+    {
+      "path": "merge/decision_record.md",
+      "sha256": "4dbc4b3ba71321265f7b56ccc1b4f8112c159b5627999d15b201b71661e6a9f5"
+    },
+    {
+      "path": "merge/test_specification.md",
+      "sha256": "d614e30e54dc9f1382194a2bc1bbf2c3922541f490d614f1095eba8b9c00c849"
     },
     {
       "path": "migration/current-contracts.md",

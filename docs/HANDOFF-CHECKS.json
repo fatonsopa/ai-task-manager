@@ -106,6 +106,36 @@
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
       "scope": "Cumulative reporting period through 2026-11-02 02:30 UTC",
       "reporting_period": "2026-11-01 15:56 UTC through 2026-11-02 02:30 UTC"
+    },
+    "merge/decision_record.md": {
+      "checked_delivery": "delivered",
+      "sha256": "4dbc4b3ba71321265f7b56ccc1b4f8112c159b5627999d15b201b71661e6a9f5",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "targeted_lead_review": true,
+      "document_status": "draft; proposed design/cases with open implementation and integration gates",
+      "scope": "Expanded source-bound AI Index compatibility proposal; no product behavior or live fixture executed.",
+      "objective_sha256": "3f62612c78fd1fb1739d5b4fd73b21f72c34fbf62b5045ef401461c089b84f02",
+      "message_sha256": "fc731a6c53a5446b969d71bee3fa3589fc1620d69898bd7778a1ad0968a97898",
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "writing_style_sha256": "d18a0c7540e0d286fc5b07fc55bc5898e6ac73d0dead89f1df485b31bd2709e6"
+    },
+    "merge/test_specification.md": {
+      "checked_delivery": "delivered",
+      "sha256": "d614e30e54dc9f1382194a2bc1bbf2c3922541f490d614f1095eba8b9c00c849",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "targeted_lead_review": true,
+      "document_status": "draft; proposed design/cases with open implementation and integration gates",
+      "scope": "Expanded source-bound AI Index compatibility proposal; no product behavior or live fixture executed.",
+      "objective_sha256": "bbbac3266267097e5290a0481afdf115b08ace59c519c84885ee8d7c9679f87c",
+      "message_sha256": "c375d647f125b9c27b3a5b1d09671c11f1434f2d65e147d29ceea1305dd82dce",
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "writing_style_sha256": "d18a0c7540e0d286fc5b07fc55bc5898e6ac73d0dead89f1df485b31bd2709e6"
     }
   },
   "diagram_collection": {
@@ -777,5 +807,32 @@
       "coordination_skill_original_rounds_cap": 5,
       "advance_warning_sent": true
     }
-  ]
+  ],
+  "merge_compatibility_document_delivery": {
+    "checked_at_utc": "2026-11-02T03:28:27.907865+00:00",
+    "task": "TST-84",
+    "call": "MERGE-COMPATIBILITY-4",
+    "application_pin": "44a91116d73d0a3ac279aa3b064d373000356477",
+    "merge_script_sha256": "b47d53d4f9861e2a22e1412dd1d9b8c48407bf177c232cb97ff4770acd307022",
+    "reviewed_assigned_worktree_source": "3560ecf3825df74e868b92e108e3c2a79e755433",
+    "root_main_at_phase_start": "76a23ae",
+    "source_rows": 396,
+    "captured_paths": 646,
+    "unlinked_paths": 358,
+    "retained_pending_semantic_paths": 417,
+    "inherited_static_rows": 95,
+    "source_audit_complete": false,
+    "local_case_groups": 107,
+    "extended_variants": 29,
+    "retained_host_cases": 8,
+    "proposed_F0_groups": 16,
+    "product_cases_executed_in_this_phase": 0,
+    "zero_loss_original_entries_accounted": {
+      "decision": 125,
+      "tests": 205
+    },
+    "zero_loss_gaps": 0,
+    "documentation_integrity_checks_passed": 17,
+    "scope": "Checked proposed documents only; F0 code, real application resources, host/provider acceptance and cutover remain separately gated."
+  }
 }
