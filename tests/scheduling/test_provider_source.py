@@ -592,3 +592,44 @@ def test_provider_error_body_is_not_retained_in_scheduling_receipts(provider):
     assert provider.refresh(task, "privacy")["state"] == "unknown"
     ref = provider.receipts.lookup(provider.scope, task.id, "privacy")["receipt"]
     assert "foreign-private-sentinel" not in json.dumps(provider.receipts._get(ref, PREFIX))
+
+
+@pytest.mark.parametrize("timing", ["before_expiry", "after_expiry"])
+def test_active_attempt_refresh_preserves_expiry_fence(provider, timing):
+    from ai_task_manager.domains.scheduling.models import SchedulingBlocked
+
+    p, r = provider, provider.rig
+    task = p.task()
+    p.refresh(task)
+    task = r.transition(task, S.TODO, "enqueue")
+    p.sync(task)
+    task, attempt = r.running(task)
+    p.sync(task)
+    before = r.core.scheduling.explain(r.handle, task.id)
+    r.now += 29 if timing == "before_expiry" else 31
+    current = p.refresh(task, "active-refresh")
+    assert current["graph_version"] == before["graph_version"]
+    if timing == "before_expiry":
+        assert current["state"] == "ready"
+        assert (
+            r.core.execution.validate_work_lease(r.handle, attempt.id, attempt.version) == attempt
+        )
+    else:
+        assert current["state"] == "blocked"
+        assert current["blockers"][0]["code"] == "attempt_dependencies_invalidated"
+        with pytest.raises(SchedulingBlocked):
+            r.core.execution.validate_work_lease(r.handle, attempt.id, attempt.version)
+    with r.db.transaction() as conn:
+        row = conn.execute(
+            "SELECT invalidated_by FROM scheduling_attempts WHERE attempt_id=?", (attempt.id,)
+        ).fetchone()
+        assert bool(row[0]) == (timing == "after_expiry")
+        assert (
+            conn.execute(
+                "SELECT count(*) FROM resource_leases WHERE attempt_id=?", (attempt.id,)
+            ).fetchone()[0]
+            == 2
+        )
+        assert (
+            conn.execute("SELECT active FROM attempts WHERE id=?", (attempt.id,)).fetchone()[0] == 1
+        )
