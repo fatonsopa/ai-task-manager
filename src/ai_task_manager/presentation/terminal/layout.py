@@ -254,19 +254,22 @@ class OwnedLayout:
         panes_stopped = not pane_pids
         deadline = time.monotonic() + 1
         while pane_pids:
-            reply = subprocess.run(
-                ["ps", "-p", ",".join(map(str, pane_pids)), "-o", "pid=,stat="],
-                capture_output=True,
-                text=True,
-                timeout=2,
-            )
-            rows = [line.split() for line in reply.stdout.splitlines()]
-            known = reply.returncode in {0, 1} and all(len(row) == 2 for row in rows)
-            live = (
-                [int(row[0]) for row in rows if not row[1].startswith(("Z", "X"))]
-                if known
-                else None
-            )
+            try:
+                reply = subprocess.run(
+                    ["ps", "-p", ",".join(map(str, pane_pids)), "-o", "pid=,stat="],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                )
+                rows = [line.split() for line in reply.stdout.splitlines()]
+                known = reply.returncode in {0, 1} and all(len(row) == 2 for row in rows)
+                live = (
+                    [int(row[0]) for row in rows if not row[1].startswith(("Z", "X"))]
+                    if known
+                    else None
+                )
+            except (OSError, subprocess.TimeoutExpired, ValueError):
+                rows, known, live = [], False, None
             pane_observations.append({"known": known, "rows": rows, "live_pids": live})
             panes_stopped = known and not live
             if panes_stopped or time.monotonic() >= deadline:

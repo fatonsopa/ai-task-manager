@@ -181,3 +181,79 @@ def test_incomplete_descendant_cleanup_is_retained_and_later_reconciled(tmp_path
         assert stopped_panes([child])
     finally:
         wait(lambda: layout.close()["resources_stopped"], seconds=6)
+
+
+@pytest.mark.parametrize("failure", [OSError, subprocess.TimeoutExpired])
+def test_failed_process_observation_is_unknown_then_reconciled(tmp_path, monkeypatch, failure):
+    source = Path(__file__).with_name("native_fixture.py").resolve()
+    layout = OwnedLayout(tmux_binary(), tmp_path / "layout")
+    original_run = subprocess.run
+    failures = []
+
+    def unavailable(arguments, *args, **kwargs):
+        if arguments[:3] == ["ps", "-axo", "pid=,ppid=,pgid=,stat=,lstart="] or (
+            arguments[:2] == ["ps", "-p"]
+        ):
+            failures.append(arguments)
+            if failure is OSError:
+                raise OSError("Owned fixture metadata failure")
+            raise subprocess.TimeoutExpired(arguments, 2)
+        return original_run(arguments, *args, **kwargs)
+
+    try:
+        layout.create(
+            [sys.executable, str(source), "host"],
+            [sys.executable, "-c", "import time; time.sleep(20)"],
+        )
+        with monkeypatch.context() as patch:
+            patch.setattr(subprocess, "run", unavailable)
+            first = layout.close()
+            assert first["server"]["confirmed_stop"]
+            assert not first["panes_stopped"]
+            assert not first["observed_processes"]["known"]
+            assert not first["resources_stopped"] and layout.socket_root.exists()
+            assert any(row[:2] == ["ps", "-p"] for row in failures)
+            assert any(row[:2] == ["ps", "-axo"] for row in failures)
+        second = layout.close()
+        assert second["resources_stopped"] and not layout.socket_root.exists()
+        assert first["resources_stopped"] is False
+        assert json.loads((layout.root / "close-attempt-1.json").read_text()) == first
+    finally:
+        wait(lambda: layout.close()["resources_stopped"], seconds=6)
+
+
+def test_startup_error_survives_failed_cleanup_observation(tmp_path, monkeypatch):
+    layout = OwnedLayout(tmux_binary(), tmp_path / "layout")
+    original_run, original_command = subprocess.run, layout._command
+    errors = []
+
+    def failing_command(*arguments):
+        try:
+            return original_command(*arguments)
+        except LayoutUnavailable as error:
+            errors.append(error)
+            raise
+
+    def unavailable(arguments, *args, **kwargs):
+        if errors and (
+            arguments[:3] == ["ps", "-axo", "pid=,ppid=,pgid=,stat=,lstart="]
+            or arguments[:2] == ["ps", "-p"]
+        ):
+            raise OSError("Owned fixture metadata failure")
+        return original_run(arguments, *args, **kwargs)
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(layout, "_command", failing_command)
+            patch.setattr(subprocess, "run", unavailable)
+            with pytest.raises(LayoutUnavailable) as observed:
+                layout.create(
+                    ["/owned-fixture-missing-executable"], ["/owned-fixture-missing-executable"]
+                )
+            assert errors and observed.value is errors[0]
+            assert layout.closed is not None and not layout.closed["resources_stopped"]
+            assert not layout.closed["observed_processes"]["known"]
+            assert layout.socket_root.exists()
+        assert layout.close()["resources_stopped"]
+    finally:
+        wait(lambda: layout.close()["resources_stopped"], seconds=6)

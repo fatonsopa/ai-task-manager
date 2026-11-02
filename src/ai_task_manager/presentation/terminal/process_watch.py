@@ -4,13 +4,16 @@ import subprocess
 
 
 def inventory():
-    reply = subprocess.run(
-        ["ps", "-axo", "pid=,ppid=,pgid=,stat=,lstart="],
-        capture_output=True,
-        text=True,
-        timeout=2,
-        env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
-    )
+    try:
+        reply = subprocess.run(
+            ["ps", "-axo", "pid=,ppid=,pgid=,stat=,lstart="],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     if reply.returncode or not reply.stdout.strip():
         return None
     rows = {}
