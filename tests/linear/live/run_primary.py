@@ -61,7 +61,7 @@ class DrainWorker:
             raise DriverRefused("invalid_stop_bound")
         self.closing.set()
         self.event.set()
-        if self.thread is not None:
+        if self.thread is not None and self.thread.ident is not None:
             self.thread.join(timeout)
         return {"stopped": self.thread is None or not self.thread.is_alive()}
 
@@ -136,6 +136,8 @@ class PrimaryRun:
     def start(self):
         if self.reusing:
             with self.receiver.lifecycle:
+                if self.drain.thread is not None or self.drain.closing.is_set():
+                    raise DriverRefused("existing_receiver_already_activated")
                 self._check_receiver()
                 self._check_product()
                 placeholder = self.receiver.adapter

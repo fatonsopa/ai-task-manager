@@ -2,6 +2,7 @@
 
 import json
 import socket
+import threading
 import time
 from dataclasses import replace
 from uuid import uuid4
@@ -172,3 +173,35 @@ def test_pr07_actual_drain_precedes_publication_without_duplicate_receiver(
     assert facts[0]["placeholder"] and facts[1]["configured"]
     assert facts[0]["at"] <= facts[1]["at"]
     (tmp_path / "actual-rebind-order.json").write_text(json.dumps(facts, indent=2) + "\n")
+
+
+def test_pr08_duplicate_activation_preserves_working_consumer(owned):
+    rig, record, server, runs = owned
+    run = configured(rig, record, receiver=server)
+    runs.append(run)
+    run.start()
+    thread, adapter = run.drain.thread, server.adapter
+    with pytest.raises(DriverRefused, match="already_activated"):
+        run.start()
+    assert server.adapter is adapter and run.drain.thread is thread
+    assert thread.is_alive() and not run.drain.closing.is_set()
+
+
+def test_pr09_actual_drain_thread_start_failure_preserves_original_error(owned, monkeypatch):
+    rig, record, server, runs = owned
+    placeholder = server.adapter
+    run = configured(rig, record, receiver=server)
+    runs.append(run)
+    original = threading.Thread.start
+
+    def fail(thread):
+        if thread.name == "owned-linear-drain":
+            raise RuntimeError("authored_actual_thread_start")
+        return original(thread)
+
+    monkeypatch.setattr(threading.Thread, "start", fail)
+    with pytest.raises(RuntimeError, match="authored_actual_thread_start"):
+        run.start()
+    assert server.adapter is placeholder and server.thread.is_alive()
+    assert run.drain.thread.ident is None
+    assert run.drain.stop(1)["stopped"]
