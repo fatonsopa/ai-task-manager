@@ -7,7 +7,7 @@ import time
 from ai_task_manager.adapters.linear.webhooks import WebhookReceiver
 
 from .ledger import DriverRefused
-from .receiver import BoundedReceiver
+from .receiver import BoundedReceiver, receiver_route
 
 
 class BudgetedTransport:
@@ -61,7 +61,7 @@ class DrainWorker:
             raise DriverRefused("invalid_stop_bound")
         self.closing.set()
         self.event.set()
-        if self.thread is not None:
+        if self.thread is not None and self.thread.ident is not None:
             self.thread.join(timeout)
         return {"stopped": self.thread is None or not self.thread.is_alive()}
 
@@ -81,18 +81,88 @@ class PrimaryRun:
         ledger,
         *,
         clock,
+        receiver=None,
         **receiver_options,
     ):
         self.drain = DrainWorker(inbound, handle, ledger)
-        adapter = WebhookReceiver(
+        self.adapter = WebhookReceiver(
             core, handle, journal, binding, webhook_id, secret, clock=clock, wake=self.drain.wake
         )
-        self.receiver = BoundedReceiver(adapter, ledger, **receiver_options)
+        self.reusing = receiver is not None
+        if self.reusing:
+            if receiver_options:
+                raise DriverRefused("existing_receiver_options_conflict")
+            self.receiver = receiver
+            self._check_receiver()
+            self._check_product()
+        else:
+            self.receiver = BoundedReceiver(self.adapter, ledger, **receiver_options)
+
+    def _check_receiver(self):
+        receiver = self.receiver
+        if (
+            not isinstance(receiver, BoundedReceiver)
+            or (
+                getattr(receiver, "product_run", None) is not None
+                and receiver.product_run is not self
+            )
+            or receiver.ledger is not self.drain.ledger
+            or receiver.route != receiver_route(self.drain.ledger.run_id)
+            or not receiver.started
+            or receiver.stopping
+            or receiver.thread is None
+            or not receiver.thread.is_alive()
+            or not receiver.loop_entered.is_set()
+            or receiver.server.socket.fileno() < 0
+            or receiver.address[0] != "127.0.0.1"
+            or receiver.active
+        ):
+            raise DriverRefused("existing_receiver_not_quiescent")
+
+    def _check_product(self):
+        expected, scope = self.adapter.binding.expected, self.drain.ledger.scope
+        _, current = self.adapter.core.session_binding(self.adapter.handle)
+        if (expected.workspace_id, expected.viewer_id, expected.team_id, expected.project_id) != (
+            scope.workspace,
+            scope.owner,
+            scope.team,
+            scope.project,
+        ) or (current.workspace, current.principal, current.project) != (
+            scope.workspace,
+            scope.owner,
+            scope.project,
+        ):
+            raise DriverRefused("existing_receiver_scope_mismatch")
+        owned = self.drain.ledger.resource(scope.project)
+        if owned["kind"] != "project" or owned["state"] != "active":
+            raise DriverRefused("existing_receiver_project_required")
 
     def start(self):
+        if self.reusing:
+            with self.receiver.lifecycle:
+                if self.drain.thread is not None or self.drain.closing.is_set():
+                    raise DriverRefused("existing_receiver_already_activated")
+                self._check_receiver()
+                self._check_product()
+                placeholder = self.receiver.adapter
+                try:
+                    self.drain.start()
+                    self._check_receiver()
+                    self._check_product()
+                    if self.drain.thread is None or not self.drain.thread.is_alive():
+                        raise DriverRefused("existing_receiver_drain_not_running")
+                    self.receiver.adapter = self.adapter
+                    self.receiver.product_run = self
+                    return self.receiver.address
+                except BaseException:
+                    self.receiver.adapter = placeholder
+                    self.drain.stop()
+                    raise
         self.drain.start()
         try:
-            return self.receiver.start()
+            address = self.receiver.start()
+            self.receiver.product_run = self
+            return address
         except BaseException:
             self.drain.stop()
             raise
