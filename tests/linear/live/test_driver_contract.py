@@ -1808,3 +1808,242 @@ def test_hd16_bounded_header_prefix_refuses_over_limit_input(tmp_path, shape):
         assert server.stop(3)["stopped"]
     assert b"z" * 1000 not in record.path.read_bytes()
     clock_records(server, tmp_path)
+
+
+def startup_case_worker(folder, scenario, queue):
+    """All dangerous lifecycle calls stay in this owned child, never pytest main."""
+    folder = Path(folder)
+    server = BoundedReceiver(HttpCounter(), ledger(folder))
+    original_start = threading.Thread.start
+    original_bind = server.server.server_bind
+    original_activate = server.server.server_activate
+    original_serve = server.server.serve_forever
+    entered, release = threading.Event(), threading.Event()
+    facts_out, caller = {}, None
+
+    def fail():
+        raise RuntimeError("PRIVATE_AUTHORED_START_FAILURE")
+
+    def attempt_start():
+        try:
+            server.start()
+        except BaseException as error:
+            facts_out["start_error"] = type(error).__name__
+
+    def snapshot():
+        return {
+            "socket_closed": server.server.socket.fileno() == -1,
+            "accept_alive": server.thread is not None and server.thread.is_alive(),
+            "accept_ident": server.thread.ident if server.thread else None,
+            "shutdown_alive": server.shutdown_thread is not None
+            and server.shutdown_thread.is_alive(),
+            "shutdown_created": server.shutdown_thread is not None,
+            "loop_witness": server.loop_entered.is_set(),
+            "startup_rollback": server.startup_rollback,
+        }
+
+    try:
+        if scenario in {"SS02", "SS05"}:
+
+            def failed_start(thread):
+                if thread.name == "owned-http-accept":
+                    if scenario == "SS05":
+                        original_start(thread)
+                    fail()
+                return original_start(thread)
+
+            threading.Thread.start = failed_start
+            attempt_start()
+            facts_out["after_error"] = snapshot()
+            facts_out["stop"] = server.stop(0.05)
+        elif scenario in {"SS03", "SS04"}:
+            if scenario == "SS03":
+                server.server.server_bind = fail
+            else:
+                server.server.server_activate = fail
+            attempt_start()
+            facts_out["after_error"] = snapshot()
+            facts_out["stop"] = server.stop(0.05)
+            attempt_start()
+            facts_out["retry_error"] = facts_out.get("start_error")
+        elif scenario == "SS06":
+            facts_out["stop"] = server.stop(0.05)
+            attempt_start()
+        elif scenario == "SS07":
+            server.start()
+            first_ident = server.thread.ident
+            attempt_start()
+            facts_out["duplicate_error"] = facts_out.get("start_error")
+            facts_out["same_thread"] = server.thread.ident == first_ident
+            facts_out["stop"] = server.stop(1)
+            attempt_start()
+        elif scenario == "SS08":
+
+            def delayed_activate():
+                entered.set()
+                if not release.wait(2):
+                    raise RuntimeError("authored_gate_timeout")
+                original_activate()
+
+            server.server.server_activate = delayed_activate
+            caller = threading.Thread(target=attempt_start, name="owned-startup-caller")
+            caller.start()
+            assert entered.wait(1)
+            before = time.monotonic()
+            facts_out["first_stop"] = server.stop(0.02)
+            facts_out["first_stop_seconds"] = time.monotonic() - before
+            release.set()
+            caller.join(1)
+            facts_out["caller_alive"] = caller.is_alive()
+            facts_out["stop"] = server.stop(1)
+        elif scenario == "SS09":
+            server.start()
+            assert server.loop_entered.wait(1)
+
+            def failed_shutdown(thread):
+                if thread.name == "owned-http-shutdown":
+                    fail()
+                return original_start(thread)
+
+            threading.Thread.start = failed_shutdown
+            facts_out["first_stop"] = server.stop(0.05)
+            facts_out["retained"] = snapshot()
+            threading.Thread.start = original_start
+            facts_out["stop"] = server.stop(1)
+        elif scenario == "SS10":
+
+            def failed_loop(*args, **kwargs):
+                fail()
+
+            server.server.serve_forever = failed_loop
+            attempt_start()
+            if server.thread is not None:
+                server.thread.join(1)
+            facts_out["before_stop"] = snapshot()
+            facts_out["stop"] = server.stop(0.05)
+        elif scenario == "SS11":
+
+            def delayed_loop(*args, **kwargs):
+                entered.set()
+                if not release.wait(2):
+                    raise RuntimeError("authored_gate_timeout")
+                return original_serve(*args, **kwargs)
+
+            server.server.serve_forever = delayed_loop
+            server.start()
+            assert entered.wait(1)
+            before = time.monotonic()
+            facts_out["first_stop"] = server.stop(0.02)
+            facts_out["first_stop_seconds"] = time.monotonic() - before
+            facts_out["before_entry"] = snapshot()
+            release.set()
+            assert server.loop_entered.wait(1)
+            facts_out["stop"] = server.stop(1)
+        else:
+            assert scenario == "SS01"
+            server.start()
+            assert send(server, method="GET", route=server.health_route)[0] == 200
+            facts_out["stop"] = server.stop(1)
+            facts_out["retry_stop"] = server.stop(0.05)
+        facts_out["final_before_helper_cleanup"] = snapshot()
+    except BaseException as error:
+        facts_out["worker_error"] = type(error).__name__
+    finally:
+        threading.Thread.start = original_start
+        server.server.server_bind = original_bind
+        server.server.server_activate = original_activate
+        server.server.serve_forever = original_serve
+        release.set()
+        if caller is not None:
+            caller.join(1)
+        # Preserve desired facts before independent helper cleanup.
+        (folder / "startup-observation.json").write_text(
+            json.dumps(facts_out, indent=2, sort_keys=True) + "\n"
+        )
+        if (
+            server.shutdown_thread is not None
+            and server.shutdown_thread.is_alive()
+            and (server.thread is None or server.thread.ident is None)
+        ):
+            cleanup_loop = threading.Thread(
+                target=lambda: original_serve(poll_interval=0.01),
+                name="owned-startup-helper-cleanup",
+            )
+            cleanup_loop.start()
+            cleanup_loop.join(1)
+        facts_out["helper_cleanup"] = server.stop(1)
+        facts_out["helper_final"] = snapshot()
+        (folder / "startup-result.json").write_text(
+            json.dumps(facts_out, indent=2, sort_keys=True) + "\n"
+        )
+        queue.put(facts_out)
+
+
+@pytest.mark.parametrize("scenario", [f"SS{number:02}" for number in range(1, 12)])
+def test_ss01_to_ss11_startup_lifecycle_in_owned_child(tmp_path, scenario):
+    context = multiprocessing.get_context("spawn")
+    queue = context.Queue()
+    child = context.Process(target=startup_case_worker, args=(str(tmp_path), scenario, queue))
+    try:
+        child.start()
+        facts_out = queue.get(timeout=5)
+        child.join(timeout=1)
+        assert child.exitcode == 0 and not child.is_alive()
+        assert "worker_error" not in facts_out
+        assert facts_out["stop"]["stopped"]
+        assert facts_out["helper_cleanup"]["stopped"]
+        assert facts_out["helper_final"]["socket_closed"]
+        assert not facts_out["helper_final"]["accept_alive"]
+        assert not facts_out["helper_final"]["shutdown_alive"]
+        if scenario in {"SS02", "SS05"}:
+            assert facts_out["start_error"] == "RuntimeError"
+            assert facts_out["after_error"]["startup_rollback"]["stopped"]
+            assert facts_out["after_error"]["socket_closed"]
+        if scenario == "SS02":
+            assert not facts_out["after_error"]["shutdown_created"]
+        if scenario in {"SS03", "SS04", "SS06", "SS07", "SS08"}:
+            assert facts_out["start_error"] == "DriverRefused"
+        if scenario in {"SS03", "SS04"}:
+            assert facts_out["after_error"]["socket_closed"]
+            assert not facts_out["after_error"]["shutdown_created"]
+        if scenario == "SS07":
+            assert facts_out["same_thread"] and facts_out["duplicate_error"] == "DriverRefused"
+        if scenario == "SS08":
+            assert (
+                not facts_out["first_stop"]["stopped"]
+                and facts_out["first_stop"]["lifecycle_pending"]
+            )
+            assert facts_out["first_stop_seconds"] <= 0.2 and not facts_out["caller_alive"]
+        if scenario == "SS09":
+            assert (
+                not facts_out["first_stop"]["stopped"]
+                and facts_out["first_stop"]["shutdown_start_failed"]
+            )
+            assert (
+                facts_out["retained"]["accept_alive"] and not facts_out["retained"]["socket_closed"]
+            )
+        if scenario == "SS10":
+            assert (
+                not facts_out["before_stop"]["accept_alive"]
+                and not facts_out["before_stop"]["loop_witness"]
+            )
+            assert not facts_out["final_before_helper_cleanup"]["shutdown_created"]
+        if scenario == "SS11":
+            assert not facts_out["first_stop"]["stopped"] and facts_out["first_stop_seconds"] <= 0.2
+            assert (
+                facts_out["before_entry"]["accept_alive"]
+                and not facts_out["before_entry"]["loop_witness"]
+            )
+            assert not facts_out["before_entry"]["shutdown_created"]
+            assert facts_out["final_before_helper_cleanup"]["loop_witness"]
+    finally:
+        if child.pid is not None:
+            if child.is_alive():
+                child.terminate()
+            child.join(timeout=1)
+            if child.is_alive():
+                child.kill()
+                child.join(timeout=1)
+        assert not child.is_alive()
+        queue.close()
+        queue.join_thread()
