@@ -1,0 +1,13 @@
+{
+  "task": "TST-85",
+  "source_checkpoint": "e269c7a08aadd05d7efa275291677f0fc753fd4b",
+  "preserved_case_contract": "planning-preservation-v7.json",
+  "preserved_failure": {
+    "result": ".local/existing-results/planning-installed.xml",
+    "passed": 14,
+    "failed": 1,
+    "cause": "The command-mutation control selected implementation_plan.md, which has no fenced block. Its altered != original fixture-precondition assertion failed before executing the preservation guard."
+  },
+  "correction": "For the command-only negative select docs/readme.md, which contains actual preserved fenced command blocks. Other controls still select the Implementation Plan. Preserve the same altered-byte precondition and require the actual combined LP48 assertion to refuse it. No production, baseline fixture or intended oracle change.",
+  "execution": "not_run"
+}

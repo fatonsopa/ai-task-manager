@@ -468,7 +468,7 @@ def test_lp48_narrow_edits_preserve_document_structure_and_commands():
 @pytest.mark.parametrize("change", ["missing", "duplicate", "extra", "reordered", "command"])
 def test_lp48_combined_preservation_refuses_unapproved_changes(monkeypatch, change):
     original = Path.read_text
-    document = ROOT / "docs/implementation_plan.md"
+    document = ROOT / "docs" / ("readme.md" if change == "command" else "implementation_plan.md")
     text = original(document)
     heading = "### Existing-issue intake"
     if change == "missing":
