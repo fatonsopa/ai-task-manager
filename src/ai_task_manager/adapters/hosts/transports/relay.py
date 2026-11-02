@@ -87,7 +87,7 @@ def main():
                 target = outputs[fd]
                 totals[target] += len(part)
                 if totals[target] > limits[target]:
-                    terminate("native_output_limit")
+                    terminate("native_" + ("stdout" if target == 1 else "stderr") + "_limit")
                 pending[target].extend(part)
                 continue
             if not part:
