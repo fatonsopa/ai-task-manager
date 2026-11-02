@@ -227,7 +227,7 @@
         "R34"
       ],
       "result": [
-        "all legacy compatibility entrypoints",
+        "standalone merge integration and complete retirement of superseded entry points",
         "state import/reconciliation",
         "single-writer activation and rollback",
         "versioned self-contained host packages"
@@ -458,26 +458,34 @@
     {
       "id": "T09",
       "phase": "P03",
-      "title": "Prove existing merge integration",
+      "title": "Verify standalone merge integration",
       "depends_on": [
         "T08"
       ],
       "owned_paths": [
-        "src/ai_task_manager/adapters/project/",
-        "tests/merge_compatibility/"
+        "src/ai_task_manager/domains/merging/",
+        "src/ai_task_manager/application/merging/",
+        "src/ai_task_manager/storage/merging/",
+        "src/ai_task_manager/adapters/git/",
+        "tests/merge/"
       ],
       "requirements": [
         "R01",
         "R05",
+        "R08",
         "R14",
         "R19",
-        "R31"
+        "R24",
+        "R28",
+        "R31",
+        "R32"
       ],
-      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "result": "Reviewed standalone merge contracts, independent project fixtures, trusted configured targets, owned resources and verified publication/recovery.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
       "status": "in_progress",
-      "evidence": "The preserved merge contract has been inventoried; managed runner compatibility is being implemented under TST-81. Latest source audit and actual application-database merge acceptance remain pending."
+      "evidence": "Historical merge-port/component evidence remains in prior revisions. A generic Git candidate exists separately; its integration and acceptance, the public merge interface and full standalone verification remain pending.",
+      "path_status": "Agreed generic responsibility paths; candidate implementation is not yet integrated or accepted on this baseline."
     },
     {
       "id": "T10",
@@ -504,7 +512,7 @@
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
       "status": "component_verified",
       "evidence": "Scoped transport, durable outbox, receiver and existing-issue admission are integrated and included in the a3d0aca mechanical suite. Actual provider delivery remains under T11/TST-87; no live product webhook has run.",
-      "dependency_note": "Core interfaces permit transport/ingress work before merge compatibility; delivery evidence still requires T09 in end-to-end gates."
+      "dependency_note": "Core interfaces permit transport/ingress work before standalone merge integration; delivery evidence still requires T09 in end-to-end gates."
     },
     {
       "id": "T11",
@@ -552,7 +560,7 @@
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
       "status": "in_progress",
-      "evidence": "Application service, scoped CLI and actual SDK stdio passed component checks at commit 4c7b242; stronger current writing handoff integrated as commit 069a1b5 with 139 worker checks and 8 lead subset checks. Managed-host/legacy compatibility gates remain pending."
+      "evidence": "Application service, scoped CLI and actual SDK stdio passed component checks at commit 4c7b242; stronger current writing handoff integrated as commit 069a1b5 with 139 worker checks and 8 lead subset checks. Managed-host and standalone integration acceptance remain pending."
     },
     {
       "id": "T13",
@@ -736,15 +744,15 @@
     {
       "id": "T21",
       "phase": "P09",
-      "title": "Implement complete legacy command compatibility",
+      "title": "Retire superseded control entry points",
       "depends_on": [
         "T16",
         "T18",
         "T20"
       ],
       "owned_paths": [
-        "src/ai_task_manager/adapters/legacy/",
-        "tests/legacy_contracts/"
+        "src/ai_task_manager/migration/",
+        "tests/cutover/"
       ],
       "requirements": [
         "R18",
@@ -755,7 +763,7 @@
         "R33",
         "R34"
       ],
-      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "result": "Inventory-bound retirement of obsolete task, Linear, agent, worktree and merge control surfaces; no old shell wrapper or alias.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
       "status": "not_started"
@@ -781,7 +789,7 @@
         "R33",
         "R34"
       ],
-      "result": "Tested state import and single-writer cutover, inventory-bound removal/replacement manifest, docs/migrate.md with verified AI Index commands, and interruption/recovery evidence.",
+      "result": "State import and single-authority cutover with removal/replacement reasons, recovery and a future docs/migrate.md containing tested product commands. Target-specific actions follow the later fresh audit; no AI Index script is a product dependency.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
       "status": "not_started"
@@ -816,13 +824,12 @@
     {
       "id": "T24",
       "phase": "P09",
-      "title": "Write final task-management instructions",
+      "title": "Write necessary product-owned integration guidance",
       "depends_on": [
         "T23"
       ],
       "owned_paths": [
-        "docs/task-management.md",
-        "docs/generated/transitions.md",
+        "docs/",
         "AGENTS.md",
         "CLAUDE.md"
       ],
@@ -835,10 +842,11 @@
         "R33",
         "R34"
       ],
-      "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+      "result": "Only required product-owned operational guidance and generated references, based on implemented interfaces. Exact additional guide filenames remain pending; no old task-management path is required to survive.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "not_started",
+      "path_status": "Documentation responsibility only; the implementation issue must narrow exact paths before editing."
     },
     {
       "id": "T25",
@@ -1088,6 +1096,215 @@
       "observed_at_utc": "2026-11-02T02:30:00+00:00",
       "change": "Refresh source-bound component progress after integrated a3d0aca and registered primary Linear preflight; preserve unrun live acceptance, held skill dependencies and normal T34 asset placement.",
       "previous_sha256": "3096aecb952fe1d0cc0f18c116d719bc7bcedbf3ea28f3b69ee5b6710225cb29"
+    },
+    {
+      "revision": 6,
+      "date": "2026-11-02",
+      "reason": "Binding standalone/retired-entrypoint/no-copy direction; preserve task and phase IDs and prior evidence. This correction does not claim runtime completion.",
+      "changes": [
+        {
+          "id": "P09",
+          "previous": {
+            "id": "P09",
+            "title": "Implement complete cutover and distribution",
+            "depends_on": [
+              "P06",
+              "P07",
+              "P08"
+            ],
+            "requirements": [
+              "R18",
+              "R24",
+              "R25",
+              "R28",
+              "R32",
+              "R33",
+              "R34"
+            ],
+            "result": [
+              "all legacy compatibility entrypoints",
+              "state import/reconciliation",
+              "single-writer activation and rollback",
+              "versioned self-contained host packages"
+            ],
+            "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
+            "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
+            "status": "not_started"
+          }
+        },
+        {
+          "id": "T09",
+          "previous": {
+            "id": "T09",
+            "phase": "P03",
+            "title": "Prove existing merge integration",
+            "depends_on": [
+              "T08"
+            ],
+            "owned_paths": [
+              "src/ai_task_manager/adapters/project/",
+              "tests/merge_compatibility/"
+            ],
+            "requirements": [
+              "R01",
+              "R05",
+              "R14",
+              "R19",
+              "R31"
+            ],
+            "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+            "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+            "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+            "status": "in_progress",
+            "evidence": "The preserved merge contract has been inventoried; managed runner compatibility is being implemented under TST-81. Latest source audit and actual application-database merge acceptance remain pending."
+          }
+        },
+        {
+          "id": "T21",
+          "previous": {
+            "id": "T21",
+            "phase": "P09",
+            "title": "Implement complete legacy command compatibility",
+            "depends_on": [
+              "T16",
+              "T18",
+              "T20"
+            ],
+            "owned_paths": [
+              "src/ai_task_manager/adapters/legacy/",
+              "tests/legacy_contracts/"
+            ],
+            "requirements": [
+              "R18",
+              "R24",
+              "R25",
+              "R28",
+              "R32",
+              "R33",
+              "R34"
+            ],
+            "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+            "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+            "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+            "status": "not_started"
+          }
+        },
+        {
+          "id": "T22",
+          "previous": {
+            "id": "T22",
+            "phase": "P09",
+            "title": "Implement state import and single-writer cutover",
+            "depends_on": [
+              "T21"
+            ],
+            "owned_paths": [
+              "src/ai_task_manager/migration/",
+              "tests/cutover/",
+              "docs/migrate.md"
+            ],
+            "requirements": [
+              "R18",
+              "R24",
+              "R25",
+              "R28",
+              "R32",
+              "R33",
+              "R34"
+            ],
+            "result": "Tested state import and single-writer cutover, inventory-bound removal/replacement manifest, docs/migrate.md with verified AI Index commands, and interruption/recovery evidence.",
+            "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+            "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+            "status": "not_started"
+          }
+        },
+        {
+          "id": "T24",
+          "previous": {
+            "id": "T24",
+            "phase": "P09",
+            "title": "Write final task-management instructions",
+            "depends_on": [
+              "T23"
+            ],
+            "owned_paths": [
+              "docs/task-management.md",
+              "docs/generated/transitions.md",
+              "AGENTS.md",
+              "CLAUDE.md"
+            ],
+            "requirements": [
+              "R18",
+              "R24",
+              "R25",
+              "R28",
+              "R32",
+              "R33",
+              "R34"
+            ],
+            "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+            "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+            "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+            "status": "not_started"
+          }
+        },
+        {
+          "id": "T10",
+          "previous": {
+            "id": "T10",
+            "phase": "P04",
+            "title": "Implement scoped Linear transport and outbox",
+            "depends_on": [
+              "T06"
+            ],
+            "owned_paths": [
+              "src/ai_task_manager/adapters/linear/",
+              "tests/linear/"
+            ],
+            "requirements": [
+              "R02",
+              "R09",
+              "R10",
+              "R12",
+              "R13",
+              "R23",
+              "R30"
+            ],
+            "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+            "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+            "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+            "status": "component_verified",
+            "evidence": "Scoped transport, durable outbox, receiver and existing-issue admission are integrated and included in the a3d0aca mechanical suite. Actual provider delivery remains under T11/TST-87; no live product webhook has run.",
+            "dependency_note": "Core interfaces permit transport/ingress work before merge compatibility; delivery evidence still requires T09 in end-to-end gates."
+          }
+        },
+        {
+          "id": "T12",
+          "previous": {
+            "id": "T12",
+            "phase": "P05",
+            "title": "Implement shared MCP application interface",
+            "depends_on": [
+              "T09",
+              "T10"
+            ],
+            "owned_paths": [
+              "src/ai_task_manager/application/",
+              "src/ai_task_manager/adapters/mcp/"
+            ],
+            "requirements": [
+              "R15",
+              "R16",
+              "R27"
+            ],
+            "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
+            "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
+            "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
+            "status": "in_progress",
+            "evidence": "Application service, scoped CLI and actual SDK stdio passed component checks at commit 4c7b242; stronger current writing handoff integrated as commit 069a1b5 with 139 worker checks and 8 lead subset checks. Managed-host/legacy compatibility gates remain pending."
+          }
+        }
+      ]
     }
   ],
   "repository_layout_history": [

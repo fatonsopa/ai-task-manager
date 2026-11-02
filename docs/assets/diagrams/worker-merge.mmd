@@ -1,33 +1,33 @@
 %% View: overview
 %% Diagram: Flowchart
-%% Subtitle: The preserved merge route and verified result handling.
+%% Subtitle: Planned merges through one authority, with current checks and verified outcomes.
 flowchart TD
     accTitle: Worker merge workflow
-    accDescr: The worker keeps the existing merge procedure; the proposed controller records its result.
+    accDescr: A worker commits its own changes and requests a foreground merge through the product authority. Checks and publication are verified before execution is settled; unknown outcomes retain recovery obligations. Public command names remain pending.
     A@{ shape: rect, label: "1. Worker commits its changes" }
     class A process
-    B@{ shape: fr-rect, label: "2. Run merge prechecks" }
+    B@{ shape: fr-rect, label: "2. Validate merge request" }
     class B predefined
-    C@{ shape: diam, label: "3. CHECKS PASSED?" }
+    C@{ shape: diam, label: "3. Checks valid?" }
     class C decision
-    D@{ shape: rect, label: "4. Worker fixes the reported cause" }
+    D@{ shape: rect, label: "4. Resolve the attributed cause" }
     class D process
-    E@{ shape: fr-rect, label: "5. Run existing merge script" }
+    E@{ shape: fr-rect, label: "5. Request foreground merge" }
     class E predefined
-    F@{ shape: diam, label: "6. Successful merge result?" }
+    F@{ shape: diam, label: "6. Publication confirmed?" }
     class F decision
-    G@{ shape: rect, label: "7. Record the script’s answer" }
+    G@{ shape: rect, label: "7. Record outcome and obligations" }
     class G process
-    H@{ shape: stadium, label: "8. Close execution under existing rules" }
+    H@{ shape: stadium, label: "8. Settle owned execution" }
     class H terminator
     A --> B
     B --> C
-    C -->|"WOULD NOT MERGE"| D
+    C -->|"Blocked"| D
     C -->|"Yes"| E
-    C -->|"NOTHING TO MERGE"| G
-    D -->|"Commit the repair"| A
+    C -->|"No changes"| G
+    D -->|"Commit an attributed repair"| A
     E --> F
-    F -->|"NOT MERGED"| D
-    F -->|"MERGED or NOTHING TO MERGE"| G
+    F -->|"Unconfirmed"| G
+    F -->|"Confirmed"| G
     G --> H
-%% Legend: flow_arrow | Existing merge flow
+%% Legend: flow_arrow | Next action or outcome

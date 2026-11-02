@@ -11,7 +11,7 @@ A task is tracked intent; an attempt is one execution; a worker is its supervise
 
 ## Context and components
 
-Use a modular core with Work, Execution, Scheduling and Resources domains. Preserve existing contracts through focused domain/application/provider modules; do not import or extend the legacy monolithic synchronizer. Application operations coordinate domain interfaces. Adapters translate host, Linear, Git and database operations without owning independent workflow rules. Presentation reads scoped views. One local supervisor coordinates claims and external actions; network microservices are not required for the first release.
+Use a modular core with Work, Execution, Scheduling and Resources domains. Implement the approved product contract through focused domain/application/provider modules. Do not import, copy, wrap or extend AI Index scripts or translate its old check catalog into product methodology. Application operations coordinate domain interfaces. Adapters translate host, Linear, Git and database operations without owning independent workflow rules. Presentation reads scoped views. One local supervisor coordinates claims and external actions; network microservices are not required for the first release.
 
 The architecture image shows the Claude host path. The Codex adapter connects to the same core and scoped-session interfaces; both implementations are required. The component layout below defines their shared packaging.
 
@@ -28,7 +28,7 @@ The plugin is one host adapter around the reusable core. Relationship arrows sho
 | 3. Workflow core | Application operations coordinate the separate Work, Execution, Scheduling and Resources modules through public interfaces. |
 | 4. Control store | The transactional store retains tasks, attempts, reservations, evidence and sync records, separately from application databases. |
 | 5. Linear adapter | The provider adapter exchanges authorized human intent and observed execution facts while preserving human decisions. |
-| 6. Project adapters | Project bindings prepare isolated resources. The compatible foreground merge command invokes one merge authority that validates and integrates worker branches; its internals are being refactored under R08 revision 5. |
+| 6. Project adapters | Generic project ports prepare declared isolated resources. The product-owned foreground merge interface invokes one authority for checks and publication to a trusted configured target. R08 revision 6 retires the old shell entry point; the public command contract remains pending. |
 | 7. Worker runtime | A supervised worker executes one assigned attempt and reports its actual startup, progress and outcome. |
 
 **Mermaid source**
@@ -92,7 +92,7 @@ ai-task-manager/
 │   ├── domains/{work,execution,scheduling,resources}/
 │   ├── application/
 │   ├── ports/
-│   ├── adapters/{linear,claude,codex,mcp,project,resources,legacy}/
+│   ├── adapters/
 │   ├── storage/
 │   ├── supervisor/
 │   ├── migration/
@@ -102,7 +102,7 @@ ai-task-manager/
 ├── tests/{domains,contracts,process,live_tst,hosts,terminal,cutover,install,portability}/
 ├── evals/{cases,harness}/
 ├── tools/{preflight,build-runner,package,release_check}/
-├── docs/{task-management.md,generated/transitions.md,migration/}
+├── docs/
 ├── skill-releases.lock.json
 ├── .github/workflows/
 ├── AGENTS.md
@@ -211,57 +211,57 @@ flowchart TD
 
 ### Worker-owned merge view
 
-![Worker-owned merge view](assets/diagrams/worker-merge.svg)
+![Worker merge workflow](assets/diagrams/worker-merge.svg)
 
-The worker remains responsible for its foreground merge request. The compatible command invokes one merge authority; the controller observes publication and cleanup separately. The diagram preserves the command-level overview. The full internal refactor and its source-derived scenario mapping remain pending.
+This is the planned product workflow, independent of the retired shell interface. The worker owns its foreground request, and one authority validates checks and publication to the trusted configured target. Public command names remain pending. The controller records publication and cleanup separately; the diagram does not claim that integration or acceptance is complete.
 
 | Component | Explanation |
 | --- | --- |
-| 1. Worker commits its changes | The worker commits its own task on its branch in its own worktree, preserving issue attribution. It does not commit in the primary checkout. |
-| 2. Run merge prechecks | Run `bash scripts/merge-to-dev.sh --checks` in that worktree. This remains the non-rebasing precheck. |
-| 3. CHECKS PASSED? | `CHECKS PASSED` permits the merge request; `WOULD NOT MERGE` reports its blocking cause; `NOTHING TO MERGE` requires reconciliation against `dev`. |
-| 4. Worker fixes the reported cause | Repair an attributed task defect and commit the repair. Infrastructure failure, contention and unknown publication need their own recovery paths; they do not prove the branch is defective. |
-| 5. Run existing merge script | Run `bash scripts/merge-to-dev.sh` in the foreground. The retained entry point calls the single authority for current-base validation, checks, owned resource lifecycle and `dev` integration. |
-| 6. Successful merge result? | Verify publication independently. `NOT MERGED` does not prove delivery; `MERGED` and reconciled `NOTHING TO MERGE` retain their intended meanings. A later cleanup failure remains a separate obligation. |
-| 7. Record the script’s answer | Record actual publication, verification, failure attribution and pending cleanup. The full internal refactor may correct defective sequencing or tests under the governing Spec Driven Development document (SDD), without another approval step for routine approved work. |
-| 8. Close execution under existing rules | Settle execution only with required ownership, delivery and cleanup evidence. A merge does not imply production deployment. |
+| 1. Worker commits its changes | Commit the assigned work on its own branch/worktree with task attribution; never commit in the primary checkout. |
+| 2. Validate merge request | Check current task authority, ownership, target and candidate inputs through the product-owned merge interface. The new command contract is pending. |
+| 3. Checks valid? | Current valid checks allow publication. Blocked checks retain their cause. No changes still require content and target reconciliation. |
+| 4. Resolve the attributed cause | Repair an actual task defect and commit it. Infrastructure, contention or unknown publication needs its own recovery; none proves a branch defect. The lead coordinates recovery when the worker is missing. |
+| 5. Request foreground merge | One authority revalidates the current configured target, checks and resource lifetime before publication. Waiting remains part of the approved assignment, without an extra lead approval or a competing queue. |
+| 6. Publication confirmed? | Verify Git ancestry and content independently. An unconfirmed outcome stays recoverable; never infer success from a model message. |
+| 7. Record outcome and obligations | Keep confirmed publication, refusal, failure, unchanged content and uncertainty distinct. Later resource or reporting failures remain obligations without erasing a proven publication. |
+| 8. Settle owned execution | Require complete ownership and stop evidence. Preserve unknown resources and unfinished cleanup; a merge does not imply production deployment. |
 
 **Mermaid source**
 
 ```text
 %% View: overview
 %% Diagram: Flowchart
-%% Subtitle: The preserved merge route and verified result handling.
+%% Subtitle: Planned merges through one authority, with current checks and verified outcomes.
 flowchart TD
     accTitle: Worker merge workflow
-    accDescr: The worker keeps the existing merge procedure; the proposed controller records its result.
+    accDescr: A worker commits its own changes and requests a foreground merge through the product authority. Checks and publication are verified before execution is settled; unknown outcomes retain recovery obligations. Public command names remain pending.
     A@{ shape: rect, label: "1. Worker commits its changes" }
     class A process
-    B@{ shape: fr-rect, label: "2. Run merge prechecks" }
+    B@{ shape: fr-rect, label: "2. Validate merge request" }
     class B predefined
-    C@{ shape: diam, label: "3. CHECKS PASSED?" }
+    C@{ shape: diam, label: "3. Checks valid?" }
     class C decision
-    D@{ shape: rect, label: "4. Worker fixes the reported cause" }
+    D@{ shape: rect, label: "4. Resolve the attributed cause" }
     class D process
-    E@{ shape: fr-rect, label: "5. Run existing merge script" }
+    E@{ shape: fr-rect, label: "5. Request foreground merge" }
     class E predefined
-    F@{ shape: diam, label: "6. Successful merge result?" }
+    F@{ shape: diam, label: "6. Publication confirmed?" }
     class F decision
-    G@{ shape: rect, label: "7. Record the script’s answer" }
+    G@{ shape: rect, label: "7. Record outcome and obligations" }
     class G process
-    H@{ shape: stadium, label: "8. Close execution under existing rules" }
+    H@{ shape: stadium, label: "8. Settle owned execution" }
     class H terminator
     A --> B
     B --> C
-    C -->|"WOULD NOT MERGE"| D
+    C -->|"Blocked"| D
     C -->|"Yes"| E
-    C -->|"NOTHING TO MERGE"| G
-    D -->|"Commit the repair"| A
+    C -->|"No changes"| G
+    D -->|"Commit an attributed repair"| A
     E --> F
-    F -->|"NOT MERGED"| D
-    F -->|"MERGED or NOTHING TO MERGE"| G
+    F -->|"Unconfirmed"| G
+    F -->|"Confirmed"| G
     G --> H
-%% Legend: flow_arrow | Existing merge flow
+%% Legend: flow_arrow | Next action or outcome
 ```
 
 ### Session display view
@@ -441,6 +441,6 @@ The design uses one local supervisor and transactional metadata store so task cl
 
 The Spec Driven Development document (SDD) owns single-cutover, delivery, cleanup and installation guarantees; this design implements them through authority epochs, scoped capabilities, owned settings and durable records. The Implementation Plan (IP) schedules the migration and the future `migrate.md` How-to Guide (HTG) will expose tested script-backed commands.
 
-The user authorizes a full internal merge refactor under R08 revision 5, superseding the former compatibility-only restriction. Keep old source and outcomes as regression evidence; preserve command intent while correcting flawed selection, sequencing and resource handling through explicit contracts. Use focused local domains for orchestration, Git publication, checks, resources and reporting; a network service requires a real lifecycle or deployment reason. Workers commit in their own branches/worktrees and one authority integrates into `dev`. Current-source/CG history review, detailed scenario mapping and verification remain pending; this design does not claim the refactor has shipped. Resource ownership represents future parent/role grouping, while shared application databases remain disabled today.
+R08 revision 6 requires a standalone merge engine and retires the old shell entry point, wrappers and aliases. Keep immutable historical source evidence outside the product, with no runtime/import/symlink bridge; preserve its results as history and assess scenarios critically. Verify corrected selection, sequencing and resource handling in independently authored projects. Use focused local domains for orchestration, Git publication, checks, resources and reporting; a network service requires a real lifecycle or deployment reason. Workers commit in their own branches/worktrees and one authority publishes to the trusted configured target. The new public API/CLI contract, scenario reconciliation and full standalone verification remain pending; this design does not claim the refactor has shipped. Resource ownership represents future parent/role grouping, while shared application databases remain disabled today.
 
 Existing-issue lookup, inspection and admission are implemented through `task_find`, `task_inspect` and `task_admit`, with scoped writing/selection approvals and operation-bound provider readbacks. Actual host lead-selection integration and the delivered-follow-up issuer remain pending; the default selection verifier refuses without trusted observations. These component interfaces do not establish live host acceptance. Missing real-host proof, unsafe migration ambiguity or an unguarded required execution surface blocks acceptance. The Test Plan (TP), [test_plan.md](test_plan.md), owns checks; the Test Status Report (TSR), [test_status_report.md](test_status_report.md), owns current results.

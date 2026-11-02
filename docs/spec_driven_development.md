@@ -7,7 +7,7 @@ Source: R01–R38, the approved lead boundary and communication decision, and th
 
 A user gives work to the lead once. The lead finds or creates the right Linear issue, explicitly queues it for this session, supervises an assigned worker, verifies the result and reports what actually happened. The tool keeps the CLI, Linear and lead notifications synchronized while preserving human decisions and recoverable failure records.
 
-This Spec Driven Development document (SDD) is the full behavioral reference. The [Policy (POL)](policy.md) owns principles, authority and responsibilities. The project's `task-management.md` remains a concise operating contract linking this workflow and generated command/transition references (R33). Existing AI Index code supplies compatibility and regression evidence; its old policy cannot override the approved product. The High Level Document (HLD), [high_level_document.md](high_level_document.md), owns the modular design.
+This Spec Driven Development document (SDD) is the full behavioral reference. The [Policy (POL)](policy.md) owns principles, authority and responsibilities. Add concise product-owned integration guidance only where it is needed (R33); no old task-management filename or path is a required survivor. AI Index supplies historical scenario evidence only. Its scripts and architecture cannot define the standalone workflow. The High Level Document (HLD), [high_level_document.md](high_level_document.md), owns the modular design.
 
 The lead may investigate, maintain plans, frame tasks, review prose/evidence and perform narrow coordination support. Substantive application work is delegated as one tracked assignment per worker. All worker communication goes through the lead; workers do not assign peers, change scope or exchange direct coordination messages. Protected pipeline/recovery commands remain lead capabilities through their existing routes, not separate task-state authority.
 
@@ -26,7 +26,7 @@ The lead may investigate, maintain plans, frame tasks, review prose/evidence and
 
 ## Scenarios
 
-A new defect follows issue lookup, exact prose review, confirmed Backlog, scoped CLI linkage and explicit Todo admission. The tool checks dependencies, reserves resources, confirms the actual worker and Linear In Progress, then permits work. Verified code follows the preserved merge and deployment stages; the lead receives and processes the result before reporting it.
+A new defect follows issue lookup, exact prose review, confirmed Backlog, scoped CLI linkage and explicit Todo admission. The tool checks dependencies, reserves resources, confirms the actual worker and Linear In Progress, then permits work. Verified code follows the approved product merge and deployment stages; the lead receives and processes the result before reporting it.
 
 An existing authorized issue is reused with its history and actual status. A delivered issue instead gets a new linked Backlog follow-up. Human holds, Review and active attempts take their guarded paths, never a fresh competing worker.
 
@@ -200,13 +200,13 @@ flowchart TD
 
 ![Task delivery](assets/diagrams/delivery-status.svg)
 
-The lead checks acceptance and all required work before choosing the result path. Each delivery subprocess requires its own artifact and provider evidence; the Review destination table preserves every configured target. Worker merge execution follows the existing assignment route, without a new lead-approval step; this view shows verification and status application.
+The lead checks acceptance and all required work before choosing the result path. Each delivery subprocess requires its own artifact and provider evidence; the Review destination table preserves every configured target. Worker merge execution remains part of its assignment, without a new lead-approval step; this view shows verification and status application.
 
 | Component | Explanation |
 | --- | --- |
 | 1. Lead checks results and acceptance | Compare acceptance with artifact hashes, relevant test results and independently declared required pieces. Part-of work cannot prove whole-issue completion. Only an actual human-acceptance requirement uses In Review. The lead's technical review does not create that requirement. |
 | 2. Which outcome is supported by evidence? | Reject unsupported completion and preserve partial successes. Only complete evidence may enter the delivery path. Use the agreed classification and acceptance, not a filename guess. Documentation follows the code chain when repository delivery is required. |
-| 3. Worker merges; tool confirms In Dev | The worker runs its existing foreground merge route as part of the assignment; this view adds no lead signoff or merge queue. The tool verifies the actual script result and Git ancestry for every required piece before confirming In Dev. Preserve arguments, result meanings and database stop/removal ownership; the lead alone uses the existing missing-worker recovery route. A merged part, refusal or final message cannot advance the whole issue, and explicit acceptance must be satisfied where required. |
+| 3. Worker merges; tool confirms In Dev | The worker requests a foreground merge through the product authority as part of the assignment; this view adds no lead signoff or merge queue. The tool verifies publication and Git ancestry for every required piece before confirming In Dev. Keep resource ownership and cleanup results explicit; the lead coordinates missing-worker recovery through the same authority. A merged part, refusal or final message cannot advance the whole issue, and explicit acceptance must be satisfied where required. |
 | 4. Tool verifies staging and confirms In Staging | Require the relevant commit's verified staging delivery. Missing/failed evidence keeps In Dev; tests use isolated deployment evidence. |
 | 5. Tool verifies production and confirms Done | Require verified production delivery for the relevant commit. Missing/failed evidence keeps In Staging. This build does not authorize production deployment. |
 | 6. Tool confirms checked non-code Done | Require explicit non-code classification, checked completion and any required acceptance. Do not manufacture merge/staging/production evidence for non-code work. |
@@ -339,7 +339,7 @@ All commands and both hosts use the same cause-aware policy. All unlisted transi
 | `On Hold` | `In Progress` | Authorized resume, previous initial queue admission, current dependencies/capacity and actual startup or safe continuation. Never-queued work must enter Todo first. |
 | `In Progress` | `In Review` | Explicit human acceptance requirement, reviewable evidence and quiescent implementation. The lead's own technical review does not use this state. |
 | `In Review` | Any configured status | Apply the complete destination table below; a status decision alone cannot launch a worker or prove delivery. |
-| `In Progress` | `In Dev` | Code-bearing work: verified preserved merge result and Git ancestry for all required issue work, with required human acceptance satisfied. A finished attempt or merged part is insufficient. |
+| `In Progress` | `In Dev` | Code-bearing work: verified product merge result and Git ancestry for all required issue work, with required human acceptance satisfied. A finished attempt or merged part is insufficient. |
 | `In Dev` | `In Staging` | Verified staging delivery of the relevant commit. Keep In Dev when evidence is missing; no new worker on the delivered issue. |
 | `In Staging` | `Done` | Verified production delivery of the relevant commit. Tests use isolated evidence; production deployment is not authorized by this build. |
 | `In Progress` | `Done` | Explicit non-code classification and checked completion/acceptance. Repository delivery requirements still use the code chain. |
@@ -392,31 +392,25 @@ Managed disable/removal stops admission, lets merges finish and safely checkpoin
 
 Automatic maintenance and updates require configured opt-in, authority, channel and finite limits. Active attempts stay pinned to their version until a safe checkpoint. Verify compatibility and regression/host evidence before update; retain safe rollback and recurrence tracking. Private reports are local unless upload is explicitly authorized (R35).
 
-### Protected merge and command behavior
+### Standalone merge behavior
 
-R08 revision 5 records the user's full-refactor direction of 2 November 2026 and supersedes revision 3's compatibility-only restriction. Preserve `#push`, `#release`, `#hotfix`, `/sync-with-dev` and inventory-listed command intent/arguments. The lead routes protected pipeline/recovery commands. Do not restore the retired batch merge queue. The pinned old source remains historical regression evidence; its internal implementation may be replaced. This is required work, not a completed refactor or permission to activate normal sessions.
+R08 revision 6 retires the old shell entry point and all wrappers or aliases for it. The product must work in an empty project through its own merge interface. Public command names remain pending their reviewed implementation contract; this specification does not invent a replacement command. AI Index supplies read-only scenario evidence and mistakes to assess critically. Its scripts, instruction paths, old check catalog and architecture are not product dependencies.
 
-Each worker commits its task in its own branch and worktree, using its isolated database. The worker invokes the compatible foreground commands below; one merge authority owns validation and integration into `dev`. Workers must not commit in the primary checkout or independently publish competing `dev` updates. Waiting for integration remains part of the foreground assignment, without an extra human or lead permission step for approved work.
+Each worker commits in its own branch and worktree, with its declared isolated resources. One merge authority validates and publishes to the trusted configured target. Workers do not commit in the primary checkout or independently publish competing target updates. Foreground completion remains part of the approved assignment, without an extra lead signoff or a second merge queue.
 
-```sh
-bash scripts/merge-to-dev.sh --checks
-# Continue only after CHECKS PASSED:
-bash scripts/merge-to-dev.sh
-```
+Verify the candidate against the current target before publication. Recompute or refuse stale checks. Reuse a check only when its complete input, environment and check-contract identity is verified; distinguish carried evidence from fresh execution. Cover relevant callers, schema and runtime inputs. An uncertain dependency set cannot become an empty passing selection.
 
-Before replacement, audit the latest scripts, instructions, tests and relevant CG issue descriptions/comments. Map each scenario to retained behavior, a justified correction or a superseded mechanism. Freeze its source, input, expected result and failure/recovery observation. Keep old failures and separately version corrected oracles; changing a test to match a defect is not a repair. The detailed Test Specification (TS), [merge checks](merge/test_specification.md), must be extended from that audit before each dependent replacement.
+Keep confirmed publication, unchanged content, refusal, failure and unknown publication distinct. Confirm delivery through Git ancestry and content evidence. A later database, mirror, cleanup or reporting failure remains a separate obligation and cannot erase a proven publication. A model message cannot prove success. Unknown publication requires reconciliation before retry.
 
-`--checks` remains a non-rebasing precheck. A behind-dev warning needs its actual cause understood before branch attribution. `WOULD NOT MERGE` reports the blocking cause. `NOT MERGED` does not certify delivery. `NOTHING TO MERGE` requires Git/content reconciliation. `MERGED: dev <old> -> <new>` requires independently verified publication. A later database, mirror, cleanup or reporting failure must remain visible without turning a proven merge into an unmerged branch or inventing a successful merge. Unknown publication requires reconciliation before retry.
+Keep each resource available until its last possible consumer finishes. If waiting, rebasing or invalidated checks can need a database again, retain it or explicitly reacquire and verify the correct owned resource before those checks. Never check a stopped database URL, release uncertain ownership or run competing cleanup. Missing-worker recovery stays lead-coordinated through the same authority with fresh ownership and Git reconciliation; its public interface is pending.
 
-The merge authority must verify the candidate against the current `dev` revision before publication and refuse or recompute stale input. A carried check may be reused only with a verified complete dependency/input identity, environment and check contract. Keep valid carried evidence distinct from a fresh physical execution. Changed commit IDs alone neither prove content changed nor justify reusing checks. Test selection must cover relevant callers, schema and runtime dependencies; uncertainty must not become an empty passing selection.
+Freeze independently authored scenarios for concurrent contenders, an advancing target, valid and invalid carried checks, resource capacity, process death, lost responses, partial publication, hooks, conflicts, duplicate requests and interrupted cleanup. Critically map historical scenarios to retained outcomes, corrected behavior or retirement; preserve earlier failures and separately version corrected oracles. The Test Specification (TS), [merge checks](merge/test_specification.md), retains historical detail and requires reconciliation with this contract before a new release verdict.
 
-A resource must remain available until its last possible consumer is finished. If waiting, rebasing or check invalidation can require a database again, retain it or explicitly reacquire and verify the correct owned resource before those checks. Do not run database-dependent checks against a stopped URL, release uncertain ownership, or let the controller clean a resource concurrently with the merge authority. A missing worker retains the lead recovery command, `bash scripts/merge-to-dev.sh <worktree>`, with fresh ownership and Git reconciliation.
-
-Verify concurrent contenders, advancing `dev`, valid/invalid carried checks, database capacity, process death, lost responses, partial publication, hooks, conflicts, duplicate requests and interrupted cleanup in disposable copies. Report check failure, infrastructure failure, contention and uncertain observation separately. Record committing, active checks/tests, queue/resource waits, rebases, repair and cleanup with defined start/end points. Compare equivalent workloads and clocks; establish bottlenecks before setting performance targets or removing repeated work. No new numerical performance target is implied.
+Measure committing, checks/tests, queue/resource waits, rebases, repairs and cleanup with defined start/end points. Compare equivalent workloads and clocks before setting performance targets or removing repeated work. This specification introduces no numerical target or permission to change the original application.
 
 ## Quality and interface constraints
 
-Every stage retains a durable identity, owner, input/output and failure state (R36). CLI, MCP, hooks and presentation call one application API and one transition policy (R15). Task, issue, attempt, delivery evidence and synchronization records remain distinct. Current independent tasks own separate worktrees and application databases; future parent/resource ownership is representable but does not enable shared databases today (R05/R19). Database-free project providers must be explicit and cannot silently replace this project's isolation rule.
+Every stage retains a durable identity, owner, input/output and failure state (R36). CLI, MCP, hooks and presentation call one application API and one transition policy (R15). Task, issue, attempt, delivery evidence and synchronization records remain distinct. Current independent tasks own separate worktrees and application databases; future parent/resource ownership is representable but does not enable shared databases today (R05/R19). Database-free project providers must be explicit and cannot silently replace the task’s declared isolation contract.
 
 Local commits, provider writes, process startup and model responses are separate transactions. Save operations before external effects; retain acknowledgements, idempotency keys and reconciliation history. Do not claim distributed atomicity or exactly-once external execution. Typed outcomes distinguish denied, blocked, failed, pending and uncertain from an empty result.
 
@@ -439,7 +433,7 @@ These are required verification outcomes, not claims that the revised document e
 | R36/R16 | RT04 proves the actual bound lead receives, acknowledges and reports the result on both required hosts. Disconnected/unsupported paths remain pending; log inspection alone cannot pass. |
 | R35 | WF-maintenance, MA01–MA03 and B17 prove private capture, bounded authorized repair, failing regression, verified update and safe recovery. |
 | R38 | WF-task-writing, WR01–WR03 and B20 prove actual skill/type/style routing, exact provider-supported approval, bypass refusal and version-update audit. |
-| R08/R28/R31/R32/R34 | Legacy inventory and isolated migration rehearsal preserve merge/command flow and owned resource cleanup; C32/C33/B14 verify obsolete removal/replacement and interrupted cutover without dual writers. |
+| R08/R28/R31/R32/R34 | Independently authored standalone scenarios verify the merge authority and owned resource cleanup; a later target audit and migration rehearsal guide complete retirement/cutover; C32/C33/B14 verify obsolete removal/replacement and interrupted cutover without dual writers. |
 | R04/R17/R23/R27/R29 | Verify two-user/session isolation, truthful scoped CLI/status activity and supported bypass surfaces with real owned TST fixtures; missing second-identity or installed-host evidence remains blocked. |
 
 ## Implementation and evidence boundaries
@@ -468,11 +462,11 @@ Enrolled authority supports only DELETE rollback-journal mode. Other journal mod
 
 These operations and authored-transport tests do not prove installed host-selection or live provider acceptance. Core follow-up submission still requires trusted `delivered_followup` evidence, whose production issuer remains pending. Further work on delivered issues must use the linked-follow-up route when that integration is available; duplicate creation or reopening is not a fallback.
 
-Actual application-database preparation, preserved merge integration, managed host guards and the complete live receipt loop also require their own acceptance evidence. Local core/provider/process tests do not prove those paths. [The Test Status Report (TSR)](test_status_report.md) owns current observations; [the Test Plan (TP)](test_plan.md) owns the testing approach and required exit criteria.
+Declared resource-provider preparation, standalone merge integration, managed host guards and the complete live receipt loop also require their own acceptance evidence. Local core/provider/process tests do not prove those paths. [The Test Status Report (TSR)](test_status_report.md) owns current observations; [the Test Plan (TP)](test_plan.md) owns the testing approach and required exit criteria.
 
 ## Open decisions
 
-No unresolved workflow-policy choice remains. R08 revision 5 records the approved full internal merge refactor; its current-source/history audit and scenario mapping remain pending. A reachable authorized HTTPS route, run-owned TST webhook configuration and a distinct second Linear identity must be verified for their live acceptance cells. They do not block independent implementation, and preparing documentation does not prove those cells passed. No paid hosting, workspace-wide webhook or production changes are authorized here.
+No unresolved workflow-policy choice remains. R08 revision 6 requires the standalone merge engine and retires the old shell interface. Public merge commands and acceptance of the new implementation remain pending. A reachable authorized HTTPS route, run-owned TST webhook configuration and a distinct second Linear identity must be verified for their live acceptance cells. They do not block independent implementation, and preparing documentation does not prove those cells passed. No paid hosting, workspace-wide webhook or production changes are authorized here.
 
 Existing sessions are not silently activated. Required implementation work and missing execution evidence are not permission to weaken the approved behavior.
 
