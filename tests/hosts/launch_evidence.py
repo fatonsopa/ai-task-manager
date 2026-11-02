@@ -90,14 +90,15 @@ class LaunchEvidence:
 
 
 @pytest.fixture(autouse=True)
-def private_launch_evidence(request, monkeypatch):
+def private_launch_evidence(request, monkeypatch, tmp_path_factory):
     from ai_task_manager.adapters.hosts.transports.process import HostProcess
     from ai_task_manager.adapters.process.groups import OwnedProcessGroup
 
     directory = os.environ.get("AITM_TEST_EVIDENCE_DIR")
     if not directory:
-        raise CaptureFailure("Explicit private test evidence directory is required")
+        directory = str(tmp_path_factory.mktemp("launch-evidence"))
     evidence = LaunchEvidence(Path(directory) / "launch-events.jsonl", request.node.nodeid)
+    request.node.user_properties.append(("launch_evidence_path", str(evidence.path)))
     capture, stop = OwnedProcessGroup.capture, OwnedProcessGroup.stop
     start, control, popen = HostProcess.start, HostProcess._control, subprocess.Popen
 

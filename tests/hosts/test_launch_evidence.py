@@ -11,6 +11,7 @@ from ai_task_manager.adapters.hosts.transports.process import HostProcess
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup
 from ai_task_manager.supervisor.models import Command
 from tests.hosts.launch_evidence import CaptureFailure
+from tests.hosts.launch_evidence import private_launch_evidence as private_launch_evidence
 
 
 def rows(request):
