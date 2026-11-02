@@ -2,7 +2,6 @@
 
 import hashlib
 import hmac
-import http.client
 import json
 import math
 import multiprocessing
@@ -24,6 +23,7 @@ from ai_task_manager.adapters.linear.models import HttpResponse
 from tests.linear.helpers import EXPECTED, STATES, WEBHOOK, LinearRig, ProviderFixture
 
 from . import receiver as receiver_module
+from .client import send_request
 from .fixture_control import FixtureControl, Observation
 from .ledger import DriverRefused, Limits, RunLedger, Scope
 from .receiver import BoundedReceiver
@@ -71,18 +71,9 @@ def rig(tmp_path):
 def send(
     server, headers=(), body=b"", *, route=None, method="POST", length=None, omit_length=False
 ):
-    connection = http.client.HTTPConnection(*server.address, timeout=6)
-    try:
-        connection.putrequest(method, route or server.route)
-        for key, value in headers:
-            connection.putheader(key, value)
-        if not omit_length and not any(key.lower() == "content-length" for key, _ in headers):
-            connection.putheader("Content-Length", str(len(body)) if length is None else length)
-        connection.endheaders(body)
-        response = connection.getresponse()
-        return response.status, response.read()
-    finally:
-        connection.close()
+    return send_request(
+        server, headers, body, route=route, method=method, length=length, omit_length=omit_length
+    )
 
 
 def wait_for(check, seconds=3):
