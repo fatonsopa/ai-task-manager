@@ -19,6 +19,7 @@ from ai_task_manager.domains.work.errors import (
     SchemaError,
     StaleVersion,
     ValidationError,
+    WorkError,
 )
 
 _TABLES = {"check_meta", "check_plans", "check_groups", "check_events", "check_proofs"}
@@ -35,6 +36,20 @@ _SCHEMA = (
     "CREATE TABLE check_proofs(ref TEXT PRIMARY KEY, scope TEXT NOT NULL, unit TEXT NOT NULL, "
     "body TEXT NOT NULL)",
 )
+
+
+class CheckStoreBusy(WorkError):
+    """Retryable infrastructure contention; it does not revoke store ownership."""
+
+    retryable = True
+    code = "check_store_busy"
+
+
+def _busy(error):
+    return getattr(error, "sqlite_errorcode", 0) & 0xFF in {
+        sqlite3.SQLITE_BUSY,
+        sqlite3.SQLITE_LOCKED,
+    }
 
 
 class CheckStore:
@@ -76,23 +91,72 @@ class CheckStore:
         s = private_path(self.path).stat()
         return s.st_dev, s.st_ino
 
+    def _binding(self, conn):
+        if self._identity() != self.file_identity:
+            raise AccessDenied("Checks store file identity changed")
+        main = [r[2] for r in conn.execute("PRAGMA database_list") if r[1] == "main"]
+        if len(main) != 1:
+            raise AccessDenied("Checks connection has no unique main database")
+        info = private_path(main[0]).stat()
+        if (info.st_dev, info.st_ino) != self.file_identity:
+            raise AccessDenied("Checks connection path binding changed")
+        if hasattr(self, "store_id"):
+            rows = conn.execute("SELECT version,store_id FROM check_meta").fetchall()
+            if len(rows) != 1 or tuple(rows[0]) != (2, self.store_id):
+                raise AccessDenied("Checks store binding changed")
+
+    def _validate_connection(self, conn):
+        """Exercise SQLite's moved-file protection, following the Core guard semantics.
+
+        This requires DELETE journaling and a brief writer lock, even for reads.
+        It does not attest a descriptor or support concurrent live replacement.
+        """
+        self._binding(conn)
+        if [r[0] for r in conn.execute("PRAGMA main.journal_mode")] != ["delete"]:
+            raise AccessDenied("Checks connection validation requires DELETE journal mode")
+        if not hasattr(self, "store_id"):
+            return  # Initial schema creation is validated before its transaction commits.
+        temporary = str(uuid4())
+        if str(UUID(temporary)) != temporary or temporary == self.store_id:
+            raise AccessDenied("Checks validation identity is unavailable")
+        try:
+            conn.execute("SAVEPOINT check_store_validation")
+            changed = conn.execute(
+                "UPDATE main.check_meta SET store_id=? WHERE version=2 AND store_id=?",
+                (temporary, self.store_id),
+            ).rowcount
+            if changed != 1:
+                raise AccessDenied("Checks validation did not uniquely match the store")
+            conn.execute("ROLLBACK TO check_store_validation")
+            conn.execute("RELEASE check_store_validation")
+        except sqlite3.Error as error:
+            if _busy(error):
+                raise CheckStoreBusy(
+                    "Check store is busy; retry after the writer releases"
+                ) from error
+            raise AccessDenied("Checks connection coherence could not be validated") from error
+        self._binding(conn)
+
     @contextmanager
     def _transaction(self, *, write=True):
         if self._identity() != self.file_identity:
             raise AccessDenied("Checks store file identity changed")
-        conn = sqlite3.connect(self.path, timeout=5, isolation_level=None)
+        conn = sqlite3.connect(self.path, timeout=5 if write else 0, isolation_level=None)
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("PRAGMA foreign_keys=ON")
             conn.execute("BEGIN IMMEDIATE" if write else "BEGIN")
-            if self._identity() != self.file_identity:
-                raise AccessDenied("Checks store file identity changed")
-            if hasattr(self, "store_id"):
-                rows = conn.execute("SELECT version,store_id FROM check_meta").fetchall()
-                if len(rows) != 1 or tuple(rows[0]) != (2, self.store_id):
-                    raise AccessDenied("Checks store binding changed")
+            self._validate_connection(conn)
             yield conn
+            self._validate_connection(conn)
             conn.commit()
+        except sqlite3.Error as error:
+            conn.rollback()
+            if _busy(error):
+                raise CheckStoreBusy(
+                    "Check store is busy; retry after the writer releases"
+                ) from error
+            raise
         except BaseException:
             conn.rollback()
             raise
