@@ -20,8 +20,10 @@ def main(argv=None):
     parser.add_argument("--session-file")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--no-color", action="store_true")
+    parser.add_argument("--ascii", action="store_true")
+    parser.add_argument("--refresh-seconds", type=float, default=1)
     parser.add_argument(
-        "group", choices=["session", "writing", "task", "worker", "event", "sync", "mcp"]
+        "group", choices=["session", "writing", "task", "worker", "event", "sync", "mcp", "view"]
     )
     parser.add_argument("action", nargs="?")
     parser.add_argument("--input", help="JSON input file; use - for stdin")
@@ -30,6 +32,20 @@ def main(argv=None):
         if not args.config:
             raise ValueError("A sealed configuration is required; cwd is not authority")
         service = load_service(args.config, args.session_file)
+        if args.group == "view":
+            if args.input or args.json:
+                raise ValueError(
+                    "View uses only the configured session and accepts no input payload"
+                )
+            from ai_task_manager.presentation.terminal.commands import show
+
+            return show(
+                service,
+                args.action,
+                ascii=args.ascii,
+                color=not args.no_color,
+                refresh_seconds=args.refresh_seconds,
+            )
         if args.group == "mcp":
             if args.action not in {None, "serve"} or args.input:
                 raise ValueError("MCP accepts only the serve action")
