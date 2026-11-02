@@ -3,8 +3,8 @@
 from dataclasses import asdict
 
 from ai_task_manager.adapters.process.groups import GroupStop
+from ai_task_manager.config.evaluation_records import EvaluationRecords
 from ai_task_manager.domains.work.errors import AccessDenied
-from tools.build_support.authorization import PinnedRecords
 
 from .controller import ManagedNativeHost
 from .invocations import InitializationInvocation, PreparedInvocation, require_invocation
@@ -15,7 +15,7 @@ class BootstrapReview:
 
     def __init__(self, records, review_ref, initialization, template):
         if not isinstance(initialization, InitializationInvocation) or not isinstance(
-            records, PinnedRecords
+            records, EvaluationRecords
         ):
             raise AccessDenied("Diagnostic review needs actual registered root capabilities")
         self.records, self.review_ref = records, review_ref
