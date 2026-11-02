@@ -22,6 +22,7 @@ def main(argv=None):
     parser.add_argument("--no-color", action="store_true")
     parser.add_argument("--ascii", action="store_true")
     parser.add_argument("--refresh-seconds", type=float, default=1)
+    parser.add_argument("--layout-context")
     parser.add_argument(
         "group", choices=["session", "writing", "task", "worker", "event", "sync", "mcp", "view"]
     )
@@ -45,6 +46,7 @@ def main(argv=None):
                 ascii=args.ascii,
                 color=not args.no_color,
                 refresh_seconds=args.refresh_seconds,
+                layout_context=args.layout_context,
             )
         if args.group == "mcp":
             if args.action not in {None, "serve"} or args.input:
