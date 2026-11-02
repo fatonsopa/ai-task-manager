@@ -1,0 +1,344 @@
+{
+  "version": 32,
+  "extends": "host-bridge-cases-v22.json",
+  "preserves_all_prior_cases": true,
+  "prior_uncommitted_manifest_sha256": "cc28646b8373366222af23b00870398bf2f750c96c4bf8aa2c354c31a048f252",
+  "status": "frozen_test_only_exact_status_spawn_correction_before_execution",
+  "proposal_sha256": "f967fea83f673b05e70c8320e3395beea7343cb350e2dc8bb61ccf89ad39d01d",
+  "oracle_refinement": "Original single-read helpers retain UNKNOWN/refusal. The new default consumer may perform one additional complete current POSIX/ACL observation after narrowly eligible ctime-only churn; no unsafe/unknown observation authorizes work. Prior results remain unchanged.",
+  "cases": [
+    {
+      "id": "OBS01",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_transient_ctime_gets_one_complete_fresh_observation",
+      "variants": [
+        "allowed"
+      ],
+      "node_count": 1
+    },
+    {
+      "id": "OBS02",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_observed_grant_is_never_recovered",
+      "variants": [
+        "stable",
+        "changed"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "OBS03",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_security_or_path_change_never_reuses_posix",
+      "variants": [
+        "mode",
+        "uid",
+        "gid",
+        "inode",
+        "links",
+        "path"
+      ],
+      "node_count": 6
+    },
+    {
+      "id": "OBS04",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_repeated_churn_or_unavailable_inspection_refuses",
+      "variants": [
+        "churn",
+        "api",
+        "release"
+      ],
+      "node_count": 3
+    },
+    {
+      "id": "OBS05",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_reobservation_does_not_reseal_configuration",
+      "variants": [
+        "config",
+        "credential"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "OBS06",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_core_rechecks_without_logging_or_content_reads",
+      "variants": [
+        "recover",
+        "repeat"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "OBS07",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_audit_retention_ack_and_overflow_are_fail_closed",
+      "variants": [
+        "ack",
+        "write_failure",
+        "overflow"
+      ],
+      "node_count": 3
+    },
+    {
+      "id": "OBS08",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_new_generation_and_default_method_drift_refuse",
+      "variants": [
+        "generation",
+        "method",
+        "custom"
+      ],
+      "node_count": 3
+    },
+    {
+      "id": "OBS09",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_actual_status_boundary_retains_deadlines_and_churn",
+      "variants": [
+        "recover",
+        "repeat"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "OBS10",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_controller_flush_preserves_pending_on_journal_error",
+      "variants": [
+        "flush",
+        "stop"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "ORD01",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_factory_audits_each_actual_builder_source",
+      "variants": [
+        "different",
+        "refusal"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "ORD02",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_auth_ack_precedes_authorization_and_popen",
+      "variants": [
+        "flush",
+        "failure"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "ORD03",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_metadata_consumption_never_flushes_pending",
+      "variants": [
+        "existing",
+        "new"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "ORD04",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_audit_ports_refuse_foreign_source_scope_or_journal",
+      "variants": [
+        "scope",
+        "source",
+        "journal",
+        "rebind"
+      ],
+      "node_count": 4
+    },
+    {
+      "id": "ORD05",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_lifecycle_preserves_original_refusal_after_audit_error",
+      "variants": [
+        "lease",
+        "model"
+      ],
+      "node_count": 2
+    },
+    {
+      "id": "ORD06",
+      "alias": "tests/hosts/test_descriptor_reobserve.py::test_first_audit_binding_survives_current_pointer_drift",
+      "variants": [
+        "cleared",
+        "swapped"
+      ],
+      "node_count": 2,
+      "expected": "After pending observations exist under port A, a cleared or swapped current pointer refuses bind, direct port writes and acknowledgements without replacing original A, appending a journal record or deleting pending data. Restoring the exact original pointer permits idempotent bind and durable acknowledgement. Trusted Python composition identity guard only."
+    }
+  ],
+  "original_acl_groups": [
+    {
+      "id": "ACL01",
+      "alias": "tests/hosts/test_darwin_acl.py::test_existing_absent_acl_remains_accepted",
+      "expected": "Actual owned descriptors preserve the known absent-property case; null with other/zero errno remains unknown.",
+      "variants": [
+        "actual",
+        "enoent",
+        "zero",
+        "enotsup",
+        "einval"
+      ],
+      "node_count": 5
+    },
+    {
+      "id": "ACL02",
+      "alias": "tests/hosts/test_darwin_acl.py::test_positive_empty_acl_has_no_entry_iteration",
+      "expected": "Actual disposable empty ACL readback is accepted through a positive supported size witness; FIRST/LAST errors never become absence.",
+      "variants": [
+        "positive native in-memory empty and owned stored empty/absent; authored no-iteration"
+      ],
+      "node_count": 1
+    },
+    {
+      "id": "ACL03",
+      "alias": "tests/hosts/test_darwin_acl.py::test_actual_deny_only_acl_retains_posix_path_guards",
+      "expected": "Owned disposable single/multiple DENY ACLs are accepted only with unchanged owner/mode/path checks; no normal permissions change.",
+      "variants": [
+        "1",
+        "2",
+        "128"
+      ],
+      "node_count": 3
+    },
+    {
+      "id": "ACL04",
+      "alias": "tests/hosts/test_darwin_acl.py::test_any_allow_entry_refuses_regardless_of_order",
+      "expected": "Actual owned allow-write plus authored read-only/owner-only ALLOW metadata and mixed DENY/ALLOW sequences refuse. No principal/group resolution is added.",
+      "variants": [
+        "allow-write",
+        "deny-allow",
+        "allow-deny",
+        "deny-allow-deny",
+        "allow-read"
+      ],
+      "node_count": 5
+    },
+    {
+      "id": "ACL05",
+      "alias": "tests/hosts/test_darwin_acl.py::test_unknown_tag_and_every_metadata_failure_refuse",
+      "expected": "Unknown/undefined tags, null entries, failed pointer/size/tag/entry APIs and unsupported/missing bindings stay unknown; no skipped entry can become an empty ACL.",
+      "variants": [
+        "invalid",
+        "empty_missing",
+        "invalid_empty",
+        "first",
+        "last",
+        "tag",
+        "raise",
+        "free",
+        "free_empty",
+        "missing_api",
+        "unknown_tag"
+      ],
+      "node_count": 11
+    },
+    {
+      "id": "ACL06",
+      "alias": "tests/hosts/test_darwin_acl.py::test_independent_last_entry_must_be_reached",
+      "expected": "A positively nonempty copy requires FIRST success before LAST, bounded iteration to the same independently returned last descriptor, and no premature error/repeated-entry/overflow acceptance.",
+      "variants": [
+        "multi",
+        "premature",
+        "repeat",
+        "overflow",
+        "changed_first"
+      ],
+      "node_count": 5
+    },
+    {
+      "id": "ACL07",
+      "alias": "tests/hosts/test_darwin_acl.py::test_special_pointer_and_false_size_witness_refuse",
+      "expected": "Remove-ACL/special pointer or structurally invalid copy cannot pass the empty-size path; negative/contradictory sizes refuse.",
+      "variants": [
+        "special",
+        "negative_size",
+        "contradictory_size",
+        "huge_size"
+      ],
+      "node_count": 4
+    },
+    {
+      "id": "ACL08",
+      "alias": "tests/hosts/test_darwin_acl.py::test_fd_metadata_change_during_acl_read_refuses",
+      "expected": "Mode/owner/identity/ACL-ctime changes during query refuse; no allow result can survive a changed descriptor/path snapshot.",
+      "variants": [
+        "mode",
+        "owner",
+        "inode",
+        "ctime"
+      ],
+      "node_count": 4
+    },
+    {
+      "id": "ACL09",
+      "alias": "tests/hosts/test_darwin_acl.py::test_legacy_absence_helper_keeps_its_meaning",
+      "expected": "no_access_acl remains true for positive absent/empty, false for actual entries and unknown for inspection errors. The new named no-grants predicate owns the DENY-only extension.",
+      "variants": [
+        "empty",
+        "deny",
+        "allow",
+        "mixed"
+      ],
+      "node_count": 4
+    },
+    {
+      "id": "ACL10",
+      "alias": "tests/hosts/test_darwin_acl.py::test_current_acl_grant_fences_cached_startup_proof",
+      "expected": "Actual owned protected source/ancestor changed to a grant after readiness denies Core startup/provider confirmation through the same current metadata gate.",
+      "variants": [
+        "actual late owned ACL grant"
+      ],
+      "node_count": 1
+    },
+    {
+      "id": "ACL11",
+      "alias": "tests/hosts/test_darwin_acl.py::test_admission_acl_checks_do_not_read_content_or_names",
+      "expected": "Instrument the actual composition: ACL checks use descriptor metadata only, with no acl_to_text, qualifier/UUID/name resolution, source contents, ps/history or RPC under Core.",
+      "variants": [
+        "actual production composition with read-API whitelist and Core exclusion instrumentation"
+      ],
+      "node_count": 1
+    },
+    {
+      "id": "ACL12",
+      "alias": "tests/hosts/test_darwin_acl.py::test_acl_policy_generation_changes_configuration_binding",
+      "expected": "New default policy identity participates in source/configuration fingerprint; old startup/auth references cannot be relabeled or silently reused. The exact selected predicate and registered-default identity are bound at construction; later replacement refuses. Explicit custom queries must retain their exact selected identity.",
+      "variants": [
+        "fingerprint",
+        "cached_reference",
+        "predicate_rebind",
+        "instance_rebind",
+        "registered_default_rebind",
+        "custom_stable",
+        "preconstruct_registered",
+        "preconstruct_predicate"
+      ],
+      "node_count": 8
+    },
+    {
+      "id": "ACL13",
+      "alias": "tests/hosts/test_darwin_acl.py::test_normal_ancestor_read_only_observation_is_separate",
+      "expected": "Optional reviewed descriptor-only normal-home observation can confirm supported classification without any account/profile read or authorization claim.",
+      "variants": [
+        "normal ancestor descriptor only"
+      ],
+      "node_count": 1
+    },
+    {
+      "id": "ACL14",
+      "alias": "tests/hosts/test_darwin_acl.py::test_linux_metadata_branch_is_preserved",
+      "expected": "Preserve the existing Linux xattr absence/refusal behavior through source/isolated controls when separately admitted; do not claim native Linux monitoring or acceptance.",
+      "variants": [
+        "existing",
+        "ENODATA",
+        "ENOTSUP",
+        "EACCES",
+        "EINVAL"
+      ],
+      "node_count": 5
+    }
+  ],
+  "expected_new_nodes": 40,
+  "preserves_unexecuted_v28": "518f241ada270f3e84ebc5794fffd6b991ee58d0407d153dfc2e2e60d9404d68",
+  "ordering_addendum": "Factory digests and launch audit every actual builder source separately. Existing Core reserve and waiting-harness setup order stays unchanged; source refusal prevents dependent digest/native result and full start. Status source checks/arguments/ack precede authorization and Popen, preparation ack is explicitly off-Core, metadata consumption cannot flush. Audit ports are source/scope/journal/identity bound; foreign/rebound ports refuse.",
+  "preserves_unexecuted_v29": "f4fd90da5125b86d1c52b4a7a2fed773d8095b0ab0a8fb8ad5aa81077006d7a6",
+  "preserves_unexecuted_v30": "d2c8997da91594594d0293f199d34885bf4e9cd2e258bd8bf386794b1b827dc0",
+  "identity_binding_addendum": "The first exact audit-port binding is retained. Bind rejects current/captured disagreement, and writes/acknowledgements require both pointers. All43previous nodes remain selected and unchanged; two additive controls make45.",
+  "preserves_failed_v31": "045f72328d948f32301ed49d5026f0eba045d0e0e69bf7e1223ee1a90854d01d",
+  "auth_fixture_addendum": "ORD02 keeps both original IDs/intent. Apply acknowledgement and authorization assertions only to the exact status argv, with exact one/zero status calls. Delegate read-only inventory unchanged. The journal-failure callback must be explicitly reached for the actual source; earlier unrelated refusal cannot pass. Preserve the failed45-node run unchanged."
+}

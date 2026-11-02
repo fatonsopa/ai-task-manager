@@ -149,7 +149,7 @@ class NativePolicy:
         if self.environment["USER"] != pwd.getpwuid(os.getuid()).pw_name:
             raise AccessDenied("Native ordinary user identity changed")
 
-    def _admission_metadata(self):
+    def _admission_metadata(self, *, preparing=False):
         try:
             if self.executable.is_symlink():
                 raise AccessDenied("Prepared native executable became a symbolic link")
@@ -165,16 +165,19 @@ class NativePolicy:
                 info.st_ctime_ns,
             )
             if self.codex_settings is not None:
-                self.codex_settings.sources.check_metadata()
+                if preparing:
+                    self.codex_settings.sources.prepare_metadata()
+                else:
+                    self.codex_settings.sources.check_metadata()
             return executable, tuple((seal, seal.metadata()) for seal in self.seals)
         except OSError:
             raise AccessDenied("Prepared native metadata is unavailable") from None
 
     def prepare_admission(self):
         """Full validation happens outside Core between matching metadata snapshots."""
-        before = self._admission_metadata()
+        before = self._admission_metadata(preparing=True)
         self.check()
-        if before != self._admission_metadata():
+        if before != self._admission_metadata(preparing=True):
             raise AccessDenied("Native source changed during admission preparation")
         return before
 
