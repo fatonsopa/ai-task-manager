@@ -96,7 +96,6 @@ class EndpointAuthority:
         self.receiver, self.tunnel, self.ledger = receiver, tunnel, ledger
         self.webhook_id, self.clock = uuid(webhook_id), clock
         self.root = Path(private_root)
-        self.probe = EndpointProbe(ledger, self.root / "probes")
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         info = self.root.lstat()
         if (
@@ -105,6 +104,7 @@ class EndpointAuthority:
             or info.st_uid != os.getuid()
         ):
             raise DriverRefused("private_endpoint_directory_required")
+        self.probe = EndpointProbe(ledger, self.root / "probes")
         self.receipts = {}
         self.source_pins = {
             path: hashlib.sha256(path.read_bytes()).hexdigest()

@@ -33,7 +33,7 @@ def authored_probe(probe, receiver, origin):
         ("public_health", receiver.health_route),
         ("public_route", receiver.route),
     ):
-        probe.ledger.request("authored_endpoint_" + label)
+        probe.ledger.request("read")
         status, body = send_request(receiver, method="GET", route=route)
         facts.append(
             {"label": label, "status": status, "body_sha256": hashlib.sha256(body).hexdigest()}
@@ -224,3 +224,14 @@ def test_ep07_actual_probe_child_timeout_is_stopped_and_accounted(endpoint, monk
     assert record["reaped"] and record["group"]["confirmed_stop"]
     assert record["supervision"]["outcome"] == "interrupted"
     assert record["supervision"]["reason"] == "timeout"
+
+
+def test_ep08_constructor_creates_private_directory_under_public_umask(endpoint, tmp_path):
+    _, server, tunnel, _, ledger, _, _, _ = endpoint
+    previous = os.umask(0o022)
+    try:
+        authority = EndpointAuthority(server, tunnel, ledger, WEBHOOK, tmp_path / "new-private")
+    finally:
+        os.umask(previous)
+    assert authority.root.stat().st_mode & 0o777 == 0o700
+    assert authority.probe.root.stat().st_mode & 0o777 == 0o700

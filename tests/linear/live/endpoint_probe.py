@@ -48,7 +48,7 @@ def _request(origin, route, ledger, label, run_id):
     )
     connection = connection_type(parsed.hostname, parsed.port, timeout=2)
     # Each actual delegation is durably charged in the same existing ledger.
-    ledger.request("endpoint_" + label)
+    ledger.request("read")
     started = time.monotonic()
     try:
         connection.request("GET", route, headers={"Connection": "close"})
