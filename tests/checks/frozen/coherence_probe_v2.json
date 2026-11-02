@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "retains": "coherence_probe_v1.json",
+  "change": "Only remove dependency on tests.checks.fixtures.private_dir;set owned pytest tmp_path mode0700 in this testmodule",
+  "prior_test_sha256": "a7f7867f4f213ed1111f68dd1923f0be740635dcf38593e0971cc6924aacfab6",
+  "production_sha256": "83fc06e5d0c73cd356327a78cf1beda2bcdff818455f99e851670881659aafdf",
+  "case_count": 25,
+  "assertions": "unchanged"
+}

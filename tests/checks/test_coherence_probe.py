@@ -9,12 +9,12 @@ import pytest
 
 from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
 from ai_task_manager.storage.coherence import ConnectionBusy, StoreBinding, probe_connection
-from tests.checks.fixtures import private_dir
 
 
 @pytest.fixture(params=["check_meta", "merge_meta"])
 def owned(tmp_path, request):
-    root = private_dir(tmp_path)
+    tmp_path.chmod(0o700)
+    root = tmp_path
     path = root / "store.sqlite"
     table = request.param
     identity = str(uuid4())
