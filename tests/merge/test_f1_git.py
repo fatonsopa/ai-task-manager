@@ -434,6 +434,11 @@ def test_real_large_checkout_error_drains_while_running(ff):
     )
     ff.journal.commit(ff.ref, op["version"], "large-fixture-candidate", "fixture_candidate", facts)
     ff.request = replace(ff.request, new=new, checked=new)
+    ff.check_ref = ff.checks.record(ff.ref, ff.binding, ff.request)
+    op = ff.journal.current(ff.ref)
+    payload = json.loads(ff.checks.records[ff.check_ref].payload_json)
+    facts = dict(op["facts"], checks=dict(payload, evidence_ref=ff.check_ref))
+    ff.journal.commit(ff.ref, op["version"], "large-fixture-check", "fixture_check", facts)
     for name in names:
         (ff.repo / name).write_text("owned sentinel\n")
     result = ff.publish()
