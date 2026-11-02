@@ -197,7 +197,7 @@
     },
     "build_limit_policy": {
       "status": "isolated_candidate_verified_original_ledger_migration_pending",
-      "focused_macos_tests_passed": 183,
+      "focused_macos_tests_passed": 201,
       "failed": 0,
       "skipped": 0,
       "earlier_focused_batch_passed": 175,
@@ -206,7 +206,8 @@
       "actual_model_or_provider_acceptance": false,
       "original_ledger_migrated": false,
       "frozen_case_groups": 55,
-      "frozen_case_manifest_sha256": "e273e2bc42bcdfff12c9356ea280b97b31a96f89b4e08d1ee6ad5c54d7f11fe5"
+      "frozen_case_manifest_sha256": "e273e2bc42bcdfff12c9356ea280b97b31a96f89b4e08d1ee6ad5c54d7f11fe5",
+      "current_focused_scope": "183 policy/storage/process/old-writer tests, 16 distinct planning/profile/integrity tests and 2 additional actual CLI/backup-durability variants; unique nodes, no model/provider acceptance."
     }
   },
   "product_acceptance_cases_executed": 0,

@@ -454,3 +454,161 @@ def test_lp48_narrow_edits_preserve_document_structure_and_commands():
         ] == expected["code_block_sha256"]
     # TST-85 branch integration is a separate lead gate; this test does not
     # claim inspection/preservation of additions not yet integrated here.
+
+
+def test_lp40_full_actual_cli_policy_execution_and_recovery(rig):
+    sequence = []
+
+    def call(arguments, *, revision=None, expected=0):
+        config = rig.root / ("cli-authority-" + str(len(sequence)) + ".json")
+        config.write_text(json.dumps({"format": 1, "bindings": rig.bindings}))
+        sha = hashlib.sha256(config.read_bytes()).hexdigest()
+        command = [
+            sys.executable,
+            str(ROOT / "tools/build_control.py"),
+            "--ledger",
+            str(rig.base.ledger),
+            "--authority-config",
+            str(config),
+            "--authority-sha256",
+            sha,
+        ]
+        if revision is not None:
+            command += ["--policy-revision", str(revision)]
+        result = subprocess.run(
+            command + arguments,
+            cwd=rig.root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=child_environment(),
+        )
+        sequence.append({"command": arguments, "returncode": result.returncode})
+        assert result.returncode == expected, result.stderr
+        return json.loads(result.stdout if expected == 0 else result.stderr)
+
+    prepared = call(["prepare-amendment", str(rig.root / "cli-before.sqlite")])
+    preparation_ref = rig.pin_file("preparation", Path(prepared["preparation"]["path"]))
+    amendment = {
+        "amendment_id": "cli-amend",
+        "expected_run_id": "policy-fixture",
+        "expected_policy_revision": prepared["policy_revision"],
+        "expected_policy_digest": prepared["policy_digest"],
+        "expected_ledger_digest": prepared["ledger_digest"],
+        "preparation_ref": preparation_ref,
+        "authorization_ref": rig.user,
+        "model_matrix_ref": rig.matrix,
+    }
+    receipt = call(["amend-policy", "--request-json", json.dumps(amendment)])
+    definition = {
+        "batch_id": "cli-batch",
+        "policy_revision": 1,
+        "max_invocations": 6,
+        "max_invocation_seconds": 2.0,
+        "max_incremental_spend_micro": 0,
+        "continuation_of": None,
+        "checkpoint_sha256": None,
+        "reason": "Reviewed authored CLI batch",
+    }
+    review = rig.pin("batch_review", {"run_id": "policy-fixture", "definition": definition})
+    request = {
+        "expected_revision": 1,
+        "batch_id": "cli-batch",
+        "max_invocations": 6,
+        "max_invocation_seconds": 2,
+        "max_incremental_spend_usd": "0",
+        "review_ref": review,
+        "reason": definition["reason"],
+    }
+    call(["register-batch", "--request-json", json.dumps(request)], revision=1)
+
+    def run(name, expected=0):
+        return call(
+            [
+                "run",
+                name,
+                "--batch-id",
+                "cli-batch",
+                "--timeout-seconds",
+                "1",
+                "--output-directory",
+                str(rig.root / "cli-traces"),
+                "--command-json",
+                json.dumps([sys.executable, "-c", "print('owned bounded CLI fixture')"]),
+            ],
+            revision=1,
+            expected=expected,
+        )
+
+    assert run("first")["call"]["status"] == "succeeded"
+    pause_review = rig.pin(
+        "admission_review",
+        {
+            "operation_id": "cli-pause",
+            "run_id": "policy-fixture",
+            "policy_revision": 1,
+            "paused": True,
+            "checkpoint_sha256": None,
+            "reason": "Reviewed pause",
+        },
+    )
+    call(
+        [
+            "pause-admission",
+            "--request-json",
+            json.dumps(
+                {"operation_id": "cli-pause", "expected_revision": 1, "review_ref": pause_review}
+            ),
+        ],
+        revision=1,
+    )
+    assert run("blocked", expected=2)["error"]["code"] == "admission_paused"
+    checkpoint_path = rig.root / "actual-cli-checkpoint.json"
+    call(["checkpoint", str(checkpoint_path)])
+    checkpoint = rig.pin_file("checkpoint", checkpoint_path)
+    resume_review = rig.pin(
+        "admission_review",
+        {
+            "operation_id": "cli-resume",
+            "run_id": "policy-fixture",
+            "policy_revision": 1,
+            "paused": False,
+            "checkpoint_sha256": checkpoint.split(":")[1],
+            "reason": "Reviewed actual CLI checkpoint",
+        },
+    )
+    call(
+        [
+            "resume-admission",
+            "--request-json",
+            json.dumps(
+                {
+                    "operation_id": "cli-resume",
+                    "expected_revision": 1,
+                    "review_ref": resume_review,
+                    "checkpoint_ref": checkpoint,
+                }
+            ),
+        ],
+        revision=1,
+    )
+    assert run("second")["call"]["status"] == "succeeded"
+    current = call(["status"])
+    assert len(current["calls"]) == 2 and current["active_workers"] == 0
+    assert current["deadline"] is None and current["policy"]["revision"] == 1
+    assert call(["amend-policy", "--request-json", json.dumps(amendment)]) == receipt
+
+
+def test_lp42_failed_backup_fsync_never_publishes_preparation(rig, monkeypatch):
+    before = raw(rig.base.ledger)
+
+    def fail(_):
+        raise OSError("authored durable-backup failure")
+
+    monkeypatch.setattr(storage.os, "fsync", fail)
+    target = rig.root / "failed-backup.sqlite"
+    with pytest.raises(OSError):
+        rig.base.prepare_policy_amendment(target)
+    monkeypatch.undo()
+    assert not Path(str(target) + ".preparation.json").exists()
+    assert raw(rig.base.ledger) == before
