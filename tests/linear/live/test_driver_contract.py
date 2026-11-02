@@ -6,6 +6,8 @@ import http.client
 import json
 import math
 import multiprocessing
+import os
+import sqlite3
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -24,7 +26,11 @@ from .receiver import BoundedReceiver
 from .run_primary import BudgetedTransport, DrainWorker, PrimaryRun
 
 
-def ledger(tmp_path, *, requests=150, projects=1, clock=time.time, deadline=None):
+def ledger(tmp_path, *, requests=118, projects=1, clock=time.time, deadline=None):
+    # Version2 fixtures retain each old ordinary allowance and assertions. Add
+    # an explicit reserved partition in a NEW fixture, never reset an old run.
+    cleanup = 32 if requests == 118 else 1
+    started = clock()
     return RunLedger(
         tmp_path / "driver.sqlite",
         str(uuid4()),
@@ -35,7 +41,14 @@ def ledger(tmp_path, *, requests=150, projects=1, clock=time.time, deadline=None
             EXPECTED.project_id,
             str(uuid4()),
         ),
-        Limits(deadline or clock() + 120, requests=requests, projects=projects),
+        Limits(
+            (deadline or started + 120) + 120,
+            requests=requests + cleanup,
+            projects=projects,
+            started_at=started,
+            cleanup_requests=cleanup,
+            cleanup_seconds=120,
+        ),
         clock=clock,
     )
 
@@ -618,3 +631,659 @@ def test_ld15_default_provider_does_not_fall_back_to_live(tmp_path):
     for module in ["fixture_control.py", "run_primary.py"]:
         source = Path(__file__).with_name(module).read_text()
         assert "read_credentials" not in source and "subprocess" not in source
+
+
+def test_ld16_different_key_cannot_reuse_reserved_candidate(tmp_path):
+    record, provider = ledger(tmp_path, projects=2), MemoryProvider()
+    control = FixtureControl(record, provider)
+    create(control)
+    before = record.summary(), list(provider.calls)
+    with pytest.raises(DriverRefused, match="candidate_already_reserved"):
+        create(control, key="alias")
+    assert (record.summary(), provider.calls) == before
+
+
+def test_ld17_actual_threads_different_keys_have_one_create(tmp_path):
+    record, provider = ledger(tmp_path, projects=2), MemoryProvider()
+    control, barrier = FixtureControl(record, provider), threading.Barrier(2)
+
+    def call(number):
+        barrier.wait(timeout=3)
+        try:
+            return create(control, key=f"different-{number}")
+        except DriverRefused as error:
+            assert str(error) == "candidate_already_reserved"
+            return None
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(call, range(2)))
+    assert sum(bool(row) for row in results) == 1
+    assert len(provider.calls) == len(record.summary()["operations"]) == 1
+
+
+class SQLiteProvider:
+    """Authored cross-process primitive recorder; never a real Linear transport."""
+
+    def __init__(self, path, *, crash_cleanup=False):
+        self.path, self.crash_cleanup = str(path), crash_cleanup
+        with sqlite3.connect(self.path, timeout=2) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS rows(id TEXT PRIMARY KEY,payload TEXT NOT NULL)"
+            )
+            conn.execute("CREATE TABLE IF NOT EXISTS calls(kind TEXT NOT NULL,id TEXT NOT NULL)")
+
+    def create(self, kind, candidate, scope, marker, content_digest):
+        row = Observation(
+            kind, candidate, scope.workspace, scope.team, scope.project, scope.owner, marker
+        )
+        with sqlite3.connect(self.path, timeout=2) as conn:
+            conn.execute("INSERT INTO calls VALUES('create',?)", (candidate,))
+            conn.execute("INSERT INTO rows VALUES(?,?)", (candidate, json.dumps(asdict(row))))
+        return row
+
+    def read(self, kind, candidate):
+        with sqlite3.connect(self.path, timeout=2) as conn:
+            conn.execute("INSERT INTO calls VALUES('read',?)", (candidate,))
+            row = conn.execute("SELECT payload FROM rows WHERE id=?", (candidate,)).fetchone()
+        return Observation(**json.loads(row[0])) if row else None
+
+    def cleanup(self, kind, candidate, action):
+        state = {
+            "archive": "archived",
+            "cancel": "canceled",
+            "disable": "disabled",
+            "delete": "deleted",
+        }[action]
+        with sqlite3.connect(self.path, timeout=2) as conn:
+            old = conn.execute("SELECT payload FROM rows WHERE id=?", (candidate,)).fetchone()
+            row = replace(Observation(**json.loads(old[0])), state=state)
+            conn.execute("INSERT INTO calls VALUES(?,?)", (action, candidate))
+            conn.execute(
+                "UPDATE rows SET payload=? WHERE id=?", (json.dumps(asdict(row)), candidate)
+            )
+        if self.crash_cleanup:
+            os._exit(17)  # Actual owned child crash after external fixture commit.
+        return row
+
+    def count(self, kind):
+        with sqlite3.connect(self.path) as conn:
+            return conn.execute("SELECT COUNT(*) FROM calls WHERE kind=?", (kind,)).fetchone()[0]
+
+
+def alias_process(path, run, scope, limits, provider_path, barrier, queue, number):
+    record = RunLedger(path, run, Scope(**scope), Limits(**limits))
+    control = FixtureControl(record, SQLiteProvider(provider_path))
+    barrier.wait(timeout=5)
+    try:
+        create(control, key=f"process-{number}")
+        queue.put("created")
+    except DriverRefused as error:
+        queue.put(str(error))
+
+
+def join_owned(processes):
+    for process in processes:
+        if process.pid is None:
+            continue
+        if process.is_alive():
+            process.terminate()
+        process.join(timeout=5)
+        assert not process.is_alive()
+
+
+def test_ld18_actual_processes_different_keys_have_one_primitive(tmp_path):
+    record = ledger(tmp_path, projects=2)
+    provider = SQLiteProvider(tmp_path / "authored-provider.sqlite")
+    context = multiprocessing.get_context("spawn")
+    barrier, queue = context.Barrier(2), context.Queue()
+    processes = [
+        context.Process(
+            target=alias_process,
+            args=(
+                record.path,
+                record.run_id,
+                asdict(record.scope),
+                asdict(record.limits),
+                provider.path,
+                barrier,
+                queue,
+                i,
+            ),
+        )
+        for i in range(2)
+    ]
+    try:
+        for process in processes:
+            process.start()
+        results = [queue.get(timeout=10) for _ in processes]
+        for process in processes:
+            process.join(timeout=5)
+        assert all(process.exitcode == 0 for process in processes)
+        assert sorted(results) == ["candidate_already_reserved", "created"]
+        assert provider.count("create") == len(record.summary()["operations"]) == 1
+    finally:
+        join_owned(processes)
+        queue.close()
+        queue.join_thread()
+
+
+def test_ld19_restart_uncertainty_cannot_be_aliased(tmp_path):
+    record, provider = ledger(tmp_path, projects=2), MemoryProvider()
+    provider.lose_reply = True
+    control = FixtureControl(record, provider)
+    with pytest.raises(DriverRefused, match="unconfirmed"):
+        create(control)
+    reloaded = RunLedger(record.path, record.run_id, record.scope, record.limits)
+    recovered = FixtureControl(reloaded, provider)
+    with pytest.raises(DriverRefused, match="candidate_already_reserved"):
+        create(recovered, key="replacement")
+    assert recovered.recover("create-one")["id"] == record.scope.project
+    assert sum(call[0] == "create" for call in provider.calls) == 1
+
+
+def test_ld20_candidate_cannot_move_to_another_kind(tmp_path):
+    record, provider = ledger(tmp_path), MemoryProvider()
+    control = FixtureControl(record, provider)
+    create(control)
+    with pytest.raises(DriverRefused, match="candidate_already_reserved"):
+        control.create("cross-kind", "issue", record.scope.project, "b" * 64)
+    assert len(provider.calls) == 1 and len(record.summary()["operations"]) == 1
+
+
+def test_ld21_legacy_duplicate_reservations_refuse_without_rewriting_rows(tmp_path):
+    record = ledger(tmp_path)
+    record.begin("first", "project", record.scope.project, "a" * 64)
+    with sqlite3.connect(record.path) as conn:
+        conn.execute("ALTER TABLE operations RENAME TO operations_old")
+        conn.execute(
+            "CREATE TABLE operations(key TEXT PRIMARY KEY,fingerprint TEXT,"
+            "kind TEXT,candidate TEXT,state TEXT)"
+        )
+        conn.execute("INSERT INTO operations SELECT * FROM operations_old")
+        conn.execute(
+            "INSERT INTO operations SELECT 'alias',fingerprint,kind,candidate,state "
+            "FROM operations_old"
+        )
+        conn.execute("DROP TABLE operations_old")
+        conn.execute("DROP TABLE driver_schema")
+    before = record.path.read_bytes()
+    with pytest.raises(DriverRefused, match="legacy_duplicate_reservations"):
+        RunLedger(record.path, record.run_id, record.scope, record.limits)
+    assert record.path.read_bytes() == before
+
+
+def test_ld22_cleanup_omissions_and_wrong_order_cannot_delegate(tmp_path):
+    record, provider = ledger(tmp_path), MemoryProvider()
+    control = FixtureControl(record, provider)
+    project = create(control)
+    before = record.summary(), list(provider.calls)
+    for action in [
+        lambda: record.cleanup_read("missing"),
+        lambda: record.cleanup_prepared("missing", "a" * 64),
+        lambda: record.cleanup_sent("missing"),
+        lambda: record.cleanup_confirm("missing", "a" * 64),
+        lambda: record.cleaned(project["id"], "archived"),
+        lambda: control.cleanup(str(uuid4()), "archive"),
+    ]:
+        with pytest.raises(DriverRefused):
+            action()
+    assert (record.summary(), provider.calls) == before
+    record.begin_cleanup("action", project["id"], "archive")
+    with pytest.raises(DriverRefused, match="read_intent_missing"):
+        record.cleanup_prepared("action", "a" * 64)
+    with pytest.raises(DriverRefused, match="not_sendable"):
+        record.cleanup_sent("action")
+    assert provider.calls == before[1]
+
+
+def test_ld23_cleanup_callback_observes_exact_durable_sent_action(tmp_path):
+    record = ledger(tmp_path)
+
+    class InspectedProvider(MemoryProvider):
+        def cleanup(self, kind, candidate, action):
+            with sqlite3.connect(record.path) as conn:
+                conn.row_factory = sqlite3.Row
+                row = dict(conn.execute("SELECT * FROM cleanup_actions").fetchone())
+                binding = json.loads(conn.execute("SELECT value FROM meta").fetchone()[0])
+                requests = conn.execute(
+                    "SELECT COUNT(*) FROM requests WHERE cleanup_key=? "
+                    "AND purpose='cleanup_effect'",
+                    (row["key"],),
+                ).fetchone()[0]
+            assert (
+                row["resource_id"],
+                row["kind"],
+                row["action"],
+                row["target"],
+                row["state"],
+                row["attempts"],
+            ) == (candidate, kind, action, "archived", "sent", 1)
+            assert len(row["before_digest"]) == 64 and requests == 1
+            assert binding["run"] == record.run_id and binding["scope"] == asdict(record.scope)
+            return super().cleanup(kind, candidate, action)
+
+    provider = InspectedProvider()
+    control = FixtureControl(record, provider)
+    project = create(control)
+    assert control.cleanup(project["id"], "archive")["state"] == "archived"
+    row = record.summary()["cleanup_actions"][0]
+    assert row["state"] == "confirmed" and len(row["result_digest"]) == 64
+
+
+class LostCleanup(MemoryProvider):
+    def __init__(self):
+        super().__init__()
+        self.lose_cleanup = True
+
+    def cleanup(self, *args):
+        result = super().cleanup(*args)
+        if self.lose_cleanup:
+            self.lose_cleanup = False
+            raise RuntimeError("PRIVATE_CLEANUP_EXCEPTION")
+        return result
+
+
+def test_ld24_cleanup_lost_reply_reconciles_without_resend(tmp_path):
+    record, provider = ledger(tmp_path), LostCleanup()
+    control = FixtureControl(record, provider)
+    project = create(control)
+    with pytest.raises(DriverRefused, match="cleanup_unconfirmed"):
+        control.cleanup(project["id"], "archive", operation_key="cleanup-one")
+    assert record.cleanup_action("cleanup-one")["state"] == "uncertain"
+    reloaded = RunLedger(record.path, record.run_id, record.scope, record.limits)
+    assert (
+        FixtureControl(reloaded, provider).cleanup(
+            project["id"], "archive", operation_key="cleanup-one"
+        )["state"]
+        == "archived"
+    )
+    assert sum(call[0] == "archive" for call in provider.calls) == 1
+    assert reloaded.cleanup_action("cleanup-one")["attempts"] == 1
+    assert b"PRIVATE_CLEANUP_EXCEPTION" not in record.path.read_bytes()
+
+
+def cleanup_crash_process(path, run, scope, limits, provider_path, candidate):
+    record = RunLedger(path, run, Scope(**scope), Limits(**limits))
+    control = FixtureControl(record, SQLiteProvider(provider_path, crash_cleanup=True))
+    control.cleanup(candidate, "archive", operation_key="crash-cleanup")
+
+
+def test_ld25_actual_crash_after_cleanup_effect_is_recovered(tmp_path):
+    record = ledger(tmp_path)
+    provider = SQLiteProvider(tmp_path / "authored-provider.sqlite")
+    control = FixtureControl(record, provider)
+    project = create(control)
+    context = multiprocessing.get_context("spawn")
+    child = context.Process(
+        target=cleanup_crash_process,
+        args=(
+            record.path,
+            record.run_id,
+            asdict(record.scope),
+            asdict(record.limits),
+            provider.path,
+            project["id"],
+        ),
+    )
+    try:
+        child.start()
+        child.join(timeout=10)
+        assert child.exitcode == 17 and not child.is_alive()
+        assert record.cleanup_action("crash-cleanup")["state"] == "sent"
+        assert record.resource(project["id"])["state"] == "active"
+        before_requests = len(record.summary()["requests"])
+        reloaded = RunLedger(record.path, record.run_id, record.scope, record.limits)
+        assert (
+            FixtureControl(reloaded, provider).recover_cleanup("crash-cleanup")["state"]
+            == "archived"
+        )
+        assert len(reloaded.summary()["requests"]) == before_requests + 1
+        assert provider.count("archive") == 1
+    finally:
+        join_owned([child])
+
+
+@pytest.mark.parametrize("change", ["absent", "id", "owner", "project", "team", "marker", "state"])
+def test_ld26_cleanup_wrong_current_readback_retains_uncertainty(tmp_path, change):
+    record, provider = ledger(tmp_path), LostCleanup()
+    control = FixtureControl(record, provider)
+    project = create(control)
+    with pytest.raises(DriverRefused):
+        control.cleanup(project["id"], "archive", operation_key="unknown")
+    if change == "absent":
+        provider.rows.pop(project["id"])
+    else:
+        provider.rows[project["id"]] = replace(
+            provider.rows[project["id"]],
+            **{change: "active" if change == "state" else str(uuid4())},
+        )
+    with pytest.raises(DriverRefused, match="recovery_unconfirmed"):
+        control.recover_cleanup("unknown")
+    assert record.cleanup_action("unknown")["state"] == "uncertain"
+    assert record.resource(project["id"])["state"] == "active"
+    assert sum(call[0] == "archive" for call in provider.calls) == 1
+
+
+def test_ld27_cleanup_action_collision_and_distinct_disable_delete(tmp_path):
+    record, provider = ledger(tmp_path), MemoryProvider()
+    control = FixtureControl(record, provider)
+    hook = create(control, "webhook")
+    control.cleanup(hook["id"], "disable", operation_key="disable")
+    before = list(provider.calls)
+    for action in [
+        lambda: control.cleanup(hook["id"], "delete", operation_key="disable"),
+        lambda: record.begin_cleanup("alias", hook["id"], "disable"),
+        lambda: record.begin_cleanup(
+            "changed-target", hook["id"], "disable", expected_state="deleted"
+        ),
+    ]:
+        with pytest.raises(DriverRefused):
+            action()
+    assert provider.calls == before
+    assert control.cleanup(hook["id"], "delete", operation_key="delete")["state"] == "deleted"
+    assert [(row["action"], row["state"]) for row in record.summary()["cleanup_actions"]] == [
+        ("disable", "confirmed"),
+        ("delete", "confirmed"),
+    ]
+
+
+def test_ld28_uncertain_child_blocks_parent_archive_until_actual_recovery(tmp_path):
+    record, provider = ledger(tmp_path), LostCleanup()
+    control = FixtureControl(record, provider)
+    project = create(control)
+    issue = create(control, "issue", "child")
+    with pytest.raises(DriverRefused):
+        control.cleanup(issue["id"], "cancel", operation_key="child-cancel")
+    before = list(provider.calls)
+    with pytest.raises(DriverRefused, match="unresolved_cleanup"):
+        control.cleanup(project["id"], "archive")
+    assert provider.calls == before
+    assert control.recover_cleanup("child-cancel")["state"] == "canceled"
+    assert control.cleanup(project["id"], "archive")["state"] == "archived"
+
+
+def test_ld29_committed_cleanup_retry_after_expiry_has_no_new_effect(tmp_path):
+    now = [1000.0]
+    record, provider = ledger(tmp_path, clock=lambda: now[0], deadline=1100), MemoryProvider()
+    control = FixtureControl(record, provider)
+    project = create(control)
+    first = control.cleanup(project["id"], "archive")
+    before = record.summary(), list(provider.calls)
+    provider.rows.clear()
+    now[0] = record.limits.deadline + 1
+    assert control.cleanup(project["id"], "archive") == first
+    assert (record.summary(), provider.calls) == before
+    with pytest.raises(DriverRefused):
+        control.cleanup(project["id"], "archive", operation_key="fresh-operation")
+    assert (record.summary(), provider.calls) == before
+
+
+class CountedPort:
+    def __init__(self):
+        self.calls = 0
+
+    def send(self, *args):
+        self.calls += 1
+
+
+def saturate_ordinary(record):
+    port = CountedPort()
+    transport = BudgetedTransport(record, port)
+    used = len([row for row in record.summary()["requests"] if row["cleanup_key"] is None])
+    for _ in range(record.limits.requests - record.limits.cleanup_requests - used):
+        transport.send("authored", {}, None)
+    return transport, port
+
+
+def test_ld30_ordinary_exhaustion_preserves_cleanup_partition(tmp_path):
+    record, provider = ledger(tmp_path), MemoryProvider()
+    control = FixtureControl(record, provider)
+    project = create(control)
+    transport, port = saturate_ordinary(record)
+    assert len(record.summary()["requests"]) == 118 and port.calls == 117
+    with pytest.raises(DriverRefused, match="request_budget"):
+        transport.send("authored", {}, None)
+    assert control.cleanup(project["id"], "archive")["state"] == "archived"
+    rows = record.summary()["requests"]
+    assert len(rows) == 120 and sum(row["cleanup_key"] is not None for row in rows) == 2
+    assert record.limits.requests == 150 and record.limits.cleanup_requests == 32
+
+
+def cleanup_charge_process(path, run, scope, limits, provider_path, key, barrier, queue):
+    record = RunLedger(path, run, Scope(**scope), Limits(**limits))
+    provider = SQLiteProvider(provider_path)
+    barrier.wait(timeout=5)
+    count = 0
+    for _ in range(24):
+        try:
+            record.cleanup_read(key)
+        except DriverRefused as error:
+            assert str(error) == "cleanup_budget_exhausted"
+        else:
+            provider.read("project", record.scope.project)
+            count += 1
+    queue.put(count)
+
+
+def test_ld31_actual_processes_and_threads_keep_cumulative_partition(tmp_path):
+    record = ledger(tmp_path)
+    provider = SQLiteProvider(tmp_path / "authored-provider.sqlite")
+    control = FixtureControl(record, provider)
+    project = create(control)
+    transport, port = saturate_ordinary(record)
+    record.begin_cleanup("reserved", project["id"], "archive")
+    context = multiprocessing.get_context("spawn")
+    barrier, queue = context.Barrier(2), context.Queue()
+    children = [
+        context.Process(
+            target=cleanup_charge_process,
+            args=(
+                record.path,
+                record.run_id,
+                asdict(record.scope),
+                asdict(record.limits),
+                provider.path,
+                "reserved",
+                barrier,
+                queue,
+            ),
+        )
+        for _ in range(2)
+    ]
+
+    def denied_ordinary(_):
+        with pytest.raises(DriverRefused, match="cleanup_phase"):
+            transport.send("authored", {}, None)
+
+    try:
+        for child in children:
+            child.start()
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            list(pool.map(denied_ordinary, range(12)))
+        counts = [queue.get(timeout=10) for _ in children]
+        for child in children:
+            child.join(timeout=5)
+        assert all(child.exitcode == 0 for child in children) and sum(counts) == 32
+        rows = record.summary()["requests"]
+        assert len(rows) == 150 and sum(row["cleanup_key"] is None for row in rows) == 118
+        assert port.calls == 117 and provider.count("read") == 32
+        assert record.cleanup_action("reserved")["state"] == "intent"
+        assert record.resource(project["id"])["state"] == "active"
+    finally:
+        join_owned(children)
+        queue.close()
+        queue.join_thread()
+
+
+def test_ld32_strings_booleans_and_missing_context_cannot_use_cleanup_reserve(tmp_path):
+    record = ledger(tmp_path)
+    before = record.summary()
+    for action in [
+        lambda: record.request("cleanup"),
+        lambda: record.request("cleanup_read"),
+        lambda: record.request(True),
+        lambda: record.cleanup_read("caller-made"),
+    ]:
+        with pytest.raises(DriverRefused):
+            action()
+    assert record.summary() == before
+
+
+def test_ld33_ordinary_cutoff_and_hard_deadline_are_distinct(tmp_path):
+    now = [1000.0]
+    record, provider = ledger(tmp_path, clock=lambda: now[0], deadline=1280), MemoryProvider()
+    control = FixtureControl(record, provider)
+    project = create(control)
+    hook = create(control, "webhook", "hook")
+    now[0] = record.limits.deadline - 120
+    before = list(provider.calls)
+    for action in [
+        lambda: record.request("receiver_http"),
+        lambda: create(control, "issue", "late"),
+    ]:
+        with pytest.raises(DriverRefused, match="ordinary_deadline"):
+            action()
+    assert provider.calls == before
+    assert control.cleanup(hook["id"], "disable")["state"] == "disabled"
+    now[0] = record.limits.deadline
+    before = record.summary(), list(provider.calls)
+    with pytest.raises(DriverRefused, match="deadline"):
+        control.cleanup(project["id"], "archive")
+    assert (record.summary(), provider.calls) == before
+
+
+@pytest.mark.parametrize("field", ["deadline", "started_at", "cleanup_seconds", "cleanup_requests"])
+def test_ld34_restart_cannot_reset_reserve_phase_or_counts(tmp_path, field):
+    record, provider = ledger(tmp_path), MemoryProvider()
+    control = FixtureControl(record, provider)
+    project = create(control)
+    record.begin_cleanup("cleanup", project["id"], "archive")
+    record.cleanup_read("cleanup")
+    reloaded = RunLedger(record.path, record.run_id, record.scope, record.limits)
+    assert reloaded.summary() == record.summary()
+    with pytest.raises(DriverRefused, match="cleanup_phase"):
+        reloaded.request("product_transport")
+    before = record.path.read_bytes()
+    with pytest.raises(DriverRefused, match="binding_changed"):
+        RunLedger(
+            record.path,
+            record.run_id,
+            record.scope,
+            replace(record.limits, **{field: getattr(record.limits, field) + 1}),
+        )
+    assert record.path.read_bytes() == before
+
+
+def test_ld35_late_ordinary_effect_keeps_charge_and_owned_reservation(tmp_path):
+    now = [1000.0]
+    record = ledger(tmp_path, clock=lambda: now[0], deadline=1100)
+    entered, release = threading.Event(), threading.Event()
+
+    class BlockedProvider(MemoryProvider):
+        def create(self, *args):
+            entered.set()
+            assert release.wait(3)
+            return super().create(*args)
+
+    provider = BlockedProvider()
+    control = FixtureControl(record, provider)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(create, control)
+        try:
+            assert entered.wait(1)
+            assert record.get("create-one")["state"] == "sent"
+            now[0] = record.limits.deadline + 1
+            with pytest.raises(DriverRefused, match="deadline"):
+                record.request("product_transport")
+            assert len(record.summary()["requests"]) == 1
+            assert record.limits.cleanup_requests == 32 and not record.summary()["resources"]
+        finally:
+            release.set()
+        assert future.result(timeout=3)["id"] == record.scope.project
+    assert (
+        len(record.summary()["requests"]) == 1 and record.get("create-one")["state"] == "confirmed"
+    )
+
+
+def test_ld36_exhausted_cleanup_partition_retains_unfinished_action(tmp_path):
+    record, provider = ledger(tmp_path, requests=1), MemoryProvider()
+    control = FixtureControl(record, provider)
+    project = create(control)
+    with pytest.raises(DriverRefused, match="cleanup_unconfirmed"):
+        control.cleanup(project["id"], "archive", operation_key="no-effect-budget")
+    row = record.cleanup_action("no-effect-budget")
+    assert row["state"] == "intent" and row["attempts"] == 0
+    assert record.resource(project["id"])["state"] == "active"
+    assert not any(call[0] == "archive" for call in provider.calls)
+    with pytest.raises(DriverRefused, match="unresolved_cleanup"):
+        record.require_closed_children()
+
+
+def test_ld36_actual_live_drain_blocks_parent_cleanup(rig, tmp_path):
+    record, provider = ledger(tmp_path), MemoryProvider()
+    entered, release = threading.Event(), threading.Event()
+
+    class Inbound:
+        def run_once(self, handle):
+            entered.set()
+            release.wait(3)
+            return None
+
+    runtime = PrimaryRun(
+        rig.core,
+        rig.handle,
+        rig.journal,
+        rig.client.binding,
+        WEBHOOK,
+        lambda: b"fixture-webhook-signing-secret",
+        Inbound(),
+        record,
+        clock=lambda: rig.now,
+    )
+    control = FixtureControl(record, provider, quiescence=runtime.require_quiescent)
+    project = create(control)
+    try:
+        runtime.drain.start()
+        runtime.drain.wake()
+        assert entered.wait(1)
+        before = list(provider.calls)
+        with pytest.raises(DriverRefused, match="owned_runtime_not_quiescent"):
+            control.cleanup(project["id"], "archive")
+        assert provider.calls == before and not record.summary()["cleanup_actions"]
+        assert not runtime.stop(0.01)["stopped"]
+        release.set()
+    finally:
+        release.set()
+        assert runtime.stop(3)["stopped"]
+    assert control.cleanup(project["id"], "archive")["state"] == "archived"
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"started_at": None},
+        {"cleanup_requests": None},
+        {"cleanup_seconds": None},
+        {"cleanup_requests": 0},
+        {"cleanup_requests": -1},
+        {"cleanup_requests": 150},
+        {"cleanup_requests": True},
+        {"cleanup_seconds": math.nan},
+        {"cleanup_seconds": -1},
+        {"cleanup_seconds": 240},
+        {"started_at": math.inf},
+    ],
+)
+def test_ld37_missing_or_invalid_reserve_refuses_before_file_creation(tmp_path, changes):
+    limits = Limits(1240, started_at=1000, cleanup_requests=32, cleanup_seconds=120)
+    scope = Scope(
+        EXPECTED.workspace_id,
+        EXPECTED.viewer_id,
+        EXPECTED.team_id,
+        EXPECTED.project_id,
+        str(uuid4()),
+    )
+    path = tmp_path / "never-created.sqlite"
+    with pytest.raises(DriverRefused):
+        RunLedger(path, str(uuid4()), scope, replace(limits, **changes))
+    assert not path.exists()

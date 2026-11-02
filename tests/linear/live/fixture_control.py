@@ -1,6 +1,8 @@
 """Exact owned-fixture control ports; no HTTP, key reader or live implementation."""
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+
+from ai_task_manager.config.files import digest
 
 from .ledger import DriverRefused, uuid
 
@@ -33,8 +35,11 @@ class FixtureControl:
     can create writing approvals, human acceptance, workers or AI/user receipts.
     """
 
-    def __init__(self, ledger, provider=None):
+    def __init__(self, ledger, provider=None, *, quiescence=None):
         self.ledger, self.provider = ledger, provider or RejectProvider()
+        # Trusted in-process composition only. An unattached authored setup port
+        # has no runtime handles and cannot establish live receiver/tunnel readiness.
+        self.quiescence = quiescence
 
     def _bound(self, observation, kind, candidate):
         expected = self.ledger.scope
@@ -98,38 +103,66 @@ class FixtureControl:
         except Exception:
             raise DriverRefused("recovery_unconfirmed") from None
 
-    def cleanup(self, resource_id, action):
+    def cleanup(self, resource_id, action, *, operation_key=None):
         if isinstance(self.provider, RejectProvider):
             raise DriverRefused("provider_not_admitted")
         row = self.ledger.resource(uuid(resource_id))
-        allowed = {
-            "project": {"archive"},
-            "issue": {"cancel", "archive"},
-            "webhook": {"disable", "delete"},
-            "comment": set(),
-        }
-        if action not in allowed[row["kind"]]:
-            raise DriverRefused("cleanup_action_forbidden")
+        key = operation_key or f"cleanup:{row['kind']}:{resource_id}:{action}"
+        # A committed replay is historical and performs no new provider effect.
+        try:
+            prior = self.ledger.cleanup_action(key)
+        except DriverRefused as error:
+            if str(error) != "cleanup_intent_missing":
+                raise
+        else:
+            checked = self.ledger.begin_cleanup(key, resource_id, action)
+            if checked["state"] == "confirmed":
+                return {**row, "state": checked["target"]}
+            if prior["state"] in {"sent", "uncertain"}:
+                return self.recover_cleanup(key)
         if row["kind"] == "project":
-            self.ledger.require_closed_children()
-        if row["state"] in {"archived", "canceled", "deleted"}:
-            return row
-        self.ledger.request("read")
+            if self.quiescence is not None:
+                self.quiescence()
+            self.ledger.require_closed_children(exclude_cleanup_key=key)
+        self.ledger.begin_cleanup(key, resource_id, action)
+        self.ledger.cleanup_read(key)
         try:
             before = self.provider.read(row["kind"], resource_id)
             self._bound(before, row["kind"], resource_id)
-            self.ledger.request("cleanup")
-            after = self.provider.cleanup(row["kind"], resource_id, action)
-            self._bound(after, row["kind"], resource_id)
-            state = {
-                "archive": "archived",
-                "cancel": "canceled",
-                "disable": "disabled",
-                "delete": "deleted",
-            }[action]
-            if after.state != state:
-                raise DriverRefused("cleanup_readback_mismatch")
-            self.ledger.cleaned(resource_id, state)
-            return self.ledger.resource(resource_id)
+            self.ledger.cleanup_prepared(key, digest(asdict(before)))
+            self.ledger.cleanup_sent(key)
         except Exception:
             raise DriverRefused("cleanup_unconfirmed") from None
+        try:
+            after = self.provider.cleanup(row["kind"], resource_id, action)
+            self._bound(after, row["kind"], resource_id)
+            if after.state != self.ledger.cleanup_action(key)["target"]:
+                raise DriverRefused("cleanup_readback_mismatch")
+            self.ledger.cleanup_confirm(key, digest(asdict(after)))
+            return self.ledger.resource(resource_id)
+        except Exception:
+            self.ledger.cleanup_uncertain(key)
+            raise DriverRefused("cleanup_unconfirmed") from None
+
+    def recover_cleanup(self, operation_key):
+        if isinstance(self.provider, RejectProvider):
+            raise DriverRefused("provider_not_admitted")
+        row = self.ledger.cleanup_action(operation_key)
+        if row["state"] == "confirmed":
+            return {**self.ledger.resource(row["resource_id"]), "state": row["target"]}
+        if row["state"] not in {"sent", "uncertain"}:
+            raise DriverRefused("cleanup_no_possible_effect")
+        if row["kind"] == "project":
+            if self.quiescence is not None:
+                self.quiescence()
+            self.ledger.require_closed_children(exclude_cleanup_key=operation_key)
+        self.ledger.cleanup_read(operation_key)
+        try:
+            current = self.provider.read(row["kind"], row["resource_id"])
+            self._bound(current, row["kind"], row["resource_id"])
+            if current.state != row["target"]:
+                raise DriverRefused("cleanup_observation_incomplete")
+            self.ledger.cleanup_confirm(operation_key, digest(asdict(current)))
+            return self.ledger.resource(row["resource_id"])
+        except Exception:
+            raise DriverRefused("cleanup_recovery_unconfirmed") from None

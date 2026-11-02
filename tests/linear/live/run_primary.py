@@ -32,7 +32,7 @@ class DrainWorker:
         self.event.set()
 
     def start(self):
-        if self.thread is not None:
+        if self.thread is not None or self.closing.is_set():
             raise DriverRefused("drain_already_started")
 
         def drain():
@@ -108,3 +108,22 @@ class PrimaryRun:
             "receiver": receiver,
             "drain": drain,
         }
+
+    def require_quiescent(self):
+        # Observe the actual owned handles. A successful HTTP response, a timed
+        # wait, or a caller-made stopped flag cannot establish quiescence.
+        receiver = self.receiver
+        threads = [
+            receiver.thread,
+            receiver.shutdown_thread,
+            self.drain.thread,
+            *receiver.server.handlers,
+            *receiver.server.adapters,
+        ]
+        if (
+            not receiver.stopping
+            or not self.drain.closing.is_set()
+            or receiver.active
+            or any(thread is not None and thread.is_alive() for thread in threads)
+        ):
+            raise DriverRefused("owned_runtime_not_quiescent")
