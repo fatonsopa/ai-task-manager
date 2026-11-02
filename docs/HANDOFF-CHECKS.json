@@ -99,16 +99,16 @@
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "703f6b583256cb54e462f0033e43182c8e61f8d2ba781eb025e176a5a2723399",
+      "sha256": "e50e07ff51b2eddc1c4ccfa259213781756cea9597ae80c0c2f6ca1d61b158af",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "0c4d8c6cb9d2769ff362e53f79cdcf911d97775132f3a06a2dc8ae2a2b5811d9",
+      "objective_sha256": "115353523d05a51c76b7a0b3279f7857e5ad9f97b487037029dbdcf915544690",
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
-      "scope": "Current period;141 local receiver passes,144 isolated scheduler passes and44/1 failed host candidate remain separate from full-tested e713.",
-      "reporting_period": "2026-11-02 07:18\u201310:15 UTC"
+      "scope": "10:15\u201313:10UTC current period: integrated147+74,45,57and221 scoped checks; actual primary/secondary metadata preflights; real workflows remain unrun.",
+      "reporting_period": "2026-11-02 10:15\u201313:10 UTC"
     },
     "merge/decision_record.md": {
       "checked_delivery": "delivered",
@@ -1145,6 +1145,20 @@
       "objective_sha256": "89610644abe5da111c28ff96a596dfaf5ff02dc1e9d85f6599ce4cad25eb5a1e",
       "message_sha256": "0f70008b99f7eb71f33ea6c2da70326d1ee78dda84555db2817c70c2c829dc5b",
       "scope": "Current implemented intake interfaces and remaining host/issuer integration; one paragraph only"
+    },
+    {
+      "path": "test_status_report.md",
+      "checked_delivery": "delivered",
+      "sha256": "703f6b583256cb54e462f0033e43182c8e61f8d2ba781eb025e176a5a2723399",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "objective_sha256": "0c4d8c6cb9d2769ff362e53f79cdcf911d97775132f3a06a2dc8ae2a2b5811d9",
+      "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+      "scope": "Current period;141 local receiver passes,144 isolated scheduler passes and44/1 failed host candidate remain separate from full-tested e713.",
+      "reporting_period": "2026-11-02 07:18\u201310:15 UTC"
     }
   ],
   "requirements_revision": 5
