@@ -1,48 +1,50 @@
 # AI task manager development and testing status
 
-Reporting period: 2 November 2026, 10:15–13:10 UTC.
-Build: Main ade4b80. The latest complete backend run tested e713d864; later component results belong to their own sources.
-Environment: macOS arm64, Python 3.13.13. Historical Linux-container results retain their original scope.
-Status: Implementation continues; full product acceptance remains incomplete.
+Reporting period: 2 November 2026, 13:10–15:12 UTC.
+Build: Main 3f817ad; unintegrated worker results belong to their recorded candidates.
+Environment: macOS arm64, Python 3.13.13; isolated repositories, services and terminal fixtures.
+Status: Implementation and component testing continue. Full product acceptance remains incomplete.
 
 ## Progress and results
 
 | Scope | Observed result | Meaning and limits |
 | --- | --- | --- |
-| Dependency scheduling, 8add367 | 147 component and 74 consumer checks passed, with no failures, errors or skips. Integrated after source/result review. | The production dependency-source composition remains pending. Earlier failures are retained. |
-| Host source protection, 105464ff | All 45 local checks passed using owned project storage; integrated through 1220a96. | Earlier 43/2 and 44/1 failures remain. Production guards were preserved; the fixture placement changed. |
-| Invocation permits and model guards, a23ce14d | All 57 unique local checks passed; integrated through 9e6e548. | Earlier 55/2 and focused two passes remain. This component does not establish actual native launch or model acceptance. |
-| Owned Linear fixture driver, 1e098d4 | All 221 unique local checks passed; integrated through 6a63ad6. Original cases remain with additive route and socket-interleaving controls. | The demonstrated close/send race was corrected. The older uncontrolled header failure lacks clocks, so its retrospective cause remains unknown. Provider delivery remains unproved. |
-| Actual primary Linear preflight | Two read-only calls through the current product transport and fixture driver passed schema, workspace, human account/admin and TST checks. | No project, issue, webhook or prose mutation. Helper authorization/startup failures remain recorded. |
-| Actual second Linear identity | One metadata-only call verified a different active human with access to the same workspace and TST team. | The missing-identity blocker is resolved. Credentials are read directly; no copy was created. Live two-user isolation remains unrun. |
+| Linear receiver/drain composition, be460e3 | All 34 local checks passed; integrated through ec8671d after source, raw-result and owned-process review. | Product receiver/drain reuse is tested locally. No public endpoint or live provider workflow passed. Earlier failed attempts remain. |
+| Scoped sidebar/status component, 51ba454 | All 20 component checks passed; integrated through 3f817ad. | Covers scoped application reads, truthful activity, five rendered preview lines and headless interaction. The earlier 19-pass/1-failure resize attempt remains. |
+| Native terminal interaction, 6179085 | Six cases passed: one interactive PTY test, one passive CLI status test and four color-parser controls. Raw terminal frames and stopped owned process groups were retained. | This candidate is not integrated. The separate tmux layout still has a worker-reported display failure; source review also found incomplete cleanup reconciliation. No installed Claude/Codex acceptance. |
+| Host regression candidates | Earlier broad run: 316 passed and 4 failed. Focused repair: 3 passed and 1 failed. | The remaining failure loses part of the permitted stdout prefix. Its exact 4 MiB assertion remains; the correction and remaining 97-case batch are pending. These are different candidates, not one combined verdict. |
+| Current host process reconciliation | Root accepted current scoped quiescence from 253 retained identities, process/CWD observations, unchanged journals and source-classified rejection controls. | Both older nested UNKNOWN receipts remain unchanged; missing historical PIDs were not reconstructed. This permits scoped continuation, not a host or product pass. |
+| Git source/contract unit | Root accepted 14 history-oracle mappings while retaining all twenty original F1 groups. The worker is now implementing the real Git publication slice in TST-90. | Source review is distinct from executable Git evidence. The wider audit remains incomplete; no real Git fixture result is claimed. |
 
-The latest complete Mac backend result remains 2,490 passed on e713d864, tree ac3ad93388eb760c1532c3085b6e761f81a86713, with zero failures, errors or skips. Its wrapper took 560.80 seconds within 840 seconds. All 667 frozen hashes matched; six container cases ran and seven exact owned containers were independently confirmed removed. Current main has not inherited that full-suite verdict. Component counts overlap and must not be added as a coverage total.
+The latest complete Mac backend result remains the historical 2,490 passes on e713d864, tree ac3ad93388eb760c1532c3085b6e761f81a86713, with no failures, errors or skips. Its wrapper took 560.80 seconds within 840 seconds; 667 frozen hashes matched, six container cases ran and seven exact owned containers were confirmed removed. That result does not establish a full-suite pass on current main. Component counts overlap and must not be added as coverage.
 
 ## Coverage and deviations
 
-The maintained inventory retains 38 requirements, 248 authored scenarios and fourteen workflows. R08 revision 5 now authorizes the full internal merge refactor and correction of defective tests, sequencing and resource handling. Current-source/history review and versioned scenario mapping precede each dependent replacement. Detailed decision-attention and dynamic-delegation extensions remain planned work.
+The maintained inventory still has 38 requirements, 248 authored scenarios and fourteen workflows. R08 revision 5 authorizes the full internal merge refactor, including corrections to test selection, sequencing, resource lifetime and attribution. The Git task now reflects that authority and preserves its four-path CAS/fast-forward deliverable. The compatibility command remains `merge-to-dev.sh`; older draft restrictions are historical where they conflict with the newer approved contract.
 
-All 18 actual live Linear cases remain unrun. Real schema/account checks are prerequisites, not passing end-to-end cases. All four required profiles remain unrun: Claude Code with `claude-opus-5-5` and `claude-sonnet-5-5`, and Codex CLI with `gpt-6.1-sol` and `gpt-6-astra`, each at `high` effort. Fable is excluded. Use `claude_roni`; the original Claude account remains unavailable. The earlier actual Claude pilot remains failed after its observed model changed.
+The primary merge project has 143 fully reviewed descriptions and 700 comments/replies. The retained wider source records now total 319 fully reviewed descriptions and 1,121 comments. Nineteen additional generated carriage bodies received structured field review and are excluded from those full-prose counts. Upstream 76009c7 is the latest inspected ref, not proof of current installed source or a tested binary; inspect drift again before application integration. Historical timing claims remain attributed reports, not fresh performance measurements.
 
-The run retains its original 1 November 15:56:48 UTC start, accounting and failed attempts. Overall spending, elapsed-time and retry ceilings are lifted; individual batches, concurrency and invocations remain bounded. Recorded incremental external charges remain zero; historical API-equivalent estimates are not bills. Three registered workers have separate tracked tasks, worktrees and disposable fixtures. Their native development assignments are separate from installed product dispatch evidence.
+No complete live Linear case has passed: 0/18. Both human identities are available, but metadata preflight is not live isolation acceptance. No required host/model profile is accepted: 0/4. Required profiles remain Claude Code with `claude-opus-5-5` and `claude-sonnet-5-5`, and Codex CLI with `gpt-6.1-sol` and `gpt-6-astra`, each at `high` effort. Fable is excluded. Use `claude_roni`; the original Claude account remains unavailable. The earlier failed model-mismatch pilot remains in history.
+
+The build retains its original 1 November 15:56:48 UTC start, accounting, failed attempts and closed packets. Overall ceilings are lifted; invocations, batches and measured concurrency remain finite. Recorded incremental external charges remain zero; historical estimates are not bills. Three registered native workers have separate tracked assignments, worktrees and disposable fixtures. These development assignments do not establish installed product dispatch.
 
 ## Blockers and risks
 
-* Physical host launch, native input, relay supervision and producer integration are being tested. The worker reports an initial 61-pass/5-failure local attempt; root acceptance remains pending. A discovered startup/model lock contention path needs a nonblocking guarded correction without weakening startup checks.
-* Actual Linear delivery still needs the owned HTTPS receiver/tunnel, product binding, fixture lifecycle and complete reporting loop. Both human identities are now available.
-* Full merge refactoring, real Git/application database integration, protected operation lifetime, historical scenario closure and measured performance remain incomplete. The auditor reports upstream b8726670, 35 commits beyond the historical local pin; source drift must be checked again before application integration.
-* Recovery/status integration, human acceptance, the native sidebar, coordination skill, installation/removal, clean cutover, continuous improvement, second-project portability and release checks remain incomplete. Thirty-six inherited repository-wide lint diagnostics remain unresolved.
+* The public Linear endpoint remains held after an automated review interruption. No tunnel, public endpoint or live fixture was launched by that phase. Continue independent work without bypassing the check.
+* Host output handling, native terminal cleanup and the clipped visibility control still have active corrections. The Git adapter, full merge domains, real application database workflow and protected publication lifetime remain incomplete.
+* Decision requests with human mentions and dynamic agent delegation still need their detailed specification, acceptance extensions and implementation.
+* Production dependency-source composition, integrated recovery, final skills, installation/removal, obsolete-artifact migration, continuous improvement, second-project portability and release checks remain incomplete. Thirty-six inherited lint diagnostics remain unresolved.
 
 ## Next work
 
-Continue the three current assignments: finish host transport/current-authority wiring, complete Linear endpoint composition and live fixtures, and finish the relevant CG merge-history/source audit. Review actual source and raw outcomes before integration; reuse valid unchanged evidence without repeatedly running unrelated suites.
+The Git worker implements confined real publication and recovery. The terminal worker corrects display and lifecycle failures and verifies the native pane. The host worker repairs stdout retention, runs eligible bounded regressions and then proceeds toward the first actual CLI/model pilot. Review changed source and raw evidence before integration; reuse valid unchanged results.
 
-Workers commit in their own branches/worktrees. One merge authority validates and integrates into `dev`. Preserve foreground commands and intended checks while correcting flawed internals. Measure commit hooks, test execution, waits, dev-churn rechecks and cleanup separately. Historical timing reports are not fresh benchmarks or new performance targets.
+Workers commit in their own branches/worktrees. One merge authority validates and integrates into `dev`. Preserve commands and intended safeguards while replacing defective internals. Measure commit hooks, checks/tests, waits, rebases, publication, settlement and cleanup separately.
 
-Complete remaining implementation before the final combined acceptance run. T34 stays in its normal dependency order; diagrams and screenshots remain under `docs/`. No code has been pushed or normal sessions activated, and the application checkout remains unchanged. The future How-to Guide (HTG), `migrate.md`, will contain tested clean-cutover and obsolete-artifact removal commands once that implementation exists.
+The application checkout and normal sessions remain unchanged; no code has been pushed. T34 remains in dependency order, with diagrams and screenshots under `docs/`. The future How-to Guide (HTG), `migrate.md`, must accompany tested scripts for complete state cutover and removal of superseded artifacts. Documentation alone cannot activate a second writer or prove migration.
 
 ## Sources
 
 The Test Plan (TP), [test_plan.md](test_plan.md), owns exit criteria; the Implementation Plan (IP), [implementation_plan.md](implementation_plan.md), owns delivery order. The Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), owns behavior. See [component evidence](HANDOFF-CHECKS.json) and the [execution policy](config/execution-policy.json).
 
-Private run 20261101T155648Z retains exact source snapshots, raw results, process reconciliation, prior reporting periods, failures, writing receipts and accounting. Each result belongs to its actual source and scope.
+Private run 20261101T155648Z retains exact source/checkpoint hashes, raw results, process observations, prior periods, failures, writing receipts and accounting. Each result belongs to its actual candidate and scope.

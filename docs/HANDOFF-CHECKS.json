@@ -99,16 +99,16 @@
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "e50e07ff51b2eddc1c4ccfa259213781756cea9597ae80c0c2f6ca1d61b158af",
+      "sha256": "ad0f4267517589008fe5f84154e6baa6eae5a7da797c305532cce6e470279629",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "115353523d05a51c76b7a0b3279f7857e5ad9f97b487037029dbdcf915544690",
+      "objective_sha256": "118cd111fb7fd6289f5f8f10a38581d4e793bee0cd3c40ca74b31160fb8f6aba",
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
-      "scope": "10:15\u201313:10UTC current period: integrated147+74,45,57and221 scoped checks; actual primary/secondary metadata preflights; real workflows remain unrun.",
-      "reporting_period": "2026-11-02 10:15\u201313:10 UTC"
+      "scope": "13:10\u201315:12 UTC; source-specific terminal/Linear integration, host failures, bounded Git source unit and incomplete full acceptance.",
+      "reporting_period": "2026-11-02 13:10\u201315:12 UTC"
     },
     "merge/decision_record.md": {
       "checked_delivery": "delivered",
@@ -977,6 +977,22 @@
         "scope": "Current period; local passes and unaccepted candidates separated from full-tested e713",
         "reporting_period": "2026-11-02 04:57\u201307:18 UTC"
       }
+    },
+    {
+      "reporting_period": "2026-11-02 10:15\u201313:10 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "e50e07ff51b2eddc1c4ccfa259213781756cea9597ae80c0c2f6ca1d61b158af",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+        "objective_sha256": "115353523d05a51c76b7a0b3279f7857e5ad9f97b487037029dbdcf915544690",
+        "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+        "scope": "10:15\u201313:10UTC current period: integrated147+74,45,57and221 scoped checks; actual primary/secondary metadata preflights; real workflows remain unrun.",
+        "reporting_period": "2026-11-02 10:15\u201313:10 UTC"
+      }
     }
   ],
   "external_model_invocation_basis": "Four host-level submitted turns: two prior tool-free pilots, one neutral initialization submission and one assigned Claude component submission. The later native results report two neutral and four assigned agentic turns plus auxiliary model usage; the provider-internal request count is not fully exposed. These are not four billed API calls.",
@@ -1159,6 +1175,20 @@
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
       "scope": "Current period;141 local receiver passes,144 isolated scheduler passes and44/1 failed host candidate remain separate from full-tested e713.",
       "reporting_period": "2026-11-02 07:18\u201310:15 UTC"
+    },
+    {
+      "path": "test_status_report.md",
+      "checked_delivery": "delivered",
+      "sha256": "e50e07ff51b2eddc1c4ccfa259213781756cea9597ae80c0c2f6ca1d61b158af",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "objective_sha256": "115353523d05a51c76b7a0b3279f7857e5ad9f97b487037029dbdcf915544690",
+      "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+      "scope": "10:15\u201313:10UTC current period: integrated147+74,45,57and221 scoped checks; actual primary/secondary metadata preflights; real workflows remain unrun.",
+      "reporting_period": "2026-11-02 10:15\u201313:10 UTC"
     }
   ],
   "requirements_revision": 5
