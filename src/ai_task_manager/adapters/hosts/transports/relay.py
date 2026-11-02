@@ -50,6 +50,8 @@ def main():
     current_utc = absolute
     control = b""
     child = None
+    active_call = None
+    exit_seen = None
     outputs = {}
     pending = {1: bytearray(), 2: bytearray()}
     totals = {1: 0, 2: 0}
@@ -58,7 +60,10 @@ def main():
         os.set_blocking(fd, False)
     while time.monotonic() < deadline and time.time() < min(absolute, current_utc):
         if child is not None and child.poll() is not None:
-            terminate("native_exit")
+            if exit_seen is None:
+                exit_seen = time.monotonic()
+            if (not outputs and not any(pending.values())) or time.monotonic() - exit_seen >= 0.5:
+                terminate("native_exit")
         reads = [0, *outputs]
         writes = [fd for fd, data in pending.items() if data]
         ready, writable, _ = select.select(reads, writes, [], 0.02)
@@ -117,12 +122,16 @@ def main():
                         terminate("partial_handshake")
                     os.close(ready_fd)
                 elif operation == "invocation" and child is not None and policy is not None:
+                    if active_call is not None:
+                        terminate("active_invocation_unreconciled")
                     # Same ledger determines the persisted bound; no caller extension.
                     current_utc = min(absolute, policy.invocation_deadline(data["call_id"]))
+                    active_call = data["call_id"]
                 elif operation == "complete" and child is not None and policy is not None:
-                    if not policy.completed(data["call_id"]):
+                    if not policy.completed(data["call_id"], active_call=active_call):
                         terminate("unconfirmed_completion")
                     current_utc = absolute
+                    active_call = None
                 elif operation == "stop":
                     terminate("requested")
                 else:

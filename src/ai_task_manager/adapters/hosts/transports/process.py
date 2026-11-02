@@ -18,6 +18,7 @@ from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
 from ai_task_manager.supervisor.models import RuntimeUncertain
 
 from ..bridge.records import ProcessIdentity
+from .input_audit import InputAudit
 from .native_exit import NativeExitWatch, require_exit_monitoring
 from .native_input import NativeInput
 from .relay_policy import command_record, prepare_binding
@@ -55,6 +56,7 @@ class HostProcess:
         self._buffer, self._closed = b"", False
         self.process = self.group = self.identity = self.native_exit = None
         self.invocation = invocation
+        self._bound_invocation = invocation
         if invocation is not None:
             from ..bridge.invocations import InitializationInvocation
 
@@ -62,11 +64,14 @@ class HostProcess:
                 raise AccessDenied("A typed initialization invocation is required")
             self.deadline = min(deadline, invocation.native.binding.deadline)
         self.native_input = None
+        self.input_audit = InputAudit(self.directory)
         self._active_invocation = None
         self._active_guard = None
         self._active_lease = None
         self._active_started = False
         self._model_frame = False
+        self._pending_completion = None
+        self._pending_submitted = False
 
     def start(self):
         if self.process is not None:
@@ -154,12 +159,15 @@ class HostProcess:
             self.identity = ProcessIdentity(native.pid, native.start_identity, self.group.group_id)
             self.native_exit = NativeExitWatch.capture(self)
             return self.identity
-        except BaseException:
-            if self.group is None and self.process is not None:
-                self.group = OwnedProcessGroup(self.process)
-                self.group.capture()
-            if self.group is not None:
-                self.stop()
+        except BaseException as error:
+            try:
+                if self.group is None and self.process is not None:
+                    self.group = OwnedProcessGroup(self.process)
+                    self.group.capture()
+                if self.group is not None:
+                    error.owned_stop_evidence = self.stop()
+            except BaseException as cleanup_error:
+                error.owned_stop_error = type(cleanup_error).__name__
             raise
         finally:
             os.close(read_fd)
@@ -211,17 +219,35 @@ class HostProcess:
             not isinstance(permit, PreparedInvocation)
             or self.invocation is None
             or self._active_invocation is not None
+            or self._pending_completion is not None
         ):
             raise AccessDenied("A separate registered invocation is required")
+        self._check_invocation_owner(permit)
         native = self.invocation.native.binding
-        if permit.issuer.controller is not self.invocation.native.issuer.controller:
-            raise AccessDenied("Submission uses another accounting controller")
-        if permit.binding.purpose not in {"neutral", "assignment"}:
-            raise AccessDenied("This invocation purpose cannot submit model work")
         snapshot = permit.issuer.controller.snapshot()
         actual = next(row for row in snapshot["calls"] if row["call_id"] == permit.binding.call_id)
         if actual["metadata"].get("parent_call_id") != native.call_id:
             raise AccessDenied("Submission is not registered under this native host")
+        self._pending_completion, self._pending_submitted = permit, False
+        self._control({"op": "invocation", "call_id": permit.binding.call_id})
+        self._active_invocation, self._active_guard, self._active_lease = permit, guard, lease
+        self._active_started = permit.mode == "running"
+        try:
+            yield
+        finally:
+            self._active_invocation = self._active_guard = None
+            self._active_lease = None
+            self._active_started = False
+
+    def _check_invocation_owner(self, permit):
+        if self.invocation is None or self.invocation is not self._bound_invocation:
+            raise AccessDenied("Original native invocation ownership changed")
+        native = self.invocation.native.binding
+        if (
+            permit.issuer.controller is not self.invocation.native.issuer.controller
+            or permit.binding.purpose not in {"neutral", "assignment"}
+        ):
+            raise AccessDenied("Submission authority differs from its native host")
         if any(
             getattr(permit.binding, name) != getattr(native, name)
             for name in (
@@ -236,15 +262,6 @@ class HostProcess:
             )
         ):
             raise AccessDenied("Submission invocation differs from its owned native host")
-        self._control({"op": "invocation", "call_id": permit.binding.call_id})
-        self._active_invocation, self._active_guard, self._active_lease = permit, guard, lease
-        self._active_started = permit.mode == "running"
-        try:
-            yield
-        finally:
-            self._active_invocation = self._active_guard = None
-            self._active_lease = None
-            self._active_started = False
 
     @contextmanager
     def _input_boundary(self):
@@ -271,6 +288,8 @@ class HostProcess:
                 lease = self._active_lease() if self._active_lease is not None else nullcontext()
                 with lease:
                     yield
+                    if self._model_frame:
+                        self._pending_submitted = True
                 if report is not None:
                     report(process_pid=None, process_start_identity=None)
                     self._active_started = True
@@ -278,10 +297,38 @@ class HostProcess:
     def complete_invocation(self, permit):
         if (
             self.invocation is None
+            or self._pending_completion is not permit
+            or not self._pending_submitted
+            or self._active_invocation is not None
+            or self.clock() >= permit.binding.deadline
             or permit.issuer.controller is not self.invocation.native.issuer.controller
         ):
-            raise AccessDenied("Invocation completion uses another host controller")
+            raise AccessDenied("Invocation completion lacks its exact pending submission")
+        self._check_invocation_owner(permit)
+        permit.issuer._validate(permit)
+        snapshot = permit.issuer.controller.snapshot()
+        call = next((r for r in snapshot["calls"] if r["call_id"] == permit.binding.call_id), None)
+        from ..bridge.invocations import InvocationBinding
+
+        if (
+            call is None
+            or call["status"] != "succeeded"
+            or call["outcome"] != "succeeded"
+            or call["process_stopped"] is not True
+            or call["uses_worker"]
+            or call["metadata"].get("parent_call_id") != self.invocation.native.binding.call_id
+            or InvocationBinding.observed(
+                {
+                    "run_id": snapshot["run_id"],
+                    "policy_revision": snapshot["policy"]["revision"],
+                    "call": call,
+                }
+            )
+            != permit.binding
+        ):
+            raise AccessDenied("Exact independently recorded invocation completion is required")
         self._control({"op": "complete", "call_id": permit.binding.call_id})
+        self._pending_completion, self._pending_submitted = None, False
 
     def write(self, text):
         self._deadline()
@@ -308,10 +355,21 @@ class HostProcess:
                 invocation_deadline=self._active_invocation.binding.deadline
                 if self._active_invocation is not None
                 else None,
+                observe=lambda outcome: self.input_audit.record(
+                    outcome,
+                    self._active_invocation.binding.call_id
+                    if self._active_invocation is not None
+                    else self.invocation.native.binding.call_id
+                    if self.invocation is not None
+                    else None,
+                ),
             )
         except BaseException as error:
             if getattr(error, "native_input_uncertain", False):
-                error.owned_stop_evidence = self.stop()
+                try:
+                    error.owned_stop_evidence = self.stop()
+                except BaseException as cleanup_error:
+                    error.owned_stop_error = type(cleanup_error).__name__
             raise
         finally:
             self._model_frame = False

@@ -300,11 +300,18 @@ def spawn_claimed(permit, argv, **options):
         return process
     except BaseException as error:
         if process is not None:
-            group = OwnedProcessGroup(process)
-            group.capture()
-            stopped = group.stop()
-            error.owned_stop_evidence = group.evidence(stopped, orphaned=False)
             error.owned_process = process
-            if stopped.confirmed:
-                group.reap_exited_leader()
+            try:
+                group = OwnedProcessGroup(process)
+                error.owned_group = group
+                group.capture()
+                before, leader = group.observe(), group.leader()
+                stopped = group.stop()
+                error.owned_stop_evidence = group.evidence(
+                    stopped, orphaned=bool(leader.exited and before.live_members)
+                )
+                if stopped.confirmed:
+                    group.reap_exited_leader()
+            except BaseException as cleanup_error:
+                error.owned_stop_error = type(cleanup_error).__name__
         raise

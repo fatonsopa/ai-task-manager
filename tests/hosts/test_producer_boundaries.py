@@ -36,6 +36,13 @@ def test_model_and_file_effect_follow_root_guard_core_order(composition, monkeyp
     root_effect = accounting.control.effect_boundary
     current_guard = native.startup.model_guard.current_boundary
     core = runtime.rig.core.execution.work_boundary
+    audit = native.process.input_audit.record
+    audit_calls = []
+
+    def audit_outside(outcome, call_id):
+        assert not inside, "Input audit ran inside Root/model/Core"
+        audit_calls.append(call_id)
+        return audit(outcome, call_id)
 
     def wrap(label, original):
         @contextmanager
@@ -56,9 +63,11 @@ def test_model_and_file_effect_follow_root_guard_core_order(composition, monkeyp
         native.startup.model_guard, "current_boundary", wrap("model", current_guard)
     )
     monkeypatch.setattr(runtime.rig.core.execution, "work_boundary", wrap("Core", core))
+    monkeypatch.setattr(native.process.input_audit, "record", audit_outside)
     workers.execute_reviewed(runtime.rig.handle, attempt.id, "assignment", "ordered-assignment")
     assert order.count(("Root", "model", "Core")) >= 2
     assert not inside
+    assert audit_calls
     assert (native.pair.worktree / "owned.py").read_text() == "answer = 42\n"
 
 

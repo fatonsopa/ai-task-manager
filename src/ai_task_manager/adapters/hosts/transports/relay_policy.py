@@ -166,7 +166,7 @@ class RelayPolicy:
         ) as report:
             yield report
 
-    def invocation_deadline(self, call_id):
+    def _child_call(self, call_id, statuses):
         from ai_task_manager.adapters.hosts.bridge.invocations import InvocationBinding
 
         snapshot = self.control.snapshot()
@@ -178,8 +178,10 @@ class RelayPolicy:
         }
         binding = InvocationBinding.observed(state)
         if (
-            call["status"] not in {"launching", "running"}
+            call["status"] not in statuses
             or call["metadata"].get("parent_call_id") != self.binding.call_id
+            or binding.purpose not in {"neutral", "assignment"}
+            or call["uses_worker"]
             or any(
                 getattr(binding, name) != getattr(self.binding, name)
                 for name in (
@@ -195,8 +197,23 @@ class RelayPolicy:
             )
         ):
             raise ValueError("Active native invocation belongs to another host")
+        return call, binding
+
+    def invocation_deadline(self, call_id):
+        _, binding = self._child_call(call_id, {"launching", "running"})
         return binding.deadline
 
-    def completed(self, call_id):
-        call = next((r for r in self.control.snapshot()["calls"] if r["call_id"] == call_id), None)
-        return bool(call and call["status"] == "succeeded")
+    def completed(self, call_id, *, active_call=None):
+        from ai_task_manager.domains.work.errors import AccessDenied
+
+        if active_call is None or call_id != active_call:
+            return False
+        try:
+            call, binding = self._child_call(call_id, {"succeeded"})
+        except (AccessDenied, ValueError, KeyError, TypeError):
+            return False
+        return (
+            call["outcome"] == "succeeded"
+            and call["process_stopped"] is True
+            and self.control.clock().timestamp() < binding.deadline
+        )

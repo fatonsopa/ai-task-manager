@@ -1,0 +1,12 @@
+{
+  "version":37,"extends":"host-bridge-cases-v36.json","preserves_all_prior_objectives":true,
+  "contract_sha256":"cb2aa4c9ef6da4520b55d21565c1520ceaeac34d52a9bb95a08ccefe676fd94b",
+  "cases":[
+    {"id":"IO01","alias":"test_input_outcome_is_durable_only_after_boundary_exit"},
+    {"id":"IO02","alias":"test_required_audit_failure_quarantines_before_later_input","variants":["overflow","symlink","fsync_failure"]},
+    {"id":"IO03","alias":"test_original_input_refusal_survives_audit_and_cleanup_failures"},
+    {"id":"IO04","alias":"test_post_popen_callback_failure_retains_original_and_owned_group","variants":["confirmed_cleanup","cleanup_failure"]},
+    {"id":"IO05","alias":"test_actual_root_rollback_cannot_erase_complete_frame_write"}
+  ],
+  "rules":["Input audit is a bounded observation, never authority or a model success receipt.","Physical writes and confirmed Root boundaries are separate fields. A rollback or missing audit cannot erase an external effect.","Audit acknowledgement completes outside Root/model/Core and before releasing input serialization. Overflow/failure quarantines and stops or retains owned uncertainty.","Original failure survives later cleanup errors. Separate exact fixture recovery never rewrites the unknown product observation."]
+}

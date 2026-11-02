@@ -233,6 +233,7 @@ class ManagedNativeHost:
                     result=result,
                     observation_ref=transcript._last,
                 )
+                self.process.complete_invocation(neutral)
         else:
             self.session = CodexSession(self.process, transcript, self.startup, self.gateway)
             self.session.initialize(self.policy.cwd)
