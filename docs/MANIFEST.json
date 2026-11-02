@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "f145b40dc11b4d2dc16bd83a8ad363eac490c81091a1fa658c7c6e08baead7ed"
+      "sha256": "fba7c4b3ffd360cb26b8bbb575965732b1402f34714928938a27642039d83c11"
     },
     {
       "path": "assets/diagrams/architecture.mmd",
@@ -120,15 +120,15 @@
     },
     {
       "path": "config/work-items.json",
-      "sha256": "3096aecb952fe1d0cc0f18c116d719bc7bcedbf3ea28f3b69ee5b6710225cb29"
+      "sha256": "aeeb2478e38590907ffa2f467107a95f781ec14076b7da60c02460fc8dc553e0"
     },
     {
       "path": "high_level_document.md",
-      "sha256": "96e7b023354dd2211dda8b1c37b0599aa9946a3fb0b2da8ad6540a8f94dcbde6"
+      "sha256": "27087f406ea2344b40ecbfde1a10b8857bbb6147ea3c88af254e65112ba5e2b1"
     },
     {
       "path": "implementation_plan.md",
-      "sha256": "7b0f9001280068b0d792217bde4d4b2ab767d027a597a5ffd84f71ae6bb15e5b"
+      "sha256": "b01a1db3b7067a94722b2ed62f1c9d004d4b2b81b445cdf168be4a122c2b9683"
     },
     {
       "path": "migration/current-contracts.md",
@@ -172,7 +172,7 @@
     },
     {
       "path": "test_status_report.md",
-      "sha256": "9bb33a08f8b2e10f4a92f4f98f6bf842dd8b5a214932bdc9b9abf0bd9d473cc3"
+      "sha256": "ad0b82380bbd0a8849f04cdec4bebdc610aba2ce20e0cfc2e5462a2cc75461cb"
     },
     {
       "path": "tools/check_handoff.py",
