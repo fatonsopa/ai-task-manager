@@ -7,6 +7,7 @@ import os
 import sqlite3
 import subprocess
 import uuid
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,7 @@ def run_command(
     max_cost_usd: str | None,
     timeout_seconds: float,
     output_directory: str | Path,
+    batch_id: str | None = None,
 ) -> dict[str, Any]:
     """Run one argv; keep reservations until the whole owned group is confirmed stopped."""
     _require(
@@ -59,7 +61,12 @@ def run_command(
     except RuntimeError as error:
         raise ControlError("process_monitor_unavailable", str(error)) from error
     reserved = control.reserve(
-        call_id, label="bounded command", paid=paid, max_cost_usd=max_cost_usd
+        call_id,
+        label="bounded command",
+        paid=paid,
+        max_cost_usd=max_cost_usd,
+        batch_id=batch_id,
+        timeout_seconds=timeout_seconds,
     )
     _require(
         reserved["status"] == "reserved",
@@ -85,21 +92,31 @@ def run_command(
                 json.dump({"status": "launch_claimed", "call_id": call_id}, pending)
                 pending.flush()
                 os.fsync(pending.fileno())
-            process = subprocess.Popen(
-                command, stdout=stdout, stderr=stderr, start_new_session=True
+            boundary = (
+                control.launch_boundary(call_id, worker_identity=invocation)
+                if reserved.get("invocation_bound")
+                else nullcontext(None)
             )
-            group = OwnedProcessGroup(process)
-            group.capture()
-            identity = group.start_identity
-            control.mark_started(
-                call_id,
-                worker_identity=invocation,
-                process_pid=process.pid if identity else None,
-                process_start_identity=f"ps:{identity}" if identity else None,
-            )
-            remaining = (
-                _utc(control.snapshot()["deadline"]) - _utc(control.clock())
-            ).total_seconds()
+            with boundary as record_started:
+                process = subprocess.Popen(
+                    command, stdout=stdout, stderr=stderr, start_new_session=True
+                )
+                group = OwnedProcessGroup(process)
+                group.capture()
+                identity = group.start_identity
+                observed = {
+                    "process_pid": process.pid if identity else None,
+                    "process_start_identity": f"ps:{identity}" if identity else None,
+                }
+                if record_started is not None:
+                    record_started(**observed)
+                else:
+                    control.mark_started(call_id, worker_identity=invocation, **observed)
+            snapshot = control.snapshot()
+            current_call = next(c for c in snapshot["calls"] if c["call_id"] == call_id)
+            bound = current_call.get("invocation_bound")
+            deadline = bound["execution_deadline"] if bound else snapshot["deadline"]
+            remaining = (_utc(deadline) - _utc(control.clock())).total_seconds()
             completion = supervise(
                 group, timeout_seconds=max(0.001, min(timeout_seconds, remaining))
             )

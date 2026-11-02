@@ -21,7 +21,7 @@
   "documents": {
     "policy.md": {
       "checked_delivery": "delivered",
-      "sha256": "ef4d28254b59185dfdf73be722ed0e634a255ffcbf27865068ab0c33e16dd96e",
+      "sha256": "0a4231aa508e6d907e12a76f35816dfc89f96f782c34892de1276e06e1289093",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -48,7 +48,7 @@
     },
     "implementation_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "352329a761af0be9f34c4423ea41daa04b4deb2ca5c05a1e36ac7c05ffefd7c5",
+      "sha256": "76c565d6e400f52dcb9026f0fc379ed90489fd78aef50182224a5628c3a2a18d",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -57,7 +57,7 @@
     },
     "test_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "627ae72e29841a27e7914e3b21b323772bcdb8c00722d4d2c3eeff84b9c91430",
+      "sha256": "8cf7fa3b1eb74df3ecbe289b360d51e0f05be00fe9cf17ce2444b9c6eea30f7f",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -75,7 +75,7 @@
     },
     "readme.md": {
       "checked_delivery": "delivered",
-      "sha256": "c80a3afba740df07dfe4fae51dc7f65b91bf96ed564988ecfe552610644a952b",
+      "sha256": "76548c241c8ede6aefc9ebf7834bd43e8ae4cbec599fe402ca1373348f051fff",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -194,6 +194,19 @@
         "claude-opus-4-8",
         "claude-opus-5"
       ]
+    },
+    "build_limit_policy": {
+      "status": "isolated_candidate_verified_original_ledger_migration_pending",
+      "focused_macos_tests_passed": 183,
+      "failed": 0,
+      "skipped": 0,
+      "earlier_focused_batch_passed": 175,
+      "batches_overlap_and_must_not_be_summed": true,
+      "linux_current_amendment_cases": "not_run",
+      "actual_model_or_provider_acceptance": false,
+      "original_ledger_migrated": false,
+      "frozen_case_groups": 55,
+      "frozen_case_manifest_sha256": "e273e2bc42bcdfff12c9356ea280b97b31a96f89b4e08d1ee6ad5c54d7f11fe5"
     }
   },
   "product_acceptance_cases_executed": 0,
@@ -262,11 +275,20 @@
     "status": "required; implementation pending",
     "interrupted_removal_before_replacement_case": "C33"
   },
-  "acceptance_inventory_revision": 3,
+  "acceptance_inventory_revision": 4,
   "case_oracle_corrections": [
     {
       "case": "C11",
       "reason": "Align the stale required-polling/optional-webhook case with already approved R37. Prior inventory and oracle retained; no executed result replaced."
+    },
+    {
+      "cases": [
+        "C08",
+        "B11"
+      ],
+      "revision": 4,
+      "reason": "Actual later user authorization lifts overall ceilings; retain capped defaults as a separate variant, finite execution controls and old criteria/history. Matrix now requires all four selected profiles.",
+      "prior_results_reinterpreted": false
     }
   ],
   "merge_refactor_authorization": {
@@ -341,6 +363,58 @@
         "consumers": 7,
         "browser_visual_review": "Three new/changed diagrams inspected; lifecycle subtitle corrected to distinguish lead acknowledgement from public reporting."
       }
+    },
+    {
+      "document": "readme.md",
+      "reason": "Superseded current build-limit/profile guidance under later actual user authorization; original check retained.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "c80a3afba740df07dfe4fae51dc7f65b91bf96ed564988ecfe552610644a952b",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "policy.md",
+      "reason": "Superseded current build-limit/profile guidance under later actual user authorization; original check retained.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "ef4d28254b59185dfdf73be722ed0e634a255ffcbf27865068ab0c33e16dd96e",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "implementation_plan.md",
+      "reason": "Superseded current build-limit/profile guidance under later actual user authorization; original check retained.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "352329a761af0be9f34c4423ea41daa04b4deb2ca5c05a1e36ac7c05ffefd7c5",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "test_plan.md",
+      "reason": "Superseded current build-limit/profile guidance under later actual user authorization; original check retained.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "627ae72e29841a27e7914e3b21b323772bcdb8c00722d4d2c3eeff84b9c91430",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
     }
   ],
   "project_entrypoints": {
@@ -380,13 +454,22 @@
   "external_model_invocation_basis": "Four host-level submitted turns: two prior tool-free pilots, one neutral initialization submission and one assigned Claude component submission. The later native results report two neutral and four assigned agentic turns plus auxiliary model usage; the provider-internal request count is not fully exposed. These are not four billed API calls.",
   "external_native_fallback_events": 1,
   "limits_warning_policy": {
-    "budget_warn_at_usd": 80,
-    "warn_when_remaining_hours": 8,
-    "earlier_step_admission_check": true,
-    "hard_budget_usd": 100,
-    "hard_deadline_utc": "2026-11-03T15:56:48Z",
-    "coordination_skill_original_rounds_used": 4,
-    "coordination_skill_original_rounds_cap": 5,
-    "advance_warning_sent": true
-  }
+    "status": "paused_as_reported_in_actual_user_authorization_record",
+    "reason": "Earlier warnings refer to lifted overall ceilings; historical thresholds/counters are retained.",
+    "effective_total_spend_ceiling_usd": null,
+    "effective_elapsed_ceiling_seconds": null,
+    "source_authorization_id": "USER-UNTIL-PROVEN-20261101T230813Z"
+  },
+  "historical_limits_warning_policies": [
+    {
+      "budget_warn_at_usd": 80,
+      "warn_when_remaining_hours": 8,
+      "earlier_step_admission_check": true,
+      "hard_budget_usd": 100,
+      "hard_deadline_utc": "2026-11-03T15:56:48Z",
+      "coordination_skill_original_rounds_used": 4,
+      "coordination_skill_original_rounds_cap": 5,
+      "advance_warning_sent": true
+    }
+  ]
 }

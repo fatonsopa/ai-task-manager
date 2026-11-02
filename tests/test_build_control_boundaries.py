@@ -18,12 +18,24 @@ PACKAGE = ROOT / "tools" / "build_support"
 SCRIPT = ROOT / "tools" / "build_control.py"
 DEPENDENCIES = {
     "values": set(),
-    "storage": {"values"},
+    "storage": {"values", "policy"},
     "checkpoint": {"values"},
-    "ledger": {"values", "storage", "checkpoint"},
+    "ledger": {
+        "values",
+        "storage",
+        "checkpoint",
+        "amendments",
+        "batches",
+        "authorization",
+        "policy",
+    },
+    "policy": {"values"},
+    "authorization": {"values"},
+    "amendments": {"values", "storage", "checkpoint", "policy", "authorization"},
+    "batches": {"values", "storage", "amendments", "policy", "authorization"},
     "process_group": {"values"},
     "process": {"values", "ledger", "checkpoint", "process_group"},
-    "cli": {"values", "ledger", "process"},
+    "cli": {"values", "ledger", "process", "authorization"},
 }
 
 
@@ -34,7 +46,10 @@ def test_internal_imports_follow_component_direction():
             if isinstance(node, ast.ImportFrom):
                 if node.level:
                     assert node.level == 1
-                    assert node.module in allowed, (path.name, node.module)
+                    if node.module is None:
+                        assert all(alias.name in allowed for alias in node.names), path.name
+                    else:
+                        assert node.module in allowed, (path.name, node.module)
                 else:
                     assert not node.module.startswith(("tools.", "build_support."))
             if isinstance(node, ast.Import):
