@@ -252,7 +252,9 @@ class RunLedger:
             )
             return dict(conn.execute("SELECT * FROM operations WHERE key=?", (key,)).fetchone())
 
-    def request(self, purpose):
+    @contextmanager
+    def ordinary_request(self, purpose):
+        """Charge and commit a trusted fixture action in the same transaction."""
         if purpose not in {"create", "read", "product_transport", "receiver_http"}:
             raise DriverRefused("unknown_request_purpose")
         with self.transaction() as conn:
@@ -263,6 +265,15 @@ class RunLedger:
             if used >= self.limits.requests - self.limits.cleanup_requests:
                 raise DriverRefused("request_budget_exhausted")
             conn.execute("INSERT INTO requests(purpose) VALUES(?)", (purpose,))
+            yield conn
+
+    def request(self, purpose):
+        with self.ordinary_request(purpose):
+            pass
+
+    def charged_create_send(self, key):
+        with self.ordinary_request("create") as conn:
+            self._mark_sent(conn, key)
 
     def get(self, key):
         with self.transaction() as conn:
@@ -274,11 +285,15 @@ class RunLedger:
     def mark_sent(self, key):
         with self.transaction() as conn:
             self._ordinary(conn)
-            changed = conn.execute(
-                "UPDATE operations SET state='sent' WHERE key=? AND state='intent'", (key,)
-            ).rowcount
-            if changed != 1:
-                raise DriverRefused("intent_not_sendable")
+            self._mark_sent(conn, key)
+
+    @staticmethod
+    def _mark_sent(conn, key):
+        changed = conn.execute(
+            "UPDATE operations SET state='sent' WHERE key=? AND state='intent'", (key,)
+        ).rowcount
+        if changed != 1:
+            raise DriverRefused("intent_not_sendable")
 
     def uncertain(self, key):
         with self.transaction() as conn:
@@ -291,6 +306,13 @@ class RunLedger:
                 != 1
             ):
                 raise DriverRefused("sent_intent_missing")
+
+    def abandon_create(self, key):
+        with self.transaction() as conn:
+            row = conn.execute("SELECT state FROM operations WHERE key=?", (key,)).fetchone()
+            if not row or row[0] not in {"intent", "abandoned"}:
+                raise DriverRefused("only_unsent_create_can_be_abandoned")
+            conn.execute("UPDATE operations SET state='abandoned' WHERE key=?", (key,))
 
     def confirm(self, key, resource_id, kind):
         with self.transaction() as conn:
@@ -383,6 +405,9 @@ class RunLedger:
         row = self._cleanup_row(conn, key)
         if row["state"] not in {"intent", "sent", "uncertain"}:
             raise DriverRefused("cleanup_already_confirmed")
+        self._reserved_charge(conn, key, purpose)
+
+    def _reserved_charge(self, conn, key, purpose):
         total = conn.execute("SELECT COUNT(*) FROM requests").fetchone()[0]
         used = conn.execute(
             "SELECT COUNT(*) FROM requests WHERE cleanup_key IS NOT NULL"
@@ -390,6 +415,15 @@ class RunLedger:
         if total >= self.limits.requests or used >= self.limits.cleanup_requests:
             raise DriverRefused("cleanup_budget_exhausted")
         conn.execute("INSERT INTO requests(purpose,cleanup_key) VALUES(?,?)", (purpose, key))
+
+    def create_recovery_read(self, key):
+        """Only a durable possible create may borrow reserved recovery reads."""
+        with self.transaction() as conn:
+            self._time()
+            row = conn.execute("SELECT * FROM operations WHERE key=?", (key,)).fetchone()
+            if not row or row["state"] not in {"sent", "uncertain"}:
+                raise DriverRefused("possible_create_intent_required")
+            self._reserved_charge(conn, "create-recovery:" + key, "create_recovery_read")
 
     def cleanup_read(self, key):
         with self.transaction() as conn:
@@ -461,7 +495,9 @@ class RunLedger:
 
     @staticmethod
     def _closed_children(conn, *, exclude_cleanup_key=""):
-        if conn.execute("SELECT 1 FROM operations WHERE state!='confirmed'").fetchone():
+        if conn.execute(
+            "SELECT 1 FROM operations WHERE state NOT IN ('confirmed','abandoned')"
+        ).fetchone():
             raise DriverRefused("unresolved_effects_retained")
         if conn.execute(
             "SELECT 1 FROM cleanup_actions WHERE state!='confirmed' AND key!=?",

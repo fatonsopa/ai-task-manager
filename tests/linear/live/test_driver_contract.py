@@ -2,17 +2,19 @@
 
 import hashlib
 import hmac
-import http.client
 import json
 import math
 import multiprocessing
 import os
+import socket
 import sqlite3
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, replace
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -20,7 +22,10 @@ import pytest
 from ai_task_manager.adapters.linear.models import HttpResponse
 from tests.linear.helpers import EXPECTED, STATES, WEBHOOK, LinearRig, ProviderFixture
 
+from . import receiver as receiver_module
+from .client import send_request
 from .fixture_control import FixtureControl, Observation
+from .http_observation import ReceiverTrace, clock_rows
 from .ledger import DriverRefused, Limits, RunLedger, Scope
 from .receiver import BoundedReceiver
 from .run_primary import BudgetedTransport, DrainWorker, PrimaryRun
@@ -67,18 +72,9 @@ def rig(tmp_path):
 def send(
     server, headers=(), body=b"", *, route=None, method="POST", length=None, omit_length=False
 ):
-    connection = http.client.HTTPConnection(*server.address, timeout=6)
-    try:
-        connection.putrequest(method, route or server.route)
-        for key, value in headers:
-            connection.putheader(key, value)
-        if not omit_length and not any(key.lower() == "content-length" for key, _ in headers):
-            connection.putheader("Content-Length", str(len(body)) if length is None else length)
-        connection.endheaders(body)
-        response = connection.getresponse()
-        return response.status, response.read()
-    finally:
-        connection.close()
+    return send_request(
+        server, headers, body, route=route, method=method, length=length, omit_length=omit_length
+    )
 
 
 def wait_for(check, seconds=3):
@@ -1287,3 +1283,949 @@ def test_ld37_missing_or_invalid_reserve_refuses_before_file_creation(tmp_path, 
     with pytest.raises(DriverRefused):
         RunLedger(path, str(uuid4()), scope, replace(limits, **changes))
     assert not path.exists()
+
+
+class HttpCounter:
+    def __init__(self, delay=0):
+        self.calls, self.delay = 0, delay
+
+    def receive(self, *args):
+        self.calls += 1
+        time.sleep(self.delay)
+        return HttpResponse(200)
+
+
+def owned_socket(server):
+    raw = socket.create_connection(server.address, timeout=3)
+    raw.settimeout(3)
+    return raw
+
+
+def request_bytes(server, body=b"{}", *, headers=()):
+    return (
+        (
+            f"POST {server.route} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {len(body)}\r\n"
+        ).encode()
+        + b"".join(f"{key}: {value}\r\n".encode() for key, value in headers)
+        + b"\r\n"
+        + body
+    )
+
+
+def wire_until_closed(raw, observations=None):
+    chunks = []
+    state = {"started_at": time.monotonic(), "read_error": None}
+    try:
+        while data := raw.recv(8192):
+            chunks.append(data)
+        state["ended_by"] = "eof"
+    except ConnectionResetError as error:
+        state.update(ended_by="reset", read_error=type(error).__name__, errno=error.errno)
+    except OSError as error:
+        state.update(ended_by="error", read_error=type(error).__name__, errno=error.errno)
+        raise
+    finally:
+        if observations is not None:
+            wire = b"".join(chunks)
+            observations.update(
+                state,
+                finished_at=time.monotonic(),
+                wire_size=len(wire),
+                wire_hex=wire.hex(),
+                wire_sha256=hashlib.sha256(wire).hexdigest(),
+            )
+    return b"".join(chunks)
+
+
+def clock_records(server, tmp_path):
+    rows = clock_rows(server)
+    # Persist actual facts before checking their consistency, including failures.
+    (tmp_path / "http-clock-records.json").write_text(
+        json.dumps(rows, indent=2, sort_keys=True) + "\n"
+    )
+    for row in rows:
+        if row["response_completed"]:
+            assert (
+                row["accepted_at"]
+                <= row["response_started_at"]
+                <= row["response_completed_at"]
+                <= row["hard_deadline"]
+            )
+        else:
+            assert row["response_completed_at"] is None
+    return rows
+
+
+def test_hd01_hd15_actual_signed_ingest_uses_observed_monotonic_clock(rig, tmp_path, monkeypatch):
+    # Remove wall-clock access from this module without replacing the real clock.
+    monkeypatch.setattr(receiver_module, "time", SimpleNamespace(monotonic=time.monotonic))
+    task = rig.task()
+    headers, raw = rig.signed(rig.provider.event(task.issue_id))
+    server = BoundedReceiver(
+        rig.receiver, ledger(tmp_path), response_budget=0.8, output_reserve=0.2
+    )
+    started = time.monotonic()
+    try:
+        server.start()
+        assert send(server, headers, raw)[0] == 200
+        assert len(facts(rig)["inbox"]) == 1
+    finally:
+        assert server.stop(3)["stopped"]
+    rows = clock_records(server, tmp_path)
+    assert len(rows) == 1 and started <= rows[0]["accepted_at"]
+    assert rows[0]["response_completed"] and not rows[0]["workers_alive"]
+
+
+@pytest.mark.parametrize("part", ["headers", "body"])
+def test_hd02_hd03_frequent_drip_cannot_refresh_absolute_deadline(tmp_path, part, monkeypatch):
+    counter, record = HttpCounter(), ledger(tmp_path)
+    server = BoundedReceiver(
+        counter, record, response_budget=0.8, output_reserve=0.2, read_timeout=0.2
+    )
+    halt = threading.Event()
+    raw = thread = None
+    trace = ReceiverTrace(monkeypatch, receiver_module)
+    client = {}
+    stopped = None
+    try:
+        server.start()
+        raw = owned_socket(server)
+        initial = f"POST {server.route} HTTP/1.1\r\nX-Private: ".encode()
+        if part == "body":
+            initial = f"POST {server.route} HTTP/1.1\r\nContent-Length: 100000\r\n\r\n".encode()
+        raw.sendall(initial)
+
+        def drip():
+            while not halt.wait(0.04):
+                try:
+                    raw.sendall(b"a")
+                except OSError:
+                    return
+
+        thread = threading.Thread(target=drip, name="owned-authored-drip")
+        thread.start()
+        wire = wire_until_closed(raw, client)
+        received = time.monotonic()
+        assert wire.startswith(b"HTTP/1.0 503 ") and wire.count(b"HTTP/1.0 ") == 1
+        lease = server.server.leases[0]
+        assert received - lease.connection.accepted_at <= 0.8
+        assert counter.calls == 0
+    finally:
+        active_error = sys.exc_info()[0]
+        trace.save(
+            tmp_path / "socket-before-cleanup.json",
+            clocks=clock_rows(server),
+            client=client,
+            counter_calls=counter.calls,
+            assertion_error=active_error.__name__ if active_error else None,
+        )
+        try:
+            halt.set()
+            if thread is not None:
+                thread.join(1)
+                assert not thread.is_alive()
+            if raw is not None:
+                raw.close()
+            stopped = server.stop(3)
+            assert stopped["stopped"]
+        finally:
+            trace.save(
+                tmp_path / "socket-after-cleanup.json",
+                clocks=clock_rows(server),
+                client=client,
+                stop=stopped,
+                counter_calls=counter.calls,
+                client_descriptor=raw.fileno() if raw is not None else None,
+                drip_alive=thread.is_alive() if thread is not None else None,
+            )
+            rows = clock_records(server, tmp_path)
+    assert rows[0]["response_completed"] and not rows[0]["workers_alive"]
+
+
+@pytest.mark.parametrize("part", ["headers", "body"])
+def test_hd16_handler_shutdown_waits_for_actual_deadline_send(tmp_path, monkeypatch, part):
+    counter, record = HttpCounter(), ledger(tmp_path)
+    server = BoundedReceiver(
+        counter, record, response_budget=0.8, output_reserve=0.2, read_timeout=0.2
+    )
+    trace = ReceiverTrace(monkeypatch, receiver_module)
+    writer_entered, close_finished = threading.Event(), threading.Event()
+    shutdown_attempted, reader_waited = threading.Event(), threading.Event()
+    original_send = receiver_module.DeadlineConnection.sendall
+    original_read = receiver_module.DeadlineReader.readinto
+    original_shutdown = receiver_module.Server.shutdown_request
+
+    def paused_send(connection, data):
+        if threading.current_thread().name.startswith("owned-deadline-"):
+            trace.record("controlled_writer_pause", hard_remaining=connection.hard_remaining)
+            writer_entered.set()
+            close_finished.wait(0.04)
+            trace.record("controlled_writer_release", hard_remaining=connection.hard_remaining)
+        return original_send(connection, data)
+
+    def late_read(reader, buffer):
+        if 0 < reader.connection.work_remaining < 0.09:
+            reader_waited.set()
+            trace.record("controlled_late_reader_wait")
+            writer_entered.wait(0.12)
+        return original_read(reader, buffer)
+
+    def observed_shutdown(owned_server, connection):
+        shutdown_attempted.set()
+        trace.record(
+            "controlled_shutdown_attempt", response_done=connection.lease.response_done.is_set()
+        )
+        try:
+            return original_shutdown(owned_server, connection)
+        finally:
+            close_finished.set()
+
+    monkeypatch.setattr(receiver_module.DeadlineConnection, "sendall", paused_send)
+    monkeypatch.setattr(receiver_module.DeadlineReader, "readinto", late_read)
+    monkeypatch.setattr(receiver_module.Server, "shutdown_request", observed_shutdown)
+    halt = threading.Event()
+    raw = thread = stopped = None
+    client = {}
+    try:
+        server.start()
+        raw = owned_socket(server)
+        initial = f"POST {server.route} HTTP/1.1\r\nX-Private: ".encode()
+        if part == "body":
+            initial = f"POST {server.route} HTTP/1.1\r\nContent-Length: 100000\r\n\r\n".encode()
+        raw.sendall(initial)
+
+        def drip():
+            while not halt.wait(0.04):
+                try:
+                    raw.sendall(b"a")
+                except OSError:
+                    return
+
+        thread = threading.Thread(target=drip, name="owned-interleaving-drip")
+        thread.start()
+        wire = wire_until_closed(raw, client)
+        received = time.monotonic()
+        assert writer_entered.is_set() and reader_waited.is_set() and shutdown_attempted.is_set()
+        assert wire.startswith(b"HTTP/1.0 503 ") and wire.count(b"HTTP/1.0 ") == 1
+        assert wire.endswith(b"\r\n\r\n")
+        assert received - server.server.leases[0].connection.accepted_at <= 0.8
+        assert counter.calls == 0
+    finally:
+        active_error = sys.exc_info()[0]
+        trace.save(
+            tmp_path / "interleaving-before-cleanup.json",
+            clocks=clock_rows(server),
+            client=client,
+            writer_entered=writer_entered.is_set(),
+            reader_waited=reader_waited.is_set(),
+            shutdown_attempted=shutdown_attempted.is_set(),
+            close_finished=close_finished.is_set(),
+            assertion_error=active_error.__name__ if active_error else None,
+        )
+        try:
+            halt.set()
+            if thread is not None:
+                thread.join(1)
+                assert not thread.is_alive()
+            if raw is not None:
+                raw.close()
+            stopped = server.stop(3)
+            assert stopped["stopped"]
+        finally:
+            trace.save(
+                tmp_path / "interleaving-after-cleanup.json",
+                clocks=clock_rows(server),
+                client=client,
+                stop=stopped,
+                client_descriptor=raw.fileno() if raw is not None else None,
+                drip_alive=thread.is_alive() if thread is not None else None,
+            )
+            rows = clock_records(server, tmp_path)
+    assert rows[0]["response_completed"] and not rows[0]["workers_alive"]
+
+
+def test_hd17_shutdown_lock_wait_is_bounded_by_original_deadline(tmp_path):
+    server = BoundedReceiver(None, ledger(tmp_path), response_budget=0.3, output_reserve=0.1)
+    owned, peer = socket.socketpair()
+    connection = receiver_module.DeadlineConnection(owned, time.monotonic(), server)
+    connection.lease = receiver_module.Lease(server.server, connection)
+    lock = connection.lease.response_lock
+    lock.acquire()
+    entered, done = threading.Event(), threading.Event()
+    result = {}
+
+    def close():
+        entered.set()
+        try:
+            server.server.shutdown_request(connection)
+            result["returned_at"] = time.monotonic()
+        finally:
+            done.set()
+
+    thread = threading.Thread(target=close, name="owned-held-response-close")
+    try:
+        thread.start()
+        assert entered.wait(0.1)
+        assert not done.wait(0.05) and connection.fileno() >= 0
+        thread.join(0.5)
+        assert not thread.is_alive() and done.is_set()
+        assert connection.deadline <= result["returned_at"] <= connection.deadline + 0.1
+        assert connection.fileno() == -1
+        peer.settimeout(0.1)
+        assert peer.recv(1) == b""
+        assert not connection.lease.response_completed and not connection.lease.response_claimed
+        assert connection.lease.adapter is None
+    finally:
+        lock.release()
+        thread.join(0.5)
+        owned.close()
+        peer.close()
+        assert not thread.is_alive()
+        assert server.stop(1)["stopped"]
+        (tmp_path / "held-close-observation.json").write_text(
+            json.dumps(
+                {
+                    "hard_deadline": connection.deadline,
+                    "result": result,
+                    "thread_alive": thread.is_alive(),
+                    "descriptor": connection.fileno(),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        )
+
+
+def test_hd04_idle_headers_refuse_without_waiting_for_a_new_read_budget(tmp_path):
+    counter = HttpCounter()
+    server = BoundedReceiver(
+        counter, ledger(tmp_path), response_budget=0.8, output_reserve=0.2, read_timeout=0.15
+    )
+    raw = None
+    try:
+        server.start()
+        raw = owned_socket(server)
+        assert wire_until_closed(raw).startswith(b"HTTP/1.0 408 ")
+        assert counter.calls == 0
+    finally:
+        if raw is not None:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    assert clock_records(server, tmp_path)[0]["response_completed"]
+
+
+@pytest.mark.parametrize("part", ["request_line", "headers", "body"])
+def test_hd05_half_closed_truncated_input_never_dispatches(tmp_path, part):
+    counter, record = HttpCounter(), ledger(tmp_path)
+    server = BoundedReceiver(counter, record, response_budget=0.8, output_reserve=0.2)
+    raw = None
+    try:
+        server.start()
+        raw = owned_socket(server)
+        prefix = f"POST {server.route} HTTP/1.1\r\n".encode()
+        data = {
+            "request_line": b"POST",
+            "headers": prefix + b"Content-Length: 3\r\nX-Private: PRIVATE_TRUNCATED_SENTINEL\r\n",
+            "body": prefix + b"Content-Length: 100\r\n\r\nPRIVATE_TRUNCATED_SENTINEL",
+        }[part]
+        raw.sendall(data)
+        raw.shutdown(socket.SHUT_WR)
+        wire = wire_until_closed(raw)
+        assert wire.startswith(b"HTTP/1.0 400 ") and b"PRIVATE_TRUNCATED_SENTINEL" not in wire
+        assert counter.calls == 0
+    finally:
+        if raw is not None:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    assert b"PRIVATE_TRUNCATED_SENTINEL" not in record.path.read_bytes()
+    clock_records(server, tmp_path)
+
+
+def test_hd06_default_budget_covers_slow_input_and_actual_late_ingest(rig, tmp_path):
+    task = rig.task()
+    headers, body = rig.signed(rig.provider.event(task.issue_id))
+    entered, release = threading.Event(), threading.Event()
+
+    class Delayed:
+        def receive(self, *args):
+            entered.set()
+            assert release.wait(6)
+            return rig.receiver.receive(*args)
+
+    server = BoundedReceiver(Delayed(), ledger(tmp_path), capacity=1)
+    raw = None
+    try:
+        server.start()
+        raw = owned_socket(server)
+        raw.settimeout(6)
+        request = request_bytes(server, body, headers=headers)
+        split = len(request) - len(body)
+        raw.sendall(request[:10])
+        time.sleep(0.7)
+        raw.sendall(request[10 : split + len(body) // 2])
+        time.sleep(0.7)
+        raw.sendall(request[split + len(body) // 2 :])
+        assert entered.wait(1)
+        wire = wire_until_closed(raw)
+        received = time.monotonic()
+        lease = server.server.leases[0]
+        assert wire.startswith(b"HTTP/1.0 503 ") and received - lease.connection.accepted_at <= 4.5
+        assert lease.adapter_started_at - lease.connection.accepted_at >= 1.3
+        assert server.active == 1 and not facts(rig)["inbox"]
+        assert not server.stop(0.01)["stopped"]
+        release.set()
+    finally:
+        release.set()
+        if raw is not None:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    assert len(facts(rig)["inbox"]) == len(rig.journal.deliveries(rig.scope)) == 1
+    assert server.server.leases[0].status == 200
+    clock_records(server, tmp_path)
+
+
+def test_hd07_post_accept_queue_wait_keeps_original_deadline(tmp_path, monkeypatch):
+    counter, record = HttpCounter(), ledger(tmp_path)
+    entered, release = threading.Event(), threading.Event()
+    original = receiver_module.Server.process_request
+
+    def delayed(server, *args):
+        entered.set()
+        release.wait(2)
+        return original(server, *args)
+
+    monkeypatch.setattr(receiver_module.Server, "process_request", delayed)
+    server = BoundedReceiver(counter, record, response_budget=0.6, output_reserve=0.15, capacity=1)
+    raw = None
+    try:
+        server.start()
+        raw = owned_socket(server)
+        raw.sendall(request_bytes(server))
+        assert entered.wait(1)
+        assert wire_until_closed(raw).startswith(b"HTTP/1.0 503 ")
+        assert time.monotonic() - server.server.leases[0].connection.accepted_at <= 0.6
+        assert server.active == 1 and not server.stop(0.01)["stopped"]
+    finally:
+        release.set()
+        if raw is not None:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    assert counter.calls == 0 and not record.summary()["requests"]
+    clock_records(server, tmp_path)
+
+
+def test_hd08_actual_admission_lock_does_not_delay_response_or_start_late_adapter(tmp_path):
+    counter, record = HttpCounter(), ledger(tmp_path)
+    lock = sqlite3.connect(record.path, isolation_level=None)
+    lock.execute("BEGIN IMMEDIATE")
+    server = BoundedReceiver(counter, record, response_budget=0.8, output_reserve=0.2, capacity=1)
+    raw = None
+    try:
+        server.start()
+        raw = owned_socket(server)
+        raw.sendall(request_bytes(server))
+        assert wire_until_closed(raw).startswith(b"HTTP/1.0 503 ")
+        lease = server.server.leases[0]
+        assert time.monotonic() - lease.connection.accepted_at <= 0.8
+        assert server.active == 1 and not server.stop(0.01)["stopped"]
+        time.sleep(0.3)
+    finally:
+        lock.rollback()
+        lock.close()
+        if raw is not None:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    assert counter.calls == 0 and len(record.summary()["requests"]) == 1
+    assert not server.server.adapters
+    clock_records(server, tmp_path)
+
+
+def test_hd09_header_handling_consumes_capacity_before_body_or_adapter(tmp_path):
+    counter = HttpCounter()
+    server = BoundedReceiver(
+        counter, ledger(tmp_path), capacity=2, response_budget=1, output_reserve=0.2
+    )
+    clients = []
+    try:
+        server.start()
+        for _ in range(2):
+            raw = owned_socket(server)
+            clients.append(raw)
+            raw.sendall(b"POST /partial")
+        wait_for(lambda: server.active == 2)
+        assert send(server, body=b"{}")[0] == 503
+        assert len(server.server.leases) == 2 and not server.server.adapters and counter.calls == 0
+    finally:
+        for raw in clients:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    assert all(not row["workers_alive"] for row in clock_records(server, tmp_path))
+
+
+def test_hd10_actual_output_backpressure_is_not_a_completed_response(tmp_path, monkeypatch):
+    class LargeResponse(receiver_module.Handler):
+        def do_GET(self):
+            self.respond(200, b"x" * (4 * 1024 * 1024))
+
+    original = receiver_module.Server.get_request
+
+    def small_buffer(server):
+        connection, address = original(server)
+        connection.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096)
+        return connection, address
+
+    monkeypatch.setattr(receiver_module, "Handler", LargeResponse)
+    monkeypatch.setattr(receiver_module.Server, "get_request", small_buffer)
+    server = BoundedReceiver(None, ledger(tmp_path), response_budget=0.8, output_reserve=0.2)
+    raw = None
+    try:
+        server.start()
+        raw = socket.socket()
+        raw.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
+        raw.settimeout(3)
+        raw.connect(server.address)
+        raw.sendall(b"GET /authored-output HTTP/1.1\r\nHost: fixture\r\n\r\n")
+        wait_for(
+            lambda: server.server.leases and server.server.leases[0].response_started_at is not None
+        )
+        assert server.stop(3)["stopped"]
+        wire = wire_until_closed(raw)
+        lease = server.server.leases[0]
+        assert not lease.response_completed and lease.response_completed_at is None
+        assert wire.count(b"HTTP/1.0 ") == 1 and len(wire) < 4 * 1024 * 1024
+        # This bounds failed-output cleanup, not a successful late response.
+        assert lease.response_finished_at - lease.connection.accepted_at <= 1.05
+    finally:
+        if raw is not None:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    clock_records(server, tmp_path)
+
+
+@pytest.mark.parametrize("delay,expected", [(0.01, 200), (0.7, 503)])
+def test_hd11_watch_and_adapter_send_only_one_response(tmp_path, delay, expected):
+    counter = HttpCounter(delay)
+    server = BoundedReceiver(counter, ledger(tmp_path), response_budget=0.8, output_reserve=0.2)
+    raw = None
+    try:
+        server.start()
+        raw = owned_socket(server)
+        raw.sendall(request_bytes(server))
+        wire = wire_until_closed(raw)
+        assert wire.startswith(f"HTTP/1.0 {expected} ".encode()) and wire.count(b"HTTP/1.0 ") == 1
+    finally:
+        if raw is not None:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    assert counter.calls == 1
+    clock_records(server, tmp_path)
+
+
+@pytest.mark.parametrize("role", ["watcher", "handler"])
+def test_hd12_owned_start_failure_does_not_leak_worker_or_exception(
+    tmp_path, monkeypatch, capsys, role
+):
+    record = ledger(tmp_path)
+    counter = HttpCounter()
+    server = BoundedReceiver(counter, record, response_budget=0.8, output_reserve=0.2)
+    raw = None
+    original = threading.Thread.start
+    prefix = "owned-deadline-" if role == "watcher" else "owned-http-"
+
+    def failed(thread):
+        if thread.name.startswith(prefix) and thread.name != "owned-http-accept":
+            raise RuntimeError("PRIVATE_START_EXCEPTION")
+        return original(thread)
+
+    try:
+        server.start()
+        monkeypatch.setattr(threading.Thread, "start", failed)
+        raw = owned_socket(server)
+        raw.sendall(request_bytes(server))
+        wire = wire_until_closed(raw)
+        wait_for(lambda: bool(server.server.leases) and server.active == 0)
+        assert b"PRIVATE_START_EXCEPTION" not in wire and counter.calls == 0
+    finally:
+        monkeypatch.setattr(threading.Thread, "start", original)
+        if raw is not None:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    output = capsys.readouterr()
+    assert (
+        "PRIVATE_START_EXCEPTION" not in output.out + output.err and "Traceback" not in output.err
+    )
+    assert b"PRIVATE_START_EXCEPTION" not in record.path.read_bytes()
+    clock_records(server, tmp_path)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"response_budget": None},
+        {"response_budget": 0},
+        {"response_budget": 4.6},
+        {"response_budget": math.nan},
+        {"response_budget": True},
+        {"output_reserve": None},
+        {"output_reserve": 0},
+        {"output_reserve": -1},
+        {"response_budget": 0.8, "output_reserve": 0.8},
+        {"output_reserve": math.inf},
+    ],
+)
+def test_hd13_invalid_absolute_budget_refuses_before_bind(tmp_path, options):
+    before = {thread.ident for thread in threading.enumerate()}
+    with pytest.raises(DriverRefused):
+        BoundedReceiver(None, ledger(tmp_path), **options)
+    assert {thread.ident for thread in threading.enumerate()} == before
+
+
+def test_hd14_blocked_diagnostics_cannot_delay_response_or_launch_adapter(tmp_path):
+    record = ledger(tmp_path)
+    entered, release = threading.Event(), threading.Event()
+
+    class SlowDiagnostics:
+        run_id = record.run_id
+
+        def request(self, *args):
+            return record.request(*args)
+
+        def observe(self, kind, **fields):
+            if kind == "request_received":
+                entered.set()
+                release.wait(2)
+            return record.observe(kind, **fields)
+
+    counter = HttpCounter()
+    server = BoundedReceiver(counter, SlowDiagnostics(), response_budget=0.6, output_reserve=0.15)
+    raw = None
+    try:
+        server.start()
+        raw = owned_socket(server)
+        raw.sendall(request_bytes(server))
+        assert entered.wait(1)
+        assert wire_until_closed(raw).startswith(b"HTTP/1.0 503 ")
+        assert time.monotonic() - server.server.leases[0].connection.accepted_at <= 0.6
+        assert not server.stop(0.01)["stopped"]
+    finally:
+        release.set()
+        if raw is not None:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    assert counter.calls == 0 and not server.server.adapters
+    clock_records(server, tmp_path)
+
+
+def test_hd14b_actual_ingest_result_precedes_blocked_finished_diagnostics(rig, tmp_path):
+    task = rig.task()
+    headers, body = rig.signed(rig.provider.event(task.issue_id))
+    record = ledger(tmp_path)
+    entered, release = threading.Event(), threading.Event()
+
+    class SlowFinished:
+        run_id = record.run_id
+
+        def request(self, *args):
+            return record.request(*args)
+
+        def observe(self, kind, **fields):
+            if kind == "adapter_finished":
+                entered.set()
+                release.wait(2)
+            return record.observe(kind, **fields)
+
+    server = BoundedReceiver(rig.receiver, SlowFinished(), response_budget=0.8, output_reserve=0.2)
+    try:
+        server.start()
+        assert send(server, headers, body)[0] == 200
+        assert entered.wait(1) and len(facts(rig)["inbox"]) == 1
+        assert server.active == 1 and not server.stop(0.01)["stopped"]
+    finally:
+        release.set()
+        assert server.stop(3)["stopped"]
+    assert clock_records(server, tmp_path)[0]["response_completed"]
+
+
+@pytest.mark.parametrize("shape", ["single_line", "cumulative"])
+def test_hd16_bounded_header_prefix_refuses_over_limit_input(tmp_path, shape):
+    counter, record = HttpCounter(), ledger(tmp_path)
+    server = BoundedReceiver(counter, record, response_budget=0.8, output_reserve=0.2)
+    raw = None
+    try:
+        server.start()
+        raw = owned_socket(server)
+        data = f"POST {server.route} HTTP/1.1\r\nX-Private: ".encode() + b"z" * 66000
+        if shape == "cumulative":
+            data = (
+                f"POST {server.route} HTTP/1.1\r\nContent-Length: 0\r\n".encode()
+                + b"".join(f"X-{number}: ".encode() + b"z" * 850 + b"\r\n" for number in range(80))
+                + b"\r\n"
+            )
+        try:
+            raw.sendall(data)
+        except OSError:
+            pass
+        assert wire_until_closed(raw).startswith(b"HTTP/1.0 431 ")
+        assert counter.calls == 0
+    finally:
+        if raw is not None:
+            raw.close()
+        assert server.stop(3)["stopped"]
+    assert b"z" * 1000 not in record.path.read_bytes()
+    clock_records(server, tmp_path)
+
+
+def startup_case_worker(folder, scenario, queue):
+    """All dangerous lifecycle calls stay in this owned child, never pytest main."""
+    folder = Path(folder)
+    original_stderr = sys.stderr
+    captured_stderr = (folder / "startup-stderr.log").open("w")
+    sys.stderr = captured_stderr
+    server = BoundedReceiver(HttpCounter(), ledger(folder))
+    original_start = threading.Thread.start
+    original_bind = server.server.server_bind
+    original_activate = server.server.server_activate
+    original_serve = server.server.serve_forever
+    entered, release = threading.Event(), threading.Event()
+    facts_out, caller = {}, None
+
+    def fail():
+        raise RuntimeError("PRIVATE_AUTHORED_START_FAILURE")
+
+    def attempt_start():
+        try:
+            server.start()
+        except BaseException as error:
+            facts_out["start_error"] = type(error).__name__
+
+    def snapshot():
+        return {
+            "socket_closed": server.server.socket.fileno() == -1,
+            "accept_alive": server.thread is not None and server.thread.is_alive(),
+            "accept_ident": server.thread.ident if server.thread else None,
+            "shutdown_alive": server.shutdown_thread is not None
+            and server.shutdown_thread.is_alive(),
+            "shutdown_created": server.shutdown_thread is not None,
+            "loop_witness": server.loop_entered.is_set(),
+            "startup_rollback": server.startup_rollback,
+        }
+
+    try:
+        if scenario in {"SS02", "SS05"}:
+
+            def failed_start(thread):
+                if thread.name == "owned-http-accept":
+                    if scenario == "SS05":
+                        original_start(thread)
+                    fail()
+                return original_start(thread)
+
+            threading.Thread.start = failed_start
+            attempt_start()
+            facts_out["after_error"] = snapshot()
+            facts_out["stop"] = server.stop(0.05)
+        elif scenario in {"SS03", "SS04"}:
+            if scenario == "SS03":
+                server.server.server_bind = fail
+            else:
+                server.server.server_activate = fail
+            attempt_start()
+            facts_out["after_error"] = snapshot()
+            facts_out["stop"] = server.stop(0.05)
+            attempt_start()
+            facts_out["retry_error"] = facts_out.get("start_error")
+        elif scenario == "SS06":
+            facts_out["stop"] = server.stop(0.05)
+            attempt_start()
+        elif scenario == "SS07":
+            server.start()
+            first_ident = server.thread.ident
+            attempt_start()
+            facts_out["duplicate_error"] = facts_out.get("start_error")
+            facts_out["same_thread"] = server.thread.ident == first_ident
+            facts_out["stop"] = server.stop(1)
+            attempt_start()
+        elif scenario == "SS08":
+
+            def delayed_activate():
+                entered.set()
+                if not release.wait(2):
+                    raise RuntimeError("authored_gate_timeout")
+                original_activate()
+
+            server.server.server_activate = delayed_activate
+            caller = threading.Thread(target=attempt_start, name="owned-startup-caller")
+            caller.start()
+            assert entered.wait(1)
+            before = time.monotonic()
+            facts_out["first_stop"] = server.stop(0.02)
+            facts_out["first_stop_seconds"] = time.monotonic() - before
+            release.set()
+            caller.join(1)
+            facts_out["caller_alive"] = caller.is_alive()
+            facts_out["stop"] = server.stop(1)
+        elif scenario == "SS09":
+            server.start()
+            assert server.loop_entered.wait(1)
+
+            def failed_shutdown(thread):
+                if thread.name == "owned-http-shutdown":
+                    fail()
+                return original_start(thread)
+
+            threading.Thread.start = failed_shutdown
+            facts_out["first_stop"] = server.stop(0.05)
+            facts_out["retained"] = snapshot()
+            threading.Thread.start = original_start
+            facts_out["stop"] = server.stop(1)
+        elif scenario == "SS10":
+
+            def failed_loop(*args, **kwargs):
+                fail()
+
+            server.server.serve_forever = failed_loop
+            attempt_start()
+            if server.thread is not None:
+                server.thread.join(1)
+            facts_out["before_stop"] = snapshot()
+            facts_out["stop"] = server.stop(0.05)
+        elif scenario == "SS11":
+
+            def delayed_loop(*args, **kwargs):
+                entered.set()
+                if not release.wait(2):
+                    raise RuntimeError("authored_gate_timeout")
+                return original_serve(*args, **kwargs)
+
+            server.server.serve_forever = delayed_loop
+            server.start()
+            assert entered.wait(1)
+            before = time.monotonic()
+            facts_out["first_stop"] = server.stop(0.02)
+            facts_out["first_stop_seconds"] = time.monotonic() - before
+            facts_out["before_entry"] = snapshot()
+            release.set()
+            assert server.loop_entered.wait(1)
+            facts_out["stop"] = server.stop(1)
+        else:
+            assert scenario == "SS01"
+            server.start()
+            assert send(server, method="GET", route=server.health_route)[0] == 200
+            facts_out["stop"] = server.stop(1)
+            facts_out["retry_stop"] = server.stop(0.05)
+        facts_out["final_before_helper_cleanup"] = snapshot()
+    except BaseException as error:
+        facts_out["worker_error"] = type(error).__name__
+    finally:
+        threading.Thread.start = original_start
+        server.server.server_bind = original_bind
+        server.server.server_activate = original_activate
+        server.server.serve_forever = original_serve
+        release.set()
+        if caller is not None:
+            caller.join(1)
+        # Preserve desired facts before independent helper cleanup.
+        (folder / "startup-observation.json").write_text(
+            json.dumps(facts_out, indent=2, sort_keys=True) + "\n"
+        )
+        if (
+            server.shutdown_thread is not None
+            and server.shutdown_thread.is_alive()
+            and (server.thread is None or server.thread.ident is None)
+        ):
+            cleanup_loop = threading.Thread(
+                target=lambda: original_serve(poll_interval=0.01),
+                name="owned-startup-helper-cleanup",
+            )
+            cleanup_loop.start()
+            cleanup_loop.join(1)
+        facts_out["helper_cleanup"] = server.stop(1)
+        facts_out["helper_final"] = snapshot()
+        captured_stderr.flush()
+        facts_out["private_exception_in_stderr"] = (
+            b"PRIVATE_AUTHORED_START_FAILURE" in (folder / "startup-stderr.log").read_bytes()
+        )
+        facts_out["diagnostics"] = server.ledger.summary()["observations"]
+        sys.stderr = original_stderr
+        captured_stderr.close()
+        (folder / "startup-result.json").write_text(
+            json.dumps(facts_out, indent=2, sort_keys=True) + "\n"
+        )
+        queue.put(facts_out)
+
+
+@pytest.mark.parametrize("scenario", [f"SS{number:02}" for number in range(1, 12)])
+def test_ss01_to_ss11_startup_lifecycle_in_owned_child(tmp_path, scenario):
+    context = multiprocessing.get_context("spawn")
+    queue = context.Queue()
+    child = context.Process(target=startup_case_worker, args=(str(tmp_path), scenario, queue))
+    try:
+        child.start()
+        facts_out = queue.get(timeout=5)
+        child.join(timeout=1)
+        assert child.exitcode == 0 and not child.is_alive()
+        assert "worker_error" not in facts_out
+        assert not facts_out["private_exception_in_stderr"]
+        assert facts_out["stop"]["stopped"]
+        assert facts_out["helper_cleanup"]["stopped"]
+        assert facts_out["helper_final"]["socket_closed"]
+        assert not facts_out["helper_final"]["accept_alive"]
+        assert not facts_out["helper_final"]["shutdown_alive"]
+        if scenario in {"SS02", "SS05"}:
+            assert facts_out["start_error"] == "RuntimeError"
+            assert facts_out["after_error"]["startup_rollback"]["stopped"]
+            assert facts_out["after_error"]["socket_closed"]
+        if scenario == "SS02":
+            assert not facts_out["after_error"]["shutdown_created"]
+        if scenario in {"SS03", "SS04", "SS06", "SS07", "SS08"}:
+            assert facts_out["start_error"] == "DriverRefused"
+        if scenario in {"SS03", "SS04"}:
+            assert facts_out["after_error"]["socket_closed"]
+            assert not facts_out["after_error"]["shutdown_created"]
+        if scenario == "SS07":
+            assert facts_out["same_thread"] and facts_out["duplicate_error"] == "DriverRefused"
+        if scenario == "SS08":
+            assert (
+                not facts_out["first_stop"]["stopped"]
+                and facts_out["first_stop"]["lifecycle_pending"]
+            )
+            assert facts_out["first_stop_seconds"] <= 0.2 and not facts_out["caller_alive"]
+        if scenario == "SS09":
+            assert (
+                not facts_out["first_stop"]["stopped"]
+                and facts_out["first_stop"]["shutdown_start_failed"]
+            )
+            assert (
+                facts_out["retained"]["accept_alive"] and not facts_out["retained"]["socket_closed"]
+            )
+        if scenario == "SS10":
+            assert (
+                not facts_out["before_stop"]["accept_alive"]
+                and not facts_out["before_stop"]["loop_witness"]
+            )
+            assert not facts_out["final_before_helper_cleanup"]["shutdown_created"]
+            assert any(
+                row["kind"] == "server_failed"
+                and json.loads(row["payload"])["code"] == "server_exception"
+                for row in facts_out["diagnostics"]
+            )
+        if scenario == "SS11":
+            assert not facts_out["first_stop"]["stopped"] and facts_out["first_stop_seconds"] <= 0.2
+            assert (
+                facts_out["before_entry"]["accept_alive"]
+                and not facts_out["before_entry"]["loop_witness"]
+            )
+            assert not facts_out["before_entry"]["shutdown_created"]
+            assert facts_out["final_before_helper_cleanup"]["loop_witness"]
+    finally:
+        if child.pid is not None:
+            if child.is_alive():
+                child.terminate()
+            child.join(timeout=1)
+            if child.is_alive():
+                child.kill()
+                child.join(timeout=1)
+        assert not child.is_alive()
+        queue.close()
+        queue.join_thread()

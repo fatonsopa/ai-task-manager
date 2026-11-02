@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "cb31775a5fa672f9122f8be9f45ea977cbaf227ab76d15a9f80c729e88067bf8"
+      "sha256": "ebc564804ec667112e5b63c7fb214e0e236676010c3a8270da52b429d5906a43"
     },
     {
       "path": "assets/diagrams/architecture.mmd",
@@ -108,7 +108,7 @@
     },
     {
       "path": "config/requirements.json",
-      "sha256": "a31b5877178f07425df85011dbfc5e6fe38cd74a252859a2e4bba06d5ef5fc28"
+      "sha256": "aa12979ab21934d91ce29cb60ebd46005e68fbe36ab4d832d5af1f265c27e9c0"
     },
     {
       "path": "config/research-sources.json",
@@ -124,11 +124,11 @@
     },
     {
       "path": "high_level_document.md",
-      "sha256": "27087f406ea2344b40ecbfde1a10b8857bbb6147ea3c88af254e65112ba5e2b1"
+      "sha256": "59dd30f878010c4df39613af6c89a851c5b0f9aa7945dd543a42f5ab86498cc7"
     },
     {
       "path": "implementation_plan.md",
-      "sha256": "b01a1db3b7067a94722b2ed62f1c9d004d4b2b81b445cdf168be4a122c2b9683"
+      "sha256": "32a122f5c4214ac979a21c65c9aa6e4c777a83dcfc67c7ade1388abebb7ee550"
     },
     {
       "path": "merge/decision_record.md",
@@ -160,7 +160,7 @@
     },
     {
       "path": "policy.md",
-      "sha256": "0a4231aa508e6d907e12a76f35816dfc89f96f782c34892de1276e06e1289093"
+      "sha256": "2ffb7bd8eedc7b511d1e0d6afd468d92bb316f8c1ddaa6094d0c9439b400dfb9"
     },
     {
       "path": "readme.md",
@@ -168,7 +168,7 @@
     },
     {
       "path": "spec_driven_development.md",
-      "sha256": "d62f369c8f2d71873b24d32158d2ffbfb7338f737224e0a22356b53f9084d9b7"
+      "sha256": "8a01302fc5dcbdfe72f9bd7f41e5c2bee02870bb0a146717e5350dbf6f5ccf7d"
     },
     {
       "path": "terminal/spec_driven_development.md",
@@ -180,7 +180,7 @@
     },
     {
       "path": "test_status_report.md",
-      "sha256": "ad0b82380bbd0a8849f04cdec4bebdc610aba2ce20e0cfc2e5462a2cc75461cb"
+      "sha256": "e50e07ff51b2eddc1c4ccfa259213781756cea9597ae80c0c2f6ca1d61b158af"
     },
     {
       "path": "tools/check_handoff.py",

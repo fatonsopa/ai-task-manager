@@ -33,6 +33,7 @@ def load_service(
     inbound_factory=None,
     linear_components=None,
     existing_factory=None,
+    scheduling_sources=None,
 ):
     """Factories are trusted installer/host arguments, never JSON import paths."""
     seal = FileSeal(config_file)
@@ -111,6 +112,7 @@ def load_service(
         principals=principal_verifier,
         evidence=evidence_factory(journal) if evidence_factory else journal,
         renderer=renderer,
+        scheduling_sources=scheduling_sources,
     )
     handle = SessionFile(config["session_file"]).load(core)
     provider = provider_factory(core, handle, decisions, writer) if provider_factory else None

@@ -89,8 +89,12 @@ class Database:
                     rows = conn.execute("SELECT version FROM metadata").fetchall()
                 except sqlite3.DatabaseError as exc:
                     raise SchemaError("Database is not an owned task store") from exc
-                if len(rows) != 1 or rows[0][0] not in {1, 2, 3}:
+                if len(rows) != 1 or rows[0][0] not in {1, 2, 3, 4}:
                     raise SchemaError("Unsupported task store schema")
+                if rows[0][0] < 4:
+                    from ai_task_manager.storage.scheduling_schema import require_quiescent
+
+                    require_quiescent(conn)
                 if rows[0][0] == 1:
                     conn.execute("ALTER TABLE outbox ADD COLUMN fenced_by TEXT")
                     conn.execute(
@@ -101,17 +105,6 @@ class Database:
                         "state TEXT NOT NULL, UNIQUE(task_id,source_revision,digest))"
                     )
                     conn.execute("UPDATE metadata SET version=2")
-            if self.guard:
-                self.guard(conn)
-            conn.commit()
-        except BaseException:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
-
-        # The schema version covers the additive tables as well as earlier records.
-        with self.transaction() as conn:
             version = conn.execute("SELECT version FROM metadata").fetchone()[0]
             if version == 2:
                 conn.execute("CREATE TABLE IF NOT EXISTS store_identity(id TEXT PRIMARY KEY)")
@@ -135,6 +128,17 @@ class Database:
 
                 seed_lifecycle(conn)
                 conn.execute("UPDATE metadata SET version=3")
+            from ai_task_manager.storage.scheduling_schema import migrate
+
+            migrate(conn)
+            if self.guard:
+                self.guard(conn)
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     @staticmethod
     def identity(conn):
@@ -153,6 +157,9 @@ class Database:
     def connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=10, isolation_level=None)
         conn.row_factory = sqlite3.Row
+        from ai_task_manager.storage.scheduling_schema import register
+
+        register(conn)
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA busy_timeout=10000")
         return conn
@@ -164,6 +171,13 @@ class Database:
             conn.execute("BEGIN IMMEDIATE")
             if self.guard:
                 self.guard(conn)
+            versions = conn.execute("SELECT version FROM metadata").fetchall()
+            if len(versions) != 1 or versions[0][0] not in {1, 2, 3, 4}:
+                raise SchemaError("Unsupported task store schema")
+            if versions[0][0] == 4:
+                from ai_task_manager.storage.scheduling_schema import validate
+
+                validate(conn)
             yield conn
             if self.guard:
                 self.guard(conn)

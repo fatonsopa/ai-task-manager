@@ -21,48 +21,51 @@
   "documents": {
     "policy.md": {
       "checked_delivery": "delivered",
-      "sha256": "0a4231aa508e6d907e12a76f35816dfc89f96f782c34892de1276e06e1289093",
+      "sha256": "2ffb7bd8eedc7b511d1e0d6afd468d92bb316f8c1ddaa6094d0c9439b400dfb9",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "objective_sha256": "c56e62e679463b14737755a8f245bfc4ba9cd6219116dff0d3af6ecfca217a64",
+      "message_sha256": "a3802ac6de70096bdc110d962581c02e89ee48758d755c19c84b6f771f664f6b",
+      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status."
     },
     "spec_driven_development.md": {
       "checked_delivery": "delivered",
-      "sha256": "d62f369c8f2d71873b24d32158d2ffbfb7338f737224e0a22356b53f9084d9b7",
+      "sha256": "8a01302fc5dcbdfe72f9bd7f41e5c2bee02870bb0a146717e5350dbf6f5ccf7d",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "scope": "Existing-issue/store-validation excerpt; unaffected merged content preserved",
-      "objective_sha256": "9ec8085a8970254b688558c53d226f6585bf83998b1680c5a3cf7a994fb1f113",
-      "message_sha256": "03f1b426acbf7e775f793bd5b5b61b3034a6792d4d071634948bf207801a21b9"
+      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status.",
+      "objective_sha256": "db9a70e5d811f64c0adcf34ee17fc7bec055c48870efde541a4d63e21982a4f2",
+      "message_sha256": "d83c26c28dcc96a496a0ecc4e85fc3635ea2c1dab23e7f2caff9edd870ca2e46"
     },
     "high_level_document.md": {
       "checked_delivery": "delivered",
-      "sha256": "27087f406ea2344b40ecbfde1a10b8857bbb6147ea3c88af254e65112ba5e2b1",
+      "sha256": "59dd30f878010c4df39613af6c89a851c5b0f9aa7945dd543a42f5ab86498cc7",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "89610644abe5da111c28ff96a596dfaf5ff02dc1e9d85f6599ce4cad25eb5a1e",
+      "objective_sha256": "2b73b8a67a54e79649ff40fe7a8c1898f61a15d9b177ddc71560797b0edaa4ce",
       "message_sha256": "0f70008b99f7eb71f33ea6c2da70326d1ee78dda84555db2817c70c2c829dc5b",
-      "scope": "Current implemented intake interfaces and remaining host/issuer integration; one paragraph only"
+      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status."
     },
     "implementation_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "b01a1db3b7067a94722b2ed62f1c9d004d4b2b81b445cdf168be4a122c2b9683",
+      "sha256": "32a122f5c4214ac979a21c65c9aa6e4c777a83dcfc67c7ade1388abebb7ee550",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "62c6a24ca7aa6e621e608159296ec743bc62246310f29df10ad92b6829b1b612",
+      "objective_sha256": "51f047fd3d52889f5585dc654aa19836ac53e1961730d76ec593103a8d96714f",
       "message_sha256": "cd3f2318f5f7fd71de94b7c23a445f084d337b423a56873deebca5080d3b04ae",
-      "scope": "User-directed asset placement and normal T34 order; one paragraph only"
+      "scope": "Approved full merge refactor, history/performance audit, migration cleanup, human decisions, dynamic delegation and standing tests; excerpt only."
     },
     "test_plan.md": {
       "checked_delivery": "delivered",
@@ -96,16 +99,16 @@
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "ad0b82380bbd0a8849f04cdec4bebdc610aba2ce20e0cfc2e5462a2cc75461cb",
+      "sha256": "e50e07ff51b2eddc1c4ccfa259213781756cea9597ae80c0c2f6ca1d61b158af",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "ea132ac9e7e47994c1eb424af6090f3ebf05015d1496ac3f0f24df631b87828b",
+      "objective_sha256": "115353523d05a51c76b7a0b3279f7857e5ad9f97b487037029dbdcf915544690",
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
-      "scope": "Cumulative reporting period through 2026-11-02 02:30 UTC",
-      "reporting_period": "2026-11-01 15:56 UTC through 2026-11-02 02:30 UTC"
+      "scope": "10:15\u201313:10UTC current period: integrated147+74,45,57and221 scoped checks; actual primary/secondary metadata preflights; real workflows remain unrun.",
+      "reporting_period": "2026-11-02 10:15\u201313:10 UTC"
     },
     "merge/decision_record.md": {
       "checked_delivery": "delivered",
@@ -159,21 +162,25 @@
       "live_provider_or_host_acceptance": false
     },
     "integrated_backend": {
-      "commit": "a3d0aca883f9f5302aac079e6a564fae892ae494",
-      "tree": "685c75bde46507f9e85747c211cc0df4d1655cd3",
-      "configured_macos_tests_passed": 2440,
+      "commit": "e713d8641ec946e7de3b74546cb3688f9e4e57de",
+      "tree": "ac3ad93388eb760c1532c3085b6e761f81a86713",
+      "configured_macos_tests_passed": 2490,
       "failed": 0,
+      "errors": 0,
       "skipped": 0,
       "container_cases": 6,
       "exact_owned_containers_removed": 7,
       "test_group_stop_verified": true,
       "source_and_cleanup_independently_reviewed": true,
       "lead_reran_entire_suite": false,
-      "wrapper_elapsed_seconds": 422.4067320418544,
-      "wrapper_timeout_seconds": 900,
+      "frozen_source_files_checked": 667,
+      "wrapper_elapsed_seconds": 560.8022971153259,
+      "wrapper_timeout_seconds": 840,
+      "junit_sha256": "0361cc568f77427c0cc6d50e3bbbacc631eaed340a8f748bce5616b8b195458b",
       "configured_linux_current_candidate": "not_run",
       "live_provider_or_host_acceptance": false,
-      "junit_sha256": "e72f41fdbe8b66e2511a8ced6248e0e9b03ccb4528e76bdf6ec92ff91a2e063f"
+      "later_main_source": "af2d43de0c3cc6f5dd49b1af49377b58ae67ec27",
+      "later_main_combined_full_run": "not_run"
     },
     "application_package": {
       "source_commit": "ccb712a29b53da4944f18c72d980f344441b98ca",
@@ -256,14 +263,32 @@
       },
       "configuration_candidate": {
         "source_commit": "29118cfb83528e890ac78fe67dd7f7c5b4d19dc2",
-        "integrated": false,
+        "integrated": true,
         "earlier_host_batch_passed": 185,
         "earlier_host_batch_skipped": 6,
         "later_frozen_startup_failures": 2,
-        "current_observation_repair": "in_progress",
+        "current_observation_repair": "implemented; fullMac2490passed",
         "actual_native_operations_in_reproduction": 0,
-        "original_live_pilot_remains_failed": true
-      }
+        "original_live_pilot_remains_failed": true,
+        "integrated_via": "e713d864",
+        "current_observation_source": "e11638ab2016ffefedd398998ef690d5a58819aa",
+        "native_exit_source": "c608534bc6c32b89f531b4a2c97c12e1194b2fa2",
+        "native_exit_focused_passed": 14,
+        "normal_ancestor_ACL": "separate unaccepted candidate; final67/1 and required-callback failures retained; fresh-observation implementation in progress",
+        "actual_host_acceptance": false
+      },
+      "historical_configuration_candidates": [
+        {
+          "source_commit": "29118cfb83528e890ac78fe67dd7f7c5b4d19dc2",
+          "integrated": false,
+          "earlier_host_batch_passed": 185,
+          "earlier_host_batch_skipped": 6,
+          "later_frozen_startup_failures": 2,
+          "current_observation_repair": "in_progress",
+          "actual_native_operations_in_reproduction": 0,
+          "original_live_pilot_remains_failed": true
+        }
+      ]
     },
     "build_limit_policy": {
       "status": "integrated_and_original_ledger_amendment_verified",
@@ -326,6 +351,23 @@
         "linux_image_id": "sha256:4206078324d29825cb9d98b342b9535623fc052a818a3a4ed270b648e055e279",
         "linux_failed": 0,
         "linux_skipped": 0
+      },
+      {
+        "commit": "a3d0aca883f9f5302aac079e6a564fae892ae494",
+        "tree": "685c75bde46507f9e85747c211cc0df4d1655cd3",
+        "configured_macos_tests_passed": 2440,
+        "failed": 0,
+        "skipped": 0,
+        "container_cases": 6,
+        "exact_owned_containers_removed": 7,
+        "test_group_stop_verified": true,
+        "source_and_cleanup_independently_reviewed": true,
+        "lead_reran_entire_suite": false,
+        "wrapper_elapsed_seconds": 422.4067320418544,
+        "wrapper_timeout_seconds": 900,
+        "configured_linux_current_candidate": "not_run",
+        "live_provider_or_host_acceptance": false,
+        "junit_sha256": "e72f41fdbe8b66e2511a8ced6248e0e9b03ccb4528e76bdf6ec92ff91a2e063f"
       }
     ],
     "existing_issue_admission": {
@@ -355,6 +397,99 @@
         "hostile_same_user_protection": false,
         "live_replacement_supported": false
       }
+    },
+    "linear_local_driver": {
+      "source_commit": "7a59b22cae98dcb3cb92c44bd4b1532809c34526",
+      "integration_commit": "4659330f0252a4ae631c045b4b0f15653bea93cf",
+      "passed": 88,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "original_cases_preserved": 46,
+      "new_cases": 42,
+      "owned_process_stop_verified": true,
+      "absolute_HTTP_deadline": "implemented and locally verified in118-case batch; integrated af2d43de, no live provider result",
+      "live_cases_passed": 0,
+      "live_cases_not_run": 18
+    },
+    "ai_index_f0": {
+      "source_commit": "cda5b2a74a312741491a33e8c439db75a2c48b55",
+      "integration_commit": "9a9599be81c4d5f4b0a10f9e38efb997597e6b45",
+      "passed": 123,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "groups": 16,
+      "owned_fixture_removed": true,
+      "scope": "typed recording contracts only",
+      "real_runner_available": false,
+      "real_Git_application_provider_host_or_cutover_acceptance": false
+    },
+    "linear_http_deadline": {
+      "source_commit": "b2465f861128d91639c7984c873ce75015767caa",
+      "integration_commit": "af2d43de0c3cc6f5dd49b1af49377b58ae67ec27",
+      "passed": 118,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "raw_clock_files_verified": 20,
+      "accepted_socket_records": 21,
+      "completed_write_records": 19,
+      "partial_backpressure_output_unconfirmed": true,
+      "owned_group_stopped_reaped": true,
+      "actual_live_Linear": false
+    },
+    "linear_receiver_startup_candidate": {
+      "candidate": "205047466ffed3a3466548d23d8d2ac922f3f80f",
+      "integrated_head": "fa3566bafd022b069d4730cc9b590ff78217c578",
+      "tests": 141,
+      "passed": 141,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "scope": "Local actual socket-error and spawned-import controls; no live provider or model acceptance.",
+      "prior_failures_retained": true,
+      "owned_processes_stopped_and_reaped": true
+    },
+    "host_acl_candidate": {
+      "base": "9a9599be81c4d5f4b0a10f9e38efb997597e6b45",
+      "execution_history": [
+        {
+          "tests": 45,
+          "passed": 43,
+          "failed": 2
+        },
+        {
+          "tests": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        {
+          "tests": 45,
+          "passed": 44,
+          "failed": 1
+        }
+      ],
+      "accepted": false,
+      "integrated": false,
+      "last_failure": "Repeated shared-temporary-ancestor ctime changes correctly refused before the intended callback.",
+      "last_fixture_pid_group_identities_independently_absent": 49,
+      "older_callback_phases_reached": 4,
+      "source_and_guard_changes_for_placement": false,
+      "scope": "Authored local fixtures; no actual account, model or provider acceptance."
+    },
+    "dependency_scheduling_candidate": {
+      "candidate_manifest_sha256": "9ba9ce2667644747405abb949cd51582695022fc3721d8b5dc8f4db36f8a34b7",
+      "source_paths": 33,
+      "tests": 144,
+      "passed": 144,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "consumer_tests_not_run": 74,
+      "integrated": false,
+      "scope": "Owned SQLite/thread/architecture component controls only.",
+      "prior_failures_retained": true
     }
   },
   "product_acceptance_cases_executed": 0,
@@ -420,7 +555,16 @@
       "prior_formal_pin": "873155ac73f486912e4e9fe6e3daa719388e0665",
       "protected_merge_and_instruction_surfaces_unchanged": true,
       "formal_baseline_update_pending": true,
-      "wider_semantic_audit_complete": false
+      "wider_semantic_audit_complete": false,
+      "semantic_source_review": {
+        "contract_rows": 408,
+        "captured_paths": 646,
+        "linked_paths": 294,
+        "unlinked_paths": 352,
+        "source_preservation_checks_passed": 64,
+        "actual_product_tests": false,
+        "whole_audit_complete": false
+      }
     }
   },
   "migration_delivery": {
@@ -785,6 +929,54 @@
         "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
         "reporting_period": "2026-11-01 15:56 UTC through 2026-11-02 00:45 UTC"
       }
+    },
+    {
+      "reporting_period": "2026-11-01 15:56 UTC through 2026-11-02 02:30 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "ad0b82380bbd0a8849f04cdec4bebdc610aba2ce20e0cfc2e5462a2cc75461cb",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+        "objective_sha256": "ea132ac9e7e47994c1eb424af6090f3ebf05015d1496ac3f0f24df631b87828b",
+        "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+        "scope": "Cumulative reporting period through 2026-11-02 02:30 UTC",
+        "reporting_period": "2026-11-01 15:56 UTC through 2026-11-02 02:30 UTC"
+      }
+    },
+    {
+      "reporting_period": "2026-11-02 02:30\u201304:57 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "b2453fedb0006e3d1a13267d5006ac00276d205222851acf80738255e91b2cb7",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+        "objective_sha256": "5242097af391acd66a471f74b3cf3e4ca94263c89b418935a45c71ee3a2347b5",
+        "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+        "scope": "New reporting period; current main9a distinguished from full-tested e713",
+        "reporting_period": "2026-11-02 02:30\u201304:57 UTC"
+      }
+    },
+    {
+      "reporting_period": "2026-11-02 04:57\u201307:18 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "98d4eb5abaa762f7e8db25240f4964a58435c0bfb1246fc6890126986250d8e2",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+        "objective_sha256": "b0519c2f80857d311bc47ce2d5e7b530e73d58dda7385058aa7af7fcc0393744",
+        "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+        "scope": "Current period; local passes and unaccepted candidates separated from full-tested e713",
+        "reporting_period": "2026-11-02 04:57\u201307:18 UTC"
+      }
     }
   ],
   "external_model_invocation_basis": "Four host-level submitted turns: two prior tool-free pilots, one neutral initialization submission and one assigned Claude component submission. The later native results report two neutral and four assigned agentic turns plus auxiliary model usage; the provider-internal request count is not fully exposed. These are not four billed API calls.",
@@ -834,5 +1026,140 @@
     "zero_loss_gaps": 0,
     "documentation_integrity_checks_passed": 17,
     "scope": "Checked proposed documents only; F0 code, real application resources, host/provider acceptance and cutover remain separately gated."
-  }
+  },
+  "historical_candidate_results": [
+    {
+      "reporting_period": "2026-11-02 04:57\u201307:18 UTC",
+      "records": {
+        "linear_receiver_startup_candidate": {
+          "source_commit": "62b38036e286c1fcd9df055b41534a4a22cac951",
+          "accepted": false,
+          "integrated": false,
+          "passed": 127,
+          "failed": 2,
+          "new_startup_scenarios_passed": 11,
+          "capacity_failures": "BrokenPipeError during upload before complete expected503 response; cause unproved",
+          "first_probe_failed_timed_out": true,
+          "corrected_probe_reproduced_defect": true,
+          "checkpoint_late_seconds": 42,
+          "owned_groups_stopped": true,
+          "current_continuation": "LINEAR-LIVE-PRIMARY-6; diagnostic preparation only"
+        },
+        "host_acl_candidate": {
+          "based_on": "9a9599be",
+          "committed": false,
+          "integrated": false,
+          "earlier_raw_passes": 68,
+          "final_raw": {
+            "passed": 67,
+            "failed": 1
+          },
+          "required_old_callback_missing": true,
+          "targeted_diagnostic": {
+            "raw_passed": 5,
+            "accepted": false,
+            "authored_status_completions_succeeded": 7,
+            "recorded_owned_processes_absent": 20,
+            "current_descriptor_change": "shared OS temporary ancestor; ctime changed, initial link count omitted",
+            "older_interruption_cause": "unknown"
+          },
+          "current_continuation": "HOST-BRIDGE-6; implementation, execution not admitted",
+          "actual_account_model_acceptance": false
+        },
+        "dependency_scheduling_candidate": {
+          "task": "TST-89",
+          "base": "af2d43de",
+          "committed": false,
+          "accepted": false,
+          "draft_source_files": 14,
+          "static_parse_passed": true,
+          "public_input_schemas_unchanged": true,
+          "frozen_groups": 28,
+          "planned_variants": 122,
+          "variants_executed": 0,
+          "first_phase_outcome": "interrupted; deliberate partial checkpoint",
+          "current_continuation": "DEPENDENCY-SCHEDULING-2; tests and fixture setup pending"
+        }
+      }
+    }
+  ],
+  "document_history": [
+    {
+      "path": "implementation_plan.md",
+      "checked_delivery": "delivered",
+      "sha256": "b01a1db3b7067a94722b2ed62f1c9d004d4b2b81b445cdf168be4a122c2b9683",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "objective_sha256": "62c6a24ca7aa6e621e608159296ec743bc62246310f29df10ad92b6829b1b612",
+      "message_sha256": "cd3f2318f5f7fd71de94b7c23a445f084d337b423a56873deebca5080d3b04ae",
+      "scope": "User-directed asset placement and normal T34 order; one paragraph only"
+    },
+    {
+      "path": "policy.md",
+      "checked_delivery": "delivered",
+      "sha256": "0a4231aa508e6d907e12a76f35816dfc89f96f782c34892de1276e06e1289093",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+    },
+    {
+      "path": "spec_driven_development.md",
+      "checked_delivery": "delivered",
+      "sha256": "d62f369c8f2d71873b24d32158d2ffbfb7338f737224e0a22356b53f9084d9b7",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "scope": "Existing-issue/store-validation excerpt; unaffected merged content preserved",
+      "objective_sha256": "9ec8085a8970254b688558c53d226f6585bf83998b1680c5a3cf7a994fb1f113",
+      "message_sha256": "03f1b426acbf7e775f793bd5b5b61b3034a6792d4d071634948bf207801a21b9"
+    },
+    {
+      "path": "spec_driven_development.md",
+      "checked_delivery": "delivered",
+      "sha256": "193357c9169c85c442345746cc897a0533ad2dca81dbcc095562773de4197628",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status.",
+      "objective_sha256": "cbd7455855867d921858bfba37086bf4b5e2c24bcbb0e4eb37d7b652697fc0e6",
+      "message_sha256": "d83c26c28dcc96a496a0ecc4e85fc3635ea2c1dab23e7f2caff9edd870ca2e46"
+    },
+    {
+      "path": "high_level_document.md",
+      "checked_delivery": "delivered",
+      "sha256": "27087f406ea2344b40ecbfde1a10b8857bbb6147ea3c88af254e65112ba5e2b1",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "objective_sha256": "89610644abe5da111c28ff96a596dfaf5ff02dc1e9d85f6599ce4cad25eb5a1e",
+      "message_sha256": "0f70008b99f7eb71f33ea6c2da70326d1ee78dda84555db2817c70c2c829dc5b",
+      "scope": "Current implemented intake interfaces and remaining host/issuer integration; one paragraph only"
+    },
+    {
+      "path": "test_status_report.md",
+      "checked_delivery": "delivered",
+      "sha256": "703f6b583256cb54e462f0033e43182c8e61f8d2ba781eb025e176a5a2723399",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "objective_sha256": "0c4d8c6cb9d2769ff362e53f79cdcf911d97775132f3a06a2dc8ae2a2b5811d9",
+      "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+      "scope": "Current period;141 local receiver passes,144 isolated scheduler passes and44/1 failed host candidate remain separate from full-tested e713.",
+      "reporting_period": "2026-11-02 07:18\u201310:15 UTC"
+    }
+  ],
+  "requirements_revision": 5
 }

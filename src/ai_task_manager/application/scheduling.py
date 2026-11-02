@@ -1,0 +1,233 @@
+"""Scoped dependency application boundary; external observation happens elsewhere."""
+
+from dataclasses import asdict
+
+from ai_task_manager.domains.scheduling import policy
+from ai_task_manager.domains.scheduling.models import (
+    Blocker, Completion, Readiness, RejectSchedulingSources, SchedulingBlocked,
+)
+from ai_task_manager.domains.work.errors import EvidenceRequired, StaleVersion
+from ai_task_manager.domains.work.models import DELIVERED, IssueStatus as S, SyncState
+from ai_task_manager.domains.work.models import AttemptState as A
+from ai_task_manager.storage import attempts, events, issue_claims, scheduling as store, sessions, work
+
+from .transition_evidence import destination_facts
+
+
+class _DeliveryContext:
+    """Supply no transition decision; reuse only shared delivery consistency checks."""
+
+    payload = {}
+
+
+class Scheduling:
+    def __init__(self, context, sources=None):
+        self.c, self.sources = context, sources or RejectSchedulingSources()
+
+    def observe(self, handle, task_id, expected_version, expected_decision_revision,
+                snapshot_ref, operation_key):
+        payload = {"command": "dependency_snapshot", "task_id": task_id,
+                   "version": expected_version, "revision": expected_decision_revision,
+                   "snapshot_ref": snapshot_ref}
+
+        def action(conn, sid, scope):
+            # Historical committed replay occurs before receipt resolution. The
+            # configured resolver is local/immutable and must never perform HTTP.
+            snapshot = self.sources.verify_snapshot(snapshot_ref)
+            policy.validate(snapshot, self.c.clock())
+            task = work.get(conn, sid, task_id)
+            self.c.check(task, expected_version, expected_decision_revision)
+            if (snapshot.scope != scope or snapshot.task_id != task.id
+                    or snapshot.prose_digest != task.prose_digest
+                    or snapshot.canonical_issue_id != task.issue_id):
+                raise EvidenceRequired("Dependency snapshot belongs to another current task scope")
+            if snapshot.expires_at <= self.c.clock():
+                raise SchedulingBlocked("Dependency snapshot expired before consumption")
+            prior = store.current(conn, task.id)
+            graph_version = prior["graph_version"] if prior else 0
+            if snapshot.previous_graph_version != graph_version:
+                raise StaleVersion("Dependency graph version changed")
+            digest = work.fingerprint(asdict(snapshot))
+            if prior:
+                if snapshot.source_id != prior["snapshot"].source_id:
+                    raise EvidenceRequired("A different source cannot reset dependency ordering")
+                if snapshot.source_revision <= prior["source_revision"]:
+                    if snapshot.source_revision == prior["source_revision"] and digest == prior["digest"]:
+                        return self._view(conn, scope, task)
+                    raise StaleVersion("Dependency observation is stale or conflicting")
+            graph = store.graph(conn, sid)
+            graph[task.id] = tuple(edge.predecessor for edge in snapshot.dependencies)
+            policy.check_cycles(graph)
+            definition = lambda value: sorted(
+                (edge.predecessor, edge.condition, edge.unit or "") for edge in value.dependencies
+            )
+            changed = not prior or definition(snapshot) != definition(prior["snapshot"])
+            graph_version += int(changed)
+            store.save(conn, snapshot, graph_version, digest)
+            readiness = self._readiness(conn, scope, task)
+            if prior and (changed or readiness.state != "ready"
+                          or prior["snapshot"].expires_at <= self.c.clock()):
+                conn.execute(
+                    "UPDATE scheduling_attempts SET invalidated_by=? WHERE task_id=? "
+                    "AND invalidated_by IS NULL", (operation_key, task.id),
+                )
+            self.c.changed(conn, task, "scheduling_snapshot_recorded", {
+                "graph_version": graph_version, "source_revision": snapshot.source_revision,
+                "readiness": readiness.state,
+            })
+            return self._view(conn, scope, task)
+
+        return self.c.mutation(handle, operation_key, payload, action)
+
+    def _completion(self, conn, scope, session_id, edge):
+        def unavailable(reason):
+            return Completion(edge.predecessor, edge.condition, reason)
+        if edge.predecessor.startswith("external:"):
+            return unavailable("foreign")
+        try:
+            predecessor = work.get(conn, session_id, edge.predecessor)
+        except Exception:
+            return unavailable("missing")
+        if predecessor.observed_status in {S.CANCELED, S.DUPLICATE}:
+            return unavailable("canceled" if predecessor.observed_status == S.CANCELED else "duplicate")
+        if predecessor.human_hold:
+            return unavailable("held")
+        if predecessor.execution_state in {A.FAILED, A.CANCELED, A.UNKNOWN}:
+            return unavailable("failed" if predecessor.execution_state == A.FAILED else "ambiguous")
+        if predecessor.sync_state != SyncState.CONFIRMED:
+            return unavailable("unavailable")
+        references = dict(edge.evidence_refs)
+        try:
+            if edge.condition == "unit_verified":
+                proof = self.c.proof(references.get("work_unit_complete"),
+                                     "work_unit_complete", scope, predecessor.id)
+                if (proof.payload.get("unit") != edge.unit
+                        or proof.payload.get("prose_digest") != predecessor.prose_digest):
+                    return unavailable("ambiguous")
+                kind, commit, artifact = "work_unit_complete", None, None
+            else:
+                if edge.condition == "code_merged" and predecessor.observed_status not in DELIVERED:
+                    return unavailable("unavailable")
+                if edge.condition == "work_done" and predecessor.observed_status != S.DONE:
+                    return unavailable("unavailable")
+                facts, _ = destination_facts(
+                    self.c, conn, scope, predecessor,
+                    S.IN_DEV if edge.condition == "code_merged" else S.DONE,
+                    _DeliveryContext(), references,
+                )
+                if not facts.complete or not facts.quiescent:
+                    return unavailable("unavailable")
+                if edge.condition == "code_merged":
+                    if not facts.merged:
+                        return unavailable("unavailable")
+                    kind = "merge"
+                elif predecessor.code_bearing:
+                    if not facts.released:
+                        return unavailable("unavailable")
+                    kind = "production"
+                else:
+                    if not facts.non_code_verified:
+                        return unavailable("unavailable")
+                    kind = "non_code_completion"
+                proof = self.c.proof(references.get(kind), kind, scope, predecessor.id)
+                commit, artifact = proof.payload.get("commit"), proof.payload.get("artifact")
+            return Completion(edge.predecessor, edge.condition, "verified", kind,
+                              predecessor.required_work, predecessor.completed_work,
+                              edge.unit, commit, artifact)
+        except Exception:
+            return unavailable("unavailable")
+
+    def _readiness(self, conn, scope, task, attempt=None):
+        try:
+            issue_claims.require_open(conn, scope, task.issue_id)
+        except EvidenceRequired:
+            return Readiness("blocked", (Blocker(
+                "issue_lifecycle_closed", None,
+                "Create a new linked Backlog issue for further work",
+            ),))
+        current = store.current(conn, task.id)
+        if current is None:
+            return policy.evaluate(None, {}, self.c.clock())
+        snapshot = current["snapshot"]
+        if (snapshot.scope != scope or snapshot.prose_digest != task.prose_digest
+                or snapshot.canonical_issue_id != task.issue_id or current["invalidated_by"]):
+            return Readiness("unknown", (Blocker(
+                "dependency_source_changed", None, "Confirm current dependency and work-scope facts"
+            ),))
+        if attempt is not None:
+            binding = store.attempt_binding(conn, attempt.id)
+            if (not binding or binding["invalidated_by"]
+                    or binding["graph_version"] != current["graph_version"]):
+                return Readiness("blocked", (Blocker(
+                    "attempt_dependencies_invalidated", None,
+                    "Reconcile the existing attempt through the guarded stop/resume workflow",
+                ),))
+        completions = {(edge.predecessor, edge.condition, edge.unit):
+                       self._completion(conn, scope, task.session_id, edge) for edge in snapshot.dependencies}
+        return policy.evaluate(snapshot, completions, self.c.clock())
+
+    def _view(self, conn, scope, task):
+        current = store.current(conn, task.id)
+        active = attempts.active(conn, task.id)
+        readiness = self._readiness(conn, scope, task, active)
+        snapshot = current["snapshot"] if current else None
+        return {"task_id": task.id, "task_version": task.version,
+                "state": readiness.state, "blockers": [asdict(x) for x in readiness.blockers],
+                "graph_version": current["graph_version"] if current else 0,
+                "source_revision": current["source_revision"] if current else None,
+                "priority": snapshot.priority if snapshot else None,
+                "expires_at": snapshot.expires_at if snapshot else None,
+                "queue_sequence": store.queue_sequence(conn, task.id)}
+
+    def explain(self, handle, task_id):
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            return self._view(conn, scope, work.get(conn, sid, task_id))
+
+    def _candidates(self, conn, sid, scope, selected=None):
+        result = []
+        for row in conn.execute("SELECT id FROM tasks WHERE session_id=?", (sid,)).fetchall():
+            task = work.get(conn, sid, row[0])
+            if (not task.queued_once or task.human_hold or task.delivered_once
+                    or task.sync_state != SyncState.CONFIRMED or attempts.active(conn, task.id)
+                    or (task.observed_status != S.TODO and task.id != selected)):
+                continue
+            if self._readiness(conn, scope, task).state != "ready":
+                continue
+            current = store.current(conn, task.id)
+            order = store.queue_sequence(conn, task.id)
+            if order is not None:
+                result.append((task.id, current["snapshot"].priority, order))
+        return policy.ordered(result)
+
+    def require(self, conn, scope, task, phase, attempt=None):
+        readiness = self._readiness(conn, scope, task, attempt)
+        if readiness.state != "ready":
+            raise SchedulingBlocked("; ".join(x.release_condition for x in readiness.blockers))
+        if phase == "reserve":
+            candidates = self._candidates(conn, task.session_id, scope, task.id)
+            if not candidates or candidates[0][0] != task.id:
+                raise SchedulingBlocked("An earlier eligible queue item has priority")
+        return store.current(conn, task.id)["graph_version"]
+
+    def ordered(self, handle):
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            items = [self._view(conn, scope, work.get(conn, sid, row[0])) for row in
+                     conn.execute("SELECT id FROM tasks WHERE session_id=?", (sid,)).fetchall()]
+            return sorted(items, key=lambda x: (
+                policy.PRIORITIES.get(x["priority"], 99),
+                x["queue_sequence"] if x["queue_sequence"] is not None else 2**63,
+                x["task_id"],
+            ))
+
+    def source_changed(self, conn, task, event):
+        if event.kind.startswith("scheduling_") or event.kind == "dependency_inputs_changed":
+            return
+        for dependent_id in store.dependents(conn, task.id, task.session_id):
+            if store.invalidate(conn, dependent_id, event.id, "predecessor_changed"):
+                row = conn.execute("SELECT session_id FROM tasks WHERE id=?", (dependent_id,)).fetchone()
+                if row:
+                    events.append(conn, row[0], dependent_id, "dependency_inputs_changed", {
+                        "source_event": event.id, "reason": "Refresh authorized dependency facts"
+                    })

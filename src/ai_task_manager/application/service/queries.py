@@ -7,6 +7,10 @@ from .projection import quarantined, task_view
 def task_list(service, data, invocation):
     tasks = service.core.list_tasks(service.handle)
     views = [task_view(service, task) for task in tasks]
+    ordering = {item["task_id"]: index for index, item in enumerate(
+        service.core.scheduling.ordered(service.handle)
+    )}
+    views.sort(key=lambda item: ordering.get(item["id"], len(ordering)))
     visible = [view for view in views if not view["quarantined"]]
     envelope = result(visible)
     envelope["quarantined_count"] = len(tasks) - len(visible)

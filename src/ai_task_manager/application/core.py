@@ -14,6 +14,7 @@ from .existing_issues import ExistingIssues
 from .external_sync import ExternalSynchronization
 from .intake import Intake
 from .notifications import Notifications
+from .scheduling import Scheduling
 from .synchronization import Synchronization
 from .transitions import Transitions
 
@@ -30,6 +31,7 @@ class Core:
         evidence=None,
         renderer=None,
         clock=time.time,
+        scheduling_sources=None,
     ):
         reject = RejectProofs()
         self.context = Context(
@@ -52,6 +54,8 @@ class Core:
         self.notifications = Notifications(self.context)
         self.sync = Synchronization(self.context)
         self.external = ExternalSynchronization(self.context)
+        self.scheduling = Scheduling(self.context, scheduling_sources)
+        self.context.scheduling = self.scheduling
 
     def register_session(self, principal_ref, resume_ref=None):
         scope = self.context.principals.verify_principal(principal_ref)

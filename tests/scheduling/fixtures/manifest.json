@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "purpose": "Published historical Database implementations for exact old-schema migration fixtures; never product runtime",
+  "sources": [
+    {
+      "version": 1,
+      "commit": "c9ab1e4ec63a962af29a519280c6bab94c5ea846",
+      "source_path": "src/ai_task_manager/storage/database.py",
+      "fixture_path": "tests/scheduling/fixtures/schema1_database.py",
+      "sha256": "6770c2d43cc552d2b1254a8f0938a7bf35cc87abefebd5b192ce3f48e3e04582"
+    },
+    {
+      "version": 2,
+      "commit": "2f285746ba1661a9df9388c346f532edcdce2db8",
+      "source_path": "src/ai_task_manager/storage/database.py",
+      "fixture_path": "tests/scheduling/fixtures/schema2_database.py",
+      "sha256": "948c9c1b4b8a88eecd906c5094576f2edee3957960d3d29dc8d6ea5c26cbb0cd"
+    }
+  ]
+}

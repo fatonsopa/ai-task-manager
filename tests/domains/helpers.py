@@ -18,6 +18,7 @@ from ai_task_manager.domains.work.models import (
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.domains.work.ports import ExactRenderer
 from ai_task_manager.storage.database import Database
+from tests.scheduling.helpers import SnapshotSource, known_declaration
 
 
 class ProofFixture:
@@ -56,6 +57,8 @@ class Rig:
         self.handle = self.session(self.scope)
 
     def new_core(self):
+        if not hasattr(self, "scheduling_sources"):
+            self.scheduling_sources = SnapshotSource()
         return Core(
             self.db,
             self.policy,
@@ -65,6 +68,7 @@ class Rig:
             evidence=self.proofs,
             renderer=self.renderer,
             clock=lambda: self.now,
+            scheduling_sources=self.scheduling_sources,
         )
 
     def key(self):
@@ -100,6 +104,10 @@ class Rig:
         )
         handle = handle or self.handle
         task = self.core.intake.submit(handle, prose, self.approval(prose), self.key())
+        if not hasattr(self, "known_dependencies"):
+            self.known_dependencies = {}
+        self.known_dependencies[task.id] = ((), "normal")
+        known_declaration(self, task, handle)
         return self.confirm(task, handle=handle) if confirmed else task
 
     def current(self, task):
@@ -126,9 +134,11 @@ class Rig:
             },
             scope=scope,
         )
-        return self.core.intake.confirm_status(
+        result = self.core.intake.confirm_status(
             handle, task.id, task.version, task.decision_revision, proof, self.key()
         )
+        known_declaration(self, result, handle)
+        return result
 
     def decision(
         self, task, target, *, actor="human", reason="Verified decision", scope=None
