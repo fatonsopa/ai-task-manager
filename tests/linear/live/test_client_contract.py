@@ -20,6 +20,10 @@ REPLIES = {
     "missing": b"",
     "partial_header": b"HTTP/1.0 503 Unavailable\r\nContent-Length: 0\r\n",
     "partial_body": b"HTTP/1.0 503 Unavailable\r\nContent-Length: 5\r\n\r\nab",
+    "conflicting_framing": (
+        b"HTTP/1.1 503 Unavailable\r\nTransfer-Encoding: chunked\r\n"
+        b"Content-Length: 0\r\nConnection: close\r\n\r\n2\r\nab\r\n0\r\n\r\n"
+    ),
 }
 
 
@@ -160,4 +164,17 @@ def test_client_incomplete_response_without_upload_failure(tmp_path, kind):
         with pytest.raises((client.IncompleteResponse, http.client.IncompleteRead)) as caught:
             client.send_request(server, body=b"x" * 565)
         observations["response_error_type"] = type(caught.value).__name__
+    assert observations["body_bytes"] == 565
+
+
+def test_client_unsupported_transfer_framing_refused(tmp_path):
+    with peer(
+        REPLIES["conflicting_framing"], tmp_path / "client-observation.json", early=False
+    ) as (server, observations):
+        with pytest.raises(
+            client.IncompleteResponse, match="unsupported_transfer_encoding"
+        ) as caught:
+            client.send_request(server, body=b"x" * 565)
+        observations["response_error_type"] = type(caught.value).__name__
+        observations["unsupported_transfer_encoding_refused"] = True
     assert observations["body_bytes"] == 565

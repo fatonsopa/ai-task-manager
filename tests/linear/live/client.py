@@ -54,6 +54,8 @@ def send_request(
             response = connection.getresponse()
             if not response.header_capture.data.endswith(b"\r\n\r\n"):
                 raise IncompleteResponse("response_headers_incomplete")
+            if response.getheader("Transfer-Encoding") is not None:
+                raise IncompleteResponse("unsupported_transfer_encoding")
             declared = response.getheader("Content-Length")
             if (
                 declared is None
@@ -61,7 +63,7 @@ def send_request(
                 or int(declared) > MAXIMUM_RESPONSE_BYTES
             ):
                 raise IncompleteResponse("response_length_unbounded")
-            value = response.read()
+            value = response.read(int(declared))
             if len(value) != int(declared):
                 raise IncompleteResponse("response_body_incomplete")
             return response.status, value
