@@ -20,6 +20,7 @@ from .endpoint_authority import EndpointAuthority, OwnedTunnel
 from .endpoint_probe import EndpointProbe
 from .ledger import DriverRefused
 from .receiver import BoundedReceiver
+from .run_primary import PrimaryRun
 from .test_actual_adapter import ready
 
 pytest_plugins = ["tests.linear.live.test_actual_adapter", "tests.linear.live.test_driver_contract"]
@@ -45,7 +46,8 @@ def authored_probe(probe, receiver, origin):
 @pytest.fixture
 def endpoint(adapter, rig, monkeypatch, tmp_path, request):
     admin, _, ledger, *_ = adapter
-    if getattr(request, "param", True):
+    with_product = getattr(request, "param", True)
+    if with_product:
         ready(adapter)
     server = BoundedReceiver(rig.receiver, ledger)
     server.start()
@@ -61,7 +63,7 @@ def endpoint(adapter, rig, monkeypatch, tmp_path, request):
         "--url",
         f"http://127.0.0.1:{server.address[1]}",
     ]
-    child = group = None
+    child = group = run = None
     closed = {}
     try:
         with os.fdopen(descriptor, "wb") as output:
@@ -83,11 +85,27 @@ def endpoint(adapter, rig, monkeypatch, tmp_path, request):
         )
         monkeypatch.setattr(EndpointProbe, "__call__", authored_probe)
         now = [time.time()]
+        if with_product:
+            run = PrimaryRun(
+                rig.core,
+                rig.handle,
+                rig.journal,
+                rig.receiver.binding,
+                WEBHOOK,
+                rig.receiver.secret,
+                rig.inbound,
+                ledger,
+                clock=time.time,
+                receiver=server,
+            )
+            run.start()
         authority = EndpointAuthority(
             server, tunnel, ledger, WEBHOOK, tmp_path / "endpoint", clock=lambda: now[0]
         )
         yield authority, server, tunnel, admin, ledger, log, now, closed
     finally:
+        if run is not None:
+            closed["run"] = run.stop(2)
         closed["receiver"] = server.stop(2)
         if group is not None and child.returncode is None:
             observation = group.stop()
@@ -238,3 +256,31 @@ def test_ep08_constructor_creates_private_directory_under_public_umask(endpoint,
         os.umask(previous)
     assert authority.root.stat().st_mode & 0o777 == 0o700
     assert authority.probe.root.stat().st_mode & 0o777 == 0o700
+
+
+def test_ep09_stopped_product_drain_invalidates_reference(endpoint):
+    authority, server, *_ = endpoint
+    reference = authority.admit()
+    assert server.product_run.drain.stop(1)["stopped"]
+    with pytest.raises(DriverRefused, match="product_drain_required"):
+        authority.verify(reference)
+
+
+@pytest.mark.parametrize("endpoint", [False], indirect=True)
+def test_ep10_reuse_before_owned_project_preserves_placeholder(endpoint):
+    _, server, _, _, ledger, *_ = endpoint
+    adapter = server.adapter
+    with pytest.raises(DriverRefused, match="owned_uuid_missing"):
+        PrimaryRun(
+            adapter.core,
+            adapter.handle,
+            adapter.journal,
+            adapter.binding,
+            WEBHOOK,
+            adapter.secret,
+            object(),
+            ledger,
+            clock=time.time,
+            receiver=server,
+        )
+    assert server.adapter is adapter and not hasattr(server, "product_run")

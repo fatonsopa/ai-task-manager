@@ -16,6 +16,7 @@ from .endpoint_probe import EndpointProbe, origin_parts, private_json
 from .fixture_admin import VerifiedEndpoint
 from .ledger import DriverRefused, uuid
 from .receiver import BoundedReceiver, receiver_route
+from .run_primary import PrimaryRun
 
 
 class OwnedTunnel:
@@ -112,6 +113,7 @@ class EndpointAuthority:
                 Path(__file__),
                 Path(__file__).with_name("receiver.py"),
                 Path(__file__).with_name("endpoint_probe.py"),
+                Path(__file__).with_name("run_primary.py"),
             )
         }
 
@@ -149,6 +151,19 @@ class EndpointAuthority:
             raise DriverRefused("owned_endpoint_project_required")
         if not isinstance(adapter, WebhookReceiver):
             raise DriverRefused("scoped_product_receiver_required")
+        run = getattr(self.receiver, "product_run", None)
+        if (
+            not isinstance(run, PrimaryRun)
+            or run.receiver is not self.receiver
+            or run.adapter is not adapter
+            or run.drain.ledger is not self.ledger
+            or run.drain.handle != adapter.handle
+            or run.drain.thread is None
+            or not run.drain.thread.is_alive()
+            or run.drain.closing.is_set()
+            or getattr(run.drain.inbound, "core", None) is not adapter.core
+        ):
+            raise DriverRefused("scoped_product_drain_required")
         _, current = adapter.core.session_binding(adapter.handle)
         expected = adapter.binding.expected
         if (current.workspace, current.principal, current.project) != (
