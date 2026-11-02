@@ -1,0 +1,274 @@
+{
+  "issue": {
+    "fields": [
+      {
+        "name": "priority",
+        "args": [],
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "Float",
+            "ofType": null
+          }
+        }
+      },
+      {
+        "name": "relations",
+        "args": [
+          {
+            "name": "before",
+            "type": {
+              "kind": "SCALAR",
+              "name": "String",
+              "ofType": null
+            }
+          },
+          {
+            "name": "after",
+            "type": {
+              "kind": "SCALAR",
+              "name": "String",
+              "ofType": null
+            }
+          },
+          {
+            "name": "first",
+            "type": {
+              "kind": "SCALAR",
+              "name": "Int",
+              "ofType": null
+            }
+          },
+          {
+            "name": "last",
+            "type": {
+              "kind": "SCALAR",
+              "name": "Int",
+              "ofType": null
+            }
+          },
+          {
+            "name": "includeArchived",
+            "type": {
+              "kind": "SCALAR",
+              "name": "Boolean",
+              "ofType": null
+            }
+          },
+          {
+            "name": "orderBy",
+            "type": {
+              "kind": "ENUM",
+              "name": "PaginationOrderBy",
+              "ofType": null
+            }
+          }
+        ],
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "OBJECT",
+            "name": "IssueRelationConnection",
+            "ofType": null
+          }
+        }
+      },
+      {
+        "name": "inverseRelations",
+        "args": [
+          {
+            "name": "before",
+            "type": {
+              "kind": "SCALAR",
+              "name": "String",
+              "ofType": null
+            }
+          },
+          {
+            "name": "after",
+            "type": {
+              "kind": "SCALAR",
+              "name": "String",
+              "ofType": null
+            }
+          },
+          {
+            "name": "first",
+            "type": {
+              "kind": "SCALAR",
+              "name": "Int",
+              "ofType": null
+            }
+          },
+          {
+            "name": "last",
+            "type": {
+              "kind": "SCALAR",
+              "name": "Int",
+              "ofType": null
+            }
+          },
+          {
+            "name": "includeArchived",
+            "type": {
+              "kind": "SCALAR",
+              "name": "Boolean",
+              "ofType": null
+            }
+          },
+          {
+            "name": "orderBy",
+            "type": {
+              "kind": "ENUM",
+              "name": "PaginationOrderBy",
+              "ofType": null
+            }
+          }
+        ],
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "OBJECT",
+            "name": "IssueRelationConnection",
+            "ofType": null
+          }
+        }
+      }
+    ]
+  },
+  "relation": {
+    "fields": [
+      {
+        "name": "id",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "ID"
+          }
+        }
+      },
+      {
+        "name": "createdAt",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "DateTime"
+          }
+        }
+      },
+      {
+        "name": "updatedAt",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "DateTime"
+          }
+        }
+      },
+      {
+        "name": "archivedAt",
+        "type": {
+          "kind": "SCALAR",
+          "name": "DateTime",
+          "ofType": null
+        }
+      },
+      {
+        "name": "type",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "SCALAR",
+            "name": "String"
+          }
+        }
+      },
+      {
+        "name": "issue",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "OBJECT",
+            "name": "Issue"
+          }
+        }
+      },
+      {
+        "name": "relatedIssue",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "OBJECT",
+            "name": "Issue"
+          }
+        }
+      }
+    ]
+  },
+  "connection": {
+    "fields": [
+      {
+        "name": "edges",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "LIST",
+            "name": null
+          }
+        }
+      },
+      {
+        "name": "nodes",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "LIST",
+            "name": null
+          }
+        }
+      },
+      {
+        "name": "pageInfo",
+        "type": {
+          "kind": "NON_NULL",
+          "name": null,
+          "ofType": {
+            "kind": "OBJECT",
+            "name": "PageInfo"
+          }
+        }
+      }
+    ]
+  },
+  "relationTypes": {
+    "enumValues": [
+      {
+        "name": "blocks"
+      },
+      {
+        "name": "duplicate"
+      },
+      {
+        "name": "related"
+      },
+      {
+        "name": "similar"
+      }
+    ]
+  }
+}

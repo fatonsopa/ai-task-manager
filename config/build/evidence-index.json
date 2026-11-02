@@ -21,109 +21,112 @@
   "documents": {
     "policy.md": {
       "checked_delivery": "delivered",
-      "sha256": "2ffb7bd8eedc7b511d1e0d6afd468d92bb316f8c1ddaa6094d0c9439b400dfb9",
+      "sha256": "241335ccaa26906841cd7f0fbae61e019771976d2c2bf1f4d9b800ae07f918f5",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "c56e62e679463b14737755a8f245bfc4ba9cd6219116dff0d3af6ecfca217a64",
-      "message_sha256": "a3802ac6de70096bdc110d962581c02e89ee48758d755c19c84b6f771f664f6b",
-      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status."
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "945afa227f4b0c3690511735a025effaf288adfb9de07e238ca91e5f8df19c8e",
+      "message_sha256": "356d20c1ca461cc2e905bd861f2556a53f26e4aeb567a9370e4ad70dcc0de52a",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     },
     "spec_driven_development.md": {
       "checked_delivery": "delivered",
-      "sha256": "8a01302fc5dcbdfe72f9bd7f41e5c2bee02870bb0a146717e5350dbf6f5ccf7d",
+      "sha256": "7021302f22765bf4c508403ab3fc4b464fec8bc0aea5a8207a73ad0a1ad159cc",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status.",
-      "objective_sha256": "db9a70e5d811f64c0adcf34ee17fc7bec055c48870efde541a4d63e21982a4f2",
-      "message_sha256": "d83c26c28dcc96a496a0ecc4e85fc3635ea2c1dab23e7f2caff9edd870ca2e46"
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "ef54377a96ae3faa32fe2f58b139c5e65b610108e6ce7f26a14c0829aecfcc19",
+      "message_sha256": "c85eb0f92a64faa418362c64aeb092bc8653b0fa62ab833c0cc67600adf90151",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     },
     "high_level_document.md": {
       "checked_delivery": "delivered",
-      "sha256": "59dd30f878010c4df39613af6c89a851c5b0f9aa7945dd543a42f5ab86498cc7",
+      "sha256": "d69cc07593e23dd343522eb68082320c21f185bb814c999988840249d7a91511",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "2b73b8a67a54e79649ff40fe7a8c1898f61a15d9b177ddc71560797b0edaa4ce",
-      "message_sha256": "0f70008b99f7eb71f33ea6c2da70326d1ee78dda84555db2817c70c2c829dc5b",
-      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status."
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "ededd7875cd97300ab3b8f7b00213ab2d5d4df1ab80322c2ba5737a758d462d7",
+      "message_sha256": "4230006c424a868f05aa409e7410a68eb1c59aeb76e55ef0131e0b33164e1aef",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     },
     "implementation_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "32a122f5c4214ac979a21c65c9aa6e4c777a83dcfc67c7ade1388abebb7ee550",
+      "sha256": "cecd133a7b537228b5b326d58774ee94e461f5316fe5fc859a0c16f8f11f2e10",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "51f047fd3d52889f5585dc654aa19836ac53e1961730d76ec593103a8d96714f",
-      "message_sha256": "cd3f2318f5f7fd71de94b7c23a445f084d337b423a56873deebca5080d3b04ae",
-      "scope": "Approved full merge refactor, history/performance audit, migration cleanup, human decisions, dynamic delegation and standing tests; excerpt only."
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "c20a4bb5ab1dc8758bd43b35e9b70312164f716efaa925ea653fb56cf58f7a93",
+      "message_sha256": "47dadcbd5b91e51314381742eeeefd6010c8c2ef81a9a2c2572990984165e839",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     },
     "test_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "da8197ffb0bc2a8ab2180fdc430a1fdee4f4a0a799a0c9b6bb782bb33d21ac8e",
+      "sha256": "457059e85bd337695cd51de89ea7c65522fe1ebf2eaccf1a712cba08b8b199b7",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "scope": "Existing-issue/store-validation excerpt; unaffected merged content preserved",
-      "objective_sha256": "ac1a6ba80a162c3be9e7126939f66f8a0896c26b23b8f7a5cce127a3b4d868db",
-      "message_sha256": "fd78cd8df856702d8b0469c63aad59d97f581187378a2f2f1030c1a8d550fc14"
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "4d75965e102ec42d23ed5365f148c3694ce4272df4c152797a1f203f806e0a9c",
+      "message_sha256": "2107a026278f99e9d26085d37772cfdc710ea157483def69ab4fe54f83071445",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     },
     "terminal/spec_driven_development.md": {
       "checked_delivery": "delivered",
-      "sha256": "452ade873f356283d311099bad61d6ad00ee274551ed374eea2f1ca5031d5caf",
+      "sha256": "3f0c476b4b0a255b8d2668e1626c862973b852971a107dc688f934d9755be8ec",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "e4e135fa94fc843560ed84e6474ff297bd81bf33558f833ee6f675c59ceec38f",
+      "message_sha256": "88c702660206b587bda785130515de6cc6cc2ab51ca857b0346dcf46671eaaa6",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     },
     "readme.md": {
       "checked_delivery": "delivered",
-      "sha256": "76548c241c8ede6aefc9ebf7834bd43e8ae4cbec599fe402ca1373348f051fff",
+      "sha256": "e6b1d5e3778c190e3d28582053de15cb30e3beb6c7d0aa66a1c43680f190bdc6",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "d191bd16b2db4cb92d51e468e3ab5f26a941ac8f56204f181c1733bc4bcfd5cd",
+      "message_sha256": "66546224109cea64a9008a62a71fb38ae6e83be7101804832e39f9703711b70f",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "e50e07ff51b2eddc1c4ccfa259213781756cea9597ae80c0c2f6ca1d61b158af",
+      "sha256": "e11cda1ef839bb842114368f4d6b7b6c3b7eca71bddf05e61d8a6d74ffa381f8",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "115353523d05a51c76b7a0b3279f7857e5ad9f97b487037029dbdcf915544690",
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "f39c40ede8e6b6665a25fc07cd3a66c09d49c5043c006808325eeb53542b77c8",
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
-      "scope": "10:15\u201313:10UTC current period: integrated147+74,45,57and221 scoped checks; actual primary/secondary metadata preflights; real workflows remain unrun.",
-      "reporting_period": "2026-11-02 10:15\u201313:10 UTC"
+      "scope": "New reporting period; exact actual startup distinguished from full task/profile acceptance; integrated components retain source-bound results.",
+      "reporting_period": "2026-11-02 15:12\u201319:05 UTC"
     },
     "merge/decision_record.md": {
       "checked_delivery": "delivered",
-      "sha256": "4dbc4b3ba71321265f7b56ccc1b4f8112c159b5627999d15b201b71661e6a9f5",
+      "sha256": "3bc33ec103f0ea89c933233b1142e458f2bffee75052cb9eb80261ee0c5229e5",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "targeted_lead_review": true,
-      "document_status": "draft; proposed design/cases with open implementation and integration gates",
-      "scope": "Expanded source-bound AI Index compatibility proposal; no product behavior or live fixture executed.",
-      "objective_sha256": "3f62612c78fd1fb1739d5b4fd73b21f72c34fbf62b5045ef401461c089b84f02",
-      "message_sha256": "fc731a6c53a5446b969d71bee3fa3589fc1620d69898bd7778a1ad0968a97898",
       "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
-      "writing_style_sha256": "d18a0c7540e0d286fc5b07fc55bc5898e6ac73d0dead89f1df485b31bd2709e6"
+      "objective_sha256": "6252d9a130fe4f9625d71031b0d72e6e31a64ea79e5c0313b57fc2be5f7cd20c",
+      "message_sha256": "112ac711a092ec6580bb599e007f245644b1e0ea60fcbb3a256ebe38a151824c",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     },
     "merge/test_specification.md": {
       "checked_delivery": "delivered",
@@ -139,6 +142,18 @@
       "message_sha256": "c375d647f125b9c27b3a5b1d09671c11f1434f2d65e147d29ceea1305dd82dce",
       "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
       "writing_style_sha256": "d18a0c7540e0d286fc5b07fc55bc5898e6ac73d0dead89f1df485b31bd2709e6"
+    },
+    "migration/current-contracts.md": {
+      "checked_delivery": "delivered",
+      "sha256": "6659e86581860f3ca87d0f34a15a09e8eda50cfca2b970420c03e424493e99f4",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "89ceb66935874b8e5fcd6dd236636fad8e73977a07c3636b4ec0695447dc7331",
+      "message_sha256": "4b90d7ee720c8f9e8287121ba5719e143f3d6994c3b756372748666c3f080201",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     }
   },
   "diagram_collection": {
@@ -490,12 +505,96 @@
       "integrated": false,
       "scope": "Owned SQLite/thread/architecture component controls only.",
       "prior_failures_retained": true
+    },
+    "accepted_components_20261102T1905Z": {
+      "scope": "Source-bound component results; no same-tree full suite or complete product acceptance",
+      "main": "375e4d17f93d64bd3ec2c3ed0276133252b79b91",
+      "git": {
+        "source": "81ab92f8bd3495ef06068a88061d13eb4dc50c32",
+        "integration": "2e6eff0",
+        "version_bound_runs": [
+          {
+            "source": "a4d5b4e",
+            "passed": 8,
+            "scope": "focused"
+          },
+          {
+            "source": "a4d5b4e",
+            "passed": 57,
+            "scope": "regression"
+          },
+          {
+            "source": "81ab92f8",
+            "passed": 1,
+            "scope": "separator refusal"
+          }
+        ],
+        "all_original49checks_and20F1groups_preserved": true,
+        "complete_merge_accepted": false
+      },
+      "terminal": {
+        "source": "c2be72eb89aeb4d6a875374850b5110f5cdcf029",
+        "integration": "59e4ce9f",
+        "actual_interactive_PTY_cases": 2,
+        "version_bound_case_counts": [
+          20,
+          6,
+          4,
+          1,
+          3,
+          3
+        ],
+        "counts_overlap": true,
+        "managed_host_layout_accepted": false
+      },
+      "production_dependencies": {
+        "source": "19d6ecc6aa62642fc43e06bd209fa3d0421bea06",
+        "integration": "375e4d17f93d64bd3ec2c3ed0276133252b79b91",
+        "regression": {
+          "source": "58c0a43",
+          "passed": 213
+        },
+        "expiry_controls": {
+          "source": "19d6ecc",
+          "passed": 2
+        },
+        "excluded_ServiceRig_groups": 23,
+        "live_provider_direction_accepted": false,
+        "host_lease_renewal_accepted": false
+      },
+      "host_report_consumers": {
+        "source": "d8548dde969fec4cdb54675147171df37ced57e6",
+        "integration": "743a5d4",
+        "passed": 16,
+        "actual_container_controls": 1,
+        "authored_state_controls": 15,
+        "complete_report_case_executed": false
+      }
+    },
+    "actual_opus_startup_20261102": {
+      "scope": "Actual startup diagnostic only; not full required profile",
+      "host": "Claude Code2.1.301",
+      "sdk": "0.2.176",
+      "observed_model": "claude-opus-5-5",
+      "configured_effort": "high",
+      "observed_effort": null,
+      "result": "READY",
+      "signed_journal_records_verified": 20,
+      "source_pins_verified": 217,
+      "registered_calls_settled_stopped": 4,
+      "captured_identity_current_matches_at_review": 0,
+      "api_equivalent_estimate_usd": 0.0143026,
+      "independently_observed_incremental_charge": null,
+      "full_required_profiles_accepted": 0,
+      "failed_original_pilot_preserved": true
     }
   },
   "product_acceptance_cases_executed": 0,
   "external_model_invocations": 4,
   "known_blocks": [
-    "Live two-user Linear acceptance requires the unavailable second identity."
+    "Actual public Linear endpoint held by automatic approval review; do not bypass.",
+    "Original Claude account remains unavailable; approved alternate profile is configured.",
+    "Complete live Linear18cases and full required host/model4profiles remain unaccepted."
   ],
   "pending_live_evidence": [
     "Reachable HTTPS receiver and scoped TST webhook delivery.",
@@ -599,12 +698,16 @@
   },
   "repository_structure": {
     "work_item": "T34",
-    "status": "planned; implementation audit not started",
-    "principles": "Current Skill Builder responsibility/ownership/import guidance adapted to a modular application; source skills unchanged.",
+    "status": "T34 source relocation component integrated511b192; installed package, migration and complete phase acceptance remain pending",
+    "contract": "config/repository-layout.json",
+    "public_checker": "tools/repository_layout.py",
+    "principles": "Current Skill Builder responsibility/import guidance adapted to the application; source skills unchanged.",
     "packaging_prerequisite": true,
     "priority": "normal_dependency_order",
     "diagrams_and_screenshots_stay_in_docs": true,
-    "scripts_configuration_tests_and_raw_records": "Audit ownership and all consumers before planned moves; no move has occurred."
+    "source_moves": 12,
+    "old_bound_consumers_must_stop_before_integration": true,
+    "history_and_private_snapshots_rewritten": false
   },
   "historical_document_checks": [
     {
@@ -875,21 +978,27 @@
   "project_entrypoints": {
     "AGENTS.md": {
       "checked_delivery": "delivered",
-      "sha256": "7e1f5a0a6ca72b835116bfc2634137f5d4db14b359f0ae079419650f77c47044",
+      "sha256": "4482038d29ee54cb184e1235328a3a150e3cb9ffd836ccc6de50ff994a1e6fa0",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "383af74f1236b80f16a3e8867ca341d07ac2e5e07a60be8e84f9339275856810",
+      "message_sha256": "e5ff2adacb58394059d958d6dce3ace44733a7f1f42e2cc1841013fcf99803f5",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     },
     "README.md": {
       "checked_delivery": "delivered",
-      "sha256": "70a416fd5fec87afe092b3bdb37109e90c329b283e9cf1bb1c43d664060f0ec5",
+      "sha256": "0701d39e714d5f5904eb16a13c78b7f6a9e971fa8ac2ab31fd3d1efe502dd279",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "bb91695c7dfece22015b499c450942d7ed0fccaade27b73bc108952e30ef5525",
+      "message_sha256": "0483e70076db22cd654a436397343be52c1e1c8194f905490ce2783ae6426188",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     }
   },
   "historical_status_periods": [
@@ -977,9 +1086,45 @@
         "scope": "Current period; local passes and unaccepted candidates separated from full-tested e713",
         "reporting_period": "2026-11-02 04:57\u201307:18 UTC"
       }
+    },
+    {
+      "reporting_period": "2026-11-02 10:15\u201313:10 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "e50e07ff51b2eddc1c4ccfa259213781756cea9597ae80c0c2f6ca1d61b158af",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+        "objective_sha256": "115353523d05a51c76b7a0b3279f7857e5ad9f97b487037029dbdcf915544690",
+        "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+        "scope": "10:15\u201313:10UTC current period: integrated147+74,45,57and221 scoped checks; actual primary/secondary metadata preflights; real workflows remain unrun.",
+        "reporting_period": "2026-11-02 10:15\u201313:10 UTC"
+      }
+    },
+    {
+      "reporting_period": "2026-11-02 13:10\u201315:12 UTC; T34 current-link update retained",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "b75e2f3fb2c139a4e578971f63b19e637d766cf0f0282f7366e65d341ac69a6f",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+        "objective_sha256": "828892067c2bab0b3c598a9b76d5cb72c500b68bc8d6ad1786eec3825cc91ba1",
+        "message_sha256": "e018338cb89faa277124fe92d235bdc95c456e10bbbe824738c65e204cc0bbc8",
+        "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
+      }
     }
   ],
-  "external_model_invocation_basis": "Four host-level submitted turns: two prior tool-free pilots, one neutral initialization submission and one assigned Claude component submission. The later native results report two neutral and four assigned agentic turns plus auxiliary model usage; the provider-internal request count is not fully exposed. These are not four billed API calls.",
+  "external_model_invocation_basis": {
+    "historical_count_retained": 4,
+    "count_not_recomputed": true,
+    "actual_startup_record": "component_evidence.actual_opus_startup_20261102",
+    "meaning": "Do not sum historical ambiguous invocation totals with component evidence. Each actual call remains in the private execution ledger; full profile acceptance is separate."
+  },
   "external_native_fallback_events": 1,
   "limits_warning_policy": {
     "status": "paused_as_reported_in_actual_user_authorization_record",
@@ -1159,7 +1304,38 @@
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
       "scope": "Current period;141 local receiver passes,144 isolated scheduler passes and44/1 failed host candidate remain separate from full-tested e713.",
       "reporting_period": "2026-11-02 07:18\u201310:15 UTC"
+    },
+    {
+      "path": "test_status_report.md",
+      "checked_delivery": "delivered",
+      "sha256": "e50e07ff51b2eddc1c4ccfa259213781756cea9597ae80c0c2f6ca1d61b158af",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "objective_sha256": "115353523d05a51c76b7a0b3279f7857e5ad9f97b487037029dbdcf915544690",
+      "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+      "scope": "10:15\u201313:10UTC current period: integrated147+74,45,57and221 scoped checks; actual primary/secondary metadata preflights; real workflows remain unrun.",
+      "reporting_period": "2026-11-02 10:15\u201313:10 UTC"
     }
   ],
-  "requirements_revision": 5
+  "requirements_revision": 5,
+  "document_base": "docs",
+  "repository_layout_migration": {
+    "previous_index_sha256": "9408364705949bb394d1a939e25423e982bba4c3f806bca2d916815d1a191088",
+    "before_commit": "541f7257f711c0bf46868578904b80f3b8517e24",
+    "current_contract": "config/repository-layout.json",
+    "history": "Complete previous index is retained in Git and verified before-images. Transient task review/check attempts stay in private build records; no prior observed result is reinterpreted."
+  },
+  "historical_known_blocks": [
+    {
+      "superseded_at": "2026-11-02T19:05:00Z",
+      "items": [
+        "Live two-user Linear acceptance requires the unavailable second identity."
+      ],
+      "reason": "Distinct second human identity now verified; full two-user acceptance still unrun."
+    }
+  ],
+  "external_model_invocation_basis_before_20261102T1905Z": "Four host-level submitted turns: two prior tool-free pilots, one neutral initialization submission and one assigned Claude component submission. The later native results report two neutral and four assigned agentic turns plus auxiliary model usage; the provider-internal request count is not fully exposed. These are not four billed API calls."
 }

@@ -65,17 +65,18 @@ flowchart LR
 
 ### Repository responsibility boundaries
 
-T34 is planned to audit the whole product's actual responsibilities, imports and consumers using current Skill Builder domain/separation guidance. It must identify excess executable/runtime/test material under docs, not assume that a filename proves ownership. This documentation task performs no broad moves. The application remains modular; folder separation alone does not justify network services or one module per function.
+The source responsibility contract is [`config/repository-layout.json`](../config/repository-layout.json). Its checker, `tools/repository_layout.py`, checks declared ownership, placement and actual runtime import edges. T34 relocates the legacy handoff material together with its consumers. Integration, installed-package checks and whole-product acceptance remain separate gates; a directory name alone does not establish semantic separation.
 
-| Material | Target owner and home |
+| Material | Owner and home |
 | --- | --- |
-| Executable helpers | Product runtime behavior belongs to focused modules under `src/ai_task_manager/`; build/test/package/operator mechanics belong to their owning tools. The current `docs/tools/` paths remain truthful until T34 migrates consumers. |
-| Runtime configuration and machine bookkeeping | The owning configuration/schema area defines versioned machine inputs and required public bookkeeping. Credentials and authoritative runtime state stay outside shipped documentation/install caches. Separate runtime settings from documentation-only indexes by actual use. |
-| Test definitions and fixtures | `tests/` owns automated domain/contract/process fixtures; `evals/` owns behavioral cases, rubrics and execution harnesses. Keep one canonical oracle per case and preserve IDs/counts when relocating the current `docs/config/` inventories. |
-| Generated records and evidence | Runtime storage owns durable operational state. Build/evaluation tools own generated bookkeeping and artifact records; private run evidence stays outside published source/packages. Reviewed summaries may appear in the Test Status Report (TSR), rather than turning docs into live state storage. |
-| Documentation assets | Standard Markdown and explanatory Mermaid/SVG, screenshots and mockups belong in docs with their maintained sources. `docs/assets/` and `docs/mockups/` are legitimate documentation resources; production UI/runtime code belongs to its application module. |
+| Product runtime | Focused modules under `src/ai_task_manager/` own application behavior. They do not import build tools, documentation or prototypes. Live state and credentials stay outside installed source and plugin caches. |
+| Deterministic helpers | `tools/` owns build, integrity and operator mechanics. The relocated `check_handoff.py` and `setup_test_credentials.py` retain their command names and arguments. The checker accepts the repository root and the former documentation-root `--root` value. |
+| Machine configuration | `config/` owns the requirements registry, build authorization, work graph, source provenance and layout contract. These are public source inputs, not credential or live operational stores. |
+| Verification | `tests/` owns automated checks and fixtures. `tests/acceptance/cases.json` remains the single authored acceptance inventory, including behavior cases; future evaluation harnesses under `evals/` consume it rather than copy its oracles. |
+| Published indexes and private evidence | `config/documentation-manifest.json` indexes source integrity; `config/build/evidence-index.json` retains published component records. Raw run records remain in ignored local storage or external evidence storage. The Test Status Report (TSR) links observed summaries. |
+| Prototypes and documentation assets | `prototypes/terminal/` owns the executable browser reference. Markdown, editable/rendered diagrams and screenshots remain under `docs/`, including `docs/assets/` and `docs/mockups/`. The browser reference is not native terminal acceptance. |
 
-Exact destinations and allowed paths are frozen only after the T34 source/consumer audit, with a before-image, complete move manifest, recovery and boundary/package checks. Existing links and commands remain valid until that separately tracked migration updates every consumer. Apply Skill Builder separation principles to the application; use its actual skill workflow for reusable skills without forcing the product into a skill-repository layout. T34 is a packaging prerequisite, not completed structural evidence.
+The layout contract records the twelve old/new paths and before-image hashes. Deliver and recover them as one coherent relocation commit. Current consumers move together; frozen historical records keep their original path literals. Stop consumers bound to the old source before integration and adapt current private helpers at that boundary. Recovery must check destination collisions and preserve later work and run evidence. The product remains a modular application; this separation does not add network services.
 
 ### Product boundaries and repository layout
 

@@ -340,7 +340,7 @@ def planning_baseline():
 
 
 def test_lp44_requirements_preserve_ids_history_and_other_rules():
-    current = json.loads((ROOT / "docs/config/requirements.json").read_text())
+    current = json.loads((ROOT / "config/requirements.json").read_text())
     old = planning_baseline()
     before = {r["id"]: r["text"] for r in old["requirements"]}
     after = {r["id"]: r["text"] for r in current["requirements"]}
@@ -354,7 +354,7 @@ def test_lp44_requirements_preserve_ids_history_and_other_rules():
 
 
 def test_lp45_case_ids_and_previous_oracles_remain_retained():
-    current = json.loads((ROOT / "docs/config/acceptance-cases.json").read_text())
+    current = json.loads((ROOT / "tests/acceptance/cases.json").read_text())
     old = planning_baseline()
     assert [c["id"] for c in current["cases"]] == old["case_ids"]
     assert len(current["cases"]) == 248
@@ -367,12 +367,12 @@ def test_lp45_case_ids_and_previous_oracles_remain_retained():
     assert all(c["execution_status"] == "not_run" for c in current["cases"])
     assert (
         current["matrix"]["required_profiles_source"]
-        == "execution-policy.json#/acceptance/required_profiles"
+        == "../../config/execution-policy.json#/acceptance/required_profiles"
     )
 
 
 def test_lp46_selected_profiles_remain_distinct_unrun_cells():
-    policy = json.loads((ROOT / "docs/config/execution-policy.json").read_text())
+    policy = json.loads((ROOT / "config/execution-policy.json").read_text())
     profiles = policy["acceptance"]["required_profiles"]
     assert {(p["host"], p["model"], p["reasoning_effort"]) for p in profiles} == {
         ("claude-code", "claude-opus-5-5", "high"),
@@ -388,7 +388,7 @@ def handoff_checker():
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(
-        "isolated_handoff_checker", ROOT / "docs/tools/check_handoff.py"
+        "isolated_handoff_checker", ROOT / "tools/check_handoff.py"
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -413,7 +413,7 @@ def handoff_checker():
     ],
 )
 def test_lp47_integrity_guard_rejects_stale_or_incomplete_policy(variant):
-    policy = json.loads((ROOT / "docs/config/execution-policy.json").read_text())
+    policy = json.loads((ROOT / "config/execution-policy.json").read_text())
     if variant == "old_time_cap":
         policy["limits"]["max_elapsed_seconds"] = 172800
     elif variant == "old_money_cap":
@@ -443,11 +443,29 @@ def test_lp47_integrity_guard_rejects_stale_or_incomplete_policy(variant):
     assert bool(failures) == (variant != "valid")
 
 
+def normalize_relocated_readme_commands(text):
+    # T34 changes only these two exact approved command-path positions.
+    # Frozen hashes and unrelated command bytes remain authoritative.
+    for old, new in (
+        (
+            "python3 docs/tools/setup_test_credentials.py --secondary-only",
+            "python3 tools/setup_test_credentials.py --secondary-only",
+        ),
+        ("python3 docs/tools/check_handoff.py", "python3 tools/check_handoff.py"),
+    ):
+        approved = "```sh\n" + new + "\n```"
+        assert text.count(approved) == 1
+        text = text.replace(approved, "```sh\n" + old + "\n```", 1)
+    return text
+
+
 def test_lp48_narrow_edits_preserve_document_structure_and_commands():
     import re
 
     for name, expected in planning_baseline()["documentation_invariants"].items():
         text = (ROOT / "docs" / name).read_text()
+        if name == "readme.md":
+            text = normalize_relocated_readme_commands(text)
         headings = list(expected["headings"])
         if name == "implementation_plan.md":
             addition = "### Existing-issue intake"

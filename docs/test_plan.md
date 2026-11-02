@@ -1,7 +1,7 @@
 # AI task manager test plan
 
 Status: Approved testing requirements consolidated from R01–R38 and the existing authored inventory; this document records a plan, not execution results.
-Basis: [Policy (POL)](policy.md), [Spec Driven Development document (SDD)](spec_driven_development.md), [High Level Document (HLD)](high_level_document.md), `config/acceptance-cases.json` and the pinned migration/regression inventory.
+Basis: [Policy (POL)](policy.md), [Spec Driven Development document (SDD)](spec_driven_development.md), [High Level Document (HLD)](high_level_document.md), `tests/acceptance/cases.json` and the pinned migration/regression inventory.
 
 ## Objectives and scope
 
@@ -45,7 +45,7 @@ Record exact source/package/case hashes and host/model/effort/OS profiles. Use s
 
 Reuse the application repository's existing `LINEAR_API_KEY` in `.env.local` as the primary credential when `LINEAR_TEST_USER_A_TOKEN` is not explicitly configured. Preparation-time and later development-project probes are recorded separately in the Test Status Report (TSR); repeat identity/scope checks for each actual fixture run. Read the key in memory through an allowlisted parser. Do not copy it into the product repository, handoff or logs, and do not request a replacement primary key.
 
-When a second Linear test account is available, run `python3 docs/tools/setup_test_credentials.py --secondary-only` in the user's interactive terminal. It saves `LINEAR_TEST_USER_B_TOKEN` in `$HOME/.config/ai-task-manager/test-credentials.env`, with directory mode 700 and file mode 600, while preserving any explicitly configured primary token. The default helper mode can save two dedicated test tokens if desired; `--init` creates an empty template and preserves an existing file. Use the narrowest available permissions and distinct real users for two-user cases. Do not paste tokens into a chat, issue, command argument, trace or repository.
+When a second Linear test account is available, run `python3 tools/setup_test_credentials.py --secondary-only` in the user's interactive terminal. It saves `LINEAR_TEST_USER_B_TOKEN` in `$HOME/.config/ai-task-manager/test-credentials.env`, with directory mode 700 and file mode 600, while preserving any explicitly configured primary token. The default helper mode can save two dedicated test tokens if desired; `--init` creates an empty template and preserves an existing file. Use the narrowest available permissions and distinct real users for two-user cases. Do not paste tokens into a chat, issue, command argument, trace or repository.
 
 Before any remote mutation, parse the selected credential files as data with allowlisted keys; never source them as shell code. Check permissions, authenticate the primary viewer, verify the intended workspace, and confirm TST's team ID is `cbe80ecc-8035-407d-b531-63cfe083aafc`. Single-user TST cases may use this verified credential. Before two-user cases, also authenticate the second viewer and verify distinct immutable user IDs in the same intended workspace. Resolve its real workflow-state IDs. A token is not evidence that these checks passed. If an app token is used separately, bind its authority to the validated responsible user; never treat an arbitrary model-supplied assignee as authenticated identity.
 
@@ -97,7 +97,7 @@ Acceptance requires all mandatory cells and declared repetitions to pass on the 
 | R28, R33–R34 | C31–C33; cutover/removal workflows; B14; complete inventory parity. |
 | R35–R38 | spec_driven_development.md; WF-maintenance/task-loop/realtime-sync/task-writing; RT/MA/WR cases and B17–B20. |
 
-The normative workflow mapping adds WF-maintenance/task-loop/realtime-sync/task-writing, RT01–RT04, MA01–MA03, WR01–WR03 and B17–B20. Exact procedures, expected outcomes, host requirements and status remain in `config/acceptance-cases.json`; this plan does not create a second case inventory.
+The normative workflow mapping adds WF-maintenance/task-loop/realtime-sync/task-writing, RT01–RT04, MA01–MA03, WR01–WR03 and B17–B20. Exact procedures, expected outcomes, host requirements and status remain in `tests/acceptance/cases.json`; this plan does not create a second case inventory.
 
 ## Reporting and follow-up
 

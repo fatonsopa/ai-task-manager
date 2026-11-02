@@ -30,7 +30,7 @@ A user expands a long description. The whole sidebar scrolls while the CLI remai
 
 ![Task activity icons and expanded merging details](../mockups/sidebar-activities.png)
 
-The reference uses illustrative tasks. It demonstrates the approved layout, not a live task list or evidence of native host integration. The editable [mockup](../mockups/session-task-management.html) is maintained with this specification.
+The reference uses illustrative tasks. It demonstrates the approved layout, not a live task list or evidence of native host integration. The editable [mockup](../../prototypes/terminal/session-task-management.html) is maintained with this specification.
 
 ## Requirements and business rules
 

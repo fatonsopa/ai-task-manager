@@ -1066,8 +1066,9 @@
       "result": "A reviewed responsibility and dependency inventory, exact old/new move manifest, focused module refactors and executable boundary checks keep documentation, runtime configuration, deterministic helpers, tests/evals and private run records with their owners.",
       "entry": "Register the implementation issue and assigned worker; audit the current tree, actual imports and consumers before freezing the exact allowed paths for moves/refactors. Apply Skill Builder structure principles to the application and its actual reusable skill workflow to generated skills.",
       "exit": "All consumers and installation/package checks use the reviewed locations; each shared rule has one authority; import/ownership checks and focused behavior tests pass; no command intent, source information or private evidence is lost. Broad moves require a verified before-image and recovery manifest.",
-      "status": "not_started",
-      "scope_note": "Current docs/config and docs/tools are legacy handoff placement, not the target product structure. Do not create network services solely for directory structure. Keep prose, editable/rendered diagrams and screenshots under docs/. Run T34 in normal dependency order before packaging, as directed by the user."
+      "status": "in_progress",
+      "scope_note": "Source ownership is declared in config/repository-layout.json. Prose, editable/rendered diagrams and screenshots remain under docs/. Current source consumers move coherently; frozen history remains literal, and model-bound consumers must stop before integration. No network services are added for folder structure.",
+      "evidence": "Registered TST-93 implements the frozen twelve-path source/consumer relocation and focused ownership checks; integration, installation and whole-product acceptance remain separate."
     }
   ],
   "status_semantics": {
@@ -1087,6 +1088,37 @@
       "observed_at_utc": "2026-11-02T02:30:00+00:00",
       "change": "Refresh source-bound component progress after integrated a3d0aca and registered primary Linear preflight; preserve unrun live acceptance, held skill dependencies and normal T34 asset placement.",
       "previous_sha256": "3096aecb952fe1d0cc0f18c116d719bc7bcedbf3ea28f3b69ee5b6710225cb29"
+    }
+  ],
+  "repository_layout_history": [
+    {
+      "change": "T34 candidate relocation; preserve the prior work-item declaration and all IDs/dependencies.",
+      "previous_task": {
+        "id": "T34",
+        "phase": "P01",
+        "title": "Separate repository domains and documentation ownership",
+        "depends_on": [
+          "T01"
+        ],
+        "owned_paths": [
+          "config/repository-layout.json",
+          "tests/architecture/",
+          "docs/high_level_document.md",
+          "tools/"
+        ],
+        "requirements": [
+          "R15",
+          "R18",
+          "R24",
+          "R25",
+          "R27"
+        ],
+        "result": "A reviewed responsibility and dependency inventory, exact old/new move manifest, focused module refactors and executable boundary checks keep documentation, runtime configuration, deterministic helpers, tests/evals and private run records with their owners.",
+        "entry": "Register the implementation issue and assigned worker; audit the current tree, actual imports and consumers before freezing the exact allowed paths for moves/refactors. Apply Skill Builder structure principles to the application and its actual reusable skill workflow to generated skills.",
+        "exit": "All consumers and installation/package checks use the reviewed locations; each shared rule has one authority; import/ownership checks and focused behavior tests pass; no command intent, source information or private evidence is lost. Broad moves require a verified before-image and recovery manifest.",
+        "status": "not_started",
+        "scope_note": "Current docs/config and docs/tools are legacy handoff placement, not the target product structure. Do not create network services solely for directory structure. Keep prose, editable/rendered diagrams and screenshots under docs/. Run T34 in normal dependency order before packaging, as directed by the user."
+      }
     }
   ]
 }

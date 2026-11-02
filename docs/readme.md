@@ -4,7 +4,7 @@ This directory is the maintained documentation for the standalone task coordinat
 
 ## Start
 
-Work from the repository root with Git and Python 3 available. Read the Policy (POL), [policy.md](policy.md), then the Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), and the Implementation Plan (IP), [implementation_plan.md](implementation_plan.md). Inspect `config/execution-policy.json`, requirements, work graph and acceptance inventory before acting. Documents describe approved work; they do not authorize production actions. The repository address stays in `config/execution-policy.json` so personal identifiers do not need to appear in Markdown.
+Work from the repository root with Git and Python 3 available. Paths in code spans are relative to that root. Read the Policy (POL), [policy.md](policy.md), then the Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), and the Implementation Plan (IP), [implementation_plan.md](implementation_plan.md). Inspect `config/execution-policy.json`, requirements, work graph and acceptance inventory before acting. Documents describe approved work; they do not authorize production actions. The repository address stays in `config/execution-policy.json` so personal identifiers do not need to appear in Markdown.
 
 The user lifted the earlier total spending, elapsed-time and retry ceilings for this approved build. Preserve the original run and accounting, and use finite measured concurrency, reviewed batches and bounded invocations. Use the supplied public repository and the approved `claude_roni` profile; the original `claude` account remains unavailable. Use the current approved Technical Writer and Skill Builder, and audit affected work when the user supplies an update. Every task prose write needs the appropriate reference and Writing Style (WS) review. A missing second Linear identity blocks live two-user acceptance only; continue independent work.
 
@@ -13,7 +13,7 @@ The primary Linear key may be read from the application repository's `.env.local
 When a distinct second test identity is available, run this in an interactive terminal from the repository root:
 
 ```sh
-python3 docs/tools/setup_test_credentials.py --secondary-only
+python3 tools/setup_test_credentials.py --secondary-only
 ```
 
 The helper uses hidden input and stores `LINEAR_TEST_USER_B_TOKEN` outside Git at `$HOME/.config/ai-task-manager/test-credentials.env`, mode 600. It must identify a different user with TST access. Do not paste tokens into chat or test logs.
@@ -23,10 +23,10 @@ The helper uses hidden input and stores `LINEAR_TEST_USER_B_TOKEN` outside Git a
 Check the documentation package and cross-references from the repository root:
 
 ```sh
-python3 docs/tools/check_handoff.py
+python3 tools/check_handoff.py
 ```
 
-A successful check reports consistent requirements, cases, links and diagram pairs. It does not execute product acceptance. The maintained counts remain 38 requirements, 248 authored cases and 14 workflows. Use the Test Plan (TP), [test_plan.md](test_plan.md), for actual test entry/exit criteria and evidence distinctions.
+A successful check reports consistent requirements, cases, links and diagram pairs. Run `python3 tools/repository_layout.py` to check declared file ownership and runtime import boundaries. It does not execute product acceptance. The maintained counts remain 38 requirements, 248 authored cases and 14 workflows. Use the Test Plan (TP), [test_plan.md](test_plan.md), for actual test entry/exit criteria and evidence distinctions.
 
 ## Find your way around
 
@@ -37,12 +37,12 @@ A successful check reports consistent requirements, cases, links and diagram pai
 | Approved sidebar interaction | Focused Spec Driven Development document (SDD), [terminal specification](terminal/spec_driven_development.md) |
 | Components, interfaces, data and trust boundaries | High Level Document (HLD), [high_level_document.md](high_level_document.md) |
 | Delivery phases, dependencies and rollout | Implementation Plan (IP), [implementation_plan.md](implementation_plan.md) |
-| Methods, environments, acceptance and exact cases | Test Plan (TP), [test_plan.md](test_plan.md), and `config/acceptance-cases.json` |
+| Methods, environments, acceptance and exact cases | Test Plan (TP), [test_plan.md](test_plan.md), and `tests/acceptance/cases.json` |
 | Current observed results and blockers | Test Status Report (TSR), [test_status_report.md](test_status_report.md) |
 | Requirement IDs, trusted configuration and work graph | `config/requirements.json`, `config/execution-policy.json`, `config/work-items.json` |
 | Preserved legacy contracts and source audit | [Contract lessons](migration/current-contracts.md) and [coordination audit](audits/coordination-policy-audit.md) |
 
-`migrate.md` is the required future How-to Guide (HTG), published with tested script-backed commands once the migration implementation exists. Do not invent commands or activate a second live writer while it is pending. The docs directory remains the source of truth; each detailed rule has one owner and other documents link it.
+`migrate.md` is the required future How-to Guide (HTG), published with tested script-backed commands once the migration implementation exists. Do not invent commands or activate a second live writer while it is pending. The documents remain the behavioral and planning references; machine inputs and the acceptance inventory have their declared owners outside docs. Each detailed rule has one authority and other documents link it.
 
 ## Limits and maintenance
 

@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "scope": "Source responsibility and placement contract; this is not task authority, deployment approval or acceptance evidence.",
+  "before_commit": "541f7257f711c0bf46868578904b80f3b8517e24",
+  "roles": [
+    {
+      "id": "documentation",
+      "paths": [
+        "docs/",
+        "README.md",
+        "AGENTS.md",
+        "CLAUDE.md"
+      ],
+      "responsibility": "Maintained prose, diagrams and screenshots; bootstrap instructions share this public documentation owner."
+    },
+    {
+      "id": "runtime",
+      "paths": [
+        "src/"
+      ],
+      "responsibility": "Reusable product domains, application services and adapters; runtime does not import build tools or prototypes."
+    },
+    {
+      "id": "configuration",
+      "paths": [
+        "config/"
+      ],
+      "responsibility": "Versioned public build/specification inputs, provenance, layout and sanitized published evidence indexes; no credentials or live state."
+    },
+    {
+      "id": "verification",
+      "paths": [
+        "tests/"
+      ],
+      "responsibility": "Automated checks, explicit fixtures and the single authored acceptance-case inventory."
+    },
+    {
+      "id": "evaluation",
+      "paths": [
+        "evals/"
+      ],
+      "responsibility": "Behavioral execution harnesses and rubrics; consume the canonical acceptance inventory rather than copy it."
+    },
+    {
+      "id": "developer_tools",
+      "paths": [
+        "tools/"
+      ],
+      "responsibility": "Deterministic development, package, integrity and operator helpers; never a product task-state authority."
+    },
+    {
+      "id": "prototypes",
+      "paths": [
+        "prototypes/"
+      ],
+      "responsibility": "Interactive reference implementations and their authored assets; no native terminal acceptance claim."
+    },
+    {
+      "id": "automation",
+      "paths": [
+        ".github/"
+      ],
+      "responsibility": "Repository CI and release wiring; no duplicate product policy."
+    },
+    {
+      "id": "repository_metadata",
+      "paths": [
+        ".gitignore",
+        "pyproject.toml",
+        "uv.lock",
+        "LICENSE",
+        ".python-version"
+      ],
+      "responsibility": "Repository metadata, locked dependencies and packaging declaration."
+    }
+  ],
+  "authorities": {
+    "requirements": "config/requirements.json",
+    "build_authorization": "config/execution-policy.json",
+    "work_graph": "config/work-items.json",
+    "acceptance_cases": "tests/acceptance/cases.json",
+    "legacy_contract_inventory": "config/migration/legacy-inventory.json",
+    "public_evidence_index": "config/build/evidence-index.json",
+    "documentation_manifest": "config/documentation-manifest.json"
+  },
+  "document_suffixes": [
+    ".md",
+    ".mmd",
+    ".svg",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".webp",
+    ".pdf",
+    ".drawio",
+    ".puml",
+    ".d2"
+  ],
+  "ignored_directories": [
+    ".git",
+    ".local",
+    ".venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".hypothesis",
+    "build",
+    "dist",
+    "htmlcov"
+  ],
+  "forbidden_runtime_imports": [
+    "tools",
+    "docs",
+    "prototypes",
+    "config"
+  ],
+  "relocations": [
+    {
+      "old": "docs/config/execution-policy.json",
+      "new": "config/execution-policy.json",
+      "before_sha256": "4731f88c821f781ff0b7ead6f2df9a0f055db6844410bf6f42d4f5a992874b1e",
+      "owner": "machine_configuration",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": true
+    },
+    {
+      "old": "docs/config/requirements.json",
+      "new": "config/requirements.json",
+      "before_sha256": "aa12979ab21934d91ce29cb60ebd46005e68fbe36ab4d832d5af1f265c27e9c0",
+      "owner": "machine_configuration",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": true
+    },
+    {
+      "old": "docs/config/work-items.json",
+      "new": "config/work-items.json",
+      "before_sha256": "aeeb2478e38590907ffa2f467107a95f781ec14076b7da60c02460fc8dc553e0",
+      "owner": "machine_configuration",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": false
+    },
+    {
+      "old": "docs/config/research-sources.json",
+      "new": "config/research-sources.json",
+      "before_sha256": "cb0eaf9232060a64cf666b2309892d1f7330c3bb281e711ab3572a16b48e6789",
+      "owner": "machine_configuration",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": true
+    },
+    {
+      "old": "docs/config/source-baseline.json",
+      "new": "config/source-baseline.json",
+      "before_sha256": "1981388731f19141088da3ac63d9fb3e8bc7b40041f828addce43bb7361a10c8",
+      "owner": "machine_configuration",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": true
+    },
+    {
+      "old": "docs/config/acceptance-cases.json",
+      "new": "tests/acceptance/cases.json",
+      "before_sha256": "59dd4148fed2eadb55914864db03c5ea44125d583f0a6f6b79fe720d77fbb793",
+      "owner": "acceptance",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": false
+    },
+    {
+      "old": "docs/migration/legacy-inventory.json",
+      "new": "config/migration/legacy-inventory.json",
+      "before_sha256": "a45787e433057a674b76f174de0c34237c90d5d563432b48ba22e062f00e08d0",
+      "owner": "machine_configuration",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": true
+    },
+    {
+      "old": "docs/HANDOFF-CHECKS.json",
+      "new": "config/build/evidence-index.json",
+      "before_sha256": "9408364705949bb394d1a939e25423e982bba4c3f806bca2d916815d1a191088",
+      "owner": "machine_configuration",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": false
+    },
+    {
+      "old": "docs/MANIFEST.json",
+      "new": "config/documentation-manifest.json",
+      "before_sha256": "202bdfb0278fc95056d62317542284f42592ac3cfadb019f0a1f7d4bb297ddac",
+      "owner": "machine_configuration",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": false
+    },
+    {
+      "old": "docs/tools/check_handoff.py",
+      "new": "tools/check_handoff.py",
+      "before_sha256": "32d2929a054faa16b40264b3d7ad8d70b551ecaaf6a58b93ac8b2dcf71c8e28b",
+      "owner": "tools",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": false
+    },
+    {
+      "old": "docs/tools/setup_test_credentials.py",
+      "new": "tools/setup_test_credentials.py",
+      "before_sha256": "0cc9998df178caa40df53ee9f53e22448ebef354ce40ed27a2ffb94136836013",
+      "owner": "tools",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": true
+    },
+    {
+      "old": "docs/mockups/session-task-management.html",
+      "new": "prototypes/terminal/session-task-management.html",
+      "before_sha256": "58895ebb22f07c77abd0ca3fd3ddebad90f5d2260ebd51cd2b7aaeeee8437f1e",
+      "owner": "prototype",
+      "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
+      "byte_preserved": true
+    }
+  ],
+  "current_consumers": [
+    "AGENTS.md",
+    "README.md",
+    "docs/readme.md",
+    "docs/high_level_document.md",
+    "docs/implementation_plan.md",
+    "docs/test_plan.md",
+    "docs/spec_driven_development.md",
+    "docs/policy.md",
+    "docs/test_status_report.md",
+    "docs/terminal/spec_driven_development.md",
+    "docs/migration/current-contracts.md",
+    "docs/merge/decision_record.md",
+    "tests/test_build_control_policy_migration.py",
+    ".gitignore"
+  ],
+  "historical_exclusions": [
+    "tests/existing/frozen/admission-store-guard-v10.json",
+    "tests/fixtures/build_control/planning-before-authorization.json",
+    "Immutable private source snapshots and evidence retain their original path literals."
+  ],
+  "integration": "Do not integrate while an active model depends on old bound paths. Lead adapts current private helpers at the stopped integration boundary; frozen history remains literal.",
+  "recovery": "Retain the coherent relocation commit and its verified before-images. Revert only at a quiescent source boundary, with destination collision checks; never overwrite subsequent unrelated work or discard new run evidence.",
+  "configuration_suffixes": [
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml"
+  ]
+}

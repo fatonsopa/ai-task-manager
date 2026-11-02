@@ -34,6 +34,7 @@ def load_service(
     linear_components=None,
     existing_factory=None,
     scheduling_sources=None,
+    dependencies_factory=None,
 ):
     """Factories are trusted installer/host arguments, never JSON import paths."""
     seal = FileSeal(config_file)
@@ -86,6 +87,8 @@ def load_service(
         provider_factory = provider_factory or components.outbound
         inbound_factory = inbound_factory or components.inbound
         existing_factory = existing_factory or components.existing
+        scheduling_sources = scheduling_sources or components.scheduling_sources
+        dependencies_factory = dependencies_factory or components.dependencies
         publisher_factory = publisher_factory or components.publisher
         session_control_factory = session_control_factory or (
             lambda core, handle, decisions: components.sessions(
@@ -121,6 +124,7 @@ def load_service(
     sessions = session_control_factory(core, handle, decisions) if session_control_factory else None
     inbound = inbound_factory(core, handle) if inbound_factory else None
     existing = existing_factory(core, handle) if existing_factory else None
+    dependencies = dependencies_factory(core, handle) if dependencies_factory else None
     return ApplicationService(
         core,
         handle,
@@ -135,4 +139,5 @@ def load_service(
         seal=seal,
         existing=existing,
         claim_store=claim_store,
+        dependencies=dependencies,
     )
