@@ -15,10 +15,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from uuid import uuid4
 
+from ai_task_manager.domains.merging.contracts import Binding, Observation, Publication, encode
 from ai_task_manager.domains.work.errors import AccessDenied, IdempotencyConflict, StaleVersion
 
-from .contracts import Binding, Observation, encode, token
-from .git_profile import MAX_OUTPUT, GitProfile, file_digest, oid, physical, refname
+from .profile import MAX_OUTPUT, GitProfile, file_digest, oid, physical
 
 # The child cannot execute Git until its PID/group/birth has been journaled.
 # EOF before release exits without executing Git. No shell or arbitrary script is accepted.
@@ -26,30 +26,6 @@ _GATE = (
     "import os,sys; f=int(sys.argv[1]); b=os.read(f,1); os.close(f); "
     "sys.exit(97) if b!=b'G' else os.execve(sys.argv[2],sys.argv[2:],dict(os.environ))"
 )
-
-
-@dataclass(frozen=True)
-class Publication:
-    source_ref: str
-    target_ref: str
-    old: str
-    new: str
-    checked: str
-    range_ref: str
-    mode: str = "cas"
-
-    def validate(self):
-        token(self.range_ref)
-        refname(self.source_ref)
-        if self.target_ref != "refs/heads/dev" or self.mode not in {"cas", "fast_forward"}:
-            raise AccessDenied("Only the supported final dev publication is admitted")
-        for v in (self.old, self.new, self.checked):
-            oid(v)
-        if self.new == self.old:
-            raise AccessDenied("Unchanged refs require separate content reconciliation")
-        if self.new != self.checked:
-            raise AccessDenied("Publication differs from the checked commit")
-        return self
 
 
 class _Drain:
@@ -187,15 +163,17 @@ class LocalGit:
             file_digest(self.python),
         ) != self.python_binding:
             raise AccessDenied("Selected gate interpreter changed")
-        r = self.profile.validate(binding.worktree_id, binding.common_git_id)
+        r = self.profile.validate(binding.worktree_id, binding.repository_id)
+        if binding.configuration_digest != r["configuration_digest"]:
+            raise AccessDenied("Operation belongs to a different Git configuration")
         repo = Path(r["path"])
         intent = op["facts"].get("publication_intent")
-        expected = {k: getattr(request, k) for k in ("old", "new", "checked", "range_ref")}
+        expected = asdict(request)
         if intent != expected or any(k in op["facts"] for k in ("publication", "result")):
             raise AccessDenied("A current exact publication intent is required")
         if self.profile.reference(repo, request.source_ref) != request.new:
             raise AccessDenied("Source branch changed after checking")
-        if self.profile.reference(repo, request.target_ref) != request.old:
+        if self.profile.reference(repo, r["target_ref"]) != request.old:
             raise AccessDenied("Target reference moved")
         if self.profile.query(
             repo, "merge-base", "--is-ancestor", request.old, request.new, ok=(0, 1)
@@ -218,18 +196,18 @@ class LocalGit:
         if any(p.split(b"/")[-1] == b".gitattributes" for p in names if p):
             raise AccessDenied("Candidate checkout attributes are unsupported")
         worktrees = self.profile.query(repo, "worktree", "list", "--porcelain", "-z").stdout
-        checked = b"branch " + request.target_ref.encode() + b"\0" in worktrees
+        checked = b"branch " + r["target_ref"].encode() + b"\0" in worktrees
         if request.mode == "cas":
             if checked:
-                raise AccessDenied("CAS cannot update a checked-out dev")
+                raise AccessDenied("CAS cannot update a checked-out target")
             if self.profile.query(
                 repo, "status", "--porcelain", "-z", "--untracked-files=all"
             ).stdout:
                 raise AccessDenied("Dirty source worktree prevents publication")
         if request.mode == "fast_forward":
             head = self.profile.query(repo, "symbolic-ref", "-q", "HEAD", ok=(0, 1)).stdout.strip()
-            if head != request.target_ref.encode() or not checked:
-                raise AccessDenied("Fast-forward requires this owned dev checkout")
+            if head != r["target_ref"].encode() or not checked:
+                raise AccessDenied("Fast-forward requires this owned target checkout")
             if any(
                 line.startswith((b"S ", b"s "))
                 for line in self.profile.query(repo, "ls-files", "-v").stdout.splitlines()
@@ -280,7 +258,7 @@ class LocalGit:
                         "--create-reflog",
                         "-m",
                         marker,
-                        request.target_ref,
+                        r["target_ref"],
                         request.new,
                         request.old,
                     ],
@@ -421,7 +399,8 @@ class LocalGit:
 
     def _fast_forward(self, ref, request):
         data = self.journal.current(ref)["facts"]["local_git"]
-        orig_head = Path(data["repository"]["gitdir"]) / "ORIG_HEAD"
+        r = data["repository"]
+        orig_head = Path(r["gitdir"]) / "ORIG_HEAD"
         previous_orig = "0" * 40
         if orig_head.exists() or orig_head.is_symlink():
             physical(orig_head, directory=False)
@@ -459,8 +438,8 @@ class LocalGit:
             data["repository"]["path"], "symbolic-ref", "-q", "HEAD", ok=(0, 1)
         ).stdout.strip()
         if (
-            head != request.target_ref.encode()
-            or self.profile.reference(data["repository"]["path"], request.target_ref) != request.old
+            head != r["target_ref"].encode()
+            or self.profile.reference(data["repository"]["path"], r["target_ref"]) != request.old
         ):
             self._send(transaction, "abort\n")
             transaction.stdout.line(b"abort: ok", self.observation_seconds)
@@ -498,7 +477,7 @@ class LocalGit:
 
     def _effect(self, data):
         r, req = data["repository"], data["request"]
-        log = Path(r["common"]) / "logs" / req["target_ref"]
+        log = Path(r["common"]) / "logs" / r["target_ref"]
         try:
             if log.is_symlink() or log.stat().st_size > MAX_OUTPUT:
                 return False
@@ -555,12 +534,12 @@ class LocalGit:
             else None
         )
         binding = Binding(**op["binding"])
-        current_dev, confirmed, profile_error = None, False, None
+        current_target, confirmed, profile_error = None, False, None
         try:
-            self.profile.validate(binding.worktree_id, binding.common_git_id)
+            self.profile.validate(binding.worktree_id, binding.repository_id)
             confirmed = self._effect(data)
-            current_dev = self.profile.reference(
-                data["repository"]["path"], data["request"]["target_ref"]
+            current_target = self.profile.reference(
+                data["repository"]["path"], data["repository"]["target_ref"]
             )
         except (AccessDenied, OSError) as error:
             profile_error = type(error).__name__
@@ -569,7 +548,7 @@ class LocalGit:
             not confirmed
             and quiet
             and observation.get("returncode") not in (None, 0)
-            and current_dev == data["request"]["old"]
+            and current_target == data["request"]["old"]
         ):
             publication = "refused"
         checkout = data.get("checkout_state", "not_started")
@@ -585,10 +564,13 @@ class LocalGit:
             "elapsed_seconds": time.monotonic() - data.get("started_monotonic", time.monotonic()),
             "old": data["request"]["old"],
             "new": data["request"]["new"],
-            "current_dev": current_dev,
+            "current_target": current_target,
             "checkout_state": checkout,
             "repair_required": repair,
             "profile_error": profile_error,
+            "target_ref": data["repository"]["target_ref"],
+            "repository_id": data["repository"]["repository_id"],
+            "configuration_digest": data["repository"]["configuration_digest"],
         }
         self._fault("after_effect_observation")
         self._write(ref, dict(data, result=result, stage="observed"), "observed")
@@ -606,7 +588,7 @@ class LocalGit:
             payload = dict(
                 op["facts"]["publication_intent"],
                 confirmed=result["publication"] == "committed",
-                current_dev=result["current_dev"],
+                current_target=result["current_target"],
             )
             return Observation(
                 op["ref"], op["fingerprint"], evidence_ref, "publication", encode(payload)

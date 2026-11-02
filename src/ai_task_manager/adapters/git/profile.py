@@ -11,10 +11,12 @@ import os
 import re
 import stat
 import subprocess
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
+from ai_task_manager.config.files import digest
+from ai_task_manager.domains.merging.contracts import oid, refname, token
+from ai_task_manager.domains.work.errors import AccessDenied
 
 MAX_OUTPUT = 1024 * 1024
 QUERY_SECONDS = 10
@@ -61,28 +63,6 @@ def physical(path, *, directory=True):
     if s.st_uid not in {0, os.getuid()} or s.st_mode & 0o022:
         raise AccessDenied("Resource has unsupported ownership or write permissions")
     return s.st_dev, s.st_ino
-
-
-def oid(value):
-    # Current F0 publication contract is SHA-1 only. Other formats fail explicitly.
-    if type(value) is not str or not re.fullmatch(r"[0-9a-f]{40}", value):
-        raise ValidationError("An exact SHA-1 object identifier is required")
-    return value
-
-
-def refname(value):
-    if (
-        type(value) is not str
-        or not value.startswith("refs/heads/")
-        or len(value) > 200
-        or any(c in value for c in " ~^:?*[\\\x00\n\r")
-        or ".." in value
-        or "@{" in value
-        or "//" in value
-        or value.endswith(("/", ".", ".lock"))
-    ):
-        raise ValidationError("An explicit supported local branch reference is required")
-    return value
 
 
 @dataclass(frozen=True)
@@ -321,7 +301,13 @@ class GitProfile:
                 if not supported:
                     raise AccessDenied("Repository contains unsupported configuration")
 
-    def enroll(self, path, *, worktree_id, common_git_id):
+    def enroll(self, path, *, worktree_id, repository_id, target_ref):
+        """Trusted configuration enrollment; this is never a model-facing operation."""
+        token(worktree_id)
+        token(repository_id)
+        refname(target_ref)
+        if worktree_id in self.repositories:
+            raise AccessDenied("Repository configuration is already enrolled")
         p = self._inside(path)
         ident = physical(p)
         metadata, common_candidate = self._routing(p)
@@ -345,13 +331,28 @@ class GitProfile:
             "gitdir": str(gitdir),
             "gitdir_identity": physical(gitdir),
             "worktree_id": worktree_id,
-            "common_git_id": common_git_id,
+            "repository_id": repository_id,
+            "target_ref": target_ref,
         }
+        self.query(p, "check-ref-format", target_ref)
+        record["configuration_digest"] = self.configuration_digest(record)
         self.repositories[worktree_id] = record
-        self.validate(worktree_id, common_git_id)
+        self.validate(worktree_id, repository_id)
         return record.copy()
 
-    def validate(self, worktree_id, common_git_id):
+    def configuration_digest(self, record):
+        return digest(
+            {
+                "repository": {k: v for k, v in record.items() if k != "configuration_digest"},
+                "executable": asdict(self.executable),
+                "root": str(self.root),
+                "root_identity": self.root_identity,
+                "home": str(self.home),
+                "home_identity": self.home_identity,
+            }
+        )
+
+    def validate(self, worktree_id, repository_id):
         if physical(self.root) != self.root_identity or physical(self.home) != self.home_identity:
             raise AccessDenied("Confined root identity changed")
         self.executable.validate()
@@ -359,8 +360,10 @@ class GitProfile:
         if any(p.name not in {"tmp"} for p in self.home.iterdir()):
             raise AccessDenied("Confined HOME changed")
         r = self.repositories.get(worktree_id)
-        if r is None or r["common_git_id"] != common_git_id:
+        if r is None or r["repository_id"] != repository_id:
             raise AccessDenied("Repository is not enrolled for this binding")
+        if r.get("configuration_digest") != self.configuration_digest(r):
+            raise AccessDenied("Enrolled repository configuration changed")
         for k, identity in (
             ("path", "identity"),
             ("common", "common_identity"),

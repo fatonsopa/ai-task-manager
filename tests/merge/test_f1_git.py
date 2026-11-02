@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 from f1_fixtures import FaultOnce, Rig
 
-from ai_task_manager.adapters.projects.ai_index.git_profile import GitProfile
-from ai_task_manager.adapters.projects.ai_index.local_git import LocalGit
+from ai_task_manager.adapters.git.profile import GitProfile
+from ai_task_manager.adapters.git.publication import LocalGit
 from ai_task_manager.domains.work.errors import AccessDenied, IdempotencyConflict
 
 
@@ -43,10 +43,8 @@ def test_actual_cas_and_journal_order(rig):
     )
     assert result["process_observation"]["returncode"] == 0
     assert result["output"]["bounded"]
-    rig.operations.observations = rig.adapter
-    op = rig.journal.current(rig.ref)
-    rig.operations.observe(rig.ref, op["version"], "real-git-observation", result["evidence_ref"])
-    assert rig.journal.current(rig.ref)["facts"]["publication"]["new"] == rig.new
+    observation = rig.adapter.read(result["evidence_ref"], rig.binding)
+    assert observation.payload(rig.journal.current(rig.ref), "publication")["new"] == rig.new
 
 
 def test_actual_fast_forward(ff):
@@ -80,6 +78,12 @@ def test_fast_forward_dirty_safeguards(ff, kind):
             ff.ref, op["version"], "new-fixture-candidate", "fixture_candidate", facts
         )
         ff.request = replace(ff.request, new=new, checked=new)
+        ff.check_ref = ff.checks.record(ff.ref, ff.binding, ff.request)
+        op = ff.journal.current(ff.ref)
+        check = ff.checks.records[ff.check_ref]
+        payload = json.loads(check.payload_json)
+        facts = dict(op["facts"], checks=dict(payload, evidence_ref=ff.check_ref))
+        ff.journal.commit(ff.ref, op["version"], "new-fixture-check", "fixture_check", facts)
         (ff.repo / "extra.txt").write_text("foreign work\n")
     else:
         (ff.repo / "a.txt").write_text("new\n" if kind == "staged-equal" else "keep me\n")
@@ -194,7 +198,7 @@ def test_later_target_advance_preserves_exact_effect(rig):
     result = rig.publish()
     assert result["publication"] == "committed"
     assert result["old"] == rig.old and result["new"] == rig.new
-    assert result["current_dev"] == rig.old
+    assert result["current_target"] == rig.old
 
 
 def test_gate_closed_before_effect_on_controller_exception(rig):
@@ -239,7 +243,12 @@ def test_conflicting_request_and_foreign_evidence(rig):
 
 def test_profile_rejects_foreign_repository_and_changed_binary(rig):
     with pytest.raises(AccessDenied):
-        rig.profile.enroll(rig.foreign.parent, worktree_id="foreign", common_git_id="foreign")
+        rig.profile.enroll(
+            rig.foreign.parent,
+            worktree_id="foreign",
+            repository_id="foreign",
+            target_ref="refs/heads/dev",
+        )
     rig.profile.executable = replace(rig.executable, sha256="0" * 64)
     with pytest.raises(AccessDenied):
         rig.publish()
@@ -250,23 +259,14 @@ def test_profile_rejects_foreign_repository_and_changed_binary(rig):
 def test_actual_contending_cas_writers(rig):
     from uuid import uuid4
 
-    from ai_task_manager.adapters.projects.ai_index.operations import Operations
-    from ai_task_manager.adapters.projects.ai_index.registrations import Registrations
+    from ai_task_manager.application.merging.service import MergeService
 
     other_binding = replace(rig.binding, attempt_id=str(uuid4()), operation_key=str(uuid4()))
-    other_ref = Registrations(rig.journal, rig.authority).register(other_binding)["ref"]
-    other_op = rig.journal.current(other_ref)
-    original_facts = {
-        k: v for k, v in rig.journal.current(rig.ref)["facts"].items() if k != "local_git"
-    }
-    rig.journal.commit(
-        other_ref,
-        other_op["version"],
-        "other-preconditions",
-        "fixture_preconditions",
-        original_facts,
-    )
-    other = LocalGit(rig.journal, rig.profile, Operations(rig.journal, rig.authority))
+    other_service = MergeService(rig.journal, rig.authority, rig.checks)
+    other_ref = other_service.register(other_binding)["ref"]
+    check_ref = rig.checks.record(other_ref, other_binding, rig.request)
+    other_service.prepare(other_ref, 0, "other-prepare", rig.request, check_ref)
+    other = LocalGit(rig.journal, rig.profile, other_service)
     barrier = threading.Barrier(2, timeout=10)
     rig.adapter.faults = FaultOnce("before_release", barrier.wait)
     other.faults = FaultOnce("before_release", barrier.wait)
@@ -309,7 +309,7 @@ def test_interrupted_intent_does_not_relaunch(rig):
 
 
 def test_numeric_hash_format_and_missing_object(rig):
-    from ai_task_manager.adapters.projects.ai_index.git_profile import oid
+    from ai_task_manager.adapters.git.profile import oid
 
     assert oid("1" * 40) == "1" * 40
     request = replace(rig.request, new="1" * 40, checked="1" * 40)
@@ -326,9 +326,7 @@ def test_current_linked_worktree_routing_is_rebound(rig, pointer):
 
     linked = rig.root / "linked"
     rig.git("worktree", "add", "-q", "--detach", str(linked), rig.new)
-    rig.profile.enroll(
-        linked, worktree_id=rig.binding.worktree_id, common_git_id=rig.binding.common_git_id
-    )
+    rig.rebind(linked)
     original_metadata = Path((linked / ".git").read_text()[8:].strip())
     original_common = rig.repo / ".git"
     alternate = rig.root / "alternate-git"
@@ -356,11 +354,7 @@ def test_routing_rewrite_after_spawn_cannot_redirect_effect(rig):
     metadata = rig.root / "original-metadata"
     original.rename(metadata)
     original.write_text("gitdir: " + str(metadata) + "\n")
-    rig.profile = GitProfile(root=rig.root, executable=rig.executable, home=rig.home)
-    rig.profile.enroll(
-        rig.repo, worktree_id=rig.binding.worktree_id, common_git_id=rig.binding.common_git_id
-    )
-    rig.adapter.profile = rig.profile
+    rig.rebind(rig.repo)
     alternate = rig.root / "alternate-metadata"
     shutil.copytree(metadata, alternate)
     rig.adapter.faults = FaultOnce(
@@ -474,8 +468,8 @@ def test_real_large_checkout_error_drains_while_running(ff):
 
 
 def test_bounded_capture_counts_discarded_bytes():
-    from ai_task_manager.adapters.projects.ai_index.git_profile import MAX_OUTPUT
-    from ai_task_manager.adapters.projects.ai_index.local_git import _Drain
+    from ai_task_manager.adapters.git.profile import MAX_OUTPUT
+    from ai_task_manager.adapters.git.publication import _Drain
 
     read, write = os.pipe()
     drain = _Drain(os.fdopen(read, "rb", buffering=0))
@@ -614,7 +608,12 @@ def test_existing_outside_include_is_refused_before_repository_reads(
             calls = observe_profile_calls(profile, patch)
             with pytest.raises(AccessDenied, match="unsupported configuration") as error:
                 if phase == "enroll":
-                    profile.enroll(rig.repo, worktree_id="new", common_git_id="new")
+                    profile.enroll(
+                        rig.repo,
+                        worktree_id="new",
+                        repository_id="new",
+                        target_ref="refs/heads/dev",
+                    )
                 else:
                     rig.publish()
         assert calls["queries"] == []
@@ -695,7 +694,9 @@ def test_symbolic_head_is_refused_before_repository_discovery(rig, monkeypatch):
         with monkeypatch.context() as patch:
             calls = observe_profile_calls(profile, patch)
             with pytest.raises(AccessDenied, match="Symbolic physical paths"):
-                profile.enroll(rig.repo, worktree_id="new", common_git_id="new")
+                profile.enroll(
+                    rig.repo, worktree_id="new", repository_id="new", target_ref="refs/heads/dev"
+                )
         assert not calls["queries"] and not calls["commands"]
         assert rig.foreign.read_bytes() == sentinel
     finally:
@@ -735,7 +736,9 @@ def test_invalid_repository_discovery_stops_at_confined_root(rig, monkeypatch):
         with monkeypatch.context() as patch:
             calls = observe_profile_calls(profile, patch)
             with pytest.raises(AccessDenied, match="not a git repository") as error:
-                profile.enroll(rig.repo, worktree_id="new", common_git_id="new")
+                profile.enroll(
+                    rig.repo, worktree_id="new", repository_id="new", target_ref="refs/heads/dev"
+                )
         assert calls["queries"] == [["rev-parse", "--path-format=absolute", "--git-common-dir"]]
         assert str(rig.foreign) not in str(error.value) and "bad config" not in str(error.value)
         assert rig.foreign.read_bytes() == sentinel
