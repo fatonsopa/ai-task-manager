@@ -15,6 +15,12 @@ from ai_task_manager.domains.work.errors import (
     SchemaError,
     StaleVersion,
 )
+from ai_task_manager.storage.coherence import (
+    ConnectionBusy,
+    StoreBinding,
+    is_busy_sqlite,
+    probe_connection,
+)
 
 
 class Journal:
@@ -92,16 +98,29 @@ class Journal:
             if self._identity() != self.identity:
                 raise AccessDenied("Journal file identity changed")
             if hasattr(self, "store_id"):
-                rows = conn.execute("SELECT version,store_id FROM merge_meta").fetchall()
-                if len(rows) != 1 or tuple(rows[0]) != (1, self.store_id):
-                    raise AccessDenied("Operation journal binding changed")
+                probe_connection(conn, self._binding())
             yield conn
+            # Initialization establishes the schema/UUID in its body; it must
+            # pass the same connection probe before its first commit too.
+            probe_connection(conn, self._binding())
             conn.commit()
-        except BaseException:
-            conn.rollback()
+        except BaseException as error:
+            try:
+                conn.rollback()
+            except sqlite3.Error as rollback_error:
+                raise AccessDenied("Journal rollback could not be confirmed") from rollback_error
+            if isinstance(error, sqlite3.Error) and is_busy_sqlite(error):
+                raise ConnectionBusy(
+                    "Merge journal is busy; preserve the operation for retry"
+                ) from error
             raise
         finally:
             conn.close()
+
+    def _binding(self):
+        return StoreBinding(
+            self.path, self.identity[0], self.identity[1], "merge_meta", 1, self.store_id
+        )
 
     def _fault(self, stage):
         if self.faults is not None:
