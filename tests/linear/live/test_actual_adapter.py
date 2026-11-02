@@ -11,15 +11,17 @@ from uuid import uuid4
 import pytest
 
 from ai_task_manager.adapters.linear.errors import LinearError
-from ai_task_manager.adapters.linear.models import Credentials
+from ai_task_manager.adapters.linear.models import Credentials, HttpResponse
 from ai_task_manager.adapters.linear.transport import HttpTransport
 from tests.linear.helpers import EXPECTED
 
 from .adapter_fixture import AdapterProvider
+from .client import send_request
 from .fixture_admin import FixtureAdministration, VerifiedEndpoint, adapter_limits_v1
 from .fixture_graphql import OPERATIONS, REQUIRED, SHAPE, FixtureGraphQL
 from .fixture_http import FixtureRequestTransport
 from .ledger import DriverRefused, RunLedger, Scope
+from .receiver import BoundedReceiver
 
 
 class AuthoredEndpoint:
@@ -94,6 +96,31 @@ def ready(adapter, *, webhook=False):
 
 def operations(provider):
     return [request[0]["query"] for request in provider.requests]
+
+
+def test_a43_actual_receiver_route_binds_disabled_hook_and_delivers(adapter):
+    admin, graphql, ledger, provider, endpoint, candidate, _ = ready(adapter)
+
+    class Adapter:
+        calls = 0
+
+        def receive(self, method, headers, raw):
+            self.calls += 1
+            return HttpResponse(200)
+
+    observed = Adapter()
+    server = BoundedReceiver(observed, ledger)
+    try:
+        server.start()
+        endpoint.observed = replace(endpoint.observed, url="https://fixture.invalid" + server.route)
+        graphql.actions.reserve_receiver(candidate)
+        admin.create_webhook("hook", candidate, "authored-endpoint", lambda: "x" * 32)
+        assert provider.webhooks[candidate]["url"] == endpoint.observed.url
+        assert provider.webhooks[candidate]["enabled"] is False
+        assert send_request(server, body=b"owned-route")[0] == 200
+        assert observed.calls == 1
+    finally:
+        assert server.stop(3)["stopped"]
 
 
 def test_a01_a05_a06_actual_http_project_fresh_reads_and_accounting(adapter):
