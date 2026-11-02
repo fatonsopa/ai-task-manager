@@ -1,5 +1,8 @@
 """One managed native host, with no work tools until Core admission completes."""
 
+import json
+from contextlib import contextmanager
+from dataclasses import asdict
 from pathlib import Path
 from threading import Lock
 
@@ -19,12 +22,27 @@ from ai_task_manager.domains.work.errors import AccessDenied
 from .auth_probe import ClaudeAuthProbe
 from .codex_auth import CodexAuthProbe
 from .codex_configuration import CodexConfigurationObserver
+from .codex_home import AclAuditPort
 from .gateway import SCHEMAS, ManagedToolGateway, tool_schema
 from .policy import NativeProfile, codex_command
 from .records import ManagedProcesses
 from .startup import HostStartupReceipts, StartupObserver
 from .transcript import OwnedTranscript
 from .workspace import Workspace
+
+
+def _audit_context(host, pair, scope):
+    return json.dumps(
+        {
+            "host": host,
+            "attempt_id": pair.attempt_id,
+            "scope": scope,
+            "worktree_id": pair.worktree_id,
+            "database_id": pair.database_id,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 class WaitingGateway:
@@ -53,6 +71,7 @@ class ManagedNativeHost:
         expected_account,
         commands=None,
         process_registry=None,
+        source_auditor=None,
     ):
         self.binding, self.pair, self.policy = binding, pair, policy
         self.directory, self.journal = Path(directory), journal
@@ -65,24 +84,62 @@ class ManagedNativeHost:
         self.process = self.session = self.startup = None
         self._portal_context = self.portal = None
         self._turn_lock = Lock()
+        self._source_auditor = source_auditor
+        if self.policy.codex_settings is not None:
+            context = _audit_context(binding.host, pair, asdict(binding.scope))
+            source = self.policy.codex_settings.sources
+            if source_auditor is None:
+                source_auditor = AclAuditPort(source, journal, context)
+                self._source_auditor = source_auditor
+            source_auditor.verify(source, journal, context)
+            source.bind_acl_auditor(source_auditor)
+
+    def _flush_source_observations(self):
+        if self.policy.codex_settings is not None:
+            context = _audit_context(self.binding.host, self.pair, asdict(self.binding.scope))
+            self._source_auditor.verify(self.policy.codex_settings.sources, self.journal, context)
+            self._source_auditor()
+
+    @contextmanager
+    def _source_audit_boundary(self, *, before=True):
+        if before:
+            self._flush_source_observations()
+        try:
+            yield
+        except BaseException as original:
+            try:
+                self._flush_source_observations()
+            except BaseException as audit_error:
+                original.acl_audit_error = type(audit_error).__name__
+                original.acl_observations = getattr(audit_error, "acl_observations", ())
+                original.owned_stop_evidence = getattr(self.process, "stop_evidence", None)
+            raise
+        else:
+            try:
+                self._flush_source_observations()
+            except BaseException as audit_error:
+                audit_error.owned_stop_evidence = getattr(self.process, "stop_evidence", None)
+                raise
 
     def initialize(self):
-        self.policy.check()
-        permit = self.permits.authorize_initialization(self.policy, self.binding)
-        try:
-            reference = self._initialize()
-        except BaseException as error:
+        with self._source_audit_boundary(before=True):
+            self.policy.check()
+            self._flush_source_observations()
+            permit = self.permits.authorize_initialization(self.policy, self.binding)
+            try:
+                reference = self._initialize()
+            except BaseException as error:
+                self.permits.record_initialization(
+                    permit,
+                    outcome="failed_or_uncertain",
+                    observation_ref=self.startup.ready_ref if self.startup else None,
+                    detail=type(error).__name__,
+                )
+                raise
             self.permits.record_initialization(
-                permit,
-                outcome="failed_or_uncertain",
-                observation_ref=self.startup.ready_ref if self.startup else None,
-                detail=type(error).__name__,
+                permit, outcome="observed_native_startup", observation_ref=reference, detail=None
             )
-            raise
-        self.permits.record_initialization(
-            permit, outcome="observed_native_startup", observation_ref=reference, detail=None
-        )
-        return reference
+            return reference
 
     def _initialize(self):
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=False)
@@ -106,6 +163,7 @@ class ManagedNativeHost:
             self.policy.check()
             if self.binding.host == "codex" and self.process.process is None:
                 codex_probe.check_launch(self.policy, self.binding, codex_auth_ref)
+            self._flush_source_observations()
 
         self.process = HostProcess(
             command,
@@ -191,71 +249,77 @@ class ManagedNativeHost:
         self.process.boundary = lambda: self._current_lease(handle, attempt)
 
     def _current_lease(self, handle, attempt):
-        if self.journal.clock() >= self.binding.deadline:
-            raise AccessDenied("Original managed deadline expired")
-        self.policy.check()
-        self.startup.assert_stable()
-        return self.core.execution.validate_work_lease(handle, attempt.id, attempt.version)
+        with self._source_audit_boundary(before=False):
+            if self.journal.clock() >= self.binding.deadline:
+                raise AccessDenied("Original managed deadline expired")
+            self.policy.check()
+            self.startup.assert_stable()
+            self._flush_source_observations()
+            return self.core.execution.validate_work_lease(handle, attempt.id, attempt.version)
 
     def verify_active(self):
-        self.policy.check()
-        if self.startup is None:
-            raise AccessDenied("Native startup is not ready")
-        self.startup.assert_stable()
-        if self.process is None:
-            raise AccessDenied("Native host process was not created")
-        return self.process.verify_identity()
+        with self._source_audit_boundary(before=True):
+            self.policy.check()
+            if self.startup is None:
+                raise AccessDenied("Native startup is not ready")
+            self.startup.assert_stable()
+            if self.process is None:
+                raise AccessDenied("Native host process was not created")
+            return self.process.verify_identity()
 
     def effect_boundary(self):
         return self.startup.model_guard.effect_boundary()
 
     def execute_model_turn(self, text):
-        if not self._turn_lock.acquire(blocking=False):
-            raise AccessDenied("An owned native model turn is already active")
-        try:
-            if self.gateway.delegate is None:
-                raise AccessDenied("Assigned model work requires a current admitted lease")
-            self.gateway.delegate.check()
-            if self.binding.host == "claude":
-                return self.portal.call(self.session.turn, text)
-            return self.session.turn(text)
-        finally:
-            self._turn_lock.release()
+        with self._source_audit_boundary(before=True):
+            if not self._turn_lock.acquire(blocking=False):
+                raise AccessDenied("An owned native model turn is already active")
+            try:
+                if self.gateway.delegate is None:
+                    raise AccessDenied("Assigned model work requires a current admitted lease")
+                self.gateway.delegate.check()
+                self._flush_source_observations()
+                if self.binding.host == "claude":
+                    return self.portal.call(self.session.turn, text)
+                return self.session.turn(text)
+            finally:
+                self._turn_lock.release()
 
     def stop(self):
-        if self.process is None:
-            raise AccessDenied("Native startup outcome is unresolved")
-        errors = []
-        try:
-            if self.portal is not None:
-                self.portal.call(self.session.close)
-            elif self.session is not None:
-                self.session.close()
-        except BaseException as error:
-            errors.append(("session_close", type(error).__name__))
-        finally:
+        with self._source_audit_boundary(before=False):
+            if self.process is None:
+                raise AccessDenied("Native startup outcome is unresolved")
+            errors = []
             try:
-                if self._portal_context is not None:
-                    self._portal_context.__exit__(None, None, None)
+                if self.portal is not None:
+                    self.portal.call(self.session.close)
+                elif self.session is not None:
+                    self.session.close()
             except BaseException as error:
-                errors.append(("portal_close", type(error).__name__))
+                errors.append(("session_close", type(error).__name__))
             finally:
-                self._portal_context = self.portal = None
-        try:
-            stopped = self.process.stop()
-        finally:
-            for stage, error in errors:
-                self.journal._append(
-                    "trace",
-                    {
-                        "effect": "native_disconnect_error",
-                        "attempt_id": self.binding.attempt_id,
-                        "stage": stage,
-                        "error": error,
-                    },
-                )
-        self.permits.record_host_stop(self.binding, stopped)
-        return stopped
+                try:
+                    if self._portal_context is not None:
+                        self._portal_context.__exit__(None, None, None)
+                except BaseException as error:
+                    errors.append(("portal_close", type(error).__name__))
+                finally:
+                    self._portal_context = self.portal = None
+            try:
+                stopped = self.process.stop()
+            finally:
+                for stage, error in errors:
+                    self.journal._append(
+                        "trace",
+                        {
+                            "effect": "native_disconnect_error",
+                            "attempt_id": self.binding.attempt_id,
+                            "stage": stage,
+                            "error": error,
+                        },
+                    )
+            self.permits.record_host_stop(self.binding, stopped)
+            return stopped
 
 
 class ManagedHostFactory:
@@ -294,9 +358,30 @@ class ManagedHostFactory:
             raise AccessDenied("A trusted explicit Claude model profile is required")
         self.permits.check_admission(host)
 
+    def _audit_policy(self, policy, host, pair):
+        if policy.codex_settings is None:
+            return None
+        owner = self.resources.journal.attempt(pair.attempt_id)
+        if owner["host"] != host or owner["attempt_id"] != pair.attempt_id:
+            raise AccessDenied("Source audit owner differs from the resource assignment")
+        context = _audit_context(host, pair, owner["scope"])
+        source = policy.codex_settings.sources
+        port = source._acl_auditor
+        if port is None:
+            port = AclAuditPort(source, self.journal, context)
+        if not isinstance(port, AclAuditPort):
+            raise AccessDenied("Source audit port was not installed by trusted composition")
+        port.verify(source, self.journal, context)
+        source.bind_acl_auditor(port)
+        port()
+        return port
+
     def configuration_digest(self, host, pair):
         policy = self.policies(host, pair)
+        port = self._audit_policy(policy, host, pair)
         policy.check()
+        if port is not None:
+            port()
         if host in self.model_profiles and (policy.model, policy.effort) != (
             self.model_profiles[host].model,
             self.model_profiles[host].effort,
@@ -308,6 +393,10 @@ class ManagedHostFactory:
         if binding.attempt_id in self.owned:
             raise AccessDenied("Existing native host ownership must be reconciled")
         policy = self.policies(binding.host, pair)
+        source_auditor = self._audit_policy(policy, binding.host, pair)
+        policy.check()
+        if source_auditor is not None:
+            source_auditor()
         if binding.host in self.model_profiles and (policy.model, policy.effort) != (
             self.model_profiles[binding.host].model,
             self.model_profiles[binding.host].effort,
@@ -327,6 +416,7 @@ class ManagedHostFactory:
             self.accounts[binding.host],
             commands=self.commands,
             process_registry=self.process_registry,
+            source_auditor=source_auditor,
         )
         # Publish ownership before any subprocess or SDK action, including failed initialization.
         self.owned[binding.attempt_id] = native

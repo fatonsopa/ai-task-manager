@@ -25,9 +25,11 @@ class CodexAuthProbe:
             raise AccessDenied("A protected coherent Codex source plan is required")
         policy.check()
         before = settings.sources.credential_metadata()
-        self.permits.authorize_auth(policy, binding)
         require_group_monitoring()
         argv = (str(policy.executable), *settings.arguments(), "login", "status")
+        settings.sources.require_acl_acknowledgement()
+        self.permits.authorize_auth(policy, binding)
+        settings.sources.require_acl_acknowledgement()
         output = {"stdout": bytearray(), "stderr": bytearray()}
         overflow = False
         process = subprocess.Popen(
@@ -113,6 +115,8 @@ class CodexAuthProbe:
             )
             raise AccessDenied("Existing native subscription status is unconfirmed")
         settings.sources.check_readonly_credential(before)
+        source_fingerprint = settings.fingerprint
+        settings.sources.require_acl_acknowledgement()
         return self.journal._append(
             "trace",
             {
@@ -125,7 +129,7 @@ class CodexAuthProbe:
                 "principal_ref": binding.principal_ref,
                 "deadline": binding.deadline,
                 "configuration_digest": binding.configuration_digest,
-                "source_fingerprint": settings.fingerprint,
+                "source_fingerprint": source_fingerprint,
                 "executable_hash": policy.executable_sha256,
                 "uid": os.getuid(),
                 "credential_metadata": before,
@@ -160,6 +164,7 @@ class CodexAuthProbe:
 
         if digest(before) != digest(data.get("credential_metadata")):
             raise AccessDenied("Native credential metadata changed before forced launch")
+        policy.codex_settings.sources.require_acl_acknowledgement()
         return expected
 
     def consume(self, policy, binding, reference):
