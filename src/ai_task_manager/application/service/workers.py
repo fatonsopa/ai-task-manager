@@ -10,6 +10,13 @@ def worker_start(service, data, invocation):
     require_owned(service, task)
     service._required("decisions")
     decision, version, revision = authorize(service, task, "In Progress", "start", data, invocation)
+    if service.dependencies is not None:
+        service.dependencies.refresh_for_start(
+            task.id,
+            data["operation_key"],
+            expected_version=version,
+            decision_revision=revision,
+        )
     source = {}
     if service.core.existing.is_imported(service.handle, task.id):
         source["source_readbacks"] = service._required("existing").worker_readbacks(
