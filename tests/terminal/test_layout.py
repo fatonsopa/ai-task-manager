@@ -91,7 +91,7 @@ def test_actual_owned_layout_keeps_host_space_and_closing_view_keeps_host(tmp_pa
                 == 8
             )
         )
-        assert "[show]" in layout.capture(layout.sidebar_pane)
+        wait(lambda: "[show]" in layout.capture(layout.sidebar_pane))
         assert layout.capture(layout.host_pane).splitlines()[-1] == "NATIVE BOTTOM"
         stages.append(
             {"stage": "hidden", "panes": layout.panes(), "host": layout.capture(layout.host_pane)}
@@ -120,6 +120,7 @@ def test_actual_owned_layout_keeps_host_space_and_closing_view_keeps_host(tmp_pa
         )
         closed = layout.close()
         assert closed["server"]["confirmed_stop"]
+        assert closed["panes_stopped"]
         if pids:
             wait(lambda: stopped_panes(pids), seconds=3)
 
@@ -141,7 +142,8 @@ def test_layout_context_refuses_another_session_without_resize(tmp_path):
             PaneControl(path, product.service)
         assert layout.panes() == panes
     finally:
-        assert layout.close()["server"]["confirmed_stop"]
+        closed = layout.close()
+        assert closed["server"]["confirmed_stop"] and closed["panes_stopped"]
 
 
 def test_owned_layout_start_failure_retains_stopped_cleanup(tmp_path):
@@ -152,4 +154,5 @@ def test_owned_layout_start_failure_retains_stopped_cleanup(tmp_path):
                 ["/owned-fixture-missing-executable"], ["/owned-fixture-missing-executable"]
             )
     finally:
-        assert layout.close()["server"]["confirmed_stop"]
+        closed = layout.close()
+        assert closed["server"]["confirmed_stop"] and closed["panes_stopped"]

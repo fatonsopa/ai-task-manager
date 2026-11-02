@@ -238,15 +238,40 @@ class OwnedLayout:
             evidence = {"confirmed_stop": self.process is None}
         if hasattr(self, "output"):
             self.output.close()
+        pane_observations = []
+        pane_pids = [row["pid"] for row in self.last_panes]
+        panes_stopped = not pane_pids
+        deadline = time.monotonic() + 1
+        while pane_pids:
+            reply = subprocess.run(
+                ["ps", "-p", ",".join(map(str, pane_pids)), "-o", "pid=,stat="],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            rows = [line.split() for line in reply.stdout.splitlines()]
+            known = reply.returncode in {0, 1} and all(len(row) == 2 for row in rows)
+            live = (
+                [int(row[0]) for row in rows if not row[1].startswith(("Z", "X"))]
+                if known
+                else None
+            )
+            pane_observations.append({"known": known, "rows": rows, "live_pids": live})
+            panes_stopped = known and not live
+            if panes_stopped or time.monotonic() >= deadline:
+                break
+            time.sleep(0.02)
         self.closed = {
             "server": evidence,
             "returncode": self.process.returncode if self.process else None,
             "pane_identity": [self.host_pane, self.sidebar_pane],
             "last_observed_panes": self.last_panes,
+            "panes_stopped": panes_stopped,
+            "pane_stop_observations": pane_observations,
         }
         (self.root / "close.json").write_text(
             json.dumps(self.closed, indent=2, sort_keys=True) + "\n"
         )
-        if evidence["confirmed_stop"]:
+        if evidence["confirmed_stop"] and panes_stopped:
             shutil.rmtree(self.socket_root)
         return self.closed
