@@ -1,0 +1,14 @@
+{
+  "version":36,"extends":"host-bridge-cases-v35.json","preserves_all_prior_objectives":true,
+  "scope":"Typed producer and final effect composition; same registered task, no actual native account or model execution.",
+  "frozen_additive_controls":[
+    "Untyped initialization/auth/model permit refuses before subprocess or native submission.",
+    "Typed exact attempt/worker/host/configuration/model/effort/purpose/deadline is mandatory; actual Root claim matches.",
+    "Actual credential-free production composition uses disposable policy-revision-1 ledgers, not permissive signature substitutes.",
+    "Assignment final user/turn frame commits under Root then current model guard. Tool file/command effects use the active invocation then model then Core.",
+    "Neutral initialization uses a separately registered fixed-purpose invocation and a sticky initialization-only guard; it cannot grant work or startup proof without actual observed startup.",
+    "Auth preserves exact argv and 15-second Claude/10-second Codex maximum, clamped by original persisted invocation deadline.",
+    "Protected foreground merge is independently configured and keeps its existing authority/lifecycle; absent independent registration refuses. Native model call completion cannot stand in for merge completion."
+  ],
+  "execution_rule":"Own-reviewed finite local batch under standing user authorization; preserve every raw result, callback precondition and separate nested stop proof. No accounts/providers/models, original ledger, normal activation or protected file edits."
+}

@@ -3,6 +3,7 @@
 import hashlib
 import sys
 from dataclasses import replace
+from uuid import uuid4
 
 from ai_task_manager.adapters.hosts.bridge.codex_auth import CodexAuthProbe
 from ai_task_manager.adapters.hosts.bridge.codex_configuration import CodexConfigurationObserver
@@ -15,6 +16,7 @@ from ai_task_manager.adapters.hosts.bridge.policy import (
 )
 from ai_task_manager.adapters.hosts.bridge.startup import StartupObserver
 from ai_task_manager.config.files import digest
+from tests.hosts.accounting_fixtures import FixtureAccounting
 from tests.hosts.fixture_cli import ACCOUNT
 
 
@@ -36,9 +38,15 @@ class FixturePermits:
     def authorize_auth(self, policy, binding):
         assert policy.executable.name == "fixture-cli"
         self.calls.append("status-authorized")
+        if not hasattr(self, "accounting"):
+            self.accounting = FixtureAccounting(
+                policy.cwd / "fixture-accounting" / ("ledger-" + uuid4().hex)
+            )
+        return self.accounting.authorize_auth(policy, binding)
 
     def record_auth(self, binding, completion):
         self.calls.append(completion)
+        self.accounting.record_auth(binding, completion)
 
     def require_native_conformance(self, policy, binding):
         from ai_task_manager.domains.work.errors import AccessDenied
@@ -50,6 +58,7 @@ class FixturePermits:
 
 def policy(root, *, program=None, config=""):
     home = files(root, config)
+    (root / "fixture-accounting").mkdir(mode=0o700)
     fixture_home = root / "fixture-home"
     fixture_home.mkdir(mode=0o700)
     executable = root / "fixture-cli"

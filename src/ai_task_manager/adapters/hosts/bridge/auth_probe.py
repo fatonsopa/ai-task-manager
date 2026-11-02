@@ -11,6 +11,8 @@ from ai_task_manager.adapters.process.groups import (
 from ai_task_manager.config.files import digest, strict_json
 from ai_task_manager.domains.work.errors import AccessDenied
 
+from .invocations import require_invocation, spawn_claimed
+
 
 def claude_account_hash(status):
     return digest([status.get(k) for k in ("email", "orgId", "userId")])
@@ -22,13 +24,19 @@ class ClaudeAuthProbe:
 
     def observe(self, policy, binding, directory):
         policy.check()
-        self.permits.authorize_auth(policy, binding)
+        permit = require_invocation(
+            self.permits.authorize_auth(policy, binding), policy, binding, "auth"
+        )
+        end = self.journal.clock() + permit.bounded_timeout(
+            15, original_deadline=binding.deadline, clock=self.journal.clock
+        )
         require_group_monitoring()
         stdout, stderr = directory / "auth.stdout", directory / "auth.stderr"
         with stdout.open("xb") as out, stderr.open("xb") as err:
             os.chmod(stdout, 0o600)
             os.chmod(stderr, 0o600)
-            process = subprocess.Popen(
+            process = spawn_claimed(
+                permit,
                 [str(policy.executable), "auth", "status"],
                 cwd=policy.cwd,
                 env=dict(policy.environment),
@@ -40,7 +48,8 @@ class ClaudeAuthProbe:
         group = OwnedProcessGroup(process)
         group.capture()
         completion = supervise(
-            group, timeout_seconds=min(15, binding.deadline - self.journal.clock())
+            group,
+            timeout_seconds=max(0, end - self.journal.clock()),
         )
         self.permits.record_auth(binding, completion)
         if completion.get("outcome") != "succeeded" or not completion["group"]["confirmed_stop"]:

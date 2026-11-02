@@ -77,6 +77,7 @@ class PreparedInvocation:
     reference: str
     binding: InvocationBinding
     _key: object = field(repr=False)
+    mode: str = "running"
 
     @contextmanager
     def effect_boundary(self):
@@ -84,6 +85,18 @@ class PreparedInvocation:
             raise AccessDenied("Invocation data alone cannot grant an effect")
         with self.issuer._effect(self):
             yield
+
+    @contextmanager
+    def launch_boundary(self):
+        if not isinstance(self.issuer, InvocationPermits) or self.mode != "launch":
+            raise AccessDenied("A registered claimed invocation is required")
+        with self.issuer._launch(self) as record_started:
+            yield record_started
+
+    def running(self):
+        if not isinstance(self.issuer, InvocationPermits):
+            raise AccessDenied("The invocation authority is unavailable")
+        return self.issuer.prepare(self.reference)
 
     def bounded_timeout(self, maximum, *, original_deadline, clock):
         values = (maximum, original_deadline)
@@ -135,6 +148,12 @@ class InvocationPermits:
 
     def prepare(self, reference):
         """Read full controller state before entering Root/model/Core locks."""
+        return self._prepare(reference, "running")
+
+    def prepare_launch(self, reference):
+        return self._prepare(reference, "launching")
+
+    def _prepare(self, reference, status):
         self._current_owner()
         expected = self.registered.get(reference)
         if expected is None:
@@ -148,14 +167,19 @@ class InvocationPermits:
         }
         if (
             call is None
-            or call["status"] != "running"
+            or call["status"] != status
             or InvocationBinding.observed(state) != expected
         ):
             raise AccessDenied("The registered invocation differs from its actual owner")
-        return PreparedInvocation(self, reference, expected, self._key)
+        return PreparedInvocation(
+            self,
+            reference,
+            expected,
+            self._key,
+            "launch" if status == "launching" else "running",
+        )
 
-    @contextmanager
-    def _effect(self, prepared):
+    def _validate(self, prepared):
         self._current_owner()
         if (
             prepared.issuer is not self
@@ -163,6 +187,19 @@ class InvocationPermits:
             or self.registered.get(prepared.reference) is not prepared.binding
         ):
             raise AccessDenied("The prepared invocation belongs to another authority")
+
+    @contextmanager
+    def _launch(self, prepared):
+        self._validate(prepared)
+        with self.controller.launch_boundary(
+            prepared.binding.call_id, worker_identity=prepared.binding.worker_identity
+        ) as record_started:
+            self._validate(prepared)
+            yield record_started
+
+    @contextmanager
+    def _effect(self, prepared):
+        self._validate(prepared)
         with self.controller.effect_boundary(
             prepared.binding.call_id, worker_identity=prepared.binding.worker_identity
         ) as state:
@@ -170,3 +207,104 @@ class InvocationPermits:
             if InvocationBinding.observed(state) != prepared.binding:
                 raise AccessDenied("The current invocation scope changed")
             yield
+
+
+@dataclass(frozen=True)
+class InitializationInvocation:
+    native: PreparedInvocation
+    relay: PreparedInvocation
+
+    def __post_init__(self):
+        if (
+            not isinstance(self.native, PreparedInvocation)
+            or not isinstance(self.relay, PreparedInvocation)
+            or self.native.mode != "launch"
+            or self.relay.mode != "launch"
+            or self.native.binding.purpose != "host"
+            or self.relay.binding.purpose != "relay"
+            or self.native.issuer.controller is not self.relay.issuer.controller
+        ):
+            raise AccessDenied("Initialization needs exact host and relay invocations")
+        common = (
+            "run_id",
+            "policy_revision",
+            "worker_identity",
+            "attempt_id",
+            "host",
+            "configuration_digest",
+            "model",
+            "effort",
+        )
+        if (
+            any(
+                getattr(self.native.binding, name) != getattr(self.relay.binding, name)
+                for name in common
+            )
+            or self.relay.binding.deadline > self.native.binding.deadline
+        ):
+            raise AccessDenied("Relay and native invocation scopes differ")
+        snapshot = self.native.issuer.controller.snapshot()
+        calls = {row["call_id"]: row for row in snapshot["calls"]}
+        host = calls[self.native.binding.call_id]
+        relay = calls[self.relay.binding.call_id]
+        if (
+            not host["uses_worker"]
+            or relay["uses_worker"]
+            or relay["metadata"].get("parent_call_id") != self.native.binding.call_id
+        ):
+            raise AccessDenied("Relay preparation must use its counted host reservation")
+
+
+def require_invocation(permit, policy, owner, purpose):
+    """Validate a trusted producer result outside the final short boundary."""
+    if not isinstance(permit, PreparedInvocation) or permit.mode != "launch":
+        raise AccessDenied("A typed claimed invocation is required")
+    binding = permit.binding
+    if (
+        (
+            binding.attempt_id,
+            binding.worker_identity,
+            binding.host,
+            binding.configuration_digest,
+            binding.model,
+            binding.effort,
+            binding.purpose,
+        )
+        != (
+            owner.attempt_id,
+            owner.worker_id,
+            owner.host,
+            owner.configuration_digest,
+            policy.model,
+            policy.effort,
+            purpose,
+        )
+        or binding.deadline > owner.deadline
+        or permit.issuer.prepare_launch(permit.reference) != permit
+    ):
+        raise AccessDenied("Invocation does not belong to this exact native owner")
+    return permit
+
+
+def spawn_claimed(permit, argv, **options):
+    """Create one child under Root; reconcile a post-Popen callback failure."""
+    import subprocess
+
+    from ai_task_manager.adapters.process.groups import OwnedProcessGroup
+
+    process = None
+    try:
+        with permit.launch_boundary() as report:
+            process = subprocess.Popen(argv, **options)
+            report(process_pid=None, process_start_identity=None)
+        return process
+    except BaseException as error:
+        if process is not None:
+            group = OwnedProcessGroup(process)
+            group.capture()
+            stopped = group.stop()
+            error.owned_stop_evidence = group.evidence(stopped, orphaned=False)
+            error.owned_process = process
+            if stopped.confirmed:
+                group.reap_exited_leader()
+        raise

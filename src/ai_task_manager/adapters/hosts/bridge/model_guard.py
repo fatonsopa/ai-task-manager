@@ -23,6 +23,7 @@ class PreparedModelEffect:
     effort: object
     cwd: str
     thread_id: str | None
+    initialization: bool = False
 
 
 def _owned_history(journal, owner, identity=None):
@@ -240,6 +241,24 @@ class PinnedModelGuard:
                 self.configuration.check_metadata()
             self._check_bound()
 
+    @contextmanager
+    def startup_current_boundary(self):
+        """Nonblocking reverse point observation while Core consumes startup.
+
+        The caller may already hold Core. It must refuse contention rather than
+        waiting for an effect that holds this guard and needs Core. The guard
+        ends before Core commit and does not make that commit atomic with it.
+        """
+        if not self._lock.acquire(blocking=False):
+            raise AccessDenied("Startup current observation is contended")
+        try:
+            if self.configuration is not None:
+                self.configuration.check_metadata()
+            self._check_bound()
+            yield
+        finally:
+            self._lock.release()
+
     def check(self):
         if self.configuration is not None:
             self.configuration.check()
@@ -247,7 +266,7 @@ class PinnedModelGuard:
         with self._lock:
             self._check(rows)
 
-    def _effect_owner(self):
+    def _effect_owner(self, *, initialization=False):
         identity = self.transcript.process.identity
         return PreparedModelEffect(
             self,
@@ -261,10 +280,11 @@ class PinnedModelGuard:
             self.requested_effort,
             self.cwd,
             self.codex.thread_id if self.codex is not None else None,
+            initialization,
         )
 
     def _same_effect_owner(self, prepared):
-        current = self._effect_owner()
+        current = self._effect_owner(initialization=prepared.initialization)
         return all(
             getattr(current, name) is getattr(prepared, name)
             for name in ("owner", "binding", "transcript", "journal", "process", "configuration")
@@ -273,15 +293,25 @@ class PinnedModelGuard:
             for name in ("identity", "requested", "effort", "cwd", "thread_id")
         )
 
-    def prepare_effect(self):
+    def prepare_effect(self, *, initialization=False):
         """Complete source/history preparation before acquiring a Root/Core lock."""
         with self._lock:
-            prepared = self._effect_owner()
-        self.check()
+            prepared = self._effect_owner(initialization=initialization)
+        if initialization:
+            if self.binding.host != "claude":
+                raise AccessDenied("Unbound initialization is restricted to the fixed Claude turn")
+            if self.configuration is not None:
+                self.configuration.check()
+            rows = self._history()
+            with self._lock:
+                self._restore(rows)
+        else:
+            self.check()
         with self._lock:
             if not self._same_effect_owner(prepared):
                 raise AccessDenied("Model-effect owner changed during preparation")
-            self._check_bound()
+            if not initialization:
+                self._check_bound()
         return prepared
 
     @contextmanager
@@ -299,7 +329,11 @@ class PinnedModelGuard:
                 raise AccessDenied("The prepared model-effect owner changed")
             if self.configuration is not None:
                 self.configuration.check_metadata()
-            self._check_bound()
+            if prepared.initialization:
+                if self.binding.host != "claude" or self.refusal:
+                    raise AccessDenied("Initialization model fence is unavailable")
+            else:
+                self._check_bound()
             yield
 
     @contextmanager

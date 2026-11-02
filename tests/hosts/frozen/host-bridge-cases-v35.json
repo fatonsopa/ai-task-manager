@@ -1,0 +1,18 @@
+{
+  "version": 35,
+  "extends": "host-bridge-cases-v34.json",
+  "preserves_all_prior_objectives": true,
+  "scope": "Startup current observation, with a nonblocking reverse point observation as an explicit exception to normal Root then model then Core effect order.",
+  "cases": [
+    {"id": "LKO01", "alias": "test_startup_contention_refuses_without_waiting_or_publication", "variants": ["two_threads_two_core_connections"]},
+    {"id": "LKO02", "alias": "test_startup_metadata_failure_fences_reentrantly_without_io", "variants": ["metadata_failure"]},
+    {"id": "LKO03", "alias": "test_startup_observation_preserves_reentrant_and_sticky_checks", "variants": ["reentrant", "sticky"]},
+    {"id": "LKO04", "alias": "test_startup_owner_drift_remains_refusing", "variants": ["owner_drift"]}
+  ],
+  "rules": [
+    "One guard-owned nonblocking context covers current model/configuration and policy metadata checks, including sticky configuration refusal.",
+    "Contention does not create a model-failure fence or a startup proof. Existing refusal reasons remain.",
+    "The context ends before Core commit; no atomic-commit claim. Full replay, journal writes, process inventory and waits remain outside Core.",
+    "Core, managed.py and process/groups.py remain unchanged. No actual accounts, models or providers."
+  ]
+}

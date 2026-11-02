@@ -7,7 +7,9 @@ import secrets
 import selectors
 import subprocess
 import sys
+import tempfile
 import time
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup, require_group_monitoring
@@ -17,10 +19,21 @@ from ai_task_manager.supervisor.models import RuntimeUncertain
 
 from ..bridge.records import ProcessIdentity
 from .native_exit import NativeExitWatch, require_exit_monitoring
+from .native_input import NativeInput
+from .relay_policy import command_record, prepare_binding
 
 
 class HostProcess:
-    def __init__(self, command, directory, *, deadline, clock=time.time, boundary=lambda: None):
+    def __init__(
+        self,
+        command,
+        directory,
+        *,
+        deadline,
+        clock=time.time,
+        boundary=lambda: None,
+        invocation=None,
+    ):
         if (
             isinstance(deadline, bool)
             or not math.isfinite(deadline)
@@ -41,6 +54,19 @@ class HostProcess:
             raise AccessDenied("Host output needs an owned private directory")
         self._buffer, self._closed = b"", False
         self.process = self.group = self.identity = self.native_exit = None
+        self.invocation = invocation
+        if invocation is not None:
+            from ..bridge.invocations import InitializationInvocation
+
+            if not isinstance(invocation, InitializationInvocation):
+                raise AccessDenied("A typed initialization invocation is required")
+            self.deadline = min(deadline, invocation.native.binding.deadline)
+        self.native_input = None
+        self._active_invocation = None
+        self._active_guard = None
+        self._active_lease = None
+        self._active_started = False
+        self._model_frame = False
 
     def start(self):
         if self.process is not None:
@@ -48,27 +74,56 @@ class HostProcess:
         self.boundary()
         self._deadline()
         read_fd, write_fd = os.pipe()
+        native_read, native_write = os.pipe()
         nonce = secrets.token_urlsafe(32)
         try:
+            specification = {
+                "nonce": nonce,
+                "command": command_record(self.command),
+                "policy": prepare_binding(self.invocation.native, self.command)
+                if self.invocation is not None
+                else None,
+            }
+            launch = (
+                self.invocation.relay.launch_boundary()
+                if self.invocation is not None
+                else nullcontext(None)
+            )
             with (self.directory / "native.stderr").open("xb") as err:
                 os.chmod(err.name, 0o600)
-                self.process = subprocess.Popen(
-                    [
-                        sys.executable,
-                        "-I",
-                        str(Path(__file__).with_name("relay.py")),
-                        str(write_fd),
-                        nonce,
-                        str(self.deadline - self.clock()),
-                    ],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=err,
-                    env={"PATH": os.defpath},
-                    cwd=self.directory,
-                    pass_fds=(write_fd,),
-                    start_new_session=True,
-                )
+                with tempfile.TemporaryFile(dir=self.directory) as specification_file:
+                    os.fchmod(specification_file.fileno(), 0o600)
+                    specification_file.write(json.dumps(specification, allow_nan=False).encode())
+                    specification_file.flush()
+                    specification_file.seek(0)
+                    with launch as report:
+                        self.process = subprocess.Popen(
+                            [
+                                sys.executable,
+                                "-I",
+                                str(Path(__file__).with_name("relay.py")),
+                                str(write_fd),
+                                nonce,
+                                str(self.deadline - self.clock()),
+                                str(self.deadline),
+                                str(specification_file.fileno()),
+                                str(native_read),
+                            ],
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=err,
+                            env={"PATH": os.defpath},
+                            cwd=self.directory,
+                            pass_fds=(write_fd, specification_file.fileno(), native_read),
+                            start_new_session=True,
+                        )
+                        if report is not None:
+                            report(process_pid=None, process_start_identity=None)
+            os.close(native_read)
+            native_read = -1
+            self.native_input = NativeInput(native_write, deadline=self.deadline, clock=self.clock)
+            native_write = -1
+            os.set_blocking(self.process.stdin.fileno(), False)
             os.close(write_fd)
             write_fd = -1
             self.group = OwnedProcessGroup(self.process)
@@ -78,9 +133,6 @@ class HostProcess:
                 {
                     "op": "launch",
                     "nonce": nonce,
-                    "argv": self.command.argv,
-                    "cwd": str(self.command.cwd),
-                    "environment": self.command.environment,
                 }
             )
             with selectors.DefaultSelector() as selected:
@@ -103,6 +155,9 @@ class HostProcess:
             self.native_exit = NativeExitWatch.capture(self)
             return self.identity
         except BaseException:
+            if self.group is None and self.process is not None:
+                self.group = OwnedProcessGroup(self.process)
+                self.group.capture()
             if self.group is not None:
                 self.stop()
             raise
@@ -110,6 +165,10 @@ class HostProcess:
             os.close(read_fd)
             if write_fd >= 0:
                 os.close(write_fd)
+            if native_read >= 0:
+                os.close(native_read)
+            if native_write >= 0:
+                os.close(native_write)
 
     def _deadline(self):
         if self.clock() >= self.deadline:
@@ -139,19 +198,126 @@ class HostProcess:
         if self._closed or self.process is None or self.process.stdin is None:
             raise AccessDenied("Host transport is closed")
         raw = (json.dumps(data, allow_nan=False) + "\n").encode()
-        if len(raw) > MAX_JSON_BYTES:
+        if len(raw) > min(MAX_JSON_BYTES, os.fpathconf(self.process.stdin.fileno(), "PC_PIPE_BUF")):
             raise AccessDenied("Host input exceeds the frame limit")
-        self.process.stdin.write(raw)
-        self.process.stdin.flush()
+        if os.write(self.process.stdin.fileno(), raw) != len(raw):
+            raise RuntimeUncertain("Relay control commit is partial or unknown")
+
+    @contextmanager
+    def use_invocation(self, permit, guard=None, lease=None):
+        from ..bridge.invocations import PreparedInvocation
+
+        if (
+            not isinstance(permit, PreparedInvocation)
+            or self.invocation is None
+            or self._active_invocation is not None
+        ):
+            raise AccessDenied("A separate registered invocation is required")
+        native = self.invocation.native.binding
+        if permit.issuer.controller is not self.invocation.native.issuer.controller:
+            raise AccessDenied("Submission uses another accounting controller")
+        if permit.binding.purpose not in {"neutral", "assignment"}:
+            raise AccessDenied("This invocation purpose cannot submit model work")
+        snapshot = permit.issuer.controller.snapshot()
+        actual = next(row for row in snapshot["calls"] if row["call_id"] == permit.binding.call_id)
+        if actual["metadata"].get("parent_call_id") != native.call_id:
+            raise AccessDenied("Submission is not registered under this native host")
+        if any(
+            getattr(permit.binding, name) != getattr(native, name)
+            for name in (
+                "run_id",
+                "policy_revision",
+                "worker_identity",
+                "attempt_id",
+                "host",
+                "configuration_digest",
+                "model",
+                "effort",
+            )
+        ):
+            raise AccessDenied("Submission invocation differs from its owned native host")
+        self._control({"op": "invocation", "call_id": permit.binding.call_id})
+        self._active_invocation, self._active_guard, self._active_lease = permit, guard, lease
+        self._active_started = permit.mode == "running"
+        try:
+            yield
+        finally:
+            self._active_invocation = self._active_guard = None
+            self._active_lease = None
+            self._active_started = False
+
+    @contextmanager
+    def _input_boundary(self):
+        permit = self._active_invocation
+        if self.invocation is None:
+            yield
+            return
+        if permit is None or (not self._active_started and not self._model_frame):
+            permit = self.invocation.native.running()
+        prepared_guard = self._active_guard
+        root = (
+            permit.effect_boundary()
+            if self._active_started or permit.mode == "running"
+            else permit.launch_boundary()
+        )
+        with root as report:
+            guard = (
+                prepared_guard.owner.current_boundary(prepared_guard)
+                if prepared_guard is not None
+                else nullcontext()
+            )
+            with guard:
+                self.check_current_liveness()
+                lease = self._active_lease() if self._active_lease is not None else nullcontext()
+                with lease:
+                    yield
+                if report is not None:
+                    report(process_pid=None, process_start_identity=None)
+                    self._active_started = True
+
+    def complete_invocation(self, permit):
+        if (
+            self.invocation is None
+            or permit.issuer.controller is not self.invocation.native.issuer.controller
+        ):
+            raise AccessDenied("Invocation completion uses another host controller")
+        self._control({"op": "complete", "call_id": permit.binding.call_id})
 
     def write(self, text):
         self._deadline()
         self.boundary()
         self.verify_identity()
-        self._control({"op": "write", "data": text})
+        if self.invocation is not None and self._active_invocation is None:
+            # Host initialization protocol is permitted, model submission is not.
+            for frame in NativeInput.frames(text):
+                data = strict_json(frame)
+                if data.get("type") == "user" or data.get("method") == "turn/start":
+                    raise AccessDenied("Model submission requires its own invocation")
+        try:
+            frames = [strict_json(frame) for frame in NativeInput.frames(text)]
+            model_frames = [
+                frame.get("type") == "user" or frame.get("method") == "turn/start"
+                for frame in frames
+            ]
+            if len(set(model_frames)) > 1:
+                raise AccessDenied("Model and control frames need separate exact submissions")
+            self._model_frame = bool(model_frames and model_frames[0])
+            self.native_input.send(
+                text,
+                boundary=self._input_boundary,
+                invocation_deadline=self._active_invocation.binding.deadline
+                if self._active_invocation is not None
+                else None,
+            )
+        except BaseException as error:
+            if getattr(error, "native_input_uncertain", False):
+                error.owned_stop_evidence = self.stop()
+            raise
+        finally:
+            self._model_frame = False
 
     def end_input(self):
-        self._control({"op": "eof"})
+        self.native_input.close()
 
     def read(self, timeout=0.2):
         self._deadline()
@@ -193,6 +359,8 @@ class HostProcess:
         if self.process.stdin is not None and not self.process.stdin.closed:
             self.process.stdin.close()
         if result.confirmed:
+            if self.native_input is not None:
+                self.native_input.close()
             self._closed = True
             try:
                 if self.native_exit is not None:

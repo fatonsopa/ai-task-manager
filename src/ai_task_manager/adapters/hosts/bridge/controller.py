@@ -24,6 +24,7 @@ from .codex_auth import CodexAuthProbe
 from .codex_configuration import CodexConfigurationObserver
 from .codex_home import AclAuditPort
 from .gateway import SCHEMAS, ManagedToolGateway, tool_schema
+from .invocations import InitializationInvocation, require_invocation
 from .policy import NativeProfile, codex_command
 from .records import ManagedProcesses
 from .startup import HostStartupReceipts, StartupObserver
@@ -127,7 +128,10 @@ class ManagedNativeHost:
             self._flush_source_observations()
             permit = self.permits.authorize_initialization(self.policy, self.binding)
             try:
-                reference = self._initialize()
+                if not isinstance(permit, InitializationInvocation):
+                    raise AccessDenied("Native initialization needs registered typed invocations")
+                require_invocation(permit.native, self.policy, self.binding, "host")
+                reference = self._initialize(permit)
             except BaseException as error:
                 self.permits.record_initialization(
                     permit,
@@ -141,7 +145,7 @@ class ManagedNativeHost:
             )
             return reference
 
-    def _initialize(self):
+    def _initialize(self, invocation):
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=False)
         options = None
         if self.binding.host == "claude":
@@ -171,6 +175,7 @@ class ManagedNativeHost:
             deadline=self.binding.deadline,
             clock=self.journal.clock,
             boundary=native_boundary,
+            invocation=invocation,
         )
         self.process_registry.attach(self.binding.attempt_id, self.process)
         transcript = OwnedTranscript(self.process, self.journal, self.binding)
@@ -201,12 +206,19 @@ class ManagedNativeHost:
             if self.startup.ready_ref is None:
                 # This fixed task-free turn is separately accounted before sending.
                 # No task prose, resources or effects are available to the model.
-                neutral = self.permits.authorize_neutral_start(self.policy, self.binding)
+                neutral = require_invocation(
+                    self.permits.authorize_neutral_start(self.policy, self.binding),
+                    self.policy,
+                    self.binding,
+                    "neutral",
+                )
                 try:
-                    result = self.portal.call(
-                        self.session.turn,
-                        "Initialize this managed session. Do not use tools. Reply READY.",
-                    )
+                    guard = self.startup.model_guard.prepare_effect(initialization=True)
+                    with self.process.use_invocation(neutral, guard):
+                        result = self.portal.call(
+                            self.session.turn,
+                            "Initialize this managed session. Do not use tools. Reply READY.",
+                        )
                 except BaseException:
                     self.permits.record_neutral_start(
                         neutral,
@@ -242,6 +254,7 @@ class ManagedNativeHost:
             commands=self.commands,
             process_registry=self.process_registry,
             model_guard=self.startup.model_guard,
+            invocation_source=self.current_invocation,
         )
         gateway.admit()
         self.gateway.delegate = gateway
@@ -267,10 +280,21 @@ class ManagedNativeHost:
                 raise AccessDenied("Native host process was not created")
             return self.process.verify_identity()
 
-    def effect_boundary(self):
-        return self.startup.model_guard.effect_boundary()
+    def current_invocation(self):
+        permit = self.process._active_invocation
+        if permit is None or not self.process._active_started:
+            raise AccessDenied("Managed work requires an active accounted model invocation")
+        return permit.running()
 
-    def execute_model_turn(self, text):
+    @contextmanager
+    def effect_boundary(self):
+        permit = self.current_invocation()
+        guard = self.startup.model_guard.prepare_effect()
+        with permit.effect_boundary():
+            with self.startup.model_guard.current_boundary(guard):
+                yield
+
+    def execute_model_turn(self, text, *, invocation=None):
         with self._source_audit_boundary(before=True):
             if not self._turn_lock.acquire(blocking=False):
                 raise AccessDenied("An owned native model turn is already active")
@@ -279,11 +303,21 @@ class ManagedNativeHost:
                     raise AccessDenied("Assigned model work requires a current admitted lease")
                 self.gateway.delegate.check()
                 self._flush_source_observations()
-                if self.binding.host == "claude":
-                    return self.portal.call(self.session.turn, text)
-                return self.session.turn(text)
+                permit = require_invocation(invocation, self.policy, self.binding, "assignment")
+                guard = self.startup.model_guard.prepare_effect()
+                with self.process.use_invocation(
+                    permit, guard, self.gateway.delegate.lease_boundary
+                ):
+                    if self.binding.host == "claude":
+                        return self.portal.call(self.session.turn, text)
+                    return self.session.turn(text)
             finally:
                 self._turn_lock.release()
+
+    def invocation_completed(self, permit):
+        # Trusted accounting must have recorded completion before the watchdog
+        # accepts this reset to the immutable host deadline.
+        self.process.complete_invocation(permit)
 
     def stop(self):
         with self._source_audit_boundary(before=False):

@@ -53,10 +53,12 @@ class PreparedStartup:
         ):
             raise AccessDenied("Prepared startup no longer has its exact live owner")
         self.process.check_current_liveness()
-        self.guard.check_current()
-        try:
-            self.policy.check_admission_metadata(self.policy_metadata)
-        except AccessDenied:
-            self.guard.configuration_changed(None, record=False)
-            raise
+        with self.guard.startup_current_boundary():
+            try:
+                self.policy.check_admission_metadata(self.policy_metadata)
+            except AccessDenied:
+                # Reentrant under the same nonblocking observation. Never wait
+                # for this lock again while Core is held, or write its journal.
+                self.guard.configuration_changed(None, record=False)
+                raise
         return self.observed
