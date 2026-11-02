@@ -6,7 +6,7 @@ Source baseline: `c05f40200703e7b8f379a8477502dabd594ba79c` on `origin/dev-mirro
 
 The machine-readable inventory maps 298 rows: 54 interpreted contracts, 23 issue-command surfaces, 39 sync dispatcher commands, 31 transition rows, 49 active hooks, 95 tracked caller files and 7 state stores. It also catalogs 487 pinned source files. Static references and file hashes identify scope; they are not semantic approval of every branch.
 
-Each row in [the inventory](legacy-inventory.json) names its source/hash, responsibility, new owner, disposition, imported state, fencing action and proposed checks. [Compatibility fixtures](../../tests/fixtures/legacy-contracts.json) retain the complete command, hook and rule identifiers with targeted oracles. Runtime settings outside Git, active processes and installed timer overrides remain explicit cutover prerequisites.
+Each row in [the inventory](../../config/migration/legacy-inventory.json) names its source/hash, responsibility, new owner, disposition, imported state, fencing action and proposed checks. [Compatibility fixtures](../../tests/fixtures/legacy-contracts.json) retain the complete command, hook and rule identifiers with targeted oracles. Runtime settings outside Git, active processes and installed timer overrides remain explicit cutover prerequisites.
 
 ## Preserved command and resource boundaries
 

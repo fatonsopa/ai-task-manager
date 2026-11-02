@@ -1,6 +1,6 @@
 # AI task manager development
 
-Build the approved standalone task coordinator for Claude Code and Codex CLI. Keep the reusable core independent of application-specific scripts and host integrations. The maintained plans, specifications, acceptance cases and diagrams under docs/ are the source of truth. Read docs/readme.md and the task-relevant sections before work. Update docs/ when implementation decisions or evidence change; earlier workspace artifacts are historical. Operational records and credentials stay under ignored local storage.
+Build the approved standalone task coordinator for Claude Code and Codex CLI. Keep the reusable core independent of application-specific scripts and host integrations. The maintained plans, specifications and diagrams under docs/, configuration under config/ and acceptance inventory under tests/acceptance/ are the authoritative sources for their declared responsibilities. Read docs/readme.md and the task-relevant sections before work. Update docs/ when implementation decisions or evidence change; earlier workspace artifacts are historical. Operational records and credentials stay under ignored local storage.
 
 Use one tracked assignment per worker, a separate Git worktree and a separate disposable fixture database. The lead coordinates and reviews; assigned workers perform substantive implementation and investigation. Delegate only assignments registered by the lead. Workers must not spawn additional workers or write to another worker's scope.
 

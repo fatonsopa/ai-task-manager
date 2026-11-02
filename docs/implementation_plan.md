@@ -93,7 +93,7 @@ Inventory the current `task-management.md`, lead instructions, Linear policy row
 
 Create a migration table with one row per rule/caller: source location/hash; intended behavior; retain/change/retire decision; owning new module; preserved command surface; state to import; disabling/fencing action; tests and evidence. User-approved transition changes are intentional improvements. Record their difference from the baseline instead of silently treating old behavior as the new requirement. No unmapped row is allowed at cutover.
 
-Run separately tracked T34 in its normal dependency order before packaging: audit the whole current tree, actual imports and every consumer using current Skill Builder responsibility/domain guidance. Classify executable helpers, runtime configuration, test/evaluation definitions, generated records and documentation assets using the target ownership table in the High Level Document (HLD). Keep prose, editable/rendered diagrams and screenshots under `docs/`. Freeze exact old/new paths and regressions before moves/refactors; preserve a verified before-image and recovery manifest. Update all consumers, entry points, package/install checks and current links together. Do not move files merely by extension or create network services for folder naming; no broad structural implementation occurs in this documentation task.
+Implement T34 in its normal dependency order before packaging, using the responsibility map in the High Level Document (HLD) and `config/repository-layout.json`. Move each declared source and its consumers together, preserving before-image hashes, historical paths, command names and arguments. Keep prose, editable/rendered diagrams and screenshots under `docs/`; configuration, tools, acceptance oracles, published indexes and prototypes use their declared homes. Run `python3 tools/repository_layout.py`, the relocated handoff checker and focused ownership/consumer tests. Stop any model or helper bound to the old paths before integrating the relocation; the lead updates current private consumers at that boundary. Preserve the coherent commit and verified before-images for collision-checked recovery. Installed-package and whole-product acceptance remain later gates; folder separation does not require network services.
 
 Expand the authored acceptance manifest using the real policy's complete pair/cause matrix, workflow branches and legacy contract inventory. Specify actual fixtures, negative controls, fault seams and oracles. Review tests before execution and freeze cases/criteria before tuning. A genuine new requirement creates a versioned objective; do not weaken expected results after a failure.
 
@@ -204,7 +204,7 @@ For a failed case, preserve the attempt and diagnose its cause. Continue in fini
 
 ## Requirement coverage
 
-Implementation ownership remains grouped below; the Test Plan (TP) and versioned `config/acceptance-cases.json` own detailed verification/evidence requirements. The work graph in `config/work-items.json` retains all phase/task IDs and dependencies. Component observations do not silently complete those exit gates.
+Implementation ownership remains grouped below; the Test Plan (TP) and versioned `tests/acceptance/cases.json` own detailed verification/evidence requirements. The work graph in `config/work-items.json` retains all phase/task IDs and dependencies. Component observations do not silently complete those exit gates.
 
 | Requirements | Implementation area |
 | --- | --- |

@@ -46,7 +46,7 @@ Keep private credentials, raw application snapshots and operational evidence out
 | Tool and adapters | Enforce trusted capabilities, durable state, actual observations, sole-writer synchronization, safe supervision and scoped presentation. An adapter translates external systems; it does not invent policy or human decisions. |
 | Build and release review | Assess the required evidence against frozen criteria and exact artifacts. Keep implementation, component checks and installed/live acceptance distinct; record remaining failures and blocked cells truthfully. |
 
-The Test Plan (TP), [test_plan.md](test_plan.md), owns assessment methods and exit criteria; exact cases remain in `config/acceptance-cases.json`. The Test Status Report (TSR), [test_status_report.md](test_status_report.md), records current observations. A policy or plan is not a passing result.
+The Test Plan (TP), [test_plan.md](test_plan.md), owns assessment methods and exit criteria; exact cases remain in `tests/acceptance/cases.json`. The Test Status Report (TSR), [test_status_report.md](test_status_report.md), records current observations. A policy or plan is not a passing result.
 
 ## Exceptions
 

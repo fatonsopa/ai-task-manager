@@ -8,7 +8,7 @@ The approved coordinator requires one task-state authority, task-owned resources
 
 Three located integration conflicts require focused changes to its dependencies: legacy callbacks can write Linear independently, database sweeps can remove resources outside the copied repository, and a blocking merge has no coordinator authority boundary at its eventual Git effect. Preserve `scripts/merge-to-dev.sh` as the default route and regression baseline. Adapt these boundaries rather than reproduce the merge algorithm.
 
-The governing requirements are R08 revision 3, R09, R14, R28, R31, R32 and R34 in the [requirements registry](../config/requirements.json), together with the [protected merge behavior](../spec_driven_development.md#protected-merge-and-command-behavior). The [Test Specification (TS)](test_specification.md) defines the proposed frozen checks. No merge, application database, provider write or new implementation has run under this assignment.
+The governing requirements are R08 revision 3, R09, R14, R28, R31, R32 and R34 in the [requirements registry](../../config/requirements.json), together with the [protected merge behavior](../spec_driven_development.md#protected-merge-and-command-behavior). The [Test Specification (TS)](test_specification.md) defines the proposed frozen checks. No merge, application database, provider write or new implementation has run under this assignment.
 
 ## Source and evidence boundary
 

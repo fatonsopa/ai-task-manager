@@ -20,3 +20,8 @@ build/
 *.egg-info/
 
 .DS_Store
+
+# Reviewed public evidence index; other generated build records remain ignored.
+!config/build/
+config/build/*
+!config/build/evidence-index.json

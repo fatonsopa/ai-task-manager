@@ -248,7 +248,7 @@
       "codex-cli"
     ],
     "behavior_platform": "macos",
-    "profiles": "Use every exact required profile from execution-policy.json#/acceptance/required_profiles; keep complete results separate and reject substitution.",
+    "profiles": "Use every exact required profile from ../../config/execution-policy.json#/acceptance/required_profiles; keep complete results separate and reject substitution.",
     "critical_repeat_cases": [
       "B01",
       "B03",
@@ -268,7 +268,7 @@
     ],
     "live_linear_platform": "macos",
     "behavior_runs_through_live_tst_when_applicable": true,
-    "required_profiles_source": "execution-policy.json#/acceptance/required_profiles"
+    "required_profiles_source": "../../config/execution-policy.json#/acceptance/required_profiles"
   },
   "cases": [
     {

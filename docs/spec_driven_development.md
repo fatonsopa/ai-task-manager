@@ -478,4 +478,4 @@ Existing sessions are not silently activated. Required implementation work and m
 
 ## Related design and work
 
-See [the High Level Document (HLD)](high_level_document.md) for component boundaries and runtime design, [the Implementation Plan (IP)](implementation_plan.md) for delivery gates, [the focused Spec Driven Development document (SDD)](terminal/spec_driven_development.md) for the approved sidebar, [contract lessons](migration/current-contracts.md) for preserved behavior and [acceptance cases](config/acceptance-cases.json) for exact scenario inventories. The maintained docs directory is the source of truth.
+See [the High Level Document (HLD)](high_level_document.md) for component boundaries and runtime design, [the Implementation Plan (IP)](implementation_plan.md) for delivery gates, [the focused Spec Driven Development document (SDD)](terminal/spec_driven_development.md) for the approved sidebar, [contract lessons](migration/current-contracts.md) for preserved behavior and [acceptance cases](../tests/acceptance/cases.json) for exact scenario inventories. The maintained docs directory is the source of truth.

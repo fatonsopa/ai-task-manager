@@ -45,6 +45,6 @@ The application checkout and normal sessions remain unchanged; no code has been 
 
 ## Sources
 
-The Test Plan (TP), [test_plan.md](test_plan.md), owns exit criteria; the Implementation Plan (IP), [implementation_plan.md](implementation_plan.md), owns delivery order. The Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), owns behavior. See [component evidence](HANDOFF-CHECKS.json) and the [execution policy](config/execution-policy.json).
+The Test Plan (TP), [test_plan.md](test_plan.md), owns exit criteria; the Implementation Plan (IP), [implementation_plan.md](implementation_plan.md), owns delivery order. The Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), owns behavior. See [component evidence](../config/build/evidence-index.json) and the [execution policy](../config/execution-policy.json).
 
 Private run 20261101T155648Z retains exact source/checkpoint hashes, raw results, process observations, prior periods, failures, writing receipts and accounting. Each result belongs to its actual candidate and scope.
