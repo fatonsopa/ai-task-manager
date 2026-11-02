@@ -125,11 +125,23 @@ def test_malformed_plan_is_not_repaired(tmp_path, mutation):
 
 
 def test_concurrent_result_writes(tmp_path):
+    import time
+
+    from ai_task_manager.application.merge_checks.read_retries import ReadRetryPolicy, RetryingReads
+
     db, p = store(tmp_path), plan()
+
+    class Parent:
+        deadline = time.monotonic() + 5
+
+        def remaining_seconds(self):
+            return self.deadline - time.monotonic()
+
+    reads = RetryingReads(db, ReadRetryPolicy(50, 1, 0.005), Parent())
 
     def write(number):
         ref = db.create(replace(p, attempt=str(number)), str(number))
-        own = db.read(ref, SCOPE)["plan"]
+        own = reads.read(ref, SCOPE, after_wait=lambda: None)["plan"]
         db.begin(ref, SCOPE, "checks a", 0, ("a",), {})
         db.finish(ref, SCOPE, "checks a", 1, execution(own))
         return ref
@@ -137,18 +149,50 @@ def test_concurrent_result_writes(tmp_path):
     with ThreadPoolExecutor(max_workers=4) as pool:
         refs = list(pool.map(write, range(4)))
     assert len(set(refs)) == 4
-    assert all(db.read(ref, SCOPE)["outcome"] == "passed" for ref in refs)
-    assert len(db.proofs(p, p.units[0])) == 4
+    assert all(
+        reads.read(ref, SCOPE, after_wait=lambda: None)["outcome"] == "passed" for ref in refs
+    )
+    assert len(reads.proofs(p, p.units[0], after_wait=lambda: None)) == 4
 
 
-def test_read_does_not_change_history(tmp_path):
+def test_read_preserves_history_after_writer_release_v2(tmp_path):
+    # Version 1 immediate-read success is explicitly superseded by read_contract_v2.json.
+    import time
+    from threading import Event
+
+    from ai_task_manager.application.merge_checks.read_retries import ReadRetryPolicy, RetryingReads
+
     db, p = store(tmp_path), plan()
     ref = db.create(p, "key")
     before = db.read(ref, SCOPE)
-    with db._transaction() as connection:
-        connection.execute("UPDATE check_meta SET version=version")
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            assert pool.submit(db.read, ref, SCOPE).result(timeout=2) == before
+    locked, release = Event(), Event()
+
+    def writer():
+        with db._transaction() as connection:
+            connection.execute("UPDATE check_meta SET version=version")
+            locked.set()
+            assert release.wait(timeout=1)
+
+    class Parent:
+        deadline = time.monotonic() + 1
+
+        def remaining_seconds(self):
+            return self.deadline - time.monotonic()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(writer)
+        assert locked.wait(timeout=1)
+
+        def wait(seconds):
+            release.set()
+            future.result(timeout=1)
+
+        reader = RetryingReads(db, ReadRetryPolicy(3, 0.5, 0.01), Parent(), sleep=wait)
+        try:
+            assert reader.read(ref, SCOPE, after_wait=lambda: None) == before
+        finally:
+            release.set()
+        future.result(timeout=1)
     assert db.read(ref, SCOPE) == before
 
 

@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "decision": "Lead check-store-read-contention-decision-v1 selects stronger DELETE-journal connection validation and finite read backpressure",
+  "old_oracle": {
+    "path": "tests/checks/test_storage.py",
+    "symbol": "test_read_does_not_change_history",
+    "git_source": "f621fa14865acc5ab4e11ab0f4a349880482e9bc",
+    "module_sha256": "fac1b3d45e5fc2d0e135177a1acbafc94a2e9aefa79ac57d33b266316804d0fd",
+    "function_sha256": "641a37fa7b909d33976b582f61e2b40c96d3fcaad6fb822f5dd4b3cc77976564",
+    "disposition": "superseded explicitly;not unchanged preservation or pass;exactbytes retained in read_under_writer_v1.txt;actual39/40 failure retained in phase3",
+    "prior_failure_junit_sha256": "952da97559ffa536e726628574c997dcc4ab0ea1c76a957597c3e663d060807f"
+  },
+  "new_oracles": {
+    "RC01": "A zeroeffect read may be busy under writer;configured finite retry outside transactions succeeds after release,history/UUID unchanged",
+    "RC02": "Finiteattempt/elapsed/parentbound exhaustion raises typedretryableinfra,no dispatch/effect;default doesnot auto retry",
+    "RC03": "Only read/proofs methods wrapped;no writes/commit/executor automatic retries",
+    "RC04": "Source/config/authority changes after wait refuse before any new effect",
+    "RC05": "Late read/proof contention after committed physical result preserves result and doesnot repeat executor",
+    "RC06": "Original two sameUUID copiedconnection and postyieldreplacement refusals remain effective",
+    "RC07": "Trustedpolicy malformed/unboundedtypes fail;parentdeadline cannot be extended by operation arguments",
+    "RC08": "Original immediate read success whilewriterheld no longer normative;newversion reports supersession explicitly"
+  },
+  "owned_paths": [
+    "src/ai_task_manager/application/merge_checks/read_retries.py",
+    "src/ai_task_manager/application/merge_checks/service.py",
+    "tests/checks/test_read_retries.py",
+    "tests/checks/test_storage.py",
+    "tests/checks/frozen/read_under_writer_v1.txt",
+    "tests/checks/frozen/read_contract_v2.json"
+  ],
+  "bounds": "actual tests <=90s;fixturePythonchildren<=5s;ownSQLite/thread only;no externalprovider/model/network/Docker",
+  "source_head": "2c53d85afa7ac0aa8608b5e9827e8dee3d37f30f"
+}

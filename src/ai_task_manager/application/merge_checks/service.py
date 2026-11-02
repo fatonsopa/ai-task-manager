@@ -8,6 +8,8 @@ from ai_task_manager.domains.checks.reuse import eligible
 from ai_task_manager.domains.checks.selection import select
 from ai_task_manager.domains.work.errors import StaleVersion, ValidationError
 
+from .read_retries import CheckReads
+
 
 class SourceGuard(Protocol):
     def verify(self, plan: Plan) -> None:
@@ -29,12 +31,23 @@ class BaselineReader(Protocol):
 
 class MergeChecks:
     def __init__(
-        self, store, source_guard: SourceGuard, executor: Executor, *, catalogs, baselines=None
+        self,
+        store,
+        source_guard: SourceGuard,
+        executor: Executor,
+        *,
+        catalogs,
+        baselines=None,
+        reads=None,
     ):
         self.store, self.source_guard, self.executor = store, source_guard, executor
         self.baselines, self.catalogs = baselines, catalogs
+        self.reads = reads or CheckReads(store)
+        if self.reads.store is not store:
+            raise ValidationError("Read consumer must use the same enrolled result store")
 
     def _verify(self, plan):
+        self.reads.ensure_parent()
         self.catalogs.verify(plan)
         self.source_guard.verify(plan)
 
@@ -46,12 +59,14 @@ class MergeChecks:
         return self.store.create(plan, key)
 
     def run(self, ref, scope):
-        snapshot = self.store.read(ref, scope)
+        snapshot = self.reads.read(
+            ref, scope, after_wait=lambda: self.catalogs.for_project(scope.project)
+        )
         plan = snapshot["plan"]
         self._verify(plan)
         parents = dict(plan.prerequisites)
         for group in plan.groups:
-            snapshot = self.store.read(ref, scope)
+            snapshot = self.reads.read(ref, scope, after_wait=lambda: self._verify(plan))
             row = snapshot["groups"][group.key]
             if row["state"] != "pending":
                 # An unresolved intent is observable uncertainty, never permission to rerun.
@@ -74,11 +89,19 @@ class MergeChecks:
             carried = {}
             for unit in units:
                 proof = next(
-                    (p for p in self.store.proofs(plan, unit) if eligible(plan, unit, p)), None
+                    (
+                        p
+                        for p in self.reads.proofs(
+                            plan, unit, after_wait=lambda: self._verify(plan)
+                        )
+                        if eligible(plan, unit, p)
+                    ),
+                    None,
                 )
                 if proof is not None:
                     carried[unit.name] = proof
             dispatched = tuple(u.name for u in units if u.name not in carried)
+            self._verify(plan)
             try:
                 version = self.store.begin(
                     ref, scope, group.key, row["version"], dispatched, carried
@@ -86,9 +109,11 @@ class MergeChecks:
             except StaleVersion:
                 continue
             if not dispatched:
+                self._verify(plan)
                 self.store.finish(ref, scope, group.key, version)
                 continue
             try:
+                self._verify(plan)
                 execution = self.executor.execute(plan, group.key, dispatched)
             except Exception as error:
                 self.store.finish(ref, scope, group.key, version, error=type(error).__name__)
@@ -111,4 +136,4 @@ class MergeChecks:
                 self.store.finish(ref, scope, group.key, version, execution, baseline=baseline)
             except ValidationError as error:
                 self.store.finish(ref, scope, group.key, version, error=type(error).__name__)
-        return self.store.read(ref, scope)
+        return self.reads.read(ref, scope, after_wait=lambda: self._verify(plan))
