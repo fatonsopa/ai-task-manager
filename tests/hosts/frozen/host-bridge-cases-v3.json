@@ -1,0 +1,58 @@
+{
+  "version": 3,
+  "extends": "host-bridge-cases-v2.json",
+  "preserves_all_prior_cases": true,
+  "reason": "Lead-approved short Core transaction boundary and credential-free confined command backend; frozen before the added container cases execute.",
+  "cases": [
+    {
+      "id": "HB-L06a",
+      "expected": "Independent hold committed first prevents a filesystem effect; separate process effect lock first delays hold then later effects refuse.",
+      "status": "existing scoped mechanical evidence retained"
+    },
+    {
+      "id": "HB-D01",
+      "expected": "Exact existing image ID, pull never, network none, read-only root, no capabilities, no-new-privileges and finite CPU/memory/PIDs are positively inspected."
+    },
+    {
+      "id": "HB-D02",
+      "expected": "Only owned credential-free worktree and fixture database are mounted read-only; editable code/tests run in size-limited tmpfs snapshots with no home, keys, authority state or Docker socket."
+    },
+    {
+      "id": "HB-D03",
+      "expected": "A worker edit is verified by an actual registered isolated Python test; original fixture database and host worktree remain intact after command execution."
+    },
+    {
+      "id": "HB-D04",
+      "expected": "Output beyond the finite limit fails and terminates the exact owned container while retaining a bounded output prefix."
+    },
+    {
+      "id": "HB-D05",
+      "expected": "Workspace or database snapshot exhaustion and per-file limits fail within declared memory/disk bounds; host inputs remain intact."
+    },
+    {
+      "id": "HB-D06",
+      "expected": "Original deadline, hold/revocation and controller disconnect stop a TERM-resistant descendant; uncertainty retains capacity."
+    },
+    {
+      "id": "HB-D07",
+      "expected": "A foreign container with a similar name or different label is never stopped or removed; missing/unknown inspection is not confirmed absence."
+    },
+    {
+      "id": "HB-D08",
+      "expected": "Only complete owned CLI-group and exact container-stop/removal observations establish cleanup; crash intent is reconciled without rerun."
+    }
+  ],
+  "limits": {
+    "concurrent_containers": 1,
+    "memory_mib": 128,
+    "cpus": 0.5,
+    "pids": 32,
+    "workspace_tmpfs_mib": 16,
+    "database_tmpfs_mib": 8,
+    "temporary_tmpfs_mib": 4,
+    "maximum_output_bytes": 262144,
+    "maximum_file_bytes": 4194304,
+    "maximum_fixture_seconds": 8
+  },
+  "claims": "Mechanical local Linux-container evidence only; no application stack, provider, model or multi-OS native sandbox acceptance."
+}

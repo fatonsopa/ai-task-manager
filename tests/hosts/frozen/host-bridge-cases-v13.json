@@ -1,0 +1,70 @@
+{
+  "version": 13,
+  "extends": "host-bridge-cases-v12.json",
+  "preserves_all_prior_cases": true,
+  "reason": "The completed component pilot failed its frozen model-stability gate: the initial model and refusal fallback were hidden by replacing the ready receipt. Preserve that failure and freeze exact mechanical objectives before repair.",
+  "original_failed_behavioral_objective": {
+    "id": "CLAUDE-COMPONENT-MODEL-STABILITY-1",
+    "used": 1,
+    "admitted_packet_maximum": 1,
+    "remaining": 0,
+    "review": ".local/host-bridge-live/claude-component-v1/lead-result-review.json",
+    "no_retry_or_profile_change_admitted": true
+  },
+  "mechanical_round_limit": 5,
+  "warning_before_round": 4,
+  "new_tests_execution_status": "not_run",
+  "cases": [
+    {
+      "id": "HB-S13",
+      "test": "tests/hosts/test_model_stability.py::test_refusal_fallback_during_neutral_poisoning_refuses_startup",
+      "expected": "Replay the observed native refusal-fallback shape during initialization. Refuse immediately, preserve the initial startup model, invalidate earlier startup refs and grant no task work. This is recorded-frame replay, not fresh model evidence."
+    },
+    {
+      "id": "HB-S14",
+      "test": "tests/hosts/test_model_stability.py::test_changed_repeated_init_cannot_replace_original_ready_receipt",
+      "expected": "A later init with another model cannot overwrite the first model or ready receipt. The attempt stays poisoned even if a later frame returns to the original model."
+    },
+    {
+      "id": "HB-S15",
+      "test": "tests/hosts/test_model_stability.py::test_identical_repeated_init_preserves_receipt_and_original_expiry",
+      "expected": "The same session/model init may replay idempotently; it cannot create a fresh startup identity or extend the original receipt lifetime."
+    },
+    {
+      "id": "HB-S16",
+      "test": "tests/hosts/test_model_stability.py::test_assigned_model_change_is_rejected_before_tool_dispatch",
+      "expected": "A different or unknown assistant model is rejected by the owned transcript observer before its managed tool request can publish a file or spawn a command."
+    },
+    {
+      "id": "HB-S17",
+      "test": "tests/hosts/test_model_stability.py::test_queued_effect_after_model_fence_cannot_publish",
+      "expected": "A queued previously valid tool request cannot publish after the model fence is observed. The same guard is checked at the bounded local effect boundary."
+    },
+    {
+      "id": "HB-S18",
+      "test": "tests/hosts/test_model_stability.py::test_restart_cannot_erase_an_observed_fallback_fence",
+      "expected": "A new observer or verifier resolves the complete signed owned history; replacing the in-memory observer or choosing the last startup receipt cannot erase the fallback."
+    },
+    {
+      "id": "HB-H13",
+      "test": "tests/hosts/test_model_stability.py::test_explicit_model_is_bound_to_policy_digest_and_sdk_argv",
+      "expected": "The trusted configured Claude model is explicit in NativePolicy, the configuration digest and SDK argv. SDK options cannot silently request another model or a fallback model. No model is selected by this mechanical case."
+    },
+    {
+      "id": "HB-H14",
+      "test": "tests/hosts/test_model_stability.py::test_missing_claude_model_profile_refuses_before_core_reservation",
+      "expected": "A production factory without an explicitly configured Claude model refuses before reserving a task or creating a process. Caller prose and a final observed fallback model are not configuration authority."
+    },
+    {
+      "id": "HB-S19",
+      "test": "tests/hosts/test_model_stability.py::test_same_model_text_about_fallback_is_not_a_native_fallback_event",
+      "expected": "Ordinary assistant content discussing fallback does not create a native event; inspect the actual outer native frame and model metadata."
+    },
+    {
+      "id": "HB-L19",
+      "test": "tests/hosts/test_model_stability.py::test_model_fence_and_short_publication_have_a_serialized_order",
+      "expected": "Fence-first denies publication. A bounded short effect that acquired its model/Core boundary first may finish; later effects refuse. Never wrap a model call, command wait, provider operation or full merge in that lock or database transaction."
+    }
+  ],
+  "scope": "Mechanical replay, local process/Core and SDK-argv controls only. Original live pilot failure remains failed. No further account/model invocation or new model profile is authorized."
+}

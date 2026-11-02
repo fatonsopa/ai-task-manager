@@ -83,6 +83,7 @@ class RuntimeProofs:
             "model_worker_ready",
             {
                 "host_observation": asdict(observed),
+                "host_source_expires_at": observed.expires_at,
                 "harness_observation": observation_id,
                 "worker_id": owner["worker_id"],
                 "model_execution": "not_established",
@@ -138,7 +139,10 @@ class RuntimeProofs:
             "subject": attempt_id,
             "source": fact["id"],
             "source_digest": digest(fact),
-            "expires_at": min(owner["deadline"], self.journal.clock() + 60),
+            "expires_at": min(
+                owner["deadline"], self.journal.clock() + 60,
+                fact.get("host_source_expires_at", owner["deadline"]),
+            ),
             "payload": {
                 "task_id": owner["task_id"],
                 "host": owner["host"],
