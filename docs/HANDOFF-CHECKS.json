@@ -54,15 +54,15 @@
     },
     "implementation_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "b01a1db3b7067a94722b2ed62f1c9d004d4b2b81b445cdf168be4a122c2b9683",
+      "sha256": "32a122f5c4214ac979a21c65c9aa6e4c777a83dcfc67c7ade1388abebb7ee550",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "62c6a24ca7aa6e621e608159296ec743bc62246310f29df10ad92b6829b1b612",
+      "objective_sha256": "51f047fd3d52889f5585dc654aa19836ac53e1961730d76ec593103a8d96714f",
       "message_sha256": "cd3f2318f5f7fd71de94b7c23a445f084d337b423a56873deebca5080d3b04ae",
-      "scope": "User-directed asset placement and normal T34 order; one paragraph only"
+      "scope": "Approved full merge refactor, history/performance audit, migration cleanup, human decisions, dynamic delegation and standing tests; excerpt only."
     },
     "test_plan.md": {
       "checked_delivery": "delivered",
@@ -1078,6 +1078,21 @@
           "current_continuation": "DEPENDENCY-SCHEDULING-2; tests and fixture setup pending"
         }
       }
+    }
+  ],
+  "document_history": [
+    {
+      "path": "implementation_plan.md",
+      "checked_delivery": "delivered",
+      "sha256": "b01a1db3b7067a94722b2ed62f1c9d004d4b2b81b445cdf168be4a122c2b9683",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "objective_sha256": "62c6a24ca7aa6e621e608159296ec743bc62246310f29df10ad92b6829b1b612",
+      "message_sha256": "cd3f2318f5f7fd71de94b7c23a445f084d337b423a56873deebca5080d3b04ae",
+      "scope": "User-directed asset placement and normal T34 order; one paragraph only"
     }
   ]
 }

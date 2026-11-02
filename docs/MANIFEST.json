@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "2248307b0f4dfd8e4a72e2ca9fed820674c3871f5539a68a77e14c35228aada6"
+      "sha256": "aa7dedff8cbad8b2b764536d949ebfb4e170e339b570c128831bd06bfa16fbec"
     },
     {
       "path": "assets/diagrams/architecture.mmd",
@@ -128,7 +128,7 @@
     },
     {
       "path": "implementation_plan.md",
-      "sha256": "b01a1db3b7067a94722b2ed62f1c9d004d4b2b81b445cdf168be4a122c2b9683"
+      "sha256": "32a122f5c4214ac979a21c65c9aa6e4c777a83dcfc67c7ade1388abebb7ee550"
     },
     {
       "path": "merge/decision_record.md",
