@@ -1,5 +1,6 @@
 """Source-bound local HTTP tests, never live provider or fresh model evidence."""
 
+import json
 import os
 import threading
 import time
@@ -218,7 +219,7 @@ def test_a11_committed_create_replay_and_alias_do_not_duplicate_http(adapter):
     admin, _, ledger, provider, *_ = ready(adapter)
     before = len(provider.requests)
     admin.create_project("project")
-    with pytest.raises(DriverRefused, match="candidate_already_reserved"):
+    with pytest.raises(DriverRefused, match="resource_budget_exhausted"):
         admin.create_project("alias")
     assert len(provider.requests) == before and len(provider.projects) == 1
 
@@ -567,6 +568,7 @@ def test_a18_a41_uncertain_enable_recovers_after_ordinary_and_endpoint_expiry(ad
     )
     now[0] = ledger.limits.deadline - ledger.limits.cleanup_seconds
     endpoint.observed = replace(endpoint.observed, expires_at=now[0] - 1)
+    graphql.refresh_if_needed(action_key="enable")
     before = len(provider.requests)
     with pytest.raises(DriverRefused, match="context"):
         graphql.request("webhook_marker", {"id": str(uuid4())}, action_key="enable")
@@ -587,10 +589,13 @@ def test_a18_a41_uncertain_enable_recovers_after_ordinary_and_endpoint_expiry(ad
 
 def test_a04_actual_http_response_size_bound_refuses_before_mutation(adapter):
     _, graphql, ledger, provider, *_ = adapter
+    request_bytes = len(json.dumps({"query": SHAPE, "variables": {}}, ensure_ascii=False).encode())
+    response_limit = request_bytes + 128
+    assert request_bytes < response_limit
     graphql.client.transport = HttpTransport(
-        timeout=2, max_response_bytes=256, _test_endpoint=provider.endpoint
+        timeout=2, max_response_bytes=response_limit, _test_endpoint=provider.endpoint
     )
-    provider.fail_next = (200, b"x" * 257)
+    provider.fail_next = (200, b"x" * (response_limit + 1))
     with pytest.raises(LinearError, match="response_too_large"):
         graphql.preflight()
     assert len(ledger.summary()["requests"]) == 1 and not provider.projects
