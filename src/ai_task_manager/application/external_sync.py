@@ -8,7 +8,7 @@ from ai_task_manager.domains.work.errors import EvidenceRequired, InvalidTransit
 from ai_task_manager.domains.work.models import DELIVERED, AttemptState, Evidence, SyncState
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.domains.work.transitions import check_transition
-from ai_task_manager.storage import attempts, sessions, work
+from ai_task_manager.storage import attempts, issue_claims, sessions, work
 from ai_task_manager.storage.database import encode
 
 from .intake import Intake
@@ -50,6 +50,15 @@ class ExternalSynchronization:
             ):
                 raise EvidenceRequired("Remote observation lacks bound issue, revision or status")
             revision, digest = data["source_revision"], work.fingerprint(data)
+            if data["status"] in DELIVERED or data["status"] in {S.CANCELED, S.DUPLICATE}:
+                issue_claims.fence(
+                    conn,
+                    scope,
+                    task.issue_id,
+                    delivered=data["status"] in DELIVERED,
+                    terminal=data["status"] in {S.CANCELED, S.DUPLICATE},
+                    source=observation_ref,
+                )
             old = conn.execute(
                 "SELECT * FROM external_observations WHERE task_id=? "
                 "ORDER BY source_revision DESC,rowid DESC LIMIT 1",
@@ -117,6 +126,7 @@ class ExternalSynchronization:
                 replace(
                     task,
                     human_hold=True,
+                    delivered_once=task.delivered_once or data["status"] in DELIVERED,
                     sync_state=SyncState.UNCERTAIN,
                     decision_revision=task.decision_revision + int(human),
                     decision_ref=observation_ref,
@@ -188,7 +198,7 @@ class ExternalSynchronization:
                 row is None
                 or row["state"] != "pending"
                 or task.decision_ref != row["proof_ref"]
-                or task.delivered_once
+                or issue_claims.known_delivered(conn, scope, task)
                 or attempts.active(conn, task.id) is not None
             ):
                 raise EvidenceRequired(
@@ -320,7 +330,8 @@ class ExternalSynchronization:
                     observed_status=target,
                     sync_state=SyncState.CONFIRMED,
                     human_hold=(target == S.ON_HOLD or data.get("assigned_to_owner") is not True),
-                    queued_once=task.queued_once or target == S.TODO,
+                    queued_once=task.queued_once
+                    or (target == S.TODO and not issue_claims.imported(conn, task.id)),
                     delivered_once=task.delivered_once or target in DELIVERED,
                     execution_state=AttemptState.PAUSED
                     if active and facts.quiescent

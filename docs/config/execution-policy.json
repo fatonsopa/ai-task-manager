@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "product": "ai-task-manager",
   "cli": "aitm",
   "status": "implementation_in_progress; acceptance evidence tracked separately",
@@ -14,16 +14,25 @@
     "copyright_holder": "Manaferra Inc."
   },
   "limits": {
-    "max_elapsed_seconds": 172800,
-    "max_incremental_spend_usd": 100,
+    "max_elapsed_seconds": null,
+    "max_incremental_spend_usd": null,
     "user_fixed_worker_cap": null,
     "initial_worker_cap": 2,
     "resolved_worker_cap_must_be_finite": true,
-    "stop_admission_before_deadline_seconds": 1800,
+    "stop_admission_before_deadline_seconds": null,
     "paid_call_requires_cost_reservation": true,
     "unknown_paid_cost_action": "block_paid_call",
-    "retry_rounds_per_frozen_case": 5,
-    "unattended_budget_extension_authorized": false
+    "retry_rounds_per_frozen_case": null,
+    "unattended_budget_extension_authorized": false,
+    "max_total_retry_rounds": null,
+    "per_invocation_timeout_required": true,
+    "reviewed_finite_batch_required": true,
+    "continuation_requires_evidence_and_checkpoint": true,
+    "legacy_defaults_without_superseding_authorization": {
+      "max_elapsed_seconds": 172800,
+      "max_incremental_spend_usd": 100,
+      "stop_admission_before_deadline_seconds": 1800
+    }
   },
   "acceptance": {
     "required_hosts": [
@@ -33,7 +42,37 @@
     "primary_platform": "macos",
     "linux_scope": "real Linux-container portability and CLI smoke tests; native Linux services are not claimed",
     "missing_required_evidence_blocks_release": true,
-    "normal_session_activation_requires_final_review": true
+    "normal_session_activation_requires_final_review": true,
+    "minimum_models_per_host": 2,
+    "excluded_model_family": "Fable",
+    "required_profiles": [
+      {
+        "host": "claude-code",
+        "model": "claude-opus-5-5",
+        "reasoning_effort": "high",
+        "execution_status": "not_run"
+      },
+      {
+        "host": "claude-code",
+        "model": "claude-sonnet-5-5",
+        "reasoning_effort": "high",
+        "execution_status": "not_run"
+      },
+      {
+        "host": "codex-cli",
+        "model": "gpt-6.1-sol",
+        "reasoning_effort": "high",
+        "execution_status": "not_run"
+      },
+      {
+        "host": "codex-cli",
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "execution_status": "not_run"
+      }
+    ],
+    "each_required_profile_needs_complete_separate_evidence": true,
+    "model_matrix_authorization_sha256": "0e849204e9cfda6fc74755e2aae0834315e0adc88874a52358c1bdde03b028d8"
   },
   "permissions": {
     "local_implementation": true,
@@ -110,10 +149,22 @@
   "integration": {
     "cutover": "single project-wide clean cutover; no parallel live writers",
     "merge_script": "scripts/merge-to-dev.sh",
-    "merge_script_changes_allowed": false,
+    "merge_script_changes_allowed": true,
     "compatibility_entrypoints": "preserve existing commands and argument flow; route solely to new core after cutover",
     "task_management_document": ".claude/standards/task-management.md",
-    "migrate_all_required_legacy_contracts_before_activation": true
+    "migrate_all_required_legacy_contracts_before_activation": true,
+    "merge_refactor_gate": {
+      "authorization": "conditional_user_direction_2026-11-01",
+      "latest_source_audit_required": true,
+      "demonstrated_incompatibility_required": true,
+      "regression_cases_frozen_before_changes": true,
+      "commands_and_intent_preserved": true,
+      "disposable_copy_verification_required": true,
+      "clean_cutover_and_recovery_required": true,
+      "production_or_normal_session_activation_authorized": false,
+      "audit_status": "pending",
+      "default_route": "preserved foreground project workflow; no replacement justified solely by a missing new adapter"
+    }
   },
   "user_decisions": [
     {
@@ -122,7 +173,8 @@
     },
     {
       "id": "D02",
-      "decision": "USD 100 total incremental spending; 48 hours elapsed; choose workers within measured capacity."
+      "decision": "USD 100 total incremental spending; 48 hours elapsed; choose workers within measured capacity.",
+      "superseded_by": "D-LIMITS-2"
     },
     {
       "id": "D03",
@@ -203,6 +255,18 @@
     {
       "id": "D22",
       "decision": "Every task prose write/update goes through Technical Writer with the appropriate reference and Writing Style."
+    },
+    {
+      "id": "D-MERGE-AUDIT",
+      "decision": "Audit the latest merge workflow. If it prevents approved coordinator goals, refactor it into the new system with preserved command intent, regression evidence and tested migration. Existing working behavior remains the baseline until that need is demonstrated."
+    },
+    {
+      "id": "D-LIMITS-2",
+      "decision": "The user lifted all previous overall spending, elapsed-time and retry ceilings. Preserve the original run/accounting, every failed or closed attempt and finite execution controls; no run reset."
+    },
+    {
+      "id": "D-MODELS-1",
+      "decision": "Use at least two models on each CLI and exclude Fable; the selected required profiles are recorded under acceptance.required_profiles, each with separate actual evidence."
     }
   ],
   "active_host_profiles": {
@@ -233,15 +297,23 @@
   "canonical_docs": "docs/",
   "application_baseline": {
     "ref": "origin/dev-mirror",
-    "commit": "c05f40200703e7b8f379a8477502dabd594ba79c",
+    "commit": "873155ac73f486912e4e9fe6e3daa719388e0665",
     "older_checkout_commit": "15992e2be8b2fe47d4646f92e62c90888a332619",
-    "ahead_of_checkout": 72
+    "ahead_of_checkout": 86,
+    "previous_commit": "24d05ac23420b0bb2b062430ff4e9b9c78727b81",
+    "compatibility_audit": "latest delta located; merge compatibility audit pending"
   },
   "skill_version_policy": {
     "use_current_snapshots": true,
     "audit_affected_work_when_user_announces_update": true,
     "preserve_version_bound_evidence": true,
-    "source_skill_changes_authorized": false
+    "source_skill_changes_authorized": false,
+    "read_current_sources_directly_on_update": true,
+    "approved_capture": "20261101T202854Z",
+    "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+    "skill_builder_snapshot": "cb26e81105888ef9581192f5047f9cfa7075230cacb472842bd5ed74b2fe5992",
+    "skill_builder_source_commit": "7351966a7eff4f8ab51bbe47dc9e2cf99c9f5498",
+    "latest_builder_capture": "20261101T221921Z"
   },
   "task_writing": {
     "required_skill": "technical-writer",
@@ -273,5 +345,49 @@
     "active_attempts": "pinned version until safe checkpoint",
     "policy_or_permission_expansion": "requires explicit decision"
   },
-  "specification_revision": 2
+  "specification_revision": 3,
+  "document_precedence": {
+    "approved_product_plan_over_legacy_instructions": true,
+    "implementation_must_satisfy_approved_plan": true,
+    "protected_command_and_merge_contracts_preserved": true,
+    "role_document_rewrite_requires_agreed_proposal": true
+  },
+  "limits_authorization": {
+    "id": "USER-UNTIL-PROVEN-20261101T230813Z",
+    "origin": "Actual user message reported by the lead in the native chat",
+    "cryptographic_origin_proof": false,
+    "record_sha256": "26031e25d7dc3fc4f91f52f7023ed9ae1c6534ce72e227bf562157b379fd9c68",
+    "instruction": "All earlier overall spending, elapsed-time and retry ceilings are lifted until the whole approved plan is proven across the required CLI/model profiles.",
+    "retained": "Finite measured concurrency, reviewed finite batches, per-invocation deadlines and charge reservations; scope, account and production restrictions remain."
+  },
+  "revision_history": [
+    {
+      "revision": 4,
+      "changed": "limits and required model profiles",
+      "previous_limits": {
+        "max_elapsed_seconds": 172800,
+        "max_incremental_spend_usd": 100,
+        "user_fixed_worker_cap": null,
+        "initial_worker_cap": 2,
+        "resolved_worker_cap_must_be_finite": true,
+        "stop_admission_before_deadline_seconds": 1800,
+        "paid_call_requires_cost_reservation": true,
+        "unknown_paid_cost_action": "block_paid_call",
+        "retry_rounds_per_frozen_case": 5,
+        "unattended_budget_extension_authorized": false
+      },
+      "reason": "Actual later native-user instructions lift earlier overall ceilings and select at least two non-Fable models per CLI. This does not grant a new account, paid infrastructure, normal-session activation or production effects.",
+      "prior_results_reinterpreted": false
+    }
+  ],
+  "build_control_migration": {
+    "status": "candidate_verified_original_migration_pending_lead_review",
+    "schema_before": 1,
+    "schema_after": 2,
+    "original_run_identity_and_accounting_retained": true,
+    "requires_fresh_backup_state_binding_and_exact_candidate_review": true,
+    "old_writer_schema_refusal_required": true,
+    "unresolved_launch_intents_block_migration": true,
+    "postcommit_restore_of_stale_backup_forbidden": true
+  }
 }

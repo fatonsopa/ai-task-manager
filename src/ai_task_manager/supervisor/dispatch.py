@@ -31,6 +31,7 @@ class WorkerSupervisor:
         operation_key,
         deadline,
         base="HEAD",
+        source_readbacks=None,
     ):
         if (
             isinstance(deadline, bool)
@@ -39,6 +40,18 @@ class WorkerSupervisor:
             or deadline <= self.journal.clock()
         ):
             raise RuntimeRefused("A future finite deadline is required before reservation")
+        reserve_source = (
+            source_readbacks(
+                phase="reserve",
+                task_id=task_id,
+                expected_version=expected_version,
+                decision_revision=decision_revision,
+                attempt_id=None,
+                operation_key=f"{operation_key}:reserve",
+            )
+            if source_readbacks is not None
+            else None
+        )
         attempt = self.core.execution.reserve(
             handle,
             task_id,
@@ -47,6 +60,7 @@ class WorkerSupervisor:
             decision_revision,
             decision_ref,
             f"{operation_key}:reserve",
+            **({"readback_ref": reserve_source} if source_readbacks is not None else {}),
         )
         _, scope = self.core.session_binding(handle)
         self.journal.claim(attempt, asdict(scope), deadline=deadline)
@@ -56,6 +70,18 @@ class WorkerSupervisor:
             worker = self.runtime.launch_waiting(attempt.id)
             task = self.core.get_task(handle, task_id)
             startup = self.proofs.startup(scope, attempt.id, worker.observation_id)
+            start_source = (
+                source_readbacks(
+                    phase="start",
+                    task_id=task_id,
+                    expected_version=task.version,
+                    decision_revision=task.decision_revision,
+                    attempt_id=attempt.id,
+                    operation_key=f"{operation_key}:start",
+                )
+                if source_readbacks is not None
+                else None
+            )
             self.core.execution.start(
                 handle,
                 attempt.id,
@@ -64,6 +90,7 @@ class WorkerSupervisor:
                 startup,
                 decision_ref,
                 f"{operation_key}:start",
+                **({"readback_ref": start_source} if source_readbacks is not None else {}),
             )
             return Dispatch(attempt.id, pair, worker)
         except BaseException as error:

@@ -31,11 +31,11 @@
     },
     {
       "id": "R08",
-      "text": "Preserve the merge script bytes, arguments, checks, foreground flow, result meanings and database lifecycle."
+      "text": "Preserve merge command names, arguments, checks, foreground flow, result meanings and owned database lifecycle. Retain the latest pinned script bytes as the regression baseline. Refactor the workflow into the new system only where a source-grounded compatibility audit demonstrates that the current implementation prevents approved coordinator goals; freeze regression cases before changes and verify migration."
     },
     {
       "id": "R09",
-      "text": "Code normally follows In Progress → In Dev → In Staging → Done with verified delivery evidence. In Review may exit directly to any configured status with destination-specific evidence. No work starts on delivered issues."
+      "text": "Code normally follows In Progress \u2192 In Dev \u2192 In Staging \u2192 Done with verified delivery evidence. In Review may exit directly to any configured status with destination-specific evidence. No work starts on delivered issues."
     },
     {
       "id": "R10",
@@ -79,7 +79,7 @@
     },
     {
       "id": "R20",
-      "text": "The build stops within 48 elapsed hours and USD 100 total incremental spending, including parallel work and judges."
+      "text": "The authorized build has no total spending, elapsed-time or retry ceiling under the recorded later user instruction. Preserve original run identity, accounting and failures; enforce finite measured capacity, reviewed batches, per-invocation deadlines and bounded charge reservations."
     },
     {
       "id": "R21",
@@ -87,7 +87,7 @@
     },
     {
       "id": "R22",
-      "text": "Results are bound to artifact hashes and declared host/model/effort/OS profiles; failed attempts are retained."
+      "text": "Acceptance requires at least two selected non-Fable models on each actual installed CLI, with separate source/host/model/effort/OS result cells. Retain every failed attempt and reject substitutions or mixed-profile aggregation."
     },
     {
       "id": "R23",
@@ -111,7 +111,7 @@
     },
     {
       "id": "R28",
-      "text": "Inventory and migrate every legacy caller/writer and task-management rule before one clean project-wide cutover."
+      "text": "Inventory and migrate every legacy caller/writer and task-management rule before one clean project-wide cutover. Deliver docs/migrate.md with tested commands for an inventory-bound script that removes obsolete files before installing replacements and verifies recovery."
     },
     {
       "id": "R29",
@@ -143,7 +143,7 @@
     },
     {
       "id": "R36",
-      "text": "The full user request → reviewed task prose → Linear Backlog → scoped CLI linkage → Todo → confirmed worker/In Progress → verified result → CLI/Linear settlement → lead AI acknowledgement → user report is observable and recoverable."
+      "text": "The full user request \u2192 reviewed task prose \u2192 Linear Backlog \u2192 scoped CLI linkage \u2192 Todo \u2192 confirmed worker/In Progress \u2192 verified result \u2192 CLI/Linear settlement \u2192 lead AI acknowledgement \u2192 user report is observable and recoverable."
     },
     {
       "id": "R37",
@@ -152,6 +152,36 @@
     {
       "id": "R38",
       "text": "Every new or updated task prose uses Technical Writer, the appropriate issue-type reference and Writing Style; exact content/version approval precedes publication; skill updates trigger scoped audits and retained evidence."
+    }
+  ],
+  "requirements_revision": 4,
+  "revision_history": [
+    {
+      "revision": 3,
+      "requirement": "R08",
+      "reason": "User conditionally authorized a latest-source merge compatibility audit and necessary refactor; prior absolute byte preservation becomes the default baseline with this explicit exception. Command intent and safe behavior remain protected.",
+      "previous_text": "Preserve the merge script bytes, arguments, checks, foreground flow, result meanings and database lifecycle.",
+      "implementation_status": "audit_pending; no merge script change performed",
+      "prior_results_reinterpreted": false
+    },
+    {
+      "revision": 4,
+      "requirements": [
+        "R20",
+        "R22"
+      ],
+      "reason": "Actual user instructions lifted overall ceilings and required at least two non-Fable models per CLI; finite invocation controls and all prior failures remain.",
+      "previous_requirements": [
+        {
+          "id": "R20",
+          "text": "The build stops within 48 elapsed hours and USD 100 total incremental spending, including parallel work and judges."
+        },
+        {
+          "id": "R22",
+          "text": "Results are bound to artifact hashes and declared host/model/effort/OS profiles; failed attempts are retained."
+        }
+      ],
+      "prior_results_reinterpreted": false
     }
   ]
 }

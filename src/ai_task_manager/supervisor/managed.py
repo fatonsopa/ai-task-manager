@@ -66,12 +66,25 @@ class ManagedWorkers:
         decision_revision,
         decision_ref,
         operation_key,
+        source_readbacks=None,
     ):
         if host not in {"claude", "codex"} or self.journal.clock() >= self.deadline:
             raise AccessDenied("Unsupported host or original managed deadline expired")
         # The factory must positively verify installed restrictions and a current,
         # reviewed launch-accounting plan before any reservation or native effect.
         self.hosts.check_admission(host)
+        reserve_source = (
+            source_readbacks(
+                phase="reserve",
+                task_id=task_id,
+                expected_version=expected_version,
+                decision_revision=decision_revision,
+                attempt_id=None,
+                operation_key=operation_key + ":reserve",
+            )
+            if source_readbacks is not None
+            else None
+        )
         attempt = self.core.execution.reserve(
             handle,
             task_id,
@@ -80,6 +93,7 @@ class ManagedWorkers:
             decision_revision,
             decision_ref,
             operation_key + ":reserve",
+            **({"readback_ref": reserve_source} if source_readbacks is not None else {}),
         )
         sid, scope = self.core.session_binding(handle)
         # Failure here means an existing intent, not permission to abort its other owner.
@@ -110,6 +124,18 @@ class ManagedWorkers:
                 scope, attempt.id, waiting.observation_id, host_ready_ref=ready_ref
             )
             task = self.core.get_task(handle, task_id)
+            start_source = (
+                source_readbacks(
+                    phase="start",
+                    task_id=task_id,
+                    expected_version=task.version,
+                    decision_revision=task.decision_revision,
+                    attempt_id=attempt.id,
+                    operation_key=operation_key + ":start",
+                )
+                if source_readbacks is not None
+                else None
+            )
             self.core.execution.start(
                 handle,
                 attempt.id,
@@ -118,6 +144,7 @@ class ManagedWorkers:
                 startup,
                 decision_ref,
                 operation_key + ":start",
+                **({"readback_ref": start_source} if source_readbacks is not None else {}),
             )
             self.provider.confirm_pending(handle, task_id)
             native.verify_active()

@@ -1,0 +1,220 @@
+<div id="session-task-management-preview">
+  <div class="tm" data-layout="inline" aria-label="Compact session task management"></div>
+</div>
+<style>
+#session-task-management-preview .tm {
+  --tm-bg: light-dark(#fbfcfd, #10141a);
+  --tm-side: light-dark(#f2f4f7, #171d26);
+  --tm-chrome: light-dark(#e9edf2, #202733);
+  --tm-line: light-dark(#d2d9e2, #343f4e);
+  --tm-text: light-dark(#202a36, #e0e7ef);
+  --tm-muted: light-dark(#596779, #a3b0c2);
+  --tm-blue: light-dark(#165caa, #85baff);
+  --tm-green: light-dark(#1a7045, #7bdaa5);
+  --tm-amber: light-dark(#855708, #ecc878);
+  --tm-purple: light-dark(#6949a6, #c8b2f0);
+  --tm-selected: light-dark(#e1ebf8, #24354c);
+  --tm-red: light-dark(#a03237, #f1959b);
+  color: var(--tm-text); background: var(--tm-bg);
+  border: 1px solid var(--tm-line); border-radius: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; line-height: 1.6; overflow: hidden;
+  height: 550px; min-height: 0; display: flex; flex-direction: column;
+  --tm-sidebar: 36%; --tm-row-gap: 6px;
+}
+#session-task-management-preview .tm * { box-sizing: border-box; }
+#session-task-management-preview .tm button, #session-task-management-preview .tm input { font: inherit; color: inherit; }
+#session-task-management-preview .tm button { cursor: pointer; }
+#session-task-management-preview .tm button:focus-visible, #session-task-management-preview .tm input:focus-visible { outline: 2px solid var(--tm-blue); outline-offset: -2px; }
+#session-task-management-preview .tm-chrome { display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: var(--tm-chrome); border-bottom: 1px solid var(--tm-line); }
+#session-task-management-preview .tm-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tm-muted); opacity: .65; }
+#session-task-management-preview .tm-window-title { margin-left: 8px; color: var(--tm-muted); }
+#session-task-management-preview .tm-preview-label { margin-left: auto; padding-right: 80px; color: var(--tm-muted); font-size: 11px; }
+#session-task-management-preview .tm-scope { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; padding: 12px 18px; border-bottom: 1px solid var(--tm-line); }
+#session-task-management-preview .tm-scope strong { font-weight: 500; }
+#session-task-management-preview .tm-muted { color: var(--tm-muted); }
+#session-task-management-preview .tm-green { color: var(--tm-green); }
+#session-task-management-preview .tm-blue { color: var(--tm-blue); }
+#session-task-management-preview .tm-amber { color: var(--tm-amber); }
+#session-task-management-preview .tm-purple { color: var(--tm-purple); }
+#session-task-management-preview .tm-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, var(--tm-sidebar)); flex: 1; min-height: 0; }
+#session-task-management-preview .tm-console { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; padding: 18px 20px; border-right: 1px solid var(--tm-line); gap: 14px; }
+#session-task-management-preview .tm-console > * { flex-shrink: 0; }
+#session-task-management-preview .tm[data-sidebar-open="false"] .tm-grid { grid-template-columns: minmax(0,1fr) 62px; }
+#session-task-management-preview .tm[data-sidebar-open="false"] .tm-sidebar { padding: 15px 6px; }
+#session-task-management-preview .tm-sidebar-toggle { background: transparent; border: 0; padding: 0; color: var(--tm-muted); }
+#session-task-management-preview .tm-console-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+#session-task-management-preview .tm-host { font-weight: 500; font-size: 14px; }
+#session-task-management-preview .tm-role { color: var(--tm-muted); }
+#session-task-management-preview .tm-message { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 9px; }
+#session-task-management-preview .tm-message p { margin: 0; overflow-wrap: anywhere; }
+#session-task-management-preview .tm-message p + p { margin-top: 9px; }
+#session-task-management-preview .tm-event { color: var(--tm-muted); padding-left: 25px; display: grid; gap: 7px; }
+#session-task-management-preview .tm-divider { border: 0; border-top: 1px solid var(--tm-line); margin: 0; }
+#session-task-management-preview .tm-console-spacer { flex: 1; min-height: 12px; }
+#session-task-management-preview .tm-prompt { display: flex; gap: 9px; align-items: center; border-top: 1px solid var(--tm-line); padding-top: 13px; }
+#session-task-management-preview .tm-prompt input { width: 100%; min-width: 0; background: transparent; border: 0; padding: 6px 0; }
+#session-task-management-preview .tm-prompt input::placeholder { color: var(--tm-muted); opacity: 1; }
+#session-task-management-preview .tm-console-foot { color: var(--tm-muted); font-size: 11px; }
+#session-task-management-preview .tm-sidebar { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--tm-line) transparent; background: var(--tm-side); padding: 15px 12px 12px; }
+#session-task-management-preview .tm-groups { flex: 0 0 auto; overflow: visible; padding-right: 4px; }
+#session-task-management-preview .tm-sidebar-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 5px 12px; flex-shrink: 0; position: sticky; top: 0; z-index: 1; background: var(--tm-side); padding-bottom: 5px; }
+#session-task-management-preview .tm-sidebar-head h2 { font: inherit; font-size: 14px; font-weight: 500; margin: 0; }
+#session-task-management-preview .tm-session-caption { color: var(--tm-muted); font-size: 11px; margin-top: 4px; }
+#session-task-management-preview .tm-sync { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 0 13px; margin-bottom: 2px; border-bottom: 1px solid var(--tm-line); color: var(--tm-muted); font-size: 11px; }
+#session-task-management-preview .tm-group { margin-top: 15px; }
+#session-task-management-preview .tm-group-toggle { display: flex; align-items: center; width: 100%; gap: 7px; padding: 3px 2px 6px; border: 0; border-bottom: 1px solid var(--tm-line); background: transparent; text-align: left; font-weight: 500; }
+#session-task-management-preview .tm-group-items { margin-left: 6px; padding-left: 7px; border-left: 1px solid var(--tm-line); }
+#session-task-management-preview .tm-group-count { margin-left: auto; color: var(--tm-muted); }
+#session-task-management-preview .tm-task-button { display: grid; grid-template-columns: 13px minmax(0,1fr) 10px; gap: 5px; align-items: start; width: 100%; background: transparent; border: 0; padding: var(--tm-row-gap) 5px; text-align: left; }
+#session-task-management-preview .tm-task-line { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+#session-task-management-preview .tm-task-button[aria-expanded="true"], #session-task-management-preview .tm-task-button[aria-pressed="true"] { background: var(--tm-selected); }
+#session-task-management-preview .tm-task-id { color: var(--tm-muted); font-size: 11px; flex: 0 0 auto; }
+#session-task-management-preview .tm-task-title { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#session-task-management-preview .tm-task-meta { display: block; font-size: 11px; color: var(--tm-muted); margin-top: 3px; }
+#session-task-management-preview .tm-chevron { color: var(--tm-muted); }
+#session-task-management-preview .tm-detail { padding: 0 9px 10px 6px; overflow-wrap: anywhere; font-size: 11px; }
+#session-task-management-preview .tm-detail p { margin: 7px 0 9px; }
+#session-task-management-preview .tm-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden; white-space: pre-wrap; }
+#session-task-management-preview .tm-description[data-expanded="true"] { display: block; -webkit-line-clamp: unset; overflow: visible; }
+#session-task-management-preview .tm-description-toggle { display: block; border: 0; background: transparent; padding: 0; color: var(--tm-blue); margin: 0 0 9px; }
+#session-task-management-preview .tm-detail dl { display: grid; grid-template-columns: 67px minmax(0, 1fr); gap: 5px 8px; margin: 0; font-size: 11px; }
+#session-task-management-preview .tm-detail dt { color: var(--tm-muted); }
+#session-task-management-preview .tm-detail dd { margin: 0; }
+#session-task-management-preview .tm-detail-note { color: var(--tm-muted); }
+#session-task-management-preview .tm-activity { display: flex; align-items: baseline; gap: 6px; margin: 0 0 7px; }
+#session-task-management-preview .tm-blocker { color: var(--tm-amber); background: transparent; border: 0; border-bottom: 1px dotted currentColor; padding: 0; text-align: left; }
+#session-task-management-preview .tm-inspector { border-top: 1px solid var(--tm-line); margin-top: 18px; padding-top: 12px; }
+#session-task-management-preview .tm-inspector .tm-detail { padding-left: 2px; }
+#session-task-management-preview .tm-inspector-heading { font-weight: 500; }
+#session-task-management-preview .tm-keybar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px 16px; padding: 9px 16px; color: var(--tm-muted); background: var(--tm-chrome); border-top: 1px solid var(--tm-line); font-size: 11px; }
+#session-task-management-preview .tm[data-density="compact"] { --tm-row-gap: 4px; }
+#session-task-management-preview .tm[data-layout="inspector"] { --tm-row-gap: 7px; }
+#session-task-management-preview .tm [hidden] { display: none !important; }
+@media (max-width: 500px) {
+  #session-task-management-preview .tm { height: auto; }
+  #session-task-management-preview .tm-grid { grid-template-columns: minmax(0,1fr); }
+  #session-task-management-preview .tm-console { height: 440px; border-right: 0; border-bottom: 1px solid var(--tm-line); padding: 18px 16px; gap: 16px; }
+  #session-task-management-preview .tm-console-spacer { display: none; }
+  #session-task-management-preview .tm-preview-label { padding-right: 0; }
+  #session-task-management-preview .tm-sidebar { height: 440px; padding: 16px; }
+}
+</style>
+<script>
+(() => {
+  const root = document.getElementById('session-task-management-preview');
+  const tasks = [
+    { id:'TST-241', title:'Fix delayed Linear updates', status:'In Progress', symbol:'◼', color:'blue', meta:'Worker 01 · running', description:'Apply issue changes as they happen and keep this session’s task list consistent with Linear.', worker:'Worker 01 is working', delivery:'Work in progress', sync:'Confirmed in Linear' },
+    { id:'TST-242', title:'Prevent duplicate worker starts', status:'In Progress', symbol:'◼', color:'blue', activity:'Merging', activityIcon:'⇄', activityColor:'purple', description:'Keep one active worker per task, including when a start response is lost or repeated.', worker:'Worker 02 is merging into dev', delivery:'Merge in progress', sync:'Confirmed in Linear' },
+    { id:'TST-243', title:'Show blocked tasks in the sidebar', status:'Todo', symbol:'○', color:'blue', activity:'Blocked', activityIcon:'⊘', activityColor:'amber', blocker:'TST-241', description:'Show queued work and its dependencies without leaving the coordinator.\n\nTasks belong to this terminal session and its connected Linear account. Group them by their current status and show the number of tasks in each group.\n\nKeep collapsed rows compact: show only the task ID and title. Open a row to read its description and the task that is preventing it from starting.\n\nA dependency can change while the sidebar is open. Update the task’s readiness from confirmed state, and leave the queued task without a worker until its dependency is satisfied.\n\nSupport mouse and keyboard navigation. Preserve the selected task and group expansion when the sidebar is hidden and shown again.\n\nFor long descriptions, show the first five lines and let the user expand the remaining text.', worker:'Not started', delivery:'Queued; dependency unmet', sync:'Todo confirmed in Linear' },
+    { id:'TST-244', title:'Add keyboard navigation', status:'Todo', symbol:'○', color:'blue', meta:'Ready · next in queue', description:'Navigate tasks with the arrow keys and expand their descriptions with Enter. Keep mouse support as well.', worker:'Not started', delivery:'Queued; ready to start', sync:'Todo confirmed in Linear' },
+    { id:'TST-245', title:'Keep task lists scoped to this session', status:'In Dev', symbol:'◆', color:'purple', meta:'Merged to dev · awaiting staging', description:'Show only work linked to this terminal session and its Linear account, even when another session uses the same project.', worker:'Finished and verified', delivery:'In Dev; not released', sync:'In Dev confirmed in Linear' },
+    { id:'TST-246', title:'Document task status rules', status:'Done', symbol:'✔', color:'green', meta:'Verified documentation', description:'Document the allowed status transitions and their evidence requirements. This is verified non-code work.', worker:'Finished and verified', delivery:'Done · non-code completion', sync:'Done confirmed in Linear' }
+  ];
+  const options = { sidebarWidth:36, density:'Compact', showDone:true, host:'Claude Code', sidebarOpen:true };
+  const local = { inline:{selected:'TST-243',closed:['Done'],expandedDescriptions:[]}, inspector:{selected:'TST-243',closed:['Done'],expandedDescriptions:[]} };
+  const saved = window.openai?.widgetState;
+  const restored = saved?.privateContent || saved;
+  function restore(value) {
+    if(value?.schema_version!==2)return;
+    if (value?.options) {
+      if(Number.isFinite(value.options.sidebarWidth)&&value.options.sidebarWidth>=30&&value.options.sidebarWidth<=48)options.sidebarWidth=value.options.sidebarWidth;
+      if(['Comfortable','Compact'].includes(value.options.density))options.density=value.options.density;
+      if(['Claude Code','Codex CLI'].includes(value.options.host))options.host=value.options.host;
+      ['showDone','sidebarOpen'].forEach(k=>{if(typeof value.options[k]==='boolean')options[k]=value.options[k];});
+    }
+    if(value?.local) ['inline','inspector'].forEach(k=>{
+      const v=value.local[k];if(!v)return;
+      if(v.selected===null||tasks.some(t=>t.id===v.selected))local[k].selected=v.selected;
+      if(Array.isArray(v.closed))local[k].closed=v.closed.filter(x=>['In Progress','Todo','In Dev','Done'].includes(x));
+      if(Array.isArray(v.expandedDescriptions))local[k].expandedDescriptions=v.expandedDescriptions.filter(x=>tasks.some(t=>t.id===x));
+    });
+  }
+  restore(restored);
+  const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function remember(layout) {
+    if (window.openai?.setWidgetState) window.openai.setWidgetState({modelContent:{mockup:'Session task management',layout:'Compact inline details',sidebarWidth:options.sidebarWidth,density:options.density,sidebarOpen:options.sidebarOpen,selectedTask:local[layout].selected},privateContent:{schema_version:2,options,local}}).catch(()=>{});
+  }
+  function details(t,layout) {
+    const expanded=local[layout].expandedDescriptions.includes(t.id);
+    const descriptionId=`tm-description-${layout}-${t.id}`;
+    const activity=t.activity&&t.activity!==t.status?`<div class="tm-activity"><span class="tm-${t.activityColor}" aria-hidden="true">${t.activityIcon}</span><span>${esc(t.activity)}</span></div>`:'';
+    return `<div class="tm-detail"><p class="tm-description" id="${descriptionId}" data-description="${t.id}" data-expanded="${expanded}">${esc(t.description)}</p><button type="button" class="tm-description-toggle" data-more="${t.id}" aria-expanded="${expanded}" aria-controls="${descriptionId}" hidden>${expanded?'[show less]':'[show more]'}</button>${activity}${t.blocker?`<button class="tm-blocker" type="button" data-blocker="${t.blocker}">Depends on ${t.blocker} ↗</button>`:''}</div>`;
+  }
+  function updateDescriptionControls(panel) {
+    panel.querySelectorAll('[data-description]').forEach(description=>{
+      const button=panel.querySelector(`[data-more="${description.dataset.description}"]`);
+      button.hidden=description.dataset.expanded!=='true'&&description.scrollHeight<=description.clientHeight+1;
+    });
+  }
+  function render(panel) {
+    const layout=panel.dataset.layout, state=local[layout];
+    const selected=tasks.find(t=>t.id===state.selected);
+    panel.style.setProperty('--tm-sidebar',`${options.sidebarWidth}%`);
+    panel.dataset.density=options.density.toLowerCase();
+    panel.dataset.sidebarOpen=String(options.sidebarOpen);
+    const groups=['In Progress','Todo','In Dev',...(options.showDone?['Done']:[])].map(status=>{
+      const rows=tasks.filter(t=>t.status===status), first=rows[0], closed=state.closed.includes(status);
+      return `<section class="tm-group" aria-label="${status}: ${rows.length} tasks"><button type="button" class="tm-group-toggle" data-group="${status}" aria-expanded="${!closed}"><span class="tm-chevron" aria-hidden="true">${closed?'▸':'▾'}</span><span class="tm-${first.color}">${first.symbol}</span><span>${status} (${rows.length})</span></button><div class="tm-group-items" ${closed?'hidden':''}>${rows.map(t=>{
+        const open=state.selected===t.id;
+        const activity=t.activity||t.status,icon=t.activityIcon||t.symbol,color=t.activityColor||t.color;
+        return `<article class="tm-task"><button type="button" class="tm-task-button" data-task="${t.id}" aria-label="${t.id}: ${esc(t.title)}${activity!==t.status?' — '+esc(activity):''}" ${layout==='inline'?`aria-expanded="${open}"`:`aria-pressed="${open}"`}><span class="tm-${color}" data-tooltip="${esc(activity)}" aria-hidden="true">${icon}</span><span class="tm-task-line"><span class="tm-task-id">${t.id}</span><span class="tm-task-title" data-tooltip="${esc(t.title)}">${esc(t.title)}</span></span><span class="tm-chevron" aria-hidden="true">${layout==='inline'?(open?'⌄':'›'):(open?'‹':'›')}</span></button>${layout==='inline'&&open?details(t,layout):''}</article>`;
+      }).join('')}</div></section>`;
+    }).join('');
+    panel.innerHTML=`<div class="tm-grid"><main class="tm-console"><div class="tm-console-title"><span class="tm-host">${esc(options.host)}</span><span class="tm-role">Lead engineer</span></div>
+      <div class="tm-message"><span class="tm-muted">❯</span><p>Fix delayed Linear updates and show blocked tasks in the sidebar.</p></div>
+      <div class="tm-message"><span class="tm-blue">●</span><p>Two workers are running. The sidebar task is queued until the synchronization fix is ready.</p></div>
+      <div class="tm-event"><span><span class="tm-blue">◼</span> TST-241 · worker 01 running</span><span><span class="tm-purple">⇄</span> TST-242 · merging into dev</span><span><span class="tm-amber">⊘</span> TST-243 · queued</span></div>
+      <hr class="tm-divider"><div class="tm-message"><span class="tm-blue">●</span><p>I’ll report each result after verification.</p></div>
+      <div class="tm-console-spacer"></div><div class="tm-prompt"><span class="tm-blue">❯</span><input aria-label="Coordinator prompt preview" placeholder="Ask the lead engineer…" autocomplete="off"></div></main>
+      <aside class="tm-sidebar" aria-label="Task sidebar"><div class="tm-sidebar-head">${options.sidebarOpen?'<h2>Session tasks</h2>':''}<button class="tm-sidebar-toggle" type="button" aria-label="${options.sidebarOpen?'Hide task sidebar':'Show task sidebar'}" aria-expanded="${options.sidebarOpen}" aria-controls="tm-sidebar-${layout}">${options.sidebarOpen?'[hide]':'[show]'}</button></div><div id="tm-sidebar-${layout}" class="tm-groups" ${options.sidebarOpen?'':'hidden'}>${groups}</div></aside></div>`;
+    panel.querySelector('.tm-sidebar-toggle').addEventListener('click',()=>{options.sidebarOpen=!options.sidebarOpen;render(panel);remember(layout);panel.querySelector('.tm-sidebar-toggle').focus({preventScroll:true});});
+    panel.querySelectorAll('[data-more]').forEach(button=>button.addEventListener('click',()=>{
+      const id=button.dataset.more;
+      state.expandedDescriptions=state.expandedDescriptions.includes(id)?state.expandedDescriptions.filter(x=>x!==id):[...state.expandedDescriptions,id];
+      render(panel);remember(layout);panel.querySelector(`[data-more="${id}"]`)?.focus({preventScroll:true});
+    }));
+    panel.querySelectorAll('[data-task]').forEach(button=>button.addEventListener('click',()=>{
+      const id=button.dataset.task;
+      state.selected=layout==='inline'&&state.selected===id?null:id;
+      render(panel); remember(layout);
+      panel.querySelector(`[data-task="${id}"]`)?.focus({preventScroll:true});
+    }));
+    panel.querySelectorAll('[data-group]').forEach(button=>button.addEventListener('click',()=>{
+      const key=button.dataset.group;
+      state.closed=state.closed.includes(key)?state.closed.filter(x=>x!==key):[...state.closed,key];
+      render(panel); remember(layout);
+      panel.querySelector(`[data-group="${key}"]`)?.focus({preventScroll:true});
+    }));
+    panel.querySelectorAll('[data-blocker]').forEach(button=>button.addEventListener('click',()=>{
+      state.selected=button.dataset.blocker; state.closed=state.closed.filter(x=>x!=='In Progress');
+      render(panel); remember(layout);
+      panel.querySelector(`[data-task="${state.selected}"]`)?.focus({preventScroll:true});
+    }));
+    panel.querySelector('.tm-groups').addEventListener('keydown',event=>{
+      if(!['ArrowDown','ArrowUp'].includes(event.key)) return;
+      const buttons=[...panel.querySelectorAll('[data-task]')].filter(x=>x.offsetParent!==null);
+      const i=buttons.indexOf(document.activeElement);
+      if(i<0)return;
+      event.preventDefault(); buttons[(i+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length]?.focus();
+    });
+    updateDescriptionControls(panel);
+  }
+  const panels=[...root.querySelectorAll('.tm')];
+  const renderAll=()=>panels.forEach(render);
+  renderAll();
+  if(globalThis.ResizeObserver)panels.forEach(panel=>new ResizeObserver(()=>updateDescriptionControls(panel)).observe(panel));
+  if(globalThis.Tweak) panels.forEach(panel=>{
+    const tweak=new Tweak({container:panel,onChange:()=>{renderAll();remember(panel.dataset.layout);}});
+    tweak.addSlider(options,'sidebarWidth',{label:'Sidebar width',min:30,max:48,step:1,unit:'%',reference:'sidebarWidth'});
+    tweak.addSelect(options,'density',{label:'Task spacing',options:['Comfortable','Compact'],reference:'density'});
+    tweak.addToggle(options,'showDone',{label:'Show completed group',reference:'showDone'});
+    tweak.addSelect(options,'host',{label:'CLI host',options:['Claude Code','Codex CLI'],reference:'host'});
+  });
+  window.addEventListener('openai:set_globals',event=>{
+    const value=event.detail?.globals?.widgetState, restored=value?.privateContent||value;
+    restore(restored);
+    renderAll();
+  });
+})();
+</script>

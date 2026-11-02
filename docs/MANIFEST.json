@@ -3,96 +3,112 @@
   "scope": "Maintained docs source integrity; excludes this manifest, OS metadata and bytecode caches.",
   "files": [
     {
-      "path": "ARCHITECTURE.md",
-      "sha256": "80d5862dd6bfac5f7396a4350202278c219a27be732c9ac95480e98929d53a80"
-    },
-    {
-      "path": "BUILD.md",
-      "sha256": "4a1c8d5bf56519c664daf008e5f336b9114311f2bebb47f70c4b10570be25cd5"
-    },
-    {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "f7a22501a660f3d2f9805248b933b1a1179ba0ba1d2810bdfda8bc70efe3a0d9"
-    },
-    {
-      "path": "START-HERE.md",
-      "sha256": "dae9f6970599b4b49addef9d23dcd3575dc4d8efafd4d727cf19255ee0638aad"
-    },
-    {
-      "path": "STATUS.md",
-      "sha256": "1fe3dd7e8f343d751128035c370bc686f0a21d4d2384757b1eb5cffaad17b49d"
-    },
-    {
-      "path": "WORKFLOW.md",
-      "sha256": "06546c25ab343fc85af6afa760399b0398e0244fedd0e91ae1d4130d22fdd6a3"
+      "sha256": "fba7c4b3ffd360cb26b8bbb575965732b1402f34714928938a27642039d83c11"
     },
     {
       "path": "assets/diagrams/architecture.mmd",
-      "sha256": "9ed1d8d127bfa741c1873f3cbef3905099141eddbf20a03135a5183b428be02f"
+      "sha256": "ddc38ec2fd985f40c363082687b6d6a155eb5323deaa995440bc41d5c6b98b0b"
     },
     {
       "path": "assets/diagrams/architecture.svg",
-      "sha256": "fea44fc6160acf3875dd7f89ec74290f1d8ee1a038c060e4bb0262a486d46c28"
+      "sha256": "686ec95d09cf62e914ecb39400614885f44c2b66ec435e9fff499e23df4de50e"
+    },
+    {
+      "path": "assets/diagrams/delivery-status.mmd",
+      "sha256": "93eabcb9313bd9f39de8e68aa6afe5128b8e006bce08e2dd5aafb879ebf2eaf7"
+    },
+    {
+      "path": "assets/diagrams/delivery-status.svg",
+      "sha256": "138d7268965adb9b0e6a7ae9660f869cbdc43d61a68df79f0f6521a5d1b67985"
     },
     {
       "path": "assets/diagrams/dispatch.mmd",
-      "sha256": "e6e9e77f636cc34bbfeb9b406d98595fcf10c2c592812bf8491df243b8665326"
+      "sha256": "2655d3874da85ea221e2a1421185c83022f97c0f058bc85b3164e9ed63a0c0f9"
     },
     {
       "path": "assets/diagrams/dispatch.svg",
-      "sha256": "eeb457aa67c12a028929c49911f3530c8d8f87e063e6637340bbc0631418fe55"
+      "sha256": "e386bc6fc8715103eab8e75a6f50d73dd4ada26abcf00ce5f95ab355fb7ecfeb"
     },
     {
       "path": "assets/diagrams/installation.mmd",
-      "sha256": "37762506ade6d0c00c92c1bff13f7feec7eb73505d022b6cdb61d8624b447c1a"
+      "sha256": "872556962481ec7c93f9f0b9a3dcd6a8360f6749084c1a451d735a4c56270559"
     },
     {
       "path": "assets/diagrams/installation.svg",
-      "sha256": "d2e07332d517963e0a4a86b1f7b2936ee50609786d972fc7e0c0c7ff90eb2473"
+      "sha256": "842ccc1975f0357e67d90cf8dbbdf50e6f5c966edaa7d669897905a42f8eb1c7"
+    },
+    {
+      "path": "assets/diagrams/issue-intake.mmd",
+      "sha256": "32d4230f85a2798dbb6f08ec3c40ea3e06d2ddafafebbc8e5aae73d0c920a1cd"
+    },
+    {
+      "path": "assets/diagrams/issue-intake.svg",
+      "sha256": "22d2ebffcd6f34bc33fd0360692620f0e1a4c5d362600d92cd5e19450b44e9a0"
     },
     {
       "path": "assets/diagrams/lifecycle.mmd",
-      "sha256": "3c0de4efb0dd57792c76ec1951aec4ceb5d25404f7cce0b0810b856aab57cf3d"
+      "sha256": "88eaa1061eb90b91e2b34107dfa90da941547aab40e97695fa12b117e07815d3"
     },
     {
       "path": "assets/diagrams/lifecycle.svg",
-      "sha256": "984b4f484278d9356e8aef1aa098a3fe9f07c1e22590b569e0159719fe5c7a04"
+      "sha256": "59900cb7da95ddd8eee0ba05a82c6f3e73417bd0df84194ef7e6f2e3f2c6fba2"
     },
     {
       "path": "assets/diagrams/realtime.mmd",
-      "sha256": "bf3a9deffba74c366432b928dbbd408c40f9b39c208861020dbd1ebddfc78ad6"
+      "sha256": "de670d28fa5e95e31a370a5b3934b209290ad9082619546272b90eb1d24037c9"
     },
     {
       "path": "assets/diagrams/realtime.svg",
-      "sha256": "effc5f64e85882de7848a9a481c2a321844b5e04f76b6abbbf5fc177eec93e7a"
+      "sha256": "721debc110ef59a57344cd181f4120630b2f8bc2c63187cb57f72097480d1deb"
     },
     {
       "path": "assets/diagrams/session-view.mmd",
-      "sha256": "ddc88894e06356e0d513e1a38ce0c91c3be237519a9294058f8dad290ef3acf9"
+      "sha256": "ee62b9c31b38107f3d855486c867c575f0fa3f3dce7a2d676c89817031f0e5aa"
     },
     {
       "path": "assets/diagrams/session-view.svg",
-      "sha256": "d8c4c04e80d99ab11b56f0d2b8d675898f1e5b8a9b8a375f90a0b836862a80ac"
+      "sha256": "0b92f5f00243f4e21939d4fb9bb1316e1845ec3c760484d24b9eb99e22ff4a11"
+    },
+    {
+      "path": "assets/diagrams/task-feedback.mmd",
+      "sha256": "7a533b5f97378ebfc3aaf9f28cb6a6a54c570248d6fa33aa24ac893e0c4750da"
+    },
+    {
+      "path": "assets/diagrams/task-feedback.svg",
+      "sha256": "bd208bbd97a367311cc04739745a002211209fd2e415c8bf61c79eb9b4f885e9"
+    },
+    {
+      "path": "assets/diagrams/worker-execution.mmd",
+      "sha256": "ca2615534df540393ffc959a2dba122f167013881e2092ab39cd73942af58149"
+    },
+    {
+      "path": "assets/diagrams/worker-execution.svg",
+      "sha256": "4f092e9fcdf802165322de063368036e52025a3250707feb47b58f33456afcc2"
     },
     {
       "path": "assets/diagrams/worker-merge.mmd",
-      "sha256": "c4a1777f9f7db69b7d9ec900abbf4bc44f2397de3fabd7d556aa1d36a32a9f20"
+      "sha256": "bc49bf87031518a4d038adfc36136e3de9b2ad7c69bd8fd121be4a69ddd51663"
     },
     {
       "path": "assets/diagrams/worker-merge.svg",
-      "sha256": "0bbf58153c5b8e289ee8eacfe604225ea3b36536470866abf25d4bbe455005b9"
+      "sha256": "54727a007d109898a2075568a176a465e873217518720e470ee31c41468ecb7f"
+    },
+    {
+      "path": "audits/coordination-policy-audit.md",
+      "sha256": "b9dc1ee7ed07b5be8033b028edd3fafa5b433536ca3d1c06f7b27039bb29101c"
     },
     {
       "path": "config/acceptance-cases.json",
-      "sha256": "270ba717f3a764d1ea5b888d7f9a51073b96aaad3c5659b8dc8b70bacd98cd3e"
+      "sha256": "59dd4148fed2eadb55914864db03c5ea44125d583f0a6f6b79fe720d77fbb793"
     },
     {
       "path": "config/execution-policy.json",
-      "sha256": "1b129ea4a9686820ce403f03543476d9ce0ba7424b0c1056cc7a3e739c2f8991"
+      "sha256": "4731f88c821f781ff0b7ead6f2df9a0f055db6844410bf6f42d4f5a992874b1e"
     },
     {
       "path": "config/requirements.json",
-      "sha256": "f56d0af57d736c6b93a5b5225a38a00cc37ac21a23118cff4b95e4cac335f08a"
+      "sha256": "a31b5877178f07425df85011dbfc5e6fe38cd74a252859a2e4bba06d5ef5fc28"
     },
     {
       "path": "config/research-sources.json",
@@ -100,11 +116,19 @@
     },
     {
       "path": "config/source-baseline.json",
-      "sha256": "4da31f4b8b7947731dfeae56e67b1588e6a04293f0af1296dd5e8c0c144e1423"
+      "sha256": "1981388731f19141088da3ac63d9fb3e8bc7b40041f828addce43bb7361a10c8"
     },
     {
       "path": "config/work-items.json",
-      "sha256": "d927c0da7ff1346d33b4da19f6de13585eb25fabfb84ac8f8bb3cadef3ec363d"
+      "sha256": "aeeb2478e38590907ffa2f467107a95f781ec14076b7da60c02460fc8dc553e0"
+    },
+    {
+      "path": "high_level_document.md",
+      "sha256": "27087f406ea2344b40ecbfde1a10b8857bbb6147ea3c88af254e65112ba5e2b1"
+    },
+    {
+      "path": "implementation_plan.md",
+      "sha256": "b01a1db3b7067a94722b2ed62f1c9d004d4b2b81b445cdf168be4a122c2b9683"
     },
     {
       "path": "migration/current-contracts.md",
@@ -115,8 +139,44 @@
       "sha256": "a45787e433057a674b76f174de0c34237c90d5d563432b48ba22e062f00e08d0"
     },
     {
+      "path": "mockups/session-task-management.html",
+      "sha256": "58895ebb22f07c77abd0ca3fd3ddebad90f5d2260ebd51cd2b7aaeeee8437f1e"
+    },
+    {
+      "path": "mockups/sidebar-activities.png",
+      "sha256": "1da0b4d0952be0acd38c4d8abd65efe50c3098484e1b5f88519219f0f6b3193a"
+    },
+    {
+      "path": "mockups/sidebar-scrolling.png",
+      "sha256": "bfa046410e08ba1f5876c03f3beead1e599163cb6fc964450a448f5b00316ea5"
+    },
+    {
+      "path": "policy.md",
+      "sha256": "0a4231aa508e6d907e12a76f35816dfc89f96f782c34892de1276e06e1289093"
+    },
+    {
+      "path": "readme.md",
+      "sha256": "76548c241c8ede6aefc9ebf7834bd43e8ae4cbec599fe402ca1373348f051fff"
+    },
+    {
+      "path": "spec_driven_development.md",
+      "sha256": "d62f369c8f2d71873b24d32158d2ffbfb7338f737224e0a22356b53f9084d9b7"
+    },
+    {
+      "path": "terminal/spec_driven_development.md",
+      "sha256": "452ade873f356283d311099bad61d6ad00ee274551ed374eea2f1ca5031d5caf"
+    },
+    {
+      "path": "test_plan.md",
+      "sha256": "da8197ffb0bc2a8ab2180fdc430a1fdee4f4a0a799a0c9b6bb782bb33d21ac8e"
+    },
+    {
+      "path": "test_status_report.md",
+      "sha256": "ad0b82380bbd0a8849f04cdec4bebdc610aba2ce20e0cfc2e5462a2cc75461cb"
+    },
+    {
       "path": "tools/check_handoff.py",
-      "sha256": "70503d8a489c32b68baad139823403bcffb8aec2932797dcf808e4cda4d77e97"
+      "sha256": "32d2929a054faa16b40264b3d7ad8d70b551ecaaf6a58b93ac8b2dcf71c8e28b"
     },
     {
       "path": "tools/setup_test_credentials.py",

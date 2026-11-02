@@ -1,0 +1,35 @@
+%% Diagram: Flowchart
+%% View: overview
+%% Subtitle: Existing issue checks, reviewed Backlog creation and explicit Todo admission.
+flowchart TD
+    accTitle: Linear issue intake
+    accDescr: Canonical IDs, trusted scope and exact reviewed content decide whether an existing issue is reusable. The scenario tables cover holds, active attempts, duplicates and delivered follow-ups without creating competing work.
+    N1@{ shape: rect, label: "1. Lead looks up the request in Linear" }
+    class N1 process
+    N2@{ shape: diam, label: "2. Is the existing issue reusable here?" }
+    class N2 decision
+    N3@{ shape: fr-rect, label: "3. Lead reviews new or changed task prose" }
+    class N3 predefined
+    N4@{ shape: fr-rect, label: "4. Tool confirms the issue and links the CLI" }
+    class N4 predefined
+    N5@{ shape: rect, label: "5. Lead explicitly queues this task" }
+    class N5 process
+    N6@{ shape: diam, label: "6. Did Linear confirm authorized Todo?" }
+    class N6 decision
+    N7@{ shape: curv-trap, label: "7. CLI shows Todo and its dependencies" }
+    class N7 display
+    N8@{ shape: curv-trap, label: "8. CLI shows the existing state or intake blocker" }
+    class N8 display
+    N1 --> N2
+    N2 -->|"Reusable with reviewed content"| N4
+    N2 -->|"New, revised or linked follow-up"| N3
+    N2 -->|"Denied, held or unresolved"| N8
+    N3 -->|"Exact content approved"| N4
+    N3 -->|"Review unavailable or rejected"| N8
+    N4 -->|"Remote identity/text confirmed"| N5
+    N4 -->|"Write or scope unresolved"| N8
+    N5 --> N6
+    N6 -->|"Confirmed"| N7
+    N6 -->|"Not confirmed"| N8
+    N8 -->|"Authorized resolution and fresh read"| N1
+%% Legend: flow_arrow | Next action or outcome

@@ -7,6 +7,7 @@ from jsonschema import Draft202012Validator
 
 from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.domains.work import errors
+from ai_task_manager.domains.work.existing import ExistingBlocked
 from ai_task_manager.domains.work.models import IssueStatus
 from ai_task_manager.supervisor.models import RuntimeRefused, RuntimeUncertain
 
@@ -57,6 +58,21 @@ SCHEMAS = {
     ),
     "writing_finalize": obj({"writing_id": REF}, ("writing_id",)),
     "task_submit": obj({**WRITE, "parent_task_id": REF, "followup_ref": REF}, tuple(WRITE)),
+    "task_find": obj(
+        {
+            "query": {"type": "string", "minLength": 1, "maxLength": 200},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20},
+            "cursor": {"type": "string", "minLength": 1, "maxLength": 4096},
+        },
+        ("query",),
+    ),
+    "task_inspect": obj(
+        {"issue": {"type": "string", "minLength": 1, "maxLength": 128}}, ("issue",)
+    ),
+    "task_admit": obj(
+        {"discovery_ref": REF, "writing_ref": REF, "selection_ref": REF, "operation_key": REF},
+        ("discovery_ref", "writing_ref", "selection_ref", "operation_key"),
+    ),
     "task_list": obj(),
     "task_show": obj(TASK, ("task_id",)),
     "task_external_changes": obj(TASK, ("task_id",)),
@@ -197,7 +213,7 @@ def failure(error):
         ),
     ):
         category, code = "denied", 3
-    elif isinstance(error, (Unavailable, errors.CapacityExceeded)):
+    elif isinstance(error, (Unavailable, ExistingBlocked, errors.CapacityExceeded)):
         category, code = "blocked", 4
     else:
         category, code = "failed", 5

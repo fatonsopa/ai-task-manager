@@ -57,7 +57,7 @@ def test_a05_actual_skill_commands_approve_exact_content_then_intake(env):
     assert result["ok"] and result["data"]["observed_status"] == "Backlog"
     assert result["data"]["body"] == FEATURE_BODY
     assert "check --scope=session" in result["data"]["body"]
-    assert len(list((env.root / "writing").rglob("invocation-*.json"))) == 4
+    assert len(list((env.root / "writing").rglob("invocation-*.json"))) == 5
 
 
 def test_a06_progress_cannot_become_task_or_other_issue_approval(env):

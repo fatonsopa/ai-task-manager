@@ -1,0 +1,24 @@
+{
+  "task": "TST-85",
+  "status": "lead_approved_additive_control_frozen_before_correction",
+  "source_checkpoint": "102ab87",
+  "scope": "Imported unqueued records acquire local membership only through the existing guarded local enqueue or review transition, including confirmation of its actual authorized set_status intent. Confirmation of update_prose and settlement of remote status/prose leave membership false. Preserve already queued membership, nonimported behavior, genuine observations, existing public schemas and remote acknowledgement facts.",
+  "affected_paths": [
+    "src/ai_task_manager/application/intake.py::confirm_status",
+    "src/ai_task_manager/application/external_sync.py::settle",
+    "tests/existing/test_queue_membership.py"
+  ],
+  "case_added": {
+    "id": "EA83",
+    "basis": "R04 explicit local queue admission; the lead reviewed and approved this correction",
+    "controls": [
+      "Imported remote Todo is revised through exact writing and authorized scope decision, then its actual update_prose is confirmed through the authored HTTP provider. It remains unqueued, with no attempt/resource, and direct reserve and start cannot grant work.",
+      "A real recorded authorized remote observation settles Todo without establishing local membership. Actual reserve/start remain denied, without a provider In Progress effect or new attempt/resource.",
+      "After either path, existing explicit enqueue with exact decision and fresh queue-purpose source readback succeeds once; an actual reservation can then proceed. Same-key enqueue replay has identical result and no duplicate queue event, operation, attempt or provider effect.",
+      "Imported Backlog uses the existing authorized set_status Todo intent and exact provider confirmation to establish membership. An authorized local In Review to Todo review transition also retains this confirmation behavior.",
+      "Previously queued imported records remain queued after prose confirmation and remote settlement. Equivalent nonimported confirmation/settlement behavior remains unchanged."
+    ]
+  },
+  "case_count": 83,
+  "execution": "not_run"
+}

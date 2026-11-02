@@ -19,6 +19,7 @@ class WriterRunner:
         attempt = workdir / ("invocation-" + str(uuid4()) + ".json")
         argv = [
             self.package.python,
+            "-B",
             "-E",
             "-s",
             str(self.package.root / "scripts/validate_document.py"),

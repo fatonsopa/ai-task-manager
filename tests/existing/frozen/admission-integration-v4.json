@@ -1,0 +1,18 @@
+{
+  "task": "TST-85",
+  "status": "lead_directed_additive_integration_control_before_execution",
+  "source_checkpoint": "5dcf8d1",
+  "preserved_failed_commit": "16d41d8c15e0c3e83d8cf8cba5fe446dfec6981b",
+  "repair_checkpoint": "0f9e987a93f564100d1f03e6e0284d1a0642a19d",
+  "managed_port_handover_blob": "dccb22c6256cb23cd8b3684085635f5e832440b5",
+  "scope": "Preserve the bridge's shared _work_lease/work_boundary helper and enforce the canonical delivery/terminal fence through that same helper. Add only source_readbacks propagation to managed.py and dispatch.py, with no public schema change. Actual provider reads remain outside Core transactions; a post-initialization failure takes the existing abort/stop reconciliation.",
+  "case_added": {
+    "id": "EA81",
+    "basis": "Lead integration direction; R07/R11 and the existing work-boundary atomicity contract",
+    "precondition": "An owned running Core attempt has valid task status/decision/resources; a provider-backed historical delivered observation sets the canonical fence before a short effect without rewriting the task's current status.",
+    "actions": "Record the actual authored provider observation, then invoke both validate_work_lease and work_boundary; place a local publication inside the latter body.",
+    "expected": "Both paths consult the same current canonical fence and raise InvalidTransition before work/publication. The local publication is absent and unresolved owned leases remain retained. No claim of a live host or distributed provider lock."
+  },
+  "case_count": 81,
+  "execution": "not_run"
+}

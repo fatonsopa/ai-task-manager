@@ -248,7 +248,7 @@
       "codex-cli"
     ],
     "behavior_platform": "macos",
-    "profiles": "Resolve and freeze exact available model and effort per host before the first evaluated batch.",
+    "profiles": "Use every exact required profile from execution-policy.json#/acceptance/required_profiles; keep complete results separate and reject substitution.",
     "critical_repeat_cases": [
       "B01",
       "B03",
@@ -267,7 +267,8 @@
       "linux-container"
     ],
     "live_linear_platform": "macos",
-    "behavior_runs_through_live_tst_when_applicable": true
+    "behavior_runs_through_live_tst_when_applicable": true,
+    "required_profiles_source": "execution-policy.json#/acceptance/required_profiles"
   },
   "cases": [
     {
@@ -3294,7 +3295,8 @@
       ],
       "expected": [
         "All required steps occur in order with observed evidence.",
-        "Only declared side effects and scoped records change."
+        "Only declared side effects and scoped records change.",
+        "The released docs/migrate.md commands execute the tested removal-before-replacement script and reproduce the owned manifest and cutover evidence."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -4371,10 +4373,10 @@
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Race workers and evaluators for the last dollar; return unknown pricing and overlong elapsed time."
+        "Race scoped workers and evaluators against finite capacity and charge reservations. Exercise the unamended capped defaults, then a hash-bound authorized amendment after the original deadline and beyond the old total spend. Inject unknown pricing, stale writers and a migration crash."
       ],
       "expected": [
-        "Global reservations prevent new paid work beyond the cap; unknown charges block; deadline is retained across restarts."
+        "Unamended policy enforces its recorded cap/deadline. The authorized amended policy has explicit absent total ceilings while preserving original run/accounting/failures, finite batch/call bounds and atomic reservations. Unknown new paid pricing refuses; held charges remain visible. Old writers refuse the new schema; replay/crash recovery preserves one amendment and all facts."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -4451,17 +4453,21 @@
       "layer": "mechanical",
       "requirements": [
         "R10",
-        "R27"
+        "R27",
+        "R37"
       ],
       "workflow": null,
-      "title": "Polling and optional webhook integrity",
+      "title": "Immediate Linear events and recovery synchronization",
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Use paginated results, duplicate pages, stale events and invalid webhook signatures if that adapter is enabled."
+        "Apply a scoped local change and a signed inbound Linear event before any reconciliation tick; exercise paginated recovery reads, duplicate pages, duplicate/reordered events, stale payloads and invalid signatures.",
+        "Interrupt and restore the receiver, then reconcile missed facts without admitting unrelated backlog or repeating confirmed effects."
       ],
       "expected": [
-        "Polling is the required local path; pagination is complete; duplicates are harmless; enabled webhook input is authenticated."
+        "Normal changes propagate through immediate outbound work and authenticated inbound events; polling is recovery only and cannot satisfy the real-time path.",
+        "Pagination remains complete; valid duplicates are idempotent; stale or invalid ingress cannot cause unauthorized effects. Receiver success follows durable acceptance, not completed domain application.",
+        "Recovery preserves owned issue/task identities, explicit uncertainty and scope; no duplicate work or automatic admission of unrelated backlog."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -4903,7 +4909,7 @@
         "Render every state with Unicode, NO_COLOR, a narrow terminal and ASCII-only output."
       ],
       "expected": [
-        "Green ✔ Done and ◼ Running have labels; all states remain distinguishable without color; widths align."
+        "Green \u2714 Done and \u25fc Running have labels; all states remain distinguishable without color; widths align."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -5076,10 +5082,12 @@
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Start legacy fixture workers and holds, pending sync, a merge and a stale second session; execute migration."
+        "Start legacy fixture workers and holds, pending sync, a merge and a stale second session; execute migration.",
+        "Use the exact released docs/migrate.md commands from an isolated AI Index clone; verify the script removal/replacement manifest."
       ],
       "expected": [
-        "Old admission stops, merge finishes, all required state reconciles, stale writers fail the epoch check; only new engine writes."
+        "Old admission stops, merge finishes, all required state reconciles, stale writers fail the epoch check; only new engine writes.",
+        "Prepared replacements and backups validate before deletion; obsolete files are removed before replacements are installed; protected commands and merge-script bytes remain intact."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -5105,10 +5113,12 @@
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Inject failure before activation and after new state changes; invoke recovery from snapshots."
+        "Inject failure before activation and after new state changes; invoke recovery from snapshots.",
+        "Interrupt after obsolete-file removal and before replacement installation; attempt recovery with missing or invalid prepared replacement/backup data."
       ],
       "expected": [
-        "No dual writers; post-cutover facts reconciled; no blind database restore or completed-task resurrection."
+        "No dual writers; post-cutover facts reconciled; no blind database restore or completed-task resurrection.",
+        "Admission remains fenced; recovery resumes or restores the owned files safely; invalid recovery material cannot activate a writer or trigger broader deletion."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -5651,14 +5661,14 @@
         "R26"
       ],
       "workflow": null,
-      "title": "Deadline budget and quota",
+      "title": "Authorized limits and bounded continuation",
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Available budget is exhausted or the hard deadline is near while work remains."
+        "Exercise an unamended capped run near its ceiling, then the authorized amended run after the former deadline and spend cap. Exhaust a finite batch, hit quota and resume from an evidence-backed checkpoint."
       ],
       "expected": [
-        "Stop new admission, checkpoint safely, retain incomplete work and publish a truthful report without requesting an automatic extension."
+        "Honor capped defaults when no superseding authorization exists. Under the lifted-total policy continue through finite reviewed batches without a total retry ceiling; preserve all accounting and failures. Quota, unavailable authority, unknown paid pricing or unsafe ownership still blocks dependent admission. Checkpoint and report actual remaining work; no reset, automatic account fallback or fabricated acceptance."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -5751,7 +5761,8 @@
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Replace the old task-management system with active state and stale sessions present."
+        "Replace the old task-management system with active state and stale sessions present.",
+        "Perform the published docs/migrate.md procedure rather than inventing migration commands."
       ],
       "expected": [
         "Migrate all required records and command contracts, fence old writers and activate only one authority; no dual operation."
@@ -8531,5 +8542,116 @@
     "requirements": 38,
     "workflows": 14,
     "cases": 248
-  }
+  },
+  "case_revision": 4,
+  "case_revision_history": [
+    {
+      "revision": 3,
+      "changed_cases": [
+        "C11"
+      ],
+      "superseded_inventory_sha256": "11ed50e21fab7394deb3a234437d3e420ad41ffa585ab0ab83724601276d044b",
+      "reason": "Correct the stale required-polling/optional-webhook oracle to match the already approved mandatory real-time requirement R37 and RT01\u2013RT03. Retain pagination, deduplication and authentication coverage.",
+      "timing": "After component implementation and before any full product acceptance execution; earlier inventory retained in Git and the private correction record."
+    },
+    {
+      "revision": 4,
+      "changed_cases": [
+        "C08",
+        "B11"
+      ],
+      "changed_matrix": "Every selected non-Fable host/model/effort profile is required, rather than one passing profile per host.",
+      "reason": "Actual later user instructions lifted overall ceilings and required at least two models per CLI. Preserve capped defaults as an explicit variant, finite execution controls and previous criteria.",
+      "previous_cases": [
+        {
+          "id": "C08",
+          "layer": "mechanical",
+          "requirements": [
+            "R06",
+            "R20"
+          ],
+          "workflow": null,
+          "title": "Parallel cost reservations",
+          "critical": true,
+          "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+          "actions": [
+            "Race workers and evaluators for the last dollar; return unknown pricing and overlong elapsed time."
+          ],
+          "expected": [
+            "Global reservations prevent new paid work beyond the cap; unknown charges block; deadline is retained across restarts."
+          ],
+          "evidence": [
+            "artifact and case hashes",
+            "captured commands or public tool trace",
+            "before/after authoritative state",
+            "actual result and retained attempt id"
+          ],
+          "hosts": [
+            "shared"
+          ],
+          "execution_status": "not_run",
+          "workflow_ids": []
+        },
+        {
+          "id": "B11",
+          "layer": "behavior",
+          "requirements": [
+            "R20",
+            "R26"
+          ],
+          "workflow": null,
+          "title": "Deadline budget and quota",
+          "critical": true,
+          "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+          "actions": [
+            "Available budget is exhausted or the hard deadline is near while work remains."
+          ],
+          "expected": [
+            "Stop new admission, checkpoint safely, retain incomplete work and publish a truthful report without requesting an automatic extension."
+          ],
+          "evidence": [
+            "artifact and case hashes",
+            "captured commands or public tool trace",
+            "before/after authoritative state",
+            "actual result and retained attempt id"
+          ],
+          "hosts": [
+            "claude-code",
+            "codex-cli"
+          ],
+          "execution_status": "not_run",
+          "workflow_ids": []
+        }
+      ],
+      "previous_matrix": {
+        "behavior_hosts": [
+          "claude-code",
+          "codex-cli"
+        ],
+        "behavior_platform": "macos",
+        "profiles": "Resolve and freeze exact available model and effort per host before the first evaluated batch.",
+        "critical_repeat_cases": [
+          "B01",
+          "B03",
+          "B06",
+          "B08",
+          "B09",
+          "B12",
+          "B14"
+        ],
+        "critical_repeat_count": 3,
+        "linux_required_cases": [
+          "C29"
+        ],
+        "shared_mechanical_platforms": [
+          "macos",
+          "linux-container"
+        ],
+        "live_linear_platform": "macos",
+        "behavior_runs_through_live_tst_when_applicable": true
+      },
+      "prior_results_reinterpreted": false,
+      "timing": "Before full product acceptance on these profiles; actual original-ledger migration remains separately gated."
+    }
+  ]
 }

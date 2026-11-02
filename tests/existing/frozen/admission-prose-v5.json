@@ -1,0 +1,27 @@
+{
+  "task": "TST-85",
+  "status": "lead_approved_additive_control_frozen_before_correction",
+  "source_checkpoint": "102ab87",
+  "preserved_failed_commit": "16d41d8c15e0c3e83d8cf8cba5fe446dfec6981b",
+  "preserved_repair_tree": "188b87948a9e34e4eca0fd699ffcdcbcac0e5b22",
+  "scope": "Use the validated canonical positive delivery fact, or the existing Task delivered_once fact, at the existing Intake.revise, external.approve_prose_revision and submit(parent_task_id) predicates. Preserve their existing validation position and exception type. A missing canonical row is not proof of safe historical eligibility. Do not block provider observations, rewrite Task during lookup, change public schemas, or add a production follow-up issuer.",
+  "affected_paths": [
+    "src/ai_task_manager/storage/issue_claims.py",
+    "src/ai_task_manager/application/intake.py",
+    "src/ai_task_manager/application/external_sync.py",
+    "tests/existing/test_delivery_prose.py"
+  ],
+  "case_added": {
+    "id": "EA82",
+    "basis": "Lead-approved monotone delivery fence for new scope authority and linked follow-up eligibility",
+    "controls": [
+      "A complete authored provider history proves Done followed by remote Todo reset. Recording the observation retains byte-identical Task/version/flags. New exact-approved local scope revision refuses with InvalidTransition and no new task/outbox/attempt/resource/provider effect.",
+      "After that positive fact, a genuine external prose observation remains recordable. New staged scope approval refuses with the existing EvidenceRequired class while the original prose remains unchanged.",
+      "A canonical-positive parent with delivered_once=false still requires exact delivered_followup evidence. Missing or wrong evidence refuses without effect. Explicit synthetic trusted fixture evidence permits a separate linked Backlog task only; this does not claim any implemented production issuer.",
+      "A committed same-key scope revision replays after a later canonical delivered fact without a new effect. A new operation refuses. No authority, delivery fact or resource is released by replay.",
+      "Invalid canonical fact encodings refuse rather than becoming false; missing canonical facts alone do not establish a historical negative. Existing Task delivered_once remains positive authority."
+    ]
+  },
+  "case_count": 82,
+  "execution": "not_run"
+}

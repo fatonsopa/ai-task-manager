@@ -12,8 +12,8 @@ from ai_task_manager.application.service.linear import LinearComponents
 from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
 from ai_task_manager.domains.work.models import ApprovalPolicy
 from ai_task_manager.domains.work.ports import ExactRenderer
-from ai_task_manager.storage.database import Database
 
+from .claim_store import open_claim_store
 from .files import FileSeal, digest, private_path, read_private
 from .sessions import SessionFile
 
@@ -32,6 +32,7 @@ def load_service(
     renderer=None,
     inbound_factory=None,
     linear_components=None,
+    existing_factory=None,
 ):
     """Factories are trusted installer/host arguments, never JSON import paths."""
     seal = FileSeal(config_file)
@@ -71,6 +72,7 @@ def load_service(
         raise ValidationError("Pinned approval policy hashes are required")
     private_path(config["core_database"])
     journal = AuthorityJournal(config["authority_database"], config["authority_key"])
+    database, claim_store = open_claim_store(config["core_database"], journal)
     decisions = DecisionAuthority(journal, observations)
     components = linear_components
     if config.get("linear"):
@@ -82,6 +84,7 @@ def load_service(
         renderer = renderer or components.renderer
         provider_factory = provider_factory or components.outbound
         inbound_factory = inbound_factory or components.inbound
+        existing_factory = existing_factory or components.existing
         publisher_factory = publisher_factory or components.publisher
         session_control_factory = session_control_factory or (
             lambda core, handle, decisions: components.sessions(
@@ -102,7 +105,7 @@ def load_service(
             renderer,
         )
     core = Core(
-        Database(config["core_database"]),
+        database,
         ApprovalPolicy(**policy),
         approvals=writer.approvals_for_tasks() if writer else None,
         principals=principal_verifier,
@@ -115,6 +118,7 @@ def load_service(
     publisher = publisher_factory(core, handle, writer) if publisher_factory else None
     sessions = session_control_factory(core, handle, decisions) if session_control_factory else None
     inbound = inbound_factory(core, handle) if inbound_factory else None
+    existing = existing_factory(core, handle) if existing_factory else None
     return ApplicationService(
         core,
         handle,
@@ -127,4 +131,6 @@ def load_service(
         sessions=sessions,
         inbound=inbound,
         seal=seal,
+        existing=existing,
+        claim_store=claim_store,
     )

@@ -1,7 +1,8 @@
+%% View: detail
 %% Diagram: Flowchart
-%% Subtitle: Admission, remote status and real worker startup are confirmed before task execution.
+%% Subtitle: Reservations, runtime startup and provider confirmation boundaries.
 flowchart TD
-    accTitle: Task dispatch with Linear
+    accTitle: Worker admission design
     accDescr: Admission, remote status and real worker startup are confirmed before task execution.
     N1@{ shape: lean-r, label: "1. Queued CLI task and linked issue" }
     class N1 data

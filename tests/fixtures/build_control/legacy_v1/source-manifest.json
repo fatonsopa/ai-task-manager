@@ -1,0 +1,46 @@
+{
+  "source_commit": "dd69b81091dc9efd47fdd03a3edd71ebade0b863",
+  "purpose": "Unmodified owned-project schema1 writer regression fixture, not private application source",
+  "files": [
+    {
+      "path": "tools/build_control.py",
+      "sha256": "cf29c1c0f233fc7376e3c4e8a830466c69f9a290e50e695e8f3628320d38a27f"
+    },
+    {
+      "path": "tools/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tools/build_support/__init__.py",
+      "sha256": "c658a3b797cc4e10bb28a5d2ad9732dd09fc21f2ceae244c37b3821381ec667a"
+    },
+    {
+      "path": "tools/build_support/checkpoint.py",
+      "sha256": "65ee7c12f9c08d8a0bb0aab3425fcfd5f0eb8a2bc4c7d88b1939d78312ed3a2a"
+    },
+    {
+      "path": "tools/build_support/cli.py",
+      "sha256": "7ffc3e4d95758f4c1fcf8f3f938a7e066070ef31f7bdf3851dab87b248c4c6b6"
+    },
+    {
+      "path": "tools/build_support/ledger.py",
+      "sha256": "8cda7e23b5fb913a91f995aa808324187b52484fbe093c74b478fb08d459b53b"
+    },
+    {
+      "path": "tools/build_support/process.py",
+      "sha256": "19105d8cc10de419196e8eaceddb62863028a44541dde8ffd7326868cae6a8cb"
+    },
+    {
+      "path": "tools/build_support/process_group.py",
+      "sha256": "e620935fd0f202d50cc63ee9527662d06cd3f119f02f77f615143e20c41ac418"
+    },
+    {
+      "path": "tools/build_support/storage.py",
+      "sha256": "e4d39b75aa0e4781ed067c365ba16c2420d742495e63e4c34ff51b94379163a5"
+    },
+    {
+      "path": "tools/build_support/values.py",
+      "sha256": "fe8bbb68b5186ad0ab6431841bbeff63ef4ae5d0dee8b040c7a101250d015ec9"
+    }
+  ]
+}
