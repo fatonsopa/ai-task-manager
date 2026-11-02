@@ -141,7 +141,8 @@
       ],
       "entry": "Start independent items when their declared inputs and tracked assignment are ready; phase exit still requires all predecessor release gates.",
       "exit": "Review exact output, run impacted checks, retain evidence and satisfy the phase gate in implementation_plan.md.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "Integrated host bridge foundations and separate TST-81 configuration work exist; selected-profile acceptance and phase exit remain incomplete."
     },
     {
       "id": "P06",
@@ -305,7 +306,7 @@
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
       "status": "in_progress",
-      "evidence": "Authentication, expected TST identity and scoped tracking writes, Git baseline, Docker and CLI discovery checked; real model execution and second Linear identity still missing."
+      "evidence": "Discovery and earlier actual subscription pilots are recorded. All four required High-profile acceptance runs remain not run; the second Linear identity remains unavailable."
     },
     {
       "id": "T03",
@@ -428,7 +429,7 @@
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
       "status": "in_progress",
-      "evidence": "TST-77 assigned with owned worktree and disposable fixture database; actual application database/merge lifecycle proof pending."
+      "evidence": "Resource and supervisor foundations from TST-77 are integrated and included in the a3d0aca mechanical suite. Application database/merge lifecycle proof remains pending."
     },
     {
       "id": "T08",
@@ -452,7 +453,7 @@
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
       "status": "in_progress",
-      "evidence": "TST-77 active; runtime design and tests under review before code; no host execution claimed."
+      "evidence": "The host configuration work remains separate: two new startup failures were reproduced on that candidate and are being repaired before further live execution."
     },
     {
       "id": "T09",
@@ -501,8 +502,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "in_progress",
-      "evidence": "TST-76 active; reviewed 28-case Linear manifest plus frozen supersession addendum; no live webhook created.",
+      "status": "component_verified",
+      "evidence": "Scoped transport, durable outbox, receiver and existing-issue admission are integrated and included in the a3d0aca mechanical suite. Actual provider delivery remains under T11/TST-87; no live product webhook has run.",
       "dependency_note": "Core interfaces permit transport/ingress work before merge compatibility; delivery evidence still requires T09 in end-to-end gates."
     },
     {
@@ -527,7 +528,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "not_started"
+      "status": "in_progress",
+      "evidence": "TST-87 is In Progress for local/read-only preflight of a separate owned TST fixture plan. No product fixture, webhook or tunnel is admitted yet."
     },
     {
       "id": "T12",
@@ -706,8 +708,8 @@
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",
       "exit": "Impacted tests and evidence reviewed; dependencies and compatibility remain satisfied.",
-      "status": "in_progress",
-      "evidence": "Current Builder audit/rebuild is active under TST-78. Prior 56 mechanical controls passed; fresh behavioral/host observations remain unrun and the canonical current artifact is not accepted."
+      "status": "blocked",
+      "evidence": "TST-78 is On Hold for host/lead-role and recovery interfaces. Prior 56 mechanical controls, failed behavior and unrun host observations are retained; the canonical skill is not accepted."
     },
     {
       "id": "T20",
@@ -1065,7 +1067,7 @@
       "entry": "Register the implementation issue and assigned worker; audit the current tree, actual imports and consumers before freezing the exact allowed paths for moves/refactors. Apply Skill Builder structure principles to the application and its actual reusable skill workflow to generated skills.",
       "exit": "All consumers and installation/package checks use the reviewed locations; each shared rule has one authority; import/ownership checks and focused behavior tests pass; no command intent, source information or private evidence is lost. Broad moves require a verified before-image and recovery manifest.",
       "status": "not_started",
-      "scope_note": "Current docs/config and docs/tools are legacy handoff placement, not the target product structure. Do not create network services solely for directory structure."
+      "scope_note": "Current docs/config and docs/tools are legacy handoff placement, not the target product structure. Do not create network services solely for directory structure. Keep prose, editable/rendered diagrams and screenshots under docs/. Run T34 in normal dependency order before packaging, as directed by the user."
     }
   ],
   "status_semantics": {
@@ -1080,6 +1082,11 @@
       "observed_at_utc": "2026-11-01T21:27:02.998539+00:00",
       "change": "Add user-requested responsibility/layout audit T34 as packaging prerequisite; correct stale not_started rows to observed partial component work. No phase acceptance or case result changed.",
       "previous_sha256": "07e32c4af5c54ec3440e3bd0b20845d9ea6bcb918b019661e5f6c6fa20c1d75b"
+    },
+    {
+      "observed_at_utc": "2026-11-02T02:30:00+00:00",
+      "change": "Refresh source-bound component progress after integrated a3d0aca and registered primary Linear preflight; preserve unrun live acceptance, held skill dependencies and normal T34 asset placement.",
+      "previous_sha256": "3096aecb952fe1d0cc0f18c116d719bc7bcedbf3ea28f3b69ee5b6710225cb29"
     }
   ]
 }
