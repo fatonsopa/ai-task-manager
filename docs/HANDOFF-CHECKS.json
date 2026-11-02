@@ -30,12 +30,15 @@
     },
     "spec_driven_development.md": {
       "checked_delivery": "delivered",
-      "sha256": "eb6781e10a9bcd74680192ab10b7011a3fd4a8265bef84e8b424df50886e0264",
+      "sha256": "c490fdf30cfafbb24c7616e7b804895f86e1ae3ab6c248501a4897ad1b228c70",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "scope": "Existing-issue excerpt; unaffected merged content preserved",
+      "objective_sha256": "2edb1e2863256bd25c7a04741ce85cda2a7494c330fef978ef71cb1a64fd5980",
+      "message_sha256": "aaaf9a5d6533ce870ebbf672f5391de5b6979403234b2fea35d65fd3aaeca6f2"
     },
     "high_level_document.md": {
       "checked_delivery": "delivered",
@@ -48,21 +51,27 @@
     },
     "implementation_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "76c565d6e400f52dcb9026f0fc379ed90489fd78aef50182224a5628c3a2a18d",
+      "sha256": "c80e773927d03a71894ca5c26e3f092dac995c2b2bb66ea3252167b6a5a8fe24",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "scope": "Existing-issue excerpt; unaffected merged content preserved",
+      "objective_sha256": "168363d8d92f13a6470f6a928b8f36693bc97f76e06f3364752b242ec0211ac5",
+      "message_sha256": "111c7be1488b7352f13c508d2ca7e5b758e2caf78a23d2dda30c46da7ee7109a"
     },
     "test_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "8cf7fa3b1eb74df3ecbe289b360d51e0f05be00fe9cf17ce2444b9c6eea30f7f",
+      "sha256": "1d03c47863fb0a5b441aaa77485e326ce13496558ffd03bb983ded91c20d5784",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "scope": "Existing-issue excerpt; unaffected merged content preserved",
+      "objective_sha256": "f9aa6bee58c69d5333aa6e034ab6c6950975eeadc3f6d8ad6158d4ea7845b448",
+      "message_sha256": "fa0a0e05aa4a242569071408311fbf217d2283d3070716db736bdb960330adae"
     },
     "terminal/spec_driven_development.md": {
       "checked_delivery": "delivered",
@@ -461,6 +470,84 @@
         "model": null,
         "meaning_and_style_review": true,
         "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "spec_driven_development.md",
+      "reason": "Preserved root metadata before integrating the existing-issue component; the fixed Test Status Report period remains unchanged.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "eb6781e10a9bcd74680192ab10b7011a3fd4a8265bef84e8b424df50886e0264",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "spec_driven_development.md",
+      "reason": "Retained first scoped TST-85 checked delivery before the versioned freshness/prose/queue addenda and later root policy merge.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "72466e211f80e760815415a1079c899ec47dc47dff1fec23b91446ddb3dab070",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "independent_review": false,
+        "meaning_and_style_review": true,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "implementation_plan.md",
+      "reason": "Preserved root metadata before integrating the existing-issue component; the fixed Test Status Report period remains unchanged.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "76c565d6e400f52dcb9026f0fc379ed90489fd78aef50182224a5628c3a2a18d",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "implementation_plan.md",
+      "reason": "Retained first scoped TST-85 checked delivery before the versioned freshness/prose/queue addenda and later root policy merge.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "04fe7d4e5244365ca17171200c373c68ed9854ea968d002519645f9e4ca5011f",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "independent_review": false,
+        "meaning_and_style_review": true,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "test_plan.md",
+      "reason": "Preserved root metadata before integrating the existing-issue component; the fixed Test Status Report period remains unchanged.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "8cf7fa3b1eb74df3ecbe289b360d51e0f05be00fe9cf17ce2444b9c6eea30f7f",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "test_plan.md",
+      "reason": "Retained first scoped TST-85 checked delivery before the versioned freshness/prose/queue addenda and later root policy merge.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "bb72f0e5ec3a6b23c846319a99b51b7aa262ad9b37507c08f5f2db120d164648",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "independent_review": false,
+        "meaning_and_style_review": true,
         "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
       }
     }
