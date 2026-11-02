@@ -15,6 +15,7 @@ from ai_task_manager.adapters.process.groups import OwnedProcessGroup
 from ai_task_manager.config.files import write_private
 
 from .pane_control import binding_digest, process_identity
+from .process_watch import ProcessWatch
 
 
 class LayoutUnavailable(RuntimeError):
@@ -58,6 +59,8 @@ class OwnedLayout:
         self.preferred_width = 40
         self.closed = None
         self.last_panes = []
+        self.process_watch = None
+        self.close_history = []
 
     def _command(self, *arguments):
         result = subprocess.run(
@@ -96,6 +99,8 @@ class OwnedLayout:
             )
             self.group = OwnedProcessGroup(self.process)
             self.group.capture()
+            self.process_watch = ProcessWatch(self.process.pid)
+            self.process_watch.observe()
             until = time.monotonic() + 3
             while not self.socket.exists():
                 leader = self.group.leader()
@@ -121,6 +126,7 @@ class OwnedLayout:
                 "--",
                 *host_argv,
             )
+            self.process_watch.observe()
             width = min(sidebar_width, max(8, columns - 32))
             self.sidebar_pane = self._command(
                 "split-window",
@@ -141,6 +147,7 @@ class OwnedLayout:
                 raise LayoutUnavailable("Owned terminal pane identity missing")
             self._command("select-pane", "-t", self.host_pane)
             self.last_panes = self.panes()
+            self.process_watch.observe()
             return ResizeOnly(self)
         except BaseException:
             self.close()
@@ -227,13 +234,17 @@ class OwnedLayout:
         return self._command("capture-pane", "-p", "-t", pane)
 
     def close(self):
-        if self.closed is not None:
+        if self.closed is not None and self.closed.get("resources_stopped"):
             return self.closed
+        if self.process_watch:
+            self.process_watch.observe()
         if self.group is not None and self.process.returncode is None:
             stop = self.group.stop()
             evidence = self.group.evidence(stop, orphaned=False)
             if stop.confirmed:
                 self.group.reap_exited_leader()
+        elif self.closed is not None:
+            evidence = self.closed["server"]
         else:
             evidence = {"confirmed_stop": self.process is None}
         if hasattr(self, "output"):
@@ -261,6 +272,14 @@ class OwnedLayout:
             if panes_stopped or time.monotonic() >= deadline:
                 break
             time.sleep(0.02)
+        descendant = {"known": True, "live": []}
+        if self.process_watch:
+            deadline = time.monotonic() + 1
+            while True:
+                descendant = self.process_watch.observe()
+                if descendant["known"] and not descendant["live"] or time.monotonic() >= deadline:
+                    break
+                time.sleep(0.02)
         self.closed = {
             "server": evidence,
             "returncode": self.process.returncode if self.process else None,
@@ -268,10 +287,22 @@ class OwnedLayout:
             "last_observed_panes": self.last_panes,
             "panes_stopped": panes_stopped,
             "pane_stop_observations": pane_observations,
+            "observed_processes": descendant,
+            "resources_stopped": bool(
+                evidence["confirmed_stop"]
+                and panes_stopped
+                and descendant["known"]
+                and not descendant["live"]
+            ),
+            "attempt": len(self.close_history) + 1,
         }
+        self.close_history.append(self.closed)
+        (self.root / f"close-attempt-{len(self.close_history)}.json").write_text(
+            json.dumps(self.closed, indent=2, sort_keys=True) + "\n"
+        )
         (self.root / "close.json").write_text(
             json.dumps(self.closed, indent=2, sort_keys=True) + "\n"
         )
-        if evidence["confirmed_stop"] and panes_stopped:
+        if self.closed["resources_stopped"]:
             shutil.rmtree(self.socket_root)
         return self.closed

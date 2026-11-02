@@ -271,7 +271,9 @@ class SidebarApp(App):
     def apply_visibility(self):
         hidden = self.view.hidden or self.size.width < 16
         self.query_one("#task-scroll").display = not hidden
-        self.query_one("#pane-title", Static).update("" if hidden else "Session tasks")
+        title = self.query_one("#pane-title", Static)
+        title.display = self.size.width > 8
+        title.update("" if hidden else "Session tasks")
         self.query_one("#visibility", Control).update(Text("[show]" if hidden else "[hide]"))
 
     def on_resize(self):

@@ -121,6 +121,7 @@ def test_actual_owned_layout_keeps_host_space_and_closing_view_keeps_host(tmp_pa
         closed = layout.close()
         assert closed["server"]["confirmed_stop"]
         assert closed["panes_stopped"]
+        assert closed["resources_stopped"]
         if pids:
             wait(lambda: stopped_panes(pids), seconds=3)
 
@@ -143,7 +144,7 @@ def test_layout_context_refuses_another_session_without_resize(tmp_path):
         assert layout.panes() == panes
     finally:
         closed = layout.close()
-        assert closed["server"]["confirmed_stop"] and closed["panes_stopped"]
+        assert closed["server"]["confirmed_stop"] and closed["resources_stopped"]
 
 
 def test_owned_layout_start_failure_retains_stopped_cleanup(tmp_path):
@@ -155,4 +156,28 @@ def test_owned_layout_start_failure_retains_stopped_cleanup(tmp_path):
             )
     finally:
         closed = layout.close()
-        assert closed["server"]["confirmed_stop"] and closed["panes_stopped"]
+        assert closed["server"]["confirmed_stop"] and closed["resources_stopped"]
+
+
+def test_incomplete_descendant_cleanup_is_retained_and_later_reconciled(tmp_path):
+    source = Path(__file__).with_name("native_fixture.py").resolve()
+    marker = tmp_path / "descendant.pid"
+    layout = OwnedLayout(tmux_binary(), tmp_path / "layout")
+    try:
+        layout.create(
+            [sys.executable, str(source), "descendant", str(marker)],
+            [sys.executable, "-c", "import time; time.sleep(20)"],
+        )
+        wait(lambda: marker.exists())
+        child = int(marker.read_text())
+        first = layout.close()
+        assert first["server"]["confirmed_stop"]
+        assert not first["resources_stopped"]
+        assert child in {row["pid"] for row in first["observed_processes"]["live"]}
+        assert layout.socket_root.exists()
+        wait(lambda: layout.close()["resources_stopped"], seconds=6)
+        assert len(layout.close_history) >= 2 and not first["resources_stopped"]
+        assert not layout.socket_root.exists()
+        assert stopped_panes([child])
+    finally:
+        wait(lambda: layout.close()["resources_stopped"], seconds=6)

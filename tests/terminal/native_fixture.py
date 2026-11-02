@@ -3,6 +3,7 @@
 import os
 import shutil
 import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -26,7 +27,18 @@ def host():
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "host":
+    if sys.argv[1] == "descendant":
+        subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "import signal,time,os,pathlib,sys; signal.signal(signal.SIGHUP,signal.SIG_IGN); "
+                "pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(4)",
+                sys.argv[2],
+            ]
+        )
+        host()
+    elif sys.argv[1] == "host":
         host()
     else:
         config, context = sys.argv[2:]
