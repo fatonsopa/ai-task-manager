@@ -1,0 +1,110 @@
+{
+  "task": "TST-85",
+  "case_added": "EA84",
+  "case_count": 84,
+  "source_checkpoint": "5b1e63197a530c0e1da3e0a4f65669a079f8457c",
+  "status": "Lead-reviewed correction frozen before production implementation",
+  "historical_proposal_sha256": "9efe94171da6d413a49e011d6f3e866f0cd5ab7e71b9b5292ed381c9631a066b",
+  "baseline_result_sha256": "067edeeb7d178cb10c17e7d4dbc34e11369623ca61c94e353f0887b3ec0aebfe",
+  "scope": {
+    "name": "Same-connection rollback-journal write validation",
+    "why": "Smallest proposed repair with the current stdlib SQLite connection. It makes the already-observed SQLite moved-file write protection run before a read-only authority body can yield; it does not claim to read the descriptor or infer the connection from a pathname. Validate this mechanism in bounded fixtures before accepting it.",
+    "production_paths": [
+      "src/ai_task_manager/config/claim_store.py"
+    ],
+    "test_paths": [
+      "tests/existing/test_store_aba.py",
+      "tests/fixtures/existing/store_guard_crash.py",
+      "tests/existing/frozen/admission-store-guard-v10.json"
+    ],
+    "document_paths_after_verified_code": [
+      "docs/spec_driven_development.md",
+      "docs/implementation_plan.md",
+      "docs/test_plan.md",
+      "docs/HANDOFF-CHECKS.json",
+      "docs/MANIFEST.json"
+    ],
+    "unchanged": [
+      "Public schemas/commands",
+      "Core/domain lifecycle policy",
+      "managed.py and bridge files",
+      "Source skills",
+      "Root fixed-cutoff Test Status Report",
+      "Assigned fixture DB and original failed trees"
+    ],
+    "guard_order": [
+      "Retain existing signed enrollment, current path, exact connection UUID and database_list checks. Require the actual connection to be inside the owned outer transaction.",
+      "Require actual PRAGMA main.journal_mode to be exactly delete. Do not silently convert WAL, off, memory, persist, truncate or an unknown/malformed mode. These unsupported modes fail closed for enrolled authority paths; isolated unguarded Core fixtures remain available.",
+      "Before authority reads/yield, open one named internal SAVEPOINT on this exact connection; temporarily UPDATE the single store_identity row from its expected UUID to a fresh valid different UUID. Require exactly one matched row. This deliberate change avoids assuming that a no-op UPDATE will force a SQLite write.",
+      "ROLLBACK TO then RELEASE that savepoint; verify the original store UUID and repeat enrollment/path checks. Convert failure to validate/restore into AccessDenied and let the outer transaction roll back; do not continue on a partial check. This check is not a separately committed operation and issues no proof.",
+      "Use the same check at both existing transaction guard points, preserving prior outer task/outbox writes across the inner savepoint. Begin and guard remain before the work_boundary body. The precommit check is a last refusal boundary, not rollback of an already published external effect."
+    ],
+    "limits": [
+      "This is proposed bounded SQLite write validation, not direct descriptor/inode attestation. The exact original ABA must refuse before the body on actual macOS and Linux SQLite runtimes; until then portability is unproven.",
+      "Only default rollback DELETE mode is proposed supported for enrolled authority. Other modes must explicitly refuse rather than inherit an untested guarantee. Adding support later requires its own actual moved-file proof.",
+      "The private store identity changes only inside an uncommitted savepoint and is restored before domain authority reads. Tests must prove unchanged committed identity, task/attempt/outbox/events/resources and stable replay. Guard I/O/journal overhead is a real tradeoff, bounded by one small indexed-row write/rollback per guard, twice per transaction.",
+      "Same-OS-user hostile replacement can coordinate repeated namespace swaps, overwrite data/keys or change the process. This is not an adversarial OS-user security boundary or a distributed lock. Trusted restoration still requires quiescence and owned state.",
+      "Cross-filesystem rename cannot be assumed atomic. The guard must refuse missing/replaced/mixed files without repairing them. SQLite itself documents that renaming active database files can lead to undefined/corrupt behavior; the fixture proves a refusal boundary for this fault, not support for live restore.",
+      "If the write validation does not reliably refuse the frozen read-only ABA before effect, do not stack pathname heuristics or weaken criteria. Escalate to a supported SQLite/VFS connection-bound mechanism and a separately reviewed portability/dependency change. No CPython object-offset/pointer hacks."
+    ]
+  },
+  "lead_review_additions": [
+    "Generate a canonical valid UUID different from the enrolled expected UUID; generator exception/equality/malformed output refuses before UPDATE.",
+    "Temporary update is WHERE id=expected_uuid and must match exactly one row.",
+    "Any write, rollback, release or identity/path recheck failure aborts authority and preserves the outer transaction rollback."
+  ],
+  "controls": [
+    {
+      "id": "EA84.1",
+      "actions": "Run original v9 four variants unchanged against baseline; retain the existing effect and moved-write results.",
+      "expected": "Historical failure remains the same evidence; no reinterpretation."
+    },
+    {
+      "id": "EA84.2",
+      "actions": "Run the exact open-copy/restore-original actual work_boundary sentinel on repaired DELETE guard, with diagnostic connection origin/UUID and original inode.",
+      "expected": "Typed refusal before body/effect; original human hold and both database domain facts unchanged."
+    },
+    {
+      "id": "EA84.3",
+      "actions": "Actual normal DELETE connection before/after a new task mutation and a committed same-key replay; include source/writing artifact expiry after the committed result.",
+      "expected": "Identity, tasks/outbox/attempt/resource effects are exact; no extra task/proof/provider effect, no policy reset; ordinary valid work still runs."
+    },
+    {
+      "id": "EA84.4",
+      "actions": "Actual WAL, OFF, MEMORY, PERSIST and TRUNCATE connections plus malformed/unknown mode query failure injection; attempt the same authority boundary.",
+      "expected": "All unsupported modes fail before temporary identity write/body/effect. Do not call a fabricated query result an actual SQLite mode."
+    },
+    {
+      "id": "EA84.5",
+      "actions": "Actual read-only URI connection and query_only connection, and an injected write/rollback/release I/O failure at each savepoint step.",
+      "expected": "Refusal before external effect; original identity restored by outer rollback/recovery. Setup/BEGIN refusal is recorded separately from a guard refusal."
+    },
+    {
+      "id": "EA84.6",
+      "actions": "Rename/source substitution before open, after BEGIN/before guard, between preliminary checks/write validation and before precommit. Include original restored ABA and missing path/cross-filesystem-failure injection.",
+      "expected": "Wrong connection or current namespace fails closed under the tested ordering; no canary is advertised as observing an OS descriptor. No automatic store adoption/recovery."
+    },
+    {
+      "id": "EA84.7",
+      "actions": "Owned subprocess crashes after temporary identity write, after savepoint rollback, and after a legitimate domain change before commit; reopen the enrolled original.",
+      "expected": "Actual SQLite rollback/recovery retains original identity and pretransaction domain facts; no competing ownership or accepted stale replay."
+    },
+    {
+      "id": "EA84.8",
+      "actions": "Two actual connections/processes: human hold wins before lease transaction; alternatively lease boundary holds BEGIN IMMEDIATE while a human writer waits, then completes and the hold commits.",
+      "expected": "When hold wins no effect; when lease wins exactly the bounded authorized effect, followed by hold/refusal for the next boundary. No stale-read interleaving over the same physical store."
+    },
+    {
+      "id": "EA84.9",
+      "actions": "Existing Task/claim/admission/reserve/start/readback/replay and installed CLI/MCP negatives on repaired source.",
+      "expected": "Original public schemas and command flow preserved; no new writer/selection/provider/model/human proof."
+    },
+    {
+      "id": "EA84.10",
+      "actions": "Run the frozen mechanism and normal-boundary controls on actual macOS and Linux runtime versions with retained hashes.",
+      "expected": "Record each platform separately. A missing Linux observation remains not_run, not portable acceptance."
+    }
+  ],
+  "production_gate": "Actual private feasibility observed exact ABA refusal before body/effect on macOS SQLite3.50.4; normal valid DELETE worked. Linux evidence remains unrun. No full suite authorized.",
+  "execution": "not_run"
+}

@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "46c3e33e5915e483f695a21b6182c69e4d996e41282405ca90dfe547baf30fcb"
+      "sha256": "f145b40dc11b4d2dc16bd83a8ad363eac490c81091a1fa658c7c6e08baead7ed"
     },
     {
       "path": "assets/diagrams/architecture.mmd",
@@ -128,7 +128,7 @@
     },
     {
       "path": "implementation_plan.md",
-      "sha256": "76c565d6e400f52dcb9026f0fc379ed90489fd78aef50182224a5628c3a2a18d"
+      "sha256": "7b0f9001280068b0d792217bde4d4b2ab767d027a597a5ffd84f71ae6bb15e5b"
     },
     {
       "path": "migration/current-contracts.md",
@@ -160,7 +160,7 @@
     },
     {
       "path": "spec_driven_development.md",
-      "sha256": "eb6781e10a9bcd74680192ab10b7011a3fd4a8265bef84e8b424df50886e0264"
+      "sha256": "d62f369c8f2d71873b24d32158d2ffbfb7338f737224e0a22356b53f9084d9b7"
     },
     {
       "path": "terminal/spec_driven_development.md",
@@ -168,7 +168,7 @@
     },
     {
       "path": "test_plan.md",
-      "sha256": "8cf7fa3b1eb74df3ecbe289b360d51e0f05be00fe9cf17ce2444b9c6eea30f7f"
+      "sha256": "da8197ffb0bc2a8ab2180fdc430a1fdee4f4a0a799a0c9b6bb782bb33d21ac8e"
     },
     {
       "path": "test_status_report.md",

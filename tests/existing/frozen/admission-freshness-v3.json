@@ -1,0 +1,72 @@
+{
+  "task": "TST-85",
+  "status": "proposed_internal_contract_for_lead_and_bridge_owner_review_before_repair",
+  "prior_frozen_tree": "d22870bd6188d4cb0d3c563232c1aa7a7f53936f",
+  "preserved": "Original contract, 71 families, prior failures, full-run tree/result and all public schemas remain unchanged. This adds enforcement of the already required fresh provider read at the Core boundary.",
+  "finding": "Public service paths perform actual complete provider reads, but Core currently accepts a 900-second ordinary discovery receipt as fresh and check_start can restamp that reference. Correct composition alone must not establish Core freshness.",
+  "receipt": {
+    "kind": "existing_issue_readback",
+    "issuer": "ProviderJournal through the non-public ExistingReader complete readback method; no CLI/MCP issuer or caller-provided observation time",
+    "scope": "Exact verified provider/workspace/principal/project/logical session",
+    "subject": "Actual canonical issue UUID",
+    "payload": {
+      "snapshot": "The normalized actual metadata, exact owned title/body and complete state timeline after final metadata/version checks",
+      "discovery_digest": "Digest of that exact normalized snapshot",
+      "claim_store": {"installation_id": "Enrolled installation UUID", "store_id": "Enrolled Core store UUID"},
+      "observed_at": "Trusted journal clock after the final actual provider read",
+      "context": {
+        "purpose": "admission | queue | start",
+        "phase": "null for admission/queue; reserve | start for worker startup",
+        "operation_key": "Exact consuming Core operation key",
+        "discovery_ref": "Original inspection reference for admission; null otherwise",
+        "task_id": "Exact owned task for queue/start; null for admission",
+        "attempt_id": "Exact owned attempt for the start phase; null otherwise",
+        "expected_version": "Actual expected task version for queue/reserve/start; null for admission",
+        "decision_revision": "Actual expected decision revision for queue/reserve/start; null for admission"
+      }
+    },
+    "ttl_seconds": 30,
+    "ttl_rationale": "The receipt is consumed immediately around one local effect, rather than acting as queue membership or a long-lived work lease. Thirty seconds matches the existing provider prose-readback freshness window. Queue waits and host initialization never extend it: each startup phase requests a new complete read immediately before that Core effect. Expiry blocks an uncommitted effect and requires another actual read; it does not invalidate an already committed same-key result.",
+    "validation": "Exact kind, scope, issue, installation/store, context keys/values, snapshot digest/history and trusted expiry are checked inside the actual Core transaction after replay and current task-version/decision checks. An ordinary discovery receipt, another purpose/phase/operation/task/attempt/version/revision or an expired receipt cannot substitute. There is no global latest-fresh flag."
+  },
+  "propagation": {
+    "admission": "ExistingIntake.admit obtains an operation-bound admission readback after verifying the original discovery reference. Core.existing.admit requires that readback context. Its stable operation fingerprint retains original discovery/writing/selection and installation identities, excluding the newly observed readback reference. Replay precedes any new proof/approval consumption.",
+    "queue": "Service actions obtain a queue readback bound to the exact task/version/revision and unchanged task_action operation_key. Core transitions validate it before confirming Todo membership or requesting the existing outbox. The internal existing_source observation reference is excluded from the stable Core fingerprint; all public authority/delivery inputs remain fingerprinted. This permits truthful committed retry after reply loss and safe actual reread before an uncommitted retry.",
+    "worker_service": "For an imported task only, service worker_start passes a trusted source_readbacks callback bound to this task/session and the public operation root. It accepts only the known reserve/start phases and their exact derived operation keys, reads the current owned task, and performs the complete provider reread. It accepts no model boolean, arbitrary scope, issue or timestamp.",
+    "managed_workers": "Proposed hidden optional keyword source_readbacks=None on ManagedWorkers.start and WorkerSupervisor.start. Immediately before Core.reserve, call it with phase=reserve, current task/version/revision, attempt_id=null and operation_key=<public-key>:reserve. After host initialization, immediately before Core.start, call it again with phase=start, the current owned task/version/revision, actual attempt_id and operation_key=<public-key>:start. Pass only the resulting opaque readback_ref to Core. An absent callback cannot admit an imported task; non-imported behavior stays unchanged.",
+    "core_execution": "Add hidden keyword-only readback_ref=None to Execution.reserve and Execution.start. Required only for imported tasks. Validate the exact phase/context using the actual method arguments, inside their transaction before effects. Do not include the ephemeral readback reference in the stable operation fingerprint; keep exact operation/task/host/version/revision/decision/startup authority inputs. Record the consumed reference with the actual event for audit. No attempt borrows another operation's receipt.",
+    "old_readiness": "Remove all authority reads/writes of Core.existing.check_start/require_start_check and the per-task latest existing_checks row. The historical schema-3 table can remain inert for evidence compatibility; it cannot authorize a current effect. No additional schema migration is needed solely to remove that obsolete authority path.",
+    "cross_system_race": "A final provider observation cannot atomically lock Linear during a later local commit. Exact source revision/context/freshness and existing external-conflict fences remain necessary. The receipt proves the observed version, not immunity from subsequent remote changes."
+  },
+  "coordination": {
+    "worker_owned_changes": [
+      "src/ai_task_manager/adapters/linear/existing.py",
+      "src/ai_task_manager/adapters/linear/receipts.py",
+      "src/ai_task_manager/application/existing_issues.py",
+      "src/ai_task_manager/application/existing_intake.py",
+      "src/ai_task_manager/application/transitions.py",
+      "src/ai_task_manager/application/execution.py",
+      "src/ai_task_manager/application/service/actions.py",
+      "src/ai_task_manager/application/service/workers.py",
+      "tests/existing/"
+    ],
+    "bridge_owner_ports_requested_through_lead": [
+      "src/ai_task_manager/supervisor/managed.py::ManagedWorkers.start hidden callback propagation",
+      "src/ai_task_manager/supervisor/dispatch.py::WorkerSupervisor.start hidden callback propagation"
+    ],
+    "implementation": "No supervisor or bridge source edits by this worker until the lead coordinates ownership. No sibling source copying; integrate an actual reviewed commit if required. Public CLI/MCP schemas and existing status/merge commands stay unchanged."
+  },
+  "case_delta": [
+    {"id":"EA72","basis":"EA38/EA45","actions":"Use an actual ordinary still-valid discovery receipt directly as admission fresh_ref, queue existing_source and startup readback_ref.","expected":"Each actual Core boundary refuses before task/outbox/attempt/resource effects. Initial discovery remains readable for inspection only."},
+    {"id":"EA73","basis":"EA38/EA45","actions":"Issue actual complete-read receipts for admission, queue and each startup phase, then consume each at the wrong purpose or phase.","expected":"Exact context refusal, with unchanged domain effects and no implicit selection/queue/worker authority."},
+    {"id":"EA74","basis":"EA26/EA38/EA45","actions":"Independently vary actual consuming operation key, scope, store, canonical issue, task ID, attempt ID, task version and decision revision against a valid receipt.","expected":"Every mismatch refuses inside the Core transaction; another operation cannot borrow the observation. Use specific documented denial classes, never a catch-all."},
+    {"id":"EA75","basis":"EA38/EA52","actions":"Advance trusted test clocks to just before and exactly at/after the readback expiry while the original discovery is still within its 900-second lifetime.","expected":"Only the live short receipt can authorize its matching new effect. Expired readback and a caller timestamp/boolean cannot substitute."},
+    {"id":"EA76","basis":"EA08/EA19/EA45","actions":"Invoke the real internal issuer through authored HTTP across complete pages and final readback; inject an incomplete page, GraphQL error, scope change or final revision change before issuance.","expected":"The valid sequence issues the exact scoped short-lived kind/context. Interrupted or inconsistent reads issue no usable readback and no domain/provider mutation."},
+    {"id":"EA77","basis":"EA37/EA40","actions":"Execute actual service admission/queue and hidden reservation/start propagation with distinct receipts for each exact phase; attempt receipt reuse under another operation.","expected":"Valid effects retain existing state/startup/resource gates, observed references are audited, and reuse under another operation is denied. Supervisor callback wiring is tested mechanically and is not a real-host observation."},
+    {"id":"EA78","basis":"EA49/EA50/EA51","actions":"Commit admission/queue/reservation/start operations, expire their source receipts and remove the approved artifact where applicable, then repeat the exact already committed operation and a changed public request.","expected":"Same-key historical replay creates no new effect and returns current scoped projection; a changed public authority request still conflicts. New effects cannot consume stale source or writing authority."},
+    {"id":"EA79","basis":"EA48/EA49/EA52","actions":"Interrupt before commit after a readback is observed, expire it, obtain a genuinely new complete read for the same uncommitted stable request and retry; contrast with a committed effect whose reply was lost.","expected":"Uncommitted retry may use a new operation-bound observation without changing its intended authority inputs; committed recovery does not reconsume authority or duplicate effects. Failures and observations remain retained."},
+    {"id":"EA80","basis":"EA45/EA46/EA71","actions":"Race a newer local human/task version between actual provider observation and transaction, and preserve the explicitly documented later-remote-edit limitation.","expected":"Local stale version/revision and detectable remote changes refuse; no test claims an impossible atomic lock across SQLite and Linear."}
+  ],
+  "new_case_count": 80,
+  "execution": "Not run; awaiting lead review and supervisor ownership coordination. The prior full mechanical run remains bound to its earlier tree."
+}

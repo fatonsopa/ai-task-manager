@@ -6,11 +6,13 @@ import time
 from pathlib import Path
 
 from ai_task_manager.adapters.linear.client import LinearClient
+from ai_task_manager.adapters.linear.existing import ExistingReader
 from ai_task_manager.adapters.linear.models import Credentials, ExpectedBinding
 from ai_task_manager.adapters.linear.prose import LinearMarkdownRenderer
 from ai_task_manager.adapters.linear.receipts import KINDS, ProviderJournal
 from ai_task_manager.adapters.linear.transport import HttpTransport
 from ai_task_manager.adapters.proofs.router import EvidenceRoute, EvidenceRouter
+from ai_task_manager.application.existing_intake import ExistingIntake
 from ai_task_manager.application.linear_sync.inbound import InboundDrain
 from ai_task_manager.application.linear_sync.outbound import OutboundDrain
 from ai_task_manager.application.linear_sync.progress import (
@@ -24,6 +26,7 @@ from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
 DECISION_KINDS = frozenset(
     {
         "decision",
+        "existing_issue_selection",
         "human_decision",
         "session_resume",
         "notification_delivered",
@@ -130,6 +133,15 @@ class LinearComponents:
             self.journal,
             clock=time.time,
             authorized_actors=(self.binding.expected.viewer_id,),
+        )
+
+    def existing(self, core, handle):
+        self.check_session(core, handle)
+        _, scope = core.session_binding(handle)
+        return ExistingIntake(
+            core,
+            handle,
+            ExistingReader(self.client, self.journal, scope, core.context.db.claim_context),
         )
 
     def publisher(self, core, handle, writer):

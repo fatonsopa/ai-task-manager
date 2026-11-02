@@ -448,12 +448,51 @@ def test_lp48_narrow_edits_preserve_document_structure_and_commands():
 
     for name, expected in planning_baseline()["documentation_invariants"].items():
         text = (ROOT / "docs" / name).read_text()
-        assert re.findall(r"^#{1,6} .+$", text, re.M) == expected["headings"]
+        headings = list(expected["headings"])
+        if name == "implementation_plan.md":
+            addition = "### Existing-issue intake"
+            position = headings.index("## Current context and approach") + 1
+            assert headings[position] == "### Tools and prerequisite checks"
+            assert addition not in headings
+            headings.insert(position, addition)
+        assert re.findall(r"^#{1,6} .+$", text, re.M) == headings
         assert [
             hashlib.sha256(b.encode()).hexdigest() for b in re.findall(r"```.*?```", text, re.S)
         ] == expected["code_block_sha256"]
-    # TST-85 branch integration is a separate lead gate; this test does not
-    # claim inspection/preservation of additions not yet integrated here.
+    # Historical policy-only scope: "TST-85 branch integration is a separate lead
+    # gate; this test does not claim inspection/preservation of additions not yet
+    # integrated here." The separately frozen v7 integration extends that check
+    # to this combined candidate without changing the original baseline fixture.
+
+
+@pytest.mark.parametrize("change", ["missing", "duplicate", "extra", "reordered", "command"])
+def test_lp48_combined_preservation_refuses_unapproved_changes(monkeypatch, change):
+    original = Path.read_text
+    document = ROOT / "docs" / ("readme.md" if change == "command" else "implementation_plan.md")
+    text = original(document)
+    heading = "### Existing-issue intake"
+    if change == "missing":
+        altered = text.replace(heading + "\n", "", 1)
+    elif change == "duplicate":
+        altered = text.replace(heading, heading + "\n\n" + heading, 1)
+    elif change == "extra":
+        altered = text.replace(heading, heading + "\n\n### Unapproved section", 1)
+    elif change == "reordered":
+        altered = (
+            text.replace("## Current context and approach", "__original_heading__", 1)
+            .replace("## Goal and specification", "## Current context and approach", 1)
+            .replace("__original_heading__", "## Goal and specification", 1)
+        )
+    else:
+        altered = text.replace("```", "```unapproved", 1)
+    assert altered != text
+
+    def read(path, *args, **kwargs):
+        return altered if path == document else original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read)
+    with pytest.raises(AssertionError):
+        test_lp48_narrow_edits_preserve_document_structure_and_commands()
 
 
 def test_lp40_full_actual_cli_policy_execution_and_recovery(rig):
