@@ -30,15 +30,15 @@
     },
     "spec_driven_development.md": {
       "checked_delivery": "delivered",
-      "sha256": "c490fdf30cfafbb24c7616e7b804895f86e1ae3ab6c248501a4897ad1b228c70",
+      "sha256": "d62f369c8f2d71873b24d32158d2ffbfb7338f737224e0a22356b53f9084d9b7",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "scope": "Existing-issue excerpt; unaffected merged content preserved",
-      "objective_sha256": "2edb1e2863256bd25c7a04741ce85cda2a7494c330fef978ef71cb1a64fd5980",
-      "message_sha256": "aaaf9a5d6533ce870ebbf672f5391de5b6979403234b2fea35d65fd3aaeca6f2"
+      "scope": "Existing-issue/store-validation excerpt; unaffected merged content preserved",
+      "objective_sha256": "9ec8085a8970254b688558c53d226f6585bf83998b1680c5a3cf7a994fb1f113",
+      "message_sha256": "03f1b426acbf7e775f793bd5b5b61b3034a6792d4d071634948bf207801a21b9"
     },
     "high_level_document.md": {
       "checked_delivery": "delivered",
@@ -51,27 +51,27 @@
     },
     "implementation_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "c80e773927d03a71894ca5c26e3f092dac995c2b2bb66ea3252167b6a5a8fe24",
+      "sha256": "7b0f9001280068b0d792217bde4d4b2ab767d027a597a5ffd84f71ae6bb15e5b",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "scope": "Existing-issue excerpt; unaffected merged content preserved",
-      "objective_sha256": "168363d8d92f13a6470f6a928b8f36693bc97f76e06f3364752b242ec0211ac5",
-      "message_sha256": "111c7be1488b7352f13c508d2ca7e5b758e2caf78a23d2dda30c46da7ee7109a"
+      "scope": "Existing-issue/store-validation excerpt; unaffected merged content preserved",
+      "objective_sha256": "6454ea9d88010bc6fa74ec51f19121428fffe0735f31edb8f2745eaac3011680",
+      "message_sha256": "fb21491f57804de71ec8387796d0e6cfcd0956aff8d12722ba3d4ebc47d526eb"
     },
     "test_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "1d03c47863fb0a5b441aaa77485e326ce13496558ffd03bb983ded91c20d5784",
+      "sha256": "da8197ffb0bc2a8ab2180fdc430a1fdee4f4a0a799a0c9b6bb782bb33d21ac8e",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "scope": "Existing-issue excerpt; unaffected merged content preserved",
-      "objective_sha256": "f9aa6bee58c69d5333aa6e034ab6c6950975eeadc3f6d8ad6158d4ea7845b448",
-      "message_sha256": "fa0a0e05aa4a242569071408311fbf217d2283d3070716db736bdb960330adae"
+      "scope": "Existing-issue/store-validation excerpt; unaffected merged content preserved",
+      "objective_sha256": "ac1a6ba80a162c3be9e7126939f66f8a0896c26b23b8f7a5cce127a3b4d868db",
+      "message_sha256": "fd78cd8df856702d8b0469c63aad59d97f581187378a2f2f1030c1a8d550fc14"
     },
     "terminal/spec_driven_development.md": {
       "checked_delivery": "delivered",
@@ -549,6 +549,54 @@
         "independent_review": false,
         "meaning_and_style_review": true,
         "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "spec_driven_development.md",
+      "reason": "Retained checked existing-issue excerpt before the subsequently observed copied-connection race and reviewed bounded SQLite validation repair. Earlier pass/failure records and the fixed report cutoff remain unchanged.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "c490fdf30cfafbb24c7616e7b804895f86e1ae3ab6c248501a4897ad1b228c70",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+        "scope": "Existing-issue excerpt; unaffected merged content preserved",
+        "objective_sha256": "2edb1e2863256bd25c7a04741ce85cda2a7494c330fef978ef71cb1a64fd5980",
+        "message_sha256": "aaaf9a5d6533ce870ebbf672f5391de5b6979403234b2fea35d65fd3aaeca6f2"
+      }
+    },
+    {
+      "document": "implementation_plan.md",
+      "reason": "Retained checked existing-issue excerpt before the subsequently observed copied-connection race and reviewed bounded SQLite validation repair. Earlier pass/failure records and the fixed report cutoff remain unchanged.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "c80e773927d03a71894ca5c26e3f092dac995c2b2bb66ea3252167b6a5a8fe24",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+        "scope": "Existing-issue excerpt; unaffected merged content preserved",
+        "objective_sha256": "168363d8d92f13a6470f6a928b8f36693bc97f76e06f3364752b242ec0211ac5",
+        "message_sha256": "111c7be1488b7352f13c508d2ca7e5b758e2caf78a23d2dda30c46da7ee7109a"
+      }
+    },
+    {
+      "document": "test_plan.md",
+      "reason": "Retained checked existing-issue excerpt before the subsequently observed copied-connection race and reviewed bounded SQLite validation repair. Earlier pass/failure records and the fixed report cutoff remain unchanged.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "1d03c47863fb0a5b441aaa77485e326ce13496558ffd03bb983ded91c20d5784",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+        "scope": "Existing-issue excerpt; unaffected merged content preserved",
+        "objective_sha256": "f9aa6bee58c69d5333aa6e034ab6c6950975eeadc3f6d8ad6158d4ea7845b448",
+        "message_sha256": "fa0a0e05aa4a242569071408311fbf217d2283d3070716db736bdb960330adae"
       }
     }
   ],

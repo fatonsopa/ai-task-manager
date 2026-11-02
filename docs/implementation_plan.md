@@ -23,7 +23,7 @@ Use the architecture's component/data/packaging design instead of importing the 
 
 ### Existing-issue intake
 
-TST-85 adds the focused `task_find`, `task_inspect` and `task_admit` operations. The frozen contract and 83 case families are retained under `tests/existing/frozen/`. They extend the existing acceptance work without replacing R01–R38 or the global case inventory.
+TST-85 adds the focused `task_find`, `task_inspect` and `task_admit` operations. The frozen contract and 84 case families are retained under `tests/existing/frozen/`. They extend the existing acceptance work without replacing R01–R38 or the global case inventory.
 
 The provider reader verifies metadata scope before retrieving prose, then checks the complete state timeline and a fresh revision. The core binds reviewed exact content and a separately observed lead selection to a transactional canonical claim. Admission, queue and each startup phase obtain a separate complete reread and a 30-second receipt bound to the consuming operation, task/version, decision revision and enrolled store. Core verifies that context at the transaction boundary; it cannot substitute a newer version for the caller's expected version. A committed same-key retry preserves its earlier result without another effect.
 
@@ -32,6 +32,8 @@ A new remote Todo binding remains unqueued until the existing enqueue authorizat
 The additive schema-3 migration preserves task/outbox/resource history and introduces stable store identity and lifecycle records. The installer must explicitly call the trusted claim-store enrollment port before product composition; ordinary runtime configuration cannot enroll a replacement. A copied or replaced store is refused even at the old pathname. Same-file renames can retain enrollment after an explicit configuration update. Restore/replacement integration still needs verified quiescence and retained ownership; this task supplies no automatic restore command.
 
 Integrate the implemented selection-receipt contract with the actual host observer before claiming the live selection path. Keep the separate delivered-follow-up issuer, complete installation/cutover, application resource/merge adapter and live end-to-end receipt work visible as dependencies. Installed CLI/MCP tests with authored loopback transport establish their mechanical boundary, not those live paths. Exact observations and external-conflict fencing bound the remaining cross-system race; SQLite cannot lock Linear against a later edit.
+
+The enrolled-store guard validates a bounded identity write on the same SQLite connection inside a rolled-back savepoint before authority reads and before commit. Require DELETE rollback-journal mode and a writable store; refuse other modes without converting them. Keep the original identity and outer domain writes intact. This adds small journal I/O and is not descriptor attestation, hostile same-user protection or support for live file replacement. Verify the exact copied-connection/restored-path race, crashes and human-hold ordering on each actual supported runtime.
 
 ### Tools and prerequisite checks
 
