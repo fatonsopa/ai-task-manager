@@ -6,6 +6,8 @@ import time
 from pathlib import Path
 
 from ai_task_manager.adapters.linear.client import LinearClient
+from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
+from ai_task_manager.adapters.linear.dependencies.source import DependencySource
 from ai_task_manager.adapters.linear.existing import ExistingReader
 from ai_task_manager.adapters.linear.models import Credentials, ExpectedBinding
 from ai_task_manager.adapters.linear.prose import LinearMarkdownRenderer
@@ -100,6 +102,11 @@ class LinearComponents:
         if not parent.is_dir() or parent.is_symlink() or parent.stat().st_mode & 0o077:
             raise AccessDenied("Linear journal requires private operator storage")
         self.journal = ProviderJournal(config["journal"])
+        dependency_path = Path(config["journal"])
+        self.scheduling_sources = DependencyReceipts(
+            dependency_path.with_name(dependency_path.name + ".dependencies.sqlite"),
+            dependency_path.with_name(dependency_path.name + ".dependencies.key"),
+        )
         self.renderer = LinearMarkdownRenderer()
 
     def evidence(self, authority_journal):
@@ -120,6 +127,10 @@ class LinearComponents:
             expected.project_id,
         ):
             raise AccessDenied("Session does not match the authenticated Linear binding")
+
+    def dependencies(self, core, handle):
+        self.check_session(core, handle)
+        return DependencySource(core, handle, self.client, self.scheduling_sources)
 
     def outbound(self, core, handle, decisions, writer):
         self.check_session(core, handle)

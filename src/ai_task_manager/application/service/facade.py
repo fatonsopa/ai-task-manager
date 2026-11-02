@@ -25,12 +25,14 @@ class ApplicationService:
         seal=None,
         existing=None,
         claim_store=None,
+        dependencies=None,
     ):
         self.core, self.handle, self.writer, self.decisions = core, handle, writer, decisions
         self.grant_ref, self.provider, self.workers = grant_ref, provider, workers
         self.publisher, self.sessions, self.seal = publisher, sessions, seal
         self.inbound = inbound
         self.existing, self.claim_store = existing, claim_store
+        self.dependencies = dependencies
         self.session_id, self.scope = core.session_binding(handle)
 
     def confirm(self, task):
