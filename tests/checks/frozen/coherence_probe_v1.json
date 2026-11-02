@@ -1,0 +1,28 @@
+{
+  "version": 3,
+  "scope_addition": "Root coordinated shared connection probe;Git owner separately integrates Journal;Core unchanged",
+  "port": "probe_connection(conn, StoreBinding(path,device,inode,table,version,store_id))->None; ConnectionBusy vs AccessDenied; is_busy_sqlite(error)",
+  "tables": [
+    "check_meta",
+    "merge_meta"
+  ],
+  "cases": [
+    "sameUUID copiedconnection thenoriginalpath restored denies forbothschemas",
+    "precommit replacement denies forbothschemas",
+    "original metadata restored after normalprobe forbothschemas",
+    "mismatch enrolledpath/device/inode/UUID/version and unsupportedmode deny",
+    "busy maps to ConnectionBusy without identityloss;retry policy outsideprobe",
+    "malformed binding/type/table cannot choose arbitrarySQL"
+  ],
+  "constraints": "active short transaction only;DELETE rollbackjournal;no descriptor or hostile/live replacement attestation;consumer initializes schema then validates precommit",
+  "new_paths": [
+    "src/ai_task_manager/storage/coherence.py",
+    "tests/checks/test_coherence_probe.py"
+  ],
+  "original_read_contract_sha256": "575db92931a64978d084dee5f55530b55f5b91b25d63adcd71ac8407ed0ed385",
+  "source_hashes": {
+    "src/ai_task_manager/storage/coherence.py": "83fc06e5d0c73cd356327a78cf1beda2bcdff818455f99e851670881659aafdf",
+    "tests/checks/test_coherence_probe.py": "a7f7867f4f213ed1111f68dd1923f0be740635dcf38593e0971cc6924aacfab6"
+  },
+  "expected_count": 25
+}
