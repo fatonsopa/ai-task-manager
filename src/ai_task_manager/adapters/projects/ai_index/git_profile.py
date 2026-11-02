@@ -149,6 +149,8 @@ class GitProfile:
 
     def __init__(self, *, root, executable, home):
         self.root, self.home = Path(root).absolute(), Path(home).absolute()
+        if os.pathsep in str(self.root):
+            raise AccessDenied("Confined root contains an unsupported path-list separator")
         self.root_identity, self.home_identity = physical(self.root), physical(self.home)
         if self.home != self.root and self.root not in self.home.parents:
             raise AccessDenied("Git HOME must belong to the confined root")

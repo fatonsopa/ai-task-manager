@@ -754,3 +754,23 @@ def test_invalid_repository_discovery_stops_at_confined_root(rig, monkeypatch):
         )
     finally:
         head.write_bytes(original)
+
+
+def test_root_with_discovery_list_separator_is_refused_before_git(rig, monkeypatch):
+    import subprocess
+
+    root = rig.root / ("unsupported" + os.pathsep + "root")
+    root.mkdir(mode=0o700)
+    home = root / "home"
+    home.mkdir(mode=0o700)
+    original_run, commands = subprocess.run, []
+
+    def observed_run(argv, *args, **kwargs):
+        commands.append(list(argv))
+        return original_run(argv, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(subprocess, "run", observed_run)
+        with pytest.raises(AccessDenied, match="unsupported path-list separator"):
+            GitProfile(root=root, executable=rig.executable, home=home)
+    assert commands == []
