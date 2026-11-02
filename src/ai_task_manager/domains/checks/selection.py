@@ -7,7 +7,7 @@ from ai_task_manager.domains.work.errors import EvidenceRequired, ValidationErro
 from .models import Availability, Plan, content_hash, fingerprint, identifier, repo_path
 
 
-def select(catalog, scope, attempt, source_digest, change, discovery, *, prerequisites=()):
+def select(catalog, scope, attempt, source_digest, change, discovery):
     scope.validate()
     identifier(attempt)
     content_hash(source_digest)
@@ -45,28 +45,25 @@ def select(catalog, scope, attempt, source_digest, change, discovery, *, prerequ
         group = catalog.resolve(unit.group)
         if not unit.reusable:
             raise EvidenceRequired("Required input facts are unavailable")
-        if group.database != "none":
-            db = {f.name: f.value for f in unit.inputs if f.kind == "database"}
-            if not {"schema", "seed", "history"} <= db.keys() or any(
-                db[k] in {None, "none", "absent"} for k in ("schema", "seed", "history")
-            ):
-                raise EvidenceRequired("Database checks require schema, seed and history facts")
+        kinds = {f.kind for f in unit.inputs}
+        resources = {f.name: f.value for f in unit.inputs if f.kind == "resource"}
+        if not set(group.input_kinds) <= kinds or any(
+            resources.get(key) in {None, "absent", "none"} for key in group.resource_inputs
+        ):
+            raise EvidenceRequired("Configured runner or resource inputs are unavailable")
         groups[group.key] = group
         resolved = type(unit)(unit.name, group.key, unit.inputs, unit.mandatory)
         all_units.append(resolved)
         source_paths = {f.name for f in unit.inputs if f.kind in {"source", "test", "config"}}
-        if unit.mandatory or unknown_change or changed.intersection(source_paths):
+        if group.required or unit.mandatory or unknown_change or changed.intersection(source_paths):
             selected.append(resolved)
         else:
             reasons.append((unit.name, "No changed declared input"))
-    edges = {}
-    for label, parents in prerequisites:
-        child = catalog.resolve(label).key
-        if child in edges:
-            raise ValidationError("Duplicate group prerequisite declaration")
-        edges[child] = tuple(catalog.resolve(p).key for p in parents)
-        if child not in groups or any(p not in groups for p in edges[child]):
-            raise ValidationError("Prerequisites must be present in discovery")
+    if any(g.required and g.key not in groups for g in catalog.groups):
+        raise EvidenceRequired("Discovery omitted a configured required check")
+    edges = {g.key: g.prerequisites for g in groups.values() if g.prerequisites}
+    if any(p not in groups for parents in edges.values() for p in parents):
+        raise EvidenceRequired("Discovery omitted a configured prerequisite")
     visiting, visited = set(), set()
 
     def visit(key):
@@ -112,6 +109,7 @@ def select(catalog, scope, attempt, source_digest, change, discovery, *, prerequ
         change.head,
         source_digest,
         catalog.digest,
+        catalog.binding_digest,
         discovery.producer_digest,
         tuple(selected),
         tuple(groups[k] for k in ordered),

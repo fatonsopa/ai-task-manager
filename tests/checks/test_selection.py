@@ -32,10 +32,10 @@ def test_catalog_group_selection():
         changes=change(("src/a.txt", "src/c.txt")),
     )
     assert [(u.name, u.group) for u in result.units] == [("a", "checks a"), ("c", "checks c")]
-    assert [(g.key, g.lane) for g in result.groups] == [
-        ("checks a", "plain"),
-        ("checks b", "plain"),
-        ("checks c", "deno"),
+    assert [(g.key, g.category) for g in result.groups] == [
+        ("checks a", "text-consistency"),
+        ("checks b", "text-consistency"),
+        ("checks c", "syntax"),
     ]
     assert result.reasons == (("b", "No changed declared input"),)
 

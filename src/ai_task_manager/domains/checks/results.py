@@ -24,6 +24,7 @@ class Execution:
     started: float
     ended: float
     signal: int | None = None
+    resource_refs: tuple[tuple[str, str], ...] = ()
 
 
 def comparison(value):
@@ -80,6 +81,18 @@ def judge(plan, group, dispatched, execution, *, baseline=None):
     for name, failure in execution.failures:
         identifier(name)
         content_hash(failure)
+    expected_resources = next(g.resources for g in plan.groups if g.key == group)
+    if type(execution.resource_refs) is not tuple or any(
+        type(v) is not tuple or len(v) != 2 for v in execution.resource_refs
+    ):
+        raise ValidationError("Physical resource observations must be immutable pairs")
+    if len(execution.resource_refs) != len(expected_resources) or {
+        r[0] for r in execution.resource_refs
+    } != set(expected_resources):
+        raise ValidationError("Physical resources do not match configured requirements")
+    for key, ref in execution.resource_refs:
+        identifier(key)
+        identifier(ref)
     baseline = comparison(baseline)
     if execution.cause == "timeout":
         outcome = Outcome.TIMEOUT
@@ -119,6 +132,7 @@ def judge(plan, group, dispatched, execution, *, baseline=None):
         "cause": execution.cause,
         "summary_available": execution.summary_available,
         "process_ref": execution.process_ref,
+        "resource_refs": execution.resource_refs,
         "output_digest": execution.output_digest,
         "started": execution.started,
         "ended": execution.ended,

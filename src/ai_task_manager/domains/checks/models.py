@@ -86,7 +86,7 @@ class Fact:
     value: str | None
 
     def validate(self):
-        if self.kind not in {"source", "test", "config", "tool", "environment", "database"}:
+        if self.kind not in {"source", "test", "config", "tool", "environment", "resource"}:
             raise ValidationError("Unknown input fact category")
         identifier(self.name)
         if self.kind in {"source", "test", "config"}:
@@ -95,8 +95,8 @@ class Fact:
             raise ValidationError("Input values must be digests or explicit availability values")
         if self.value not in {None, "absent", "none"}:
             content_hash(self.value)
-        if self.value == "none" and self.kind != "database":
-            raise ValidationError("Only an explicit database-free requirement may use none")
+        if self.value == "none":
+            raise ValidationError("Resource absence is an explicit empty requirement, not a fact")
 
 
 @dataclass(frozen=True)
@@ -119,15 +119,6 @@ class Unit:
             keys.append((fact.kind, fact.name))
         if len(keys) != len(set(keys)):
             raise ValidationError("Input facts must be unique")
-        if {f.kind for f in self.inputs} != {
-            "source",
-            "test",
-            "config",
-            "tool",
-            "environment",
-            "database",
-        }:
-            raise ValidationError("Every input category must be declared, including none")
 
     @property
     def reusable(self):
@@ -158,23 +149,59 @@ class Change:
 class Group:
     key: str
     labels: tuple[str, ...]
-    lane: str | None
-    database: str
-    switchable: bool
-    cpus: int | None
+    category: str
+    runner: str
+    resources: tuple[str, ...]
+    required: bool
+    prerequisites: tuple[str, ...]
+    input_kinds: tuple[str, ...]
+    resource_inputs: tuple[str, ...]
+
+    def validate(self):
+        identifier(self.key)
+        identifier(self.category)
+        identifier(self.runner)
+        if type(self.required) is not bool:
+            raise ValidationError("Required selection must be explicit")
+        for values in (
+            self.labels,
+            self.resources,
+            self.prerequisites,
+            self.input_kinds,
+            self.resource_inputs,
+        ):
+            if type(values) is not tuple or len(values) != len(set(values)):
+                raise ValidationError("Group requirements must be immutable and unique")
+            for value in values:
+                identifier(value)
+        if not self.labels or self.key != self.labels[0]:
+            raise ValidationError("Group key must be its first normalized label")
+        if any(v != v.strip().casefold() for v in self.labels):
+            raise ValidationError("Catalog labels must be normalized")
+        if not set(self.input_kinds) <= {
+            "source",
+            "test",
+            "config",
+            "tool",
+            "environment",
+            "resource",
+        }:
+            raise ValidationError("Unknown runner input category")
 
 
 @dataclass(frozen=True)
 class Catalog:
     digest: str
+    binding_digest: str
     groups: tuple[Group, ...]
 
     def resolve(self, label):
+        identifier(label)
         key = label.strip().casefold()
         for group in self.groups:
             if key in group.labels:
                 return group
-        raise ValidationError("The catalog does not declare this group")
+        raise ValidationError("The configured catalog does not declare this group")
 
 
 @dataclass(frozen=True)
@@ -185,6 +212,7 @@ class Plan:
     head: str
     source_digest: str
     catalog_digest: str
+    binding_digest: str
     producer_digest: str
     units: tuple[Unit, ...]
     groups: tuple[Group, ...]
@@ -201,8 +229,6 @@ class Plan:
         return fingerprint(self.record())
 
     def record(self):
-        from .catalog import DATABASES, LANES
-
         self.scope.validate()
         identifier(self.attempt)
         for value in (self.base, self.head):
@@ -211,6 +237,7 @@ class Plan:
         for value in (
             self.source_digest,
             self.catalog_digest,
+            self.binding_digest,
             self.producer_digest,
             self.inventory_digest,
         ):
@@ -232,21 +259,7 @@ class Plan:
         ):
             raise SchemaError("Check inventory groups or input facts are incomplete")
         for group in self.groups:
-            identifier(group.key)
-            if (
-                type(group.labels) is not tuple
-                or not group.labels
-                or group.key != group.labels[0]
-                or any(
-                    type(label) is not str or label != label.strip().casefold()
-                    for label in group.labels
-                )
-                or group.database not in DATABASES
-                or (group.lane is not None and group.lane not in LANES)
-                or type(group.switchable) is not bool
-                or (group.cpus is not None and (type(group.cpus) is not int or group.cpus < 1))
-            ):
-                raise SchemaError("Stored group metadata is malformed")
+            group.validate()
         selected_names = [u.name for u in self.units]
         reason_names = []
         for row in self.reasons:
@@ -267,7 +280,7 @@ class Plan:
             repo_path(path)
         for item in self.units:
             item.validate()
-        return dict(asdict(self), format=1)
+        return dict(asdict(self), format=2)
 
     @classmethod
     def restore(cls, data):
@@ -275,7 +288,7 @@ class Plan:
             type(data) is not dict
             or set(data) != set(cls.__dataclass_fields__) | {"format"}
             or type(data.get("format")) is not int
-            or data["format"] != 1
+            or data["format"] != 2
         ):
             raise SchemaError("Check plan predates the complete input-binding format")
         if any(
@@ -290,6 +303,7 @@ class Plan:
             data["head"],
             data["source_digest"],
             data["catalog_digest"],
+            data["binding_digest"],
             data["producer_digest"],
             tuple(
                 Unit(u["name"], u["group"], tuple(Fact(**f) for f in u["inputs"]), u["mandatory"])
@@ -299,10 +313,13 @@ class Plan:
                 Group(
                     g["key"],
                     tuple(g["labels"]),
-                    g["lane"],
-                    g["database"],
-                    g["switchable"],
-                    g["cpus"],
+                    g["category"],
+                    g["runner"],
+                    tuple(g["resources"]),
+                    g["required"],
+                    tuple(g["prerequisites"]),
+                    tuple(g["input_kinds"]),
+                    tuple(g["resource_inputs"]),
                 )
                 for g in data["groups"]
             ),

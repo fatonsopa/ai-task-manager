@@ -37,7 +37,7 @@ def test_partial_scope():
     assert not eligible(p, changed, proof(p, b))
 
 
-@pytest.mark.parametrize("kind", ["source", "test", "config", "tool", "environment", "database"])
+@pytest.mark.parametrize("kind", ["source", "test", "config", "tool", "environment", "resource"])
 def test_relevant_input_changes(kind):
     original = plan()
     item = original.units[0]
@@ -53,13 +53,17 @@ def test_relevant_input_changes(kind):
 
 @pytest.mark.parametrize("kind", ["schema", "seed", "history"])
 def test_database_equivalence(kind):
-    facts = tuple(Fact("database", k, sha(k)) for k in ("schema", "seed", "history"))
+    facts = tuple(
+        Fact("resource", "relational/" + k, sha(k)) for k in ("schema", "seed", "history")
+    )
     p = plan((unit(db=facts),))
     item = p.units[0]
     changed = replace(
         item,
         inputs=tuple(
-            replace(f, value=sha("other")) if f.kind == "database" and f.name == kind else f
+            replace(f, value=sha("other"))
+            if f.kind == "resource" and f.name == "relational/" + kind
+            else f
             for f in item.inputs
         ),
     )

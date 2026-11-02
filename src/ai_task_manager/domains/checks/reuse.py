@@ -13,6 +13,7 @@ def eligible(plan, unit, proof):
         and proof.get("group") == unit.group
         and proof.get("input_digest") == unit.input_digest
         and proof.get("catalog_digest") == plan.catalog_digest
+        and proof.get("binding_digest") == plan.binding_digest
         and proof.get("producer_digest") == plan.producer_digest
         and proof.get("physical_origin") == proof.get("result_ref")
         and type(proof.get("result_ref")) is str

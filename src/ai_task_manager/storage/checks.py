@@ -61,9 +61,9 @@ class CheckStore:
             if not tables:
                 for sql in _SCHEMA:
                     conn.execute(sql)
-                conn.execute("INSERT INTO check_meta VALUES(1,?)", (str(uuid4()),))
+                conn.execute("INSERT INTO check_meta VALUES(2,?)", (str(uuid4()),))
             rows = conn.execute("SELECT version,store_id FROM check_meta").fetchall()
-            if len(rows) != 1 or rows[0][0] != 1:
+            if len(rows) != 1 or rows[0][0] != 2:
                 raise SchemaError("Unsupported checks store format")
             try:
                 if str(UUID(rows[0][1])) != rows[0][1]:
@@ -89,7 +89,7 @@ class CheckStore:
                 raise AccessDenied("Checks store file identity changed")
             if hasattr(self, "store_id"):
                 rows = conn.execute("SELECT version,store_id FROM check_meta").fetchall()
-                if len(rows) != 1 or tuple(rows[0]) != (1, self.store_id):
+                if len(rows) != 1 or tuple(rows[0]) != (2, self.store_id):
                     raise AccessDenied("Checks store binding changed")
             yield conn
             conn.commit()
@@ -292,6 +292,7 @@ class CheckStore:
                     "head": plan.head,
                     "input_digest": unit.input_digest,
                     "catalog_digest": plan.catalog_digest,
+                    "binding_digest": plan.binding_digest,
                     "producer_digest": plan.producer_digest,
                     "source_digest": plan.source_digest,
                     "physical_origin": result_ref,

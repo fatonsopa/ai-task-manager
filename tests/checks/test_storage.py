@@ -79,7 +79,18 @@ def test_plan_binds_discovery_and_change(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "mutation", ["format_bool", "missing_fact", "empty_groups", "head_bool", "inventory_bool"]
+    "mutation",
+    [
+        "format_bool",
+        "missing_fact",
+        "empty_groups",
+        "head_bool",
+        "inventory_bool",
+        "binding_digest",
+        "required_type",
+        "input_kind",
+        "labels_empty",
+    ],
 )
 def test_malformed_plan_is_not_repaired(tmp_path, mutation):
     db, original = store(tmp_path), plan()
@@ -94,6 +105,14 @@ def test_malformed_plan_is_not_repaired(tmp_path, mutation):
             body["groups"] = []
         elif mutation == "head_bool":
             body["head"] = True
+        elif mutation == "binding_digest":
+            del body["binding_digest"]
+        elif mutation == "required_type":
+            body["groups"][0]["required"] = 1
+        elif mutation == "input_kind":
+            body["groups"][0]["input_kinds"] = ["invented"]
+        elif mutation == "labels_empty":
+            body["groups"][0]["labels"] = []
         else:
             body["inventory_size"] = True
         from ai_task_manager.domains.checks.models import fingerprint

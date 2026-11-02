@@ -11,7 +11,13 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup, supervise
-from ai_task_manager.domains.checks.catalog import validate_catalog
+from ai_task_manager.application.merge_checks.catalogs import Catalogs, ProjectCatalog
+from ai_task_manager.domains.checks.catalog import (
+    Capabilities,
+    ResourceCapability,
+    RunnerCapability,
+    validate_catalog,
+)
 from ai_task_manager.domains.checks.models import (
     Availability,
     Change,
@@ -38,39 +44,76 @@ PYTHON_DIGEST = sha(Path(sys.executable).resolve().read_bytes())
 FIXTURE_ENV = {"PATH": os.defpath, "LC_ALL": "C"}
 
 
+def capabilities():
+    return Capabilities(
+        (
+            RunnerCapability(
+                "file-assert",
+                ("text-consistency", "syntax"),
+                ("source", "test", "config", "tool", "environment"),
+                sha(CHILD),
+            ),
+        ),
+        (
+            ResourceCapability("scratch", ("tree",), sha("owned file tree")),
+            ResourceCapability("relational", ("schema", "seed", "history"), sha("sqlite")),
+        ),
+    )
+
+
 def catalog_data():
     return {
+        "format": 2,
         "groups": [
             {
                 "labels": ["Checks A", "Alias A"],
-                "lane": "plain",
-                "database": "none",
-                "switchable": False,
-                "why": "Authored file-only check",
-                "cpus": 1,
-                "cpus_why": "One authored interpreter",
+                "category": "text-consistency",
+                "runner": "file-assert",
+                "resources": [],
+                "required": False,
+                "prerequisites": [],
             },
             {
                 "labels": ["Checks B"],
-                "lane": "plain",
-                "database": "none",
-                "switchable": False,
-                "why": "A separate check in the same lane",
+                "category": "text-consistency",
+                "runner": "file-assert",
+                "resources": [],
+                "required": False,
+                "prerequisites": [],
             },
             {
                 "labels": ["Checks C"],
-                "lane": "deno",
-                "database": "none",
-                "switchable": False,
-                "why": "Authored routing control",
+                "category": "syntax",
+                "runner": "file-assert",
+                "resources": [],
+                "required": False,
+                "prerequisites": [],
             },
-        ]
+        ],
     }
 
 
-def catalog():
+def catalog(*, prerequisites=()):
     data = catalog_data()
-    return validate_catalog(data, fingerprint(data))
+    for key, parents in prerequisites:
+        next(g for g in data["groups"] if g["labels"][0].casefold() == key)["prerequisites"] = list(
+            parents
+        )
+    return validate_catalog(data, fingerprint(data), capabilities())
+
+
+def catalogs(root, *, prerequisites=(), project="project", data=None, caps=None):
+    data = data or catalog_data()
+    for key, parents in prerequisites:
+        next(g for g in data["groups"] if g["labels"][0].casefold() == key)["prerequisites"] = list(
+            parents
+        )
+    path = root / (project + "-checks.json")
+    path.write_text(json.dumps(data))
+    path.chmod(0o600)
+    return Catalogs(
+        (ProjectCatalog(project, str(path), sha(path.read_bytes()), caps or capabilities()),)
+    )
 
 
 def unit(name="a", group="checks a", *, value="4", db=None):
@@ -82,7 +125,7 @@ def unit(name="a", group="checks a", *, value="4", db=None):
         Fact("tool", "fixture-command", sha(CHILD)),
         Fact("environment", "fixture", fingerprint(FIXTURE_ENV)),
     ]
-    facts.extend(db or [Fact("database", "requirement", "none")])
+    facts.extend(db or [Fact("resource", "scratch/tree", sha("authored tree"))])
     return Unit(name, group, tuple(facts))
 
 
@@ -103,13 +146,12 @@ def plan(
     units=None, *, changes=None, scope=SCOPE, attempt="attempt", source=SOURCE, prerequisites=()
 ):
     return select(
-        catalog(),
+        catalog(prerequisites=prerequisites),
         scope,
         attempt,
         source,
         changes or change(),
         discovery(units),
-        prerequisites=prerequisites,
     )
 
 
@@ -148,6 +190,7 @@ def proof(plan, item, **changes):
         "head": plan.head,
         "input_digest": item.input_digest,
         "catalog_digest": plan.catalog_digest,
+        "binding_digest": plan.binding_digest,
         "producer_digest": plan.producer_digest,
         "source_digest": plan.source_digest,
         "physical_origin": "result:authored",
@@ -213,10 +256,11 @@ raise SystemExit(1 if failed else 0)
 
 
 class FixtureExecutor:
-    """Real authored file assertions; this is not the actual AI Index runner."""
+    """Real authored file assertions; these fixtures grant no application runner authority."""
 
-    def __init__(self, root):
+    def __init__(self, root, *, child_script=CHILD, resource_refs=()):
         self.root, self.records = root, []
+        self.child_script, self.resource_refs = child_script, resource_refs
 
     def execute(self, plan, group, names):
         output = self.root / ("output-" + str(uuid4()) + ".json")
@@ -230,7 +274,7 @@ class FixtureExecutor:
         with output.open("xb") as stream:
             output.chmod(0o600)
             child = subprocess.Popen(
-                [sys.executable, "-I", "-c", CHILD, str(self.root), json.dumps(names)],
+                [sys.executable, "-I", "-c", self.child_script, str(self.root), json.dumps(names)],
                 cwd=self.root,
                 env=dict(FIXTURE_ENV),
                 stdin=subprocess.DEVNULL,
@@ -280,6 +324,7 @@ class FixtureExecutor:
             sha(raw),
             started,
             ended,
+            resource_refs=self.resource_refs,
         )
 
 

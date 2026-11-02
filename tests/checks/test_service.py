@@ -11,7 +11,7 @@ from tests.checks.fixtures import (
     FixtureExecutor,
     Guard,
     RecordingExecutor,
-    catalog,
+    catalogs,
     change,
     discovery,
     execution,
@@ -26,21 +26,23 @@ def rig(tmp_path, *, executor=None, guard=None, baselines=None):
     root = private_dir(tmp_path)
     store = CheckStore(root / "checks.sqlite")
     executor = executor or RecordingExecutor()
-    return MergeChecks(store, guard or Guard(), executor, baselines=baselines), executor
+    return MergeChecks(
+        store, guard or Guard(), executor, catalogs=catalogs(root), baselines=baselines
+    ), executor
 
 
 def prepare(
     service, units=None, *, key="operation", changes=None, attempt="attempt", prerequisites=()
 ):
+    if prerequisites:
+        service.catalogs = catalogs(service.store.path.parent, prerequisites=prerequisites)
     return service.prepare(
-        catalog(),
         SCOPE,
         attempt,
         SOURCE,
         changes or change(),
         discovery(units),
         key,
-        prerequisites=prerequisites,
     )
 
 
@@ -106,7 +108,9 @@ def test_results_survive_restart_and_later_failure(tmp_path):
     old_events = failed["events"]
     assert len(executor.records) == 2
     (root / "src/b.txt").write_text("4")
-    reopened = MergeChecks(CheckStore(root / "checks.sqlite"), Guard(root=root), executor)
+    reopened = MergeChecks(
+        CheckStore(root / "checks.sqlite"), Guard(root=root), executor, catalogs=catalogs(root)
+    )
     retry = prepare(
         reopened, units, key="fixed", attempt="retry", changes=change(("src/a.txt", "src/b.txt"))
     )

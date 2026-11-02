@@ -28,23 +28,27 @@ class BaselineReader(Protocol):
 
 
 class MergeChecks:
-    def __init__(self, store, source_guard: SourceGuard, executor: Executor, *, baselines=None):
-        self.store, self.source_guard, self.executor = store, source_guard, executor
-        self.baselines = baselines
-
-    def prepare(
-        self, catalog, scope, attempt, source_digest, change, discovery, key, *, prerequisites=()
+    def __init__(
+        self, store, source_guard: SourceGuard, executor: Executor, *, catalogs, baselines=None
     ):
-        plan = select(
-            catalog, scope, attempt, source_digest, change, discovery, prerequisites=prerequisites
-        )
+        self.store, self.source_guard, self.executor = store, source_guard, executor
+        self.baselines, self.catalogs = baselines, catalogs
+
+    def _verify(self, plan):
+        self.catalogs.verify(plan)
         self.source_guard.verify(plan)
+
+    def prepare(self, scope, attempt, source_digest, change, discovery, key):
+        scope.validate()
+        catalog = self.catalogs.for_project(scope.project)
+        plan = select(catalog, scope, attempt, source_digest, change, discovery)
+        self._verify(plan)
         return self.store.create(plan, key)
 
     def run(self, ref, scope):
         snapshot = self.store.read(ref, scope)
         plan = snapshot["plan"]
-        self.source_guard.verify(plan)
+        self._verify(plan)
         parents = dict(plan.prerequisites)
         for group in plan.groups:
             snapshot = self.store.read(ref, scope)
@@ -52,7 +56,7 @@ class MergeChecks:
             if row["state"] != "pending":
                 # An unresolved intent is observable uncertainty, never permission to rerun.
                 continue
-            self.source_guard.verify(plan)
+            self._verify(plan)
             if any(
                 snapshot["groups"][p]["state"] != "complete"
                 or snapshot["groups"][p]["result"]["outcome"]
@@ -97,7 +101,7 @@ class MergeChecks:
                     # Preserve the physical result; unavailable comparison grants no dev-red credit.
                     baseline = None
             try:
-                self.source_guard.verify(plan)
+                self._verify(plan)
             except Exception as error:
                 self.store.finish(
                     ref, scope, group.key, version, execution, error=type(error).__name__
