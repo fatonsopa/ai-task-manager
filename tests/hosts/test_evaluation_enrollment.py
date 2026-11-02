@@ -121,11 +121,13 @@ def test_pinned_grant_refuses_scope_or_source_drift(bootstrap_graph, change):
     else:
         data["expires_at"] = 1
     ref = g.item.accounting.rig.pin("evaluation_grant", data)
-    from tools.build_support.authorization import PinnedRecords
+    from ai_task_manager.config.evaluation_records import PURPOSES, EvaluationRecords
 
     with pytest.raises(AccessDenied):
         EvaluationGrant(
-            PinnedRecords(g.item.accounting.rig.bindings),
+            EvaluationRecords(
+                {k: v for k, v in g.item.accounting.rig.bindings.items() if v["kind"] in PURPOSES}
+            ),
             ref,
             "policy-fixture",
             g.item.observations,

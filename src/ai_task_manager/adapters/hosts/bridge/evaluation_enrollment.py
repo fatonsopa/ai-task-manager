@@ -5,11 +5,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from ai_task_manager.adapters.decisions.authority import HostGrant
+from ai_task_manager.config.evaluation_records import EvaluationRecords
 from ai_task_manager.config.files import FileSeal, digest, private_path
 from ai_task_manager.config.sessions import SessionFile
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.domains.work.models import Scope
-from tools.build_support.authorization import PinnedRecords
 
 from .invocations import PreparedInvocation
 
@@ -50,7 +50,7 @@ class EvaluationGrant:
     """An installer capability, not human acceptance or a model-callable issuer."""
 
     def __init__(self, records, ref, run_id, observations, core, claim_store, journal, expected):
-        if not isinstance(records, PinnedRecords):
+        if not isinstance(records, EvaluationRecords):
             raise AccessDenied("A lead-installed record verifier is required")
         record = records.resolve(ref, "evaluation_grant", run_id)
         source_binding = records.bindings[ref]

@@ -35,11 +35,11 @@ from ai_task_manager.adapters.linear.receipts import ProviderJournal
 from ai_task_manager.application.core import Core
 from ai_task_manager.application.intake import prose_digest
 from ai_task_manager.config.claim_store import enroll_claim_store, verify_claim_store
+from ai_task_manager.config.evaluation_records import PURPOSES, EvaluationRecords
 from ai_task_manager.domains.work.models import ApprovalPolicy, CapacityPolicy, Scope, TaskProse
 from ai_task_manager.domains.work.ports import ExactRenderer
 from ai_task_manager.storage.database import Database
 from tests.hosts.accounting_fixtures import FixtureAccounting
-from tools.build_support.authorization import PinnedRecords
 
 
 def create(root, mode):
@@ -106,7 +106,9 @@ def create(root, mode):
             "case_id": "case",
         },
     )
-    records = PinnedRecords(accounting.rig.bindings)
+    records = EvaluationRecords(
+        {k: v for k, v in accounting.rig.bindings.items() if v["kind"] in PURPOSES}
+    )
     authorization = BootstrapReview(records, review, initialization, template)
     journal = HostJournal(root / "host" / "journal.sqlite", root / "host" / "key")
     permits = BootstrapPermits(
@@ -209,7 +211,9 @@ def grant_graph(item):
         "billing_basis_ref": "authored-billing-control",
     }
     ref = item.accounting.rig.pin("evaluation_grant", body)
-    records = PinnedRecords(item.accounting.rig.bindings)
+    records = EvaluationRecords(
+        {k: v for k, v in item.accounting.rig.bindings.items() if v["kind"] in PURPOSES}
+    )
     grant = EvaluationGrant(
         records, ref, "policy-fixture", item.observations, core, claim, item.journal, item.expected
     )
