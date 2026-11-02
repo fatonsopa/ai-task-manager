@@ -79,7 +79,7 @@
     },
     {
       "id": "R20",
-      "text": "The build stops within 48 elapsed hours and USD 100 total incremental spending, including parallel work and judges."
+      "text": "The authorized build has no total spending, elapsed-time or retry ceiling under the recorded later user instruction. Preserve original run identity, accounting and failures; enforce finite measured capacity, reviewed batches, per-invocation deadlines and bounded charge reservations."
     },
     {
       "id": "R21",
@@ -87,7 +87,7 @@
     },
     {
       "id": "R22",
-      "text": "Results are bound to artifact hashes and declared host/model/effort/OS profiles; failed attempts are retained."
+      "text": "Acceptance requires at least two selected non-Fable models on each actual installed CLI, with separate source/host/model/effort/OS result cells. Retain every failed attempt and reject substitutions or mixed-profile aggregation."
     },
     {
       "id": "R23",
@@ -154,7 +154,7 @@
       "text": "Every new or updated task prose uses Technical Writer, the appropriate issue-type reference and Writing Style; exact content/version approval precedes publication; skill updates trigger scoped audits and retained evidence."
     }
   ],
-  "requirements_revision": 3,
+  "requirements_revision": 4,
   "revision_history": [
     {
       "revision": 3,
@@ -162,6 +162,25 @@
       "reason": "User conditionally authorized a latest-source merge compatibility audit and necessary refactor; prior absolute byte preservation becomes the default baseline with this explicit exception. Command intent and safe behavior remain protected.",
       "previous_text": "Preserve the merge script bytes, arguments, checks, foreground flow, result meanings and database lifecycle.",
       "implementation_status": "audit_pending; no merge script change performed",
+      "prior_results_reinterpreted": false
+    },
+    {
+      "revision": 4,
+      "requirements": [
+        "R20",
+        "R22"
+      ],
+      "reason": "Actual user instructions lifted overall ceilings and required at least two non-Fable models per CLI; finite invocation controls and all prior failures remain.",
+      "previous_requirements": [
+        {
+          "id": "R20",
+          "text": "The build stops within 48 elapsed hours and USD 100 total incremental spending, including parallel work and judges."
+        },
+        {
+          "id": "R22",
+          "text": "Results are bound to artifact hashes and declared host/model/effort/OS profiles; failed attempts are retained."
+        }
+      ],
       "prior_results_reinterpreted": false
     }
   ]

@@ -16,6 +16,7 @@ class StartupObserver:
         self.binding, self.journal = transcript.binding, transcript.journal
         self.expected_account, self.claude_auth_ref = expected_account, claude_auth_ref
         self.requests, self.responses = {}, {}
+        self.request_sources = {}
         self.ready_ref = None
         self.native_session, self.model = None, None
         self.model_source = None
@@ -25,13 +26,30 @@ class StartupObserver:
         transcript.listen(self._observe)
 
     def expect(self, identity, method):
-        if identity in self.requests or method not in {
-            "initialize",
-            "account/read",
-            "thread/start",
-        }:
+        if (
+            type(identity) is not int
+            or identity in self.requests
+            or method
+            not in {
+                "initialize",
+                "account/read",
+                "thread/start",
+            }
+        ):
             raise AccessDenied("Unexpected startup request identity")
         self.requests[identity] = method
+        self.request_sources[identity] = self.journal._append(
+            "trace",
+            {
+                "effect": "startup_request_declared",
+                "attempt_id": self.binding.attempt_id,
+                "worker_id": self.binding.worker_id,
+                "configuration_digest": self.binding.configuration_digest,
+                "process": vars(self.transcript.process.verify_identity()),
+                "request_id": identity,
+                "method": method,
+            },
+        )
 
     def _observe(self, frame, source):
         self.policy.check()
@@ -76,8 +94,10 @@ class StartupObserver:
                     or not result.get("thread", {}).get("id")
                 ):
                     raise AccessDenied("Codex did not confirm the restricted native startup")
+                self.model_guard.bind_codex(
+                    result, source, frame["id"], self.request_sources.pop(frame["id"])
+                )
                 self.native_session = result["thread"]["id"]
-                self.model_guard.native_ready(result.get("model") or None, source)
                 self.model = result.get("model") or None
                 self.model_source = "thread/start.model" if self.model is not None else None
                 self._ready(tuple(x[1] for x in self.responses.values()))
@@ -132,6 +152,13 @@ class StartupObserver:
                 "model_source": self.model_source,
                 "requested_model": getattr(self.policy, "model", None),
                 "requested_effort": getattr(self.policy, "effort", None),
+                "cwd": str(self.policy.cwd),
+                "native_configuration_effort": (
+                    self.model_guard.codex.configured_effort
+                    if self.model_guard.codex is not None
+                    else None
+                ),
+                "provider_internal_model": None,
                 "observed_effort": None,
             },
             sources=sources,

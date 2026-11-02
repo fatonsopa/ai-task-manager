@@ -8,6 +8,47 @@ import re
 import sys
 
 
+def verify_execution_limits(policy, require):
+    limits = policy.get('limits', {})
+    for key in ('max_elapsed_seconds', 'max_incremental_spend_usd', 'max_total_retry_rounds'):
+        require(key in limits and limits[key] is None,
+                f'{key}: the recorded authorization lifts this total ceiling explicitly.')
+    for key in ('resolved_worker_cap_must_be_finite', 'paid_call_requires_cost_reservation',
+                'per_invocation_timeout_required', 'reviewed_finite_batch_required',
+                'continuation_requires_evidence_and_checkpoint'):
+        require(limits.get(key) is True, f'{key}: finite execution controls remain required.')
+    require(limits.get('unknown_paid_cost_action') == 'block_paid_call',
+            'Unknown new paid pricing must still refuse admission.')
+    require(limits.get('legacy_defaults_without_superseding_authorization') == {
+        'max_elapsed_seconds': 172800, 'max_incremental_spend_usd': 100,
+        'stop_admission_before_deadline_seconds': 1800},
+        'Unamended bounded defaults must remain explicit.')
+    authority = policy.get('limits_authorization', {})
+    require(authority.get('id') == 'USER-UNTIL-PROVEN-20261101T230813Z'
+            and authority.get('record_sha256') ==
+            '26031e25d7dc3fc4f91f52f7023ed9ae1c6534ce72e227bf562157b379fd9c68'
+            and authority.get('cryptographic_origin_proof') is False,
+            'Lifted totals require the exact recorded user source with honest provenance.')
+    acceptance = policy.get('acceptance', {})
+    profiles = acceptance.get('required_profiles', [])
+    expected = {
+        ('claude-code', 'claude-opus-5-5', 'high'),
+        ('claude-code', 'claude-sonnet-5-5', 'high'),
+        ('codex-cli', 'gpt-6.1-sol', 'high'),
+        ('codex-cli', 'gpt-6-astra', 'high')}
+    actual = {(p.get('host'), p.get('model'), p.get('reasoning_effort'))
+              for p in profiles if isinstance(p, dict)}
+    require(len(profiles) == len(actual) == 4 and actual == expected,
+            'All four selected host/model/effort profiles must remain separately required.')
+    require(acceptance.get('minimum_models_per_host') == 2
+            and acceptance.get('excluded_model_family') == 'Fable'
+            and acceptance.get('each_required_profile_needs_complete_separate_evidence') is True,
+            'Require at least two non-Fable models per CLI without mixed-profile aggregation.')
+    require(all(p.get('execution_status') == 'not_run' for p in profiles
+                if isinstance(p, dict)),
+            'Planning profile cells cannot claim actual acceptance execution.')
+
+
 def verify(root):
     failures = []
     def require(condition, message):
@@ -75,8 +116,7 @@ def verify(root):
             require(row.get('status') in {'not_started','in_progress','component_verified','complete','blocked'}, f"{row['id']}: unknown progress status.")
             if row.get('status') != 'not_started':
                 require(isinstance(row.get('evidence'), str) and bool(row['evidence'].strip()), f"{row['id']}: progress needs explicit evidence and scope.")
-    require(policy.get('limits', {}).get('max_elapsed_seconds') == 172800, 'Elapsed cap must remain 48 hours.')
-    require(policy.get('limits', {}).get('max_incremental_spend_usd') == 100, 'Spending cap must remain USD 100.')
+    verify_execution_limits(policy, require)
     require(set(policy.get('acceptance', {}).get('required_hosts', [])) == {'claude-code','codex-cli'}, 'Both hosts are required.')
     integration = policy.get('integration', {})
     merge_gate = integration.get('merge_refactor_gate', {})

@@ -1,0 +1,584 @@
+{
+  "source_commit": "dd69b81091dc9efd47fdd03a3edd71ebade0b863",
+  "requirements": [
+    {
+      "id": "R01",
+      "text": "The lead coordinates, scopes and reviews; each substantive tracked task has one assigned worker."
+    },
+    {
+      "id": "R02",
+      "text": "Create each issue in Backlog, explicitly enqueue it as Todo, and confirm the worker before In Progress."
+    },
+    {
+      "id": "R03",
+      "text": "Attempts, startup, process identity, liveness and progress have distinct durable records; no fabricated Running state."
+    },
+    {
+      "id": "R04",
+      "text": "All task reads, events and mutations are scoped to authenticated principal, project and logical session."
+    },
+    {
+      "id": "R05",
+      "text": "Each independent task owns its worktree and application database today; control metadata is separate."
+    },
+    {
+      "id": "R06",
+      "text": "Admission atomically claims tasks and finite host, project and resource capacity; no overload or double claim."
+    },
+    {
+      "id": "R07",
+      "text": "Dependencies, human holds, priority and approved queue membership determine eligibility."
+    },
+    {
+      "id": "R08",
+      "text": "Preserve merge command names, arguments, checks, foreground flow, result meanings and owned database lifecycle. Retain the latest pinned script bytes as the regression baseline. Refactor the workflow into the new system only where a source-grounded compatibility audit demonstrates that the current implementation prevents approved coordinator goals; freeze regression cases before changes and verify migration."
+    },
+    {
+      "id": "R09",
+      "text": "Code normally follows In Progress \u2192 In Dev \u2192 In Staging \u2192 Done with verified delivery evidence. In Review may exit directly to any configured status with destination-specific evidence. No work starts on delivered issues."
+    },
+    {
+      "id": "R10",
+      "text": "Linear sync uses durable outbound operations, deduplication, readback and reconciliation of uncertain writes."
+    },
+    {
+      "id": "R11",
+      "text": "Backlog is not automatic admission; the model cannot create work or claim arbitrary backlog to fill slots."
+    },
+    {
+      "id": "R12",
+      "text": "Human status, assignment, acceptance and hold decisions remain authoritative and attributed."
+    },
+    {
+      "id": "R13",
+      "text": "Cancel, duplicate, deletion and non-code completion use explicit allowed causes and evidence. In Review can move to every configured status, with an authorized decision and destination-specific guards."
+    },
+    {
+      "id": "R14",
+      "text": "Crash, timeout, retry, cancellation and unknown state recover without competing attempts or lost work."
+    },
+    {
+      "id": "R15",
+      "text": "CLI, MCP, hooks and presentation use one application API and one transition policy."
+    },
+    {
+      "id": "R16",
+      "text": "Both installed Claude Code and installed Codex CLI integrations execute real acceptance cases."
+    },
+    {
+      "id": "R17",
+      "text": "The companion pane groups own-session tasks by status, expands descriptions and supports keyboard and plain output."
+    },
+    {
+      "id": "R18",
+      "text": "Versioned GitHub distribution supports install, update, disable, uninstall and retained state."
+    },
+    {
+      "id": "R19",
+      "text": "Future parent/resource ownership is representable; shared application databases are not enabled today."
+    },
+    {
+      "id": "R20",
+      "text": "The build stops within 48 elapsed hours and USD 100 total incremental spending, including parallel work and judges."
+    },
+    {
+      "id": "R21",
+      "text": "Every workflow has reviewed mechanical tests and fresh behavioral evidence; replay is separate."
+    },
+    {
+      "id": "R22",
+      "text": "Results are bound to artifact hashes and declared host/model/effort/OS profiles; failed attempts are retained."
+    },
+    {
+      "id": "R23",
+      "text": "Live integration uses actual TST fixtures, real readback and only run-owned cleanup; two-user identity is verified."
+    },
+    {
+      "id": "R24",
+      "text": "The core works in another project through configuration/adapters and exposes no personal names or credentials in Markdown."
+    },
+    {
+      "id": "R25",
+      "text": "Reproducible builds, structured diagnostics, test reports and immutable result records support release decisions."
+    },
+    {
+      "id": "R26",
+      "text": "The fresh builder has bounded phases, tracked work, durable checkpoints, recovery and a truthful terminal report."
+    },
+    {
+      "id": "R27",
+      "text": "Authenticate operations, validate paths and command arguments, redact secrets and test all supported bypass surfaces."
+    },
+    {
+      "id": "R28",
+      "text": "Inventory and migrate every legacy caller/writer and task-management rule before one clean project-wide cutover. Deliver docs/migrate.md with tested commands for an inventory-bound script that removes obsolete files before installing replacements and verifies recovery."
+    },
+    {
+      "id": "R29",
+      "text": "Any failed, blocked or unrun required case prevents accepted release; coverage is reported by layer and profile."
+    },
+    {
+      "id": "R30",
+      "text": "Partial work, multiple attempts, reopened requests and follow-up issues preserve task and delivery distinctions."
+    },
+    {
+      "id": "R31",
+      "text": "Resource stop/removal is owned, idempotent and compatible with merges; orphan recovery never removes foreign resources."
+    },
+    {
+      "id": "R32",
+      "text": "Preserve #push, #release, #hotfix, /sync-with-dev and current command intent; test deployments only with isolated fixtures."
+    },
+    {
+      "id": "R33",
+      "text": "Task-management Markdown remains the concise policy/user contract; generated transition references match executable rules."
+    },
+    {
+      "id": "R34",
+      "text": "Old writers are fenced off before new admission; rollback never enables two live authorities or loses post-cutover facts."
+    },
+    {
+      "id": "R35",
+      "text": "Local incidents and user feedback feed a bounded opt-in repair, regression, verified release and safe update/rollback loop; private evidence is not uploaded without authorization."
+    },
+    {
+      "id": "R36",
+      "text": "The full user request \u2192 reviewed task prose \u2192 Linear Backlog \u2192 scoped CLI linkage \u2192 Todo \u2192 confirmed worker/In Progress \u2192 verified result \u2192 CLI/Linear settlement \u2192 lead AI acknowledgement \u2192 user report is observable and recoverable."
+    },
+    {
+      "id": "R37",
+      "text": "Linear and local tasks synchronize through immediate durable outbound events and authenticated inbound webhooks; reconciliation polling is recovery only; CLI and lead receive scoped real-time events."
+    },
+    {
+      "id": "R38",
+      "text": "Every new or updated task prose uses Technical Writer, the appropriate issue-type reference and Writing Style; exact content/version approval precedes publication; skill updates trigger scoped audits and retained evidence."
+    }
+  ],
+  "case_ids": [
+    "WF-intake-valid",
+    "WF-intake-omit-01",
+    "WF-intake-omit-02",
+    "WF-intake-omit-03",
+    "WF-intake-omit-04",
+    "WF-intake-order-01",
+    "WF-intake-order-02",
+    "WF-intake-order-03",
+    "WF-dispatch-valid",
+    "WF-dispatch-omit-01",
+    "WF-dispatch-omit-02",
+    "WF-dispatch-omit-03",
+    "WF-dispatch-omit-04",
+    "WF-dispatch-omit-05",
+    "WF-dispatch-omit-06",
+    "WF-dispatch-omit-07",
+    "WF-dispatch-order-01",
+    "WF-dispatch-order-02",
+    "WF-dispatch-order-03",
+    "WF-dispatch-order-04",
+    "WF-dispatch-order-05",
+    "WF-dispatch-order-06",
+    "WF-execution-valid",
+    "WF-execution-omit-01",
+    "WF-execution-omit-02",
+    "WF-execution-omit-03",
+    "WF-execution-omit-04",
+    "WF-execution-omit-05",
+    "WF-execution-order-01",
+    "WF-execution-order-02",
+    "WF-execution-order-03",
+    "WF-execution-order-04",
+    "WF-delivery-valid",
+    "WF-delivery-omit-01",
+    "WF-delivery-omit-02",
+    "WF-delivery-omit-03",
+    "WF-delivery-omit-04",
+    "WF-delivery-omit-05",
+    "WF-delivery-omit-06",
+    "WF-delivery-omit-07",
+    "WF-delivery-order-01",
+    "WF-delivery-order-02",
+    "WF-delivery-order-03",
+    "WF-delivery-order-04",
+    "WF-delivery-order-05",
+    "WF-delivery-order-06",
+    "WF-hold-resume-valid",
+    "WF-hold-resume-omit-01",
+    "WF-hold-resume-omit-02",
+    "WF-hold-resume-omit-03",
+    "WF-hold-resume-omit-04",
+    "WF-hold-resume-omit-05",
+    "WF-hold-resume-omit-06",
+    "WF-hold-resume-order-01",
+    "WF-hold-resume-order-02",
+    "WF-hold-resume-order-03",
+    "WF-hold-resume-order-04",
+    "WF-hold-resume-order-05",
+    "WF-sync-valid",
+    "WF-sync-omit-01",
+    "WF-sync-omit-02",
+    "WF-sync-omit-03",
+    "WF-sync-omit-04",
+    "WF-sync-omit-05",
+    "WF-sync-order-01",
+    "WF-sync-order-02",
+    "WF-sync-order-03",
+    "WF-sync-order-04",
+    "WF-recovery-valid",
+    "WF-recovery-omit-01",
+    "WF-recovery-omit-02",
+    "WF-recovery-omit-03",
+    "WF-recovery-omit-04",
+    "WF-recovery-omit-05",
+    "WF-recovery-order-01",
+    "WF-recovery-order-02",
+    "WF-recovery-order-03",
+    "WF-recovery-order-04",
+    "WF-installation-valid",
+    "WF-installation-omit-01",
+    "WF-installation-omit-02",
+    "WF-installation-omit-03",
+    "WF-installation-omit-04",
+    "WF-installation-omit-05",
+    "WF-installation-order-01",
+    "WF-installation-order-02",
+    "WF-installation-order-03",
+    "WF-installation-order-04",
+    "WF-cutover-valid",
+    "WF-cutover-omit-01",
+    "WF-cutover-omit-02",
+    "WF-cutover-omit-03",
+    "WF-cutover-omit-04",
+    "WF-cutover-omit-05",
+    "WF-cutover-omit-06",
+    "WF-cutover-omit-07",
+    "WF-cutover-omit-08",
+    "WF-cutover-order-01",
+    "WF-cutover-order-02",
+    "WF-cutover-order-03",
+    "WF-cutover-order-04",
+    "WF-cutover-order-05",
+    "WF-cutover-order-06",
+    "WF-cutover-order-07",
+    "WF-removal-valid",
+    "WF-removal-omit-01",
+    "WF-removal-omit-02",
+    "WF-removal-omit-03",
+    "WF-removal-omit-04",
+    "WF-removal-omit-05",
+    "WF-removal-order-01",
+    "WF-removal-order-02",
+    "WF-removal-order-03",
+    "WF-removal-order-04",
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C09",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "C19",
+    "C20",
+    "C21",
+    "C22",
+    "C23",
+    "C24",
+    "C25",
+    "C26",
+    "C27",
+    "C28",
+    "C29",
+    "C30",
+    "C31",
+    "C32",
+    "C33",
+    "C34",
+    "C35",
+    "C36",
+    "C37",
+    "C38",
+    "C39",
+    "C40",
+    "B01",
+    "B02",
+    "B03",
+    "B04",
+    "B05",
+    "B06",
+    "B07",
+    "B08",
+    "B09",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "WF-maintenance-valid",
+    "WF-maintenance-omit-01",
+    "WF-maintenance-omit-02",
+    "WF-maintenance-omit-03",
+    "WF-maintenance-omit-04",
+    "WF-maintenance-omit-05",
+    "WF-maintenance-omit-06",
+    "WF-maintenance-omit-07",
+    "WF-maintenance-order-01",
+    "WF-maintenance-order-02",
+    "WF-maintenance-order-03",
+    "WF-maintenance-order-04",
+    "WF-maintenance-order-05",
+    "WF-maintenance-order-06",
+    "WF-task-loop-valid",
+    "WF-task-loop-omit-01",
+    "WF-task-loop-omit-02",
+    "WF-task-loop-omit-03",
+    "WF-task-loop-omit-04",
+    "WF-task-loop-omit-05",
+    "WF-task-loop-omit-06",
+    "WF-task-loop-omit-07",
+    "WF-task-loop-omit-08",
+    "WF-task-loop-omit-09",
+    "WF-task-loop-omit-10",
+    "WF-task-loop-omit-11",
+    "WF-task-loop-omit-12",
+    "WF-task-loop-omit-13",
+    "WF-task-loop-omit-14",
+    "WF-task-loop-order-01",
+    "WF-task-loop-order-02",
+    "WF-task-loop-order-03",
+    "WF-task-loop-order-04",
+    "WF-task-loop-order-05",
+    "WF-task-loop-order-06",
+    "WF-task-loop-order-07",
+    "WF-task-loop-order-08",
+    "WF-task-loop-order-09",
+    "WF-task-loop-order-10",
+    "WF-task-loop-order-11",
+    "WF-task-loop-order-12",
+    "WF-task-loop-order-13",
+    "WF-realtime-sync-valid",
+    "WF-realtime-sync-omit-01",
+    "WF-realtime-sync-omit-02",
+    "WF-realtime-sync-omit-03",
+    "WF-realtime-sync-omit-04",
+    "WF-realtime-sync-omit-05",
+    "WF-realtime-sync-omit-06",
+    "WF-realtime-sync-omit-07",
+    "WF-realtime-sync-order-01",
+    "WF-realtime-sync-order-02",
+    "WF-realtime-sync-order-03",
+    "WF-realtime-sync-order-04",
+    "WF-realtime-sync-order-05",
+    "WF-realtime-sync-order-06",
+    "WF-task-writing-valid",
+    "WF-task-writing-omit-01",
+    "WF-task-writing-omit-02",
+    "WF-task-writing-omit-03",
+    "WF-task-writing-omit-04",
+    "WF-task-writing-order-01",
+    "WF-task-writing-order-02",
+    "WF-task-writing-order-03",
+    "RT01",
+    "RT02",
+    "RT03",
+    "RT04",
+    "MA01",
+    "MA02",
+    "MA03",
+    "WR01",
+    "WR02",
+    "WR03",
+    "B17",
+    "B18",
+    "B19",
+    "B20"
+  ],
+  "workflows": [
+    "intake",
+    "dispatch",
+    "execution",
+    "delivery",
+    "hold-resume",
+    "sync",
+    "recovery",
+    "installation",
+    "cutover",
+    "removal",
+    "maintenance",
+    "task-loop",
+    "realtime-sync",
+    "task-writing"
+  ],
+  "prior_cases": [
+    {
+      "id": "C08",
+      "layer": "mechanical",
+      "requirements": [
+        "R06",
+        "R20"
+      ],
+      "workflow": null,
+      "title": "Parallel cost reservations",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Race workers and evaluators for the last dollar; return unknown pricing and overlong elapsed time."
+      ],
+      "expected": [
+        "Global reservations prevent new paid work beyond the cap; unknown charges block; deadline is retained across restarts."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "shared"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    },
+    {
+      "id": "B11",
+      "layer": "behavior",
+      "requirements": [
+        "R20",
+        "R26"
+      ],
+      "workflow": null,
+      "title": "Deadline budget and quota",
+      "critical": true,
+      "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+      "actions": [
+        "Available budget is exhausted or the hard deadline is near while work remains."
+      ],
+      "expected": [
+        "Stop new admission, checkpoint safely, retain incomplete work and publish a truthful report without requesting an automatic extension."
+      ],
+      "evidence": [
+        "artifact and case hashes",
+        "captured commands or public tool trace",
+        "before/after authoritative state",
+        "actual result and retained attempt id"
+      ],
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "execution_status": "not_run",
+      "workflow_ids": []
+    }
+  ],
+  "prior_matrix": {
+    "behavior_hosts": [
+      "claude-code",
+      "codex-cli"
+    ],
+    "behavior_platform": "macos",
+    "profiles": "Resolve and freeze exact available model and effort per host before the first evaluated batch.",
+    "critical_repeat_cases": [
+      "B01",
+      "B03",
+      "B06",
+      "B08",
+      "B09",
+      "B12",
+      "B14"
+    ],
+    "critical_repeat_count": 3,
+    "linux_required_cases": [
+      "C29"
+    ],
+    "shared_mechanical_platforms": [
+      "macos",
+      "linux-container"
+    ],
+    "live_linear_platform": "macos",
+    "behavior_runs_through_live_tst_when_applicable": true
+  },
+  "documentation_invariants": {
+    "readme.md": {
+      "headings": [
+        "# AI task manager documentation",
+        "## Start",
+        "## Check the result",
+        "## Find your way around",
+        "## Limits and maintenance"
+      ],
+      "code_block_sha256": [
+        "db48f416446a00f7e5c523001bbc987c4e35a21e2fdcb15f87d40011c97ad93b",
+        "ae35a2ea4ddebcc75894d59fdf22eb1567451911192395c19dffe8b20beda5b9"
+      ]
+    },
+    "policy.md": {
+      "headings": [
+        "# Task coordination policy",
+        "## Purpose and scope",
+        "## Definitions",
+        "## Principles",
+        "## Policy obligations",
+        "## Responsibilities and compliance",
+        "## Exceptions",
+        "## Ownership, review, and related standards"
+      ],
+      "code_block_sha256": []
+    },
+    "implementation_plan.md": {
+      "headings": [
+        "# AI task manager implementation plan",
+        "## Goal and specification",
+        "## Current context and approach",
+        "### Tools and prerequisite checks",
+        "## Work sequence",
+        "### P00 \u2014 Bootstrap and verify prerequisites",
+        "### P01 \u2014 Freeze contracts and baseline",
+        "### P02 \u2014 Implement core records and admission",
+        "### P03 \u2014 Implement workers, resources and the first complete path",
+        "### P04 \u2014 Implement Linear policy and live integration",
+        "### P05 \u2014 Integrate Claude Code and Codex CLI",
+        "### P06 \u2014 Complete scheduling and recovery",
+        "### P07 \u2014 Implement the terminal views",
+        "### P08 \u2014 Build skills and run fresh behavior evaluations",
+        "### P09 \u2014 Implement complete cutover and distribution",
+        "### P10 \u2014 Complete acceptance and prepare delivery",
+        "### Autonomous operating procedure",
+        "## Requirement coverage",
+        "## Rollout and recovery",
+        "### Clean project-wide cutover",
+        "### Failure, rollback and uninstall",
+        "### Delivery contents",
+        "## Risks and open decisions"
+      ],
+      "code_block_sha256": []
+    },
+    "test_plan.md": {
+      "headings": [
+        "# AI task manager test plan",
+        "## Objectives and scope",
+        "## Risks and test basis",
+        "## Approach and resources",
+        "### Test levels and sequence",
+        "### Failure and recovery",
+        "### Environments, data and identity",
+        "### Fresh behavior evaluation",
+        "### Maintenance, migration and distribution",
+        "## Entry and exit criteria",
+        "## Reporting and follow-up",
+        "### Captured interface references"
+      ],
+      "code_block_sha256": []
+    }
+  }
+}
