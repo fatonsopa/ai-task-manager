@@ -31,7 +31,7 @@
     },
     {
       "id": "R08",
-      "text": "Fully refactor merge internals into focused domains while preserving command names, arguments and intended foreground behavior. Workers commit in their own branches/worktrees; one authority validates and integrates into dev. Audit the latest source and relevant CG history, version retained/corrected scenarios, fix defective checks/sequencing/resource lifetime, verify concurrency/recovery/migration in disposable copies and measure commit/merge/test performance without discarding valid checks or historical failures."
+      "text": "Build a standalone merge engine in focused domains through its own implemented API/CLI contract. Retire merge-to-dev.sh and every compatibility wrapper or alias for that entrypoint. Workers commit in their own worktrees; one authority validates and integrates into the trusted configured target. Critically audit source/history scenarios, version retained/corrected outcomes, verify checks, resource lifetime, concurrency, recovery and performance in independently authored projects, and preserve all historical failures."
     },
     {
       "id": "R09",
@@ -95,7 +95,7 @@
     },
     {
       "id": "R24",
-      "text": "The core works in another project through configuration/adapters and exposes no personal names or credentials in Markdown."
+      "text": "The product installs and works in empty and unrelated projects using its own domains and trusted configuration, with no AI Index runtime dependency or legacy catalog translation. AI Index scripts and copies must not live anywhere in the product repository, including ignored caches, worktrees, examples or fixtures. Inspect originals read-only; keep required immutable historical source evidence outside the product with hashes/relocation records and no import or symlink bridge. Expose no personal names or credentials in Markdown."
     },
     {
       "id": "R25",
@@ -111,7 +111,7 @@
     },
     {
       "id": "R28",
-      "text": "Inventory and migrate every legacy caller/writer and task-management rule before one clean project-wide cutover. Deliver docs/migrate.md with tested commands for an inventory-bound script that removes obsolete files before installing replacements and verifies recovery."
+      "text": "After standalone product completion and a later user-requested target audit, inventory all then-current files, Markdown and callers before one clean cutover. Remove fully superseded files and only overlapping parts of mixed files, preserving unrelated behavior and history. Report what the script handles and what the user must change; deliver tested docs/migrate.md commands/recovery. Verify generic installation/migration independently, without retaining old application scripts."
     },
     {
       "id": "R29",
@@ -127,11 +127,11 @@
     },
     {
       "id": "R32",
-      "text": "Preserve #push, #release, #hotfix, /sync-with-dev and current command intent; test deployments only with isolated fixtures."
+      "text": "Retain the separately requested purposes of #push, #release, #hotfix and /sync-with-dev through appropriate new integration contracts; do not preserve retired script-based routing or an alias for merge-to-dev.sh. Test deployment effects only with isolated fixtures."
     },
     {
       "id": "R33",
-      "text": "Task-management Markdown remains the concise policy/user contract; generated transition references match executable rules."
+      "text": "The product owns concise necessary instructions and generated transition references over the executable engine. Remove obsolete instructions; an old task-management filename or path is not a required survivor. Add new product-owned guidance only where actual consumers need it, and verify parity with executable rules."
     },
     {
       "id": "R34",
@@ -154,7 +154,7 @@
       "text": "Every new or updated task prose uses Technical Writer, the appropriate issue-type reference and Writing Style; exact content/version approval precedes publication; skill updates trigger scoped audits and retained evidence."
     }
   ],
-  "requirements_revision": 5,
+  "requirements_revision": 6,
   "revision_history": [
     {
       "revision": 3,
@@ -190,6 +190,42 @@
       "previous_text": "Preserve merge command names, arguments, checks, foreground flow, result meanings and owned database lifecycle. Retain the latest pinned script bytes as the regression baseline. Refactor the workflow into the new system only where a source-grounded compatibility audit demonstrates that the current implementation prevents approved coordinator goals; freeze regression cases before changes and verify migration.",
       "implementation_status": "latest-source/history audit and corrected scenario mapping pending; refactor not shipped",
       "prior_results_reinterpreted": false
+    },
+    {
+      "revision": 6,
+      "requirements": [
+        "R08",
+        "R24",
+        "R28",
+        "R32",
+        "R33"
+      ],
+      "reason": "Actual user explicitly requires empty-project operation, retires the old merge shell entrypoint, forbids every product-side AI Index script copy, removes mandatory survival of old instructions, and requests the fresh target audit only after standalone completion. Source code is scenario evidence, not a correctness oracle or runtime dependency.",
+      "previous_requirements": [
+        {
+          "id": "R08",
+          "text": "Fully refactor merge internals into focused domains while preserving command names, arguments and intended foreground behavior. Workers commit in their own branches/worktrees; one authority validates and integrates into dev. Audit the latest source and relevant CG history, version retained/corrected scenarios, fix defective checks/sequencing/resource lifetime, verify concurrency/recovery/migration in disposable copies and measure commit/merge/test performance without discarding valid checks or historical failures."
+        },
+        {
+          "id": "R24",
+          "text": "The core works in another project through configuration/adapters and exposes no personal names or credentials in Markdown."
+        },
+        {
+          "id": "R28",
+          "text": "Inventory and migrate every legacy caller/writer and task-management rule before one clean project-wide cutover. Deliver docs/migrate.md with tested commands for an inventory-bound script that removes obsolete files before installing replacements and verifies recovery."
+        },
+        {
+          "id": "R32",
+          "text": "Preserve #push, #release, #hotfix, /sync-with-dev and current command intent; test deployments only with isolated fixtures."
+        },
+        {
+          "id": "R33",
+          "text": "Task-management Markdown remains the concise policy/user contract; generated transition references match executable rules."
+        }
+      ],
+      "prior_results_reinterpreted": false,
+      "implementation_status": "Binding contract correction; source-copy relocation, interface implementation and final acceptance remain incomplete.",
+      "source": "Current user directions recorded in user-no-legacy-scripts-merge-entrypoint-20261102 and the complete plan audit."
     }
   ]
 }

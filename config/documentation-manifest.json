@@ -2,7 +2,7 @@
   "schema_version": 3,
   "scope": "Documentation and declared supporting inputs; not whole-product or runtime attestation.",
   "path_base": "repository_root",
-  "previous_manifest_sha256": "09f81fb24b37797a49579cb9e60e241e8d268bde965f78d01e5b7243f9dd06de",
+  "previous_manifest_sha256": "7fec0e146084d58a4c0ed8f514a2e762b824914765e2840a8f9b0c6d97869f97",
   "files": [
     {
       "path": ".gitignore",
@@ -10,7 +10,7 @@
     },
     {
       "path": "AGENTS.md",
-      "sha256": "4482038d29ee54cb184e1235328a3a150e3cb9ffd836ccc6de50ff994a1e6fa0"
+      "sha256": "9d70f01fd8870718c1ad42661993a69ec8956e76e3b11b8701a81f761c537fc2"
     },
     {
       "path": "CLAUDE.md",
@@ -26,7 +26,7 @@
     },
     {
       "path": "config/execution-policy.json",
-      "sha256": "4731f88c821f781ff0b7ead6f2df9a0f055db6844410bf6f42d4f5a992874b1e"
+      "sha256": "f054db4d103bf20b87ff41aea969d27f9ae0159fe132c10102a014c0650f63e9"
     },
     {
       "path": "config/migration/legacy-inventory.json",
@@ -38,7 +38,7 @@
     },
     {
       "path": "config/requirements.json",
-      "sha256": "aa12979ab21934d91ce29cb60ebd46005e68fbe36ab4d832d5af1f265c27e9c0"
+      "sha256": "a4ba1bd7282663ce6e21e6412c5a320aaff067e5c3c3de52ae1b5a2675e63a8c"
     },
     {
       "path": "config/research-sources.json",
@@ -150,7 +150,7 @@
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "a1137c2b27ba677d1ddf4feb9594f6b84d4386e54c5a2dcb0fec05e3f1eaacb3"
+      "sha256": "a4b82b2f5342f3b588b9d404d434287101d951d645acdbef266c85462b2388f4"
     },
     {
       "path": "docs/merge/decision_record.md",
@@ -214,7 +214,7 @@
     },
     {
       "path": "tools/check_handoff.py",
-      "sha256": "e8c940d5629806571a870ea5fee700994c2e232cdc313ffb67c7a266d409e8fa"
+      "sha256": "66ec04082726275651acc1f12a72826e68d6ab4fc666dc546989113c91befcf8"
     },
     {
       "path": "tools/repository_layout.py",
