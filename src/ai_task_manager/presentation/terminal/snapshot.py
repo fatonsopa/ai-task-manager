@@ -49,6 +49,11 @@ class TaskRow:
     def symbol(self, ascii=False):
         return ACTIVITIES[self.activity][1 if ascii else 0]
 
+    def compact_identifier(self, ascii=False):
+        if self.identifier.startswith("local:") and len(self.identifier) > 20:
+            return self.identifier[:14] + ("..." if ascii else "…")
+        return self.identifier
+
 
 @dataclass(frozen=True)
 class Snapshot:

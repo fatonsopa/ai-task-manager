@@ -170,7 +170,9 @@ class SidebarApp(App):
             if not opened:
                 continue
             for task in rows:
-                label = Text(f"{task.symbol(self.ascii)} {task.identifier} {task.title}")
+                label = Text(
+                    f"{task.symbol(self.ascii)} {task.compact_identifier(self.ascii)} {task.title}"
+                )
                 if self.use_color:
                     label.stylize(ACTIVITIES[task.activity][3], 0, len(task.symbol(self.ascii)))
                 row = Control(label, "task", task.id)
@@ -185,6 +187,10 @@ class SidebarApp(App):
                 )
                 details = Vertical(description, more, classes="details")
                 await viewport.mount(details)
+                if task.compact_identifier(self.ascii) != task.identifier:
+                    await details.mount(
+                        Static(Text(task.identifier), classes="activity"), before=description
+                    )
                 if Text(task.title).cell_len > viewport.content_size.width:
                     await details.mount(
                         Static(Text(task.title), classes="activity"), before=description
@@ -257,12 +263,15 @@ class SidebarApp(App):
         self.view.hidden = not effective_hidden
         self.apply_visibility()
         if self.layout:
-            self.layout.resize(self.view.hidden)
+            try:
+                self.layout.resize(self.view.hidden)
+            except Exception:
+                self.query_one("#pane-title", Static).update("Layout unavailable")
 
     def apply_visibility(self):
         hidden = self.view.hidden or self.size.width < 16
         self.query_one("#task-scroll").display = not hidden
-        self.query_one("#pane-title").display = not hidden
+        self.query_one("#pane-title", Static).update("" if hidden else "Session tasks")
         self.query_one("#visibility", Control).update(Text("[show]" if hidden else "[hide]"))
 
     def on_resize(self):
