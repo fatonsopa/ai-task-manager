@@ -45,23 +45,17 @@ def test_ea41_remote_delivery_then_newer_todo_cannot_restore_work_lease(tmp_path
 
 
 def test_ea53_schema_two_backfills_delivery_without_losing_pending_effects(tmp_path):
-    rig = Rig(tmp_path / "core.sqlite")
+    from tests.scheduling.helpers import LegacyMigrationFixture
+
+    rig = LegacyMigrationFixture(tmp_path / "core.sqlite", 2)
     delivered, pending = rig.task(), rig.task(confirmed=False)
     with rig.db.transaction() as conn:
         delivered = work.save(conn, replace(delivered, delivered_once=True), delivered.version)
         original_tasks = [tuple(row) for row in conn.execute("SELECT * FROM tasks ORDER BY id")]
         original_outbox = [tuple(row) for row in conn.execute("SELECT * FROM outbox ORDER BY id")]
-        for table in (
-            "store_identity",
-            "issue_lifecycle",
-            "existing_admissions",
-            "existing_checks",
-        ):
-            conn.execute(f"DROP TABLE {table}")
-        conn.execute("UPDATE metadata SET version=2")
     migrated = Database(rig.db.path)
     with migrated.transaction() as conn:
-        assert conn.execute("SELECT version FROM metadata").fetchone()[0] == 3
+        assert conn.execute("SELECT version FROM metadata").fetchone()[0] == 4
         assert [
             tuple(row) for row in conn.execute("SELECT * FROM tasks ORDER BY id")
         ] == original_tasks
@@ -75,33 +69,18 @@ def test_ea53_schema_two_backfills_delivery_without_losing_pending_effects(tmp_p
 
 
 def test_ea53_ea69_migration_retains_positive_terminal_observation_after_reset(tmp_path):
-    rig = Rig(tmp_path / "core.sqlite")
+    from tests.scheduling.helpers import LegacyMigrationFixture
+
+    rig = LegacyMigrationFixture(tmp_path / "core.sqlite", 2)
     task = rig.task()
-    observation = rig.proof(
-        "external_observation",
-        task.id,
-        {
-            "issue_id": task.issue_id,
-            "source_revision": "2026-11-01T00:02:00Z",
-            "status": "Canceled",
-            "title": task.title,
-            "body": task.body,
-        },
-    )
-    rig.core.external.observe(
-        rig.handle, task.id, task.version, task.decision_revision, observation, rig.key()
-    )
+    payload = {"issue_id": task.issue_id, "source_revision": "2026-11-01T00:02:00Z",
+               "status": "Canceled", "title": task.title, "body": task.body}
+    rig.terminal_observation(task, payload)
     with rig.db.transaction() as conn:
-        for table in (
-            "store_identity",
-            "issue_lifecycle",
-            "existing_admissions",
-            "existing_checks",
-        ):
-            conn.execute(f"DROP TABLE {table}")
-        conn.execute("UPDATE metadata SET version=2")
+        original_observations = [tuple(row) for row in conn.execute("SELECT * FROM external_observations")]
     migrated = Database(rig.db.path)
     with migrated.transaction() as conn:
         with pytest.raises(EvidenceRequired):
             issue_claims.require_open(conn, rig.scope, task.issue_id)
+        assert [tuple(row) for row in conn.execute("SELECT * FROM external_observations")] == original_observations
     assert rig.current(task).observed_status == "Backlog"

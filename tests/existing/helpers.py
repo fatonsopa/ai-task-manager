@@ -31,6 +31,7 @@ from ai_task_manager.domains.work.models import (
 from ai_task_manager.storage.database import Database
 from tests.domains.helpers import ProofFixture
 from tests.linear.helpers import EXPECTED, STATES, ProviderFixture
+from tests.scheduling.helpers import SnapshotSource, seed_known_queue
 
 CREATED = "2026-11-01T00:00:00Z"
 SECOND = "2026-11-01T00:01:00Z"
@@ -232,6 +233,7 @@ class ExistingRig:
                 EvidenceRoute("decision-proof:", DECISION_KINDS, self.authority),
             ]
         )
+        self.scheduling_sources = SnapshotSource()
         self.core = Core(
             self.db,
             self.policy,
@@ -240,6 +242,7 @@ class ExistingRig:
             evidence=self.router,
             approvals=self.approvals,
             renderer=self.renderer,
+            scheduling_sources=self.scheduling_sources,
         )
         self.handle = self.core.register_session(
             self.journal.bind_principal(self.binding, self.scope)
@@ -278,7 +281,12 @@ class ExistingRig:
 
     def admit(self, issue_id, key=None):
         ref, prose, approval, selected = self.packet(issue_id)
-        return self.intake.admit(ref, prose, approval, selected, key or str(uuid4()))
+        task = self.intake.admit(ref, prose, approval, selected, key or str(uuid4()))
+        # Record fixture knowledge without changing admission or replay history.
+        if not hasattr(self, "known_dependencies"):
+            self.known_dependencies = {}
+        self.known_dependencies[task.id] = ((), "normal")
+        return task
 
     def admission_readback(self, discovery_ref, operation_key):
         original = self.reader.receipt(discovery_ref)
@@ -290,18 +298,21 @@ class ExistingRig:
 
     def queue(self, task, key=None):
         key = key or str(uuid4())
-        source = self.intake.queue_readback(task.id, task.version, task.decision_revision, key)
-        return self.core.transitions.transition(
-            self.handle,
-            task.id,
-            "Todo",
-            "enqueue",
-            task.version,
-            task.decision_revision,
-            self.decision(task),
-            {"existing_source": source},
-            key,
+        if not hasattr(self, "_queue_decisions"):
+            self._queue_decisions = {}
+        if key not in self._queue_decisions:
+            self._queue_decisions[key] = self.decision(task)
+        with self.db.transaction() as conn:
+            replay = conn.execute("SELECT 1 FROM operations WHERE key=?", (key,)).fetchone()
+        source = None if replay else self.intake.queue_readback(
+            task.id, task.version, task.decision_revision, key)
+        result = self.core.transitions.transition(
+            self.handle, task.id, "Todo", "enqueue", task.version,
+            task.decision_revision, self._queue_decisions[key], {"existing_source": source}, key,
         )
+        if not replay:
+            seed_known_queue(self, self.core.get_task(self.handle, task.id))
+        return result
 
     def startup_source(self, task, key, *, phase="reserve", attempt_id=None):
         return self.intake.guard(

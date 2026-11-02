@@ -248,6 +248,10 @@ class LinearRig(Rig):
         self.provider = provider
 
     def new_core(self):
+        from tests.scheduling.helpers import SnapshotSource
+
+        if not hasattr(self, "scheduling_sources"):
+            self.scheduling_sources = SnapshotSource()
         return Core(
             self.db,
             self.policy,
@@ -257,14 +261,19 @@ class LinearRig(Rig):
             evidence=FixtureRouter(self.journal, self.proofs),
             renderer=self.renderer,
             clock=lambda: self.now,
+            scheduling_sources=self.scheduling_sources,
         )
 
     def task(self, *, confirmed=True, **kwargs):
         task = super().task(confirmed=False, **kwargs)
-        return self.outbound.confirm_pending(self.handle, task.id) if confirmed else task
+        return self.confirm(task) if confirmed else task
 
     def confirm(self, task, **kwargs):
-        return self.outbound.confirm_pending(self.handle, task.id)
+        from tests.scheduling.helpers import known_declaration
+
+        result = self.outbound.confirm_pending(self.handle, task.id)
+        known_declaration(self, result)
+        return result
 
     def signed(self, payload, delivery_id=None, secret=b"fixture-webhook-signing-secret"):
         body = json.dumps(payload, separators=(",", ":")).encode()

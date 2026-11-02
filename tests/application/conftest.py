@@ -79,7 +79,8 @@ def composed(tmp_path):
                 HttpTransport(_test_endpoint=provider.endpoint), credentials, expected
             ),
         )
-        service = load_service(path, observations=observations, linear_components=components)
+        service = load_service(path, observations=observations, linear_components=components,
+                               scheduling_sources=rig.scheduling_sources)
         yield service, rig, provider, components
     finally:
         provider.close()

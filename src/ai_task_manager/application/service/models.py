@@ -8,6 +8,7 @@ from jsonschema import Draft202012Validator
 from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.domains.work import errors
 from ai_task_manager.domains.work.existing import ExistingBlocked
+from ai_task_manager.domains.scheduling.models import SchedulingBlocked
 from ai_task_manager.domains.work.models import IssueStatus
 from ai_task_manager.supervisor.models import RuntimeRefused, RuntimeUncertain
 
@@ -213,7 +214,7 @@ def failure(error):
         ),
     ):
         category, code = "denied", 3
-    elif isinstance(error, (Unavailable, ExistingBlocked, errors.CapacityExceeded)):
+    elif isinstance(error, (Unavailable, ExistingBlocked, SchedulingBlocked, errors.CapacityExceeded)):
         category, code = "blocked", 4
     else:
         category, code = "failed", 5

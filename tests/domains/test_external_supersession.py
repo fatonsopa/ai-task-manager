@@ -159,15 +159,13 @@ def test_l21_hold_requires_real_quiescence_and_does_not_fabricate_it(tmp_path):
 def test_l25_additive_core_schema_upgrade_preserves_existing_intents(tmp_path):
     from ai_task_manager.storage.database import Database
 
-    rig = Rig(tmp_path / "core.sqlite")
+    from tests.scheduling.helpers import LegacyMigrationFixture
+
+    rig = LegacyMigrationFixture(tmp_path / "core.sqlite", 1)
     task = rig.task(confirmed=False)
-    with rig.db.transaction() as conn:
-        conn.execute("DROP TABLE external_observations")
-        conn.execute("ALTER TABLE outbox DROP COLUMN fenced_by")
-        conn.execute("UPDATE metadata SET version=1")
     upgraded = Database(rig.db.path)
     with upgraded.transaction() as conn:
-        assert conn.execute("SELECT version FROM metadata").fetchone()[0] == 3
+        assert conn.execute("SELECT version FROM metadata").fetchone()[0] == 4
         assert conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0] == 1
     assert rig.current(task) == task

@@ -11,6 +11,7 @@ from ai_task_manager.domains.work.models import Attempt, TaskProse
 from ai_task_manager.storage import attempts, work
 from tests.domains.helpers import Rig
 from tests.linear.helpers import STATES
+from tests.scheduling.helpers import seed_known_queue
 
 from .helpers import span
 from .test_delivery_prose import human_decision, record_external
@@ -127,6 +128,7 @@ def test_ea83_imported_todo_acknowledgement_does_not_queue_then_explicit_enqueue
         )
         == 1
     )
+    seed_known_queue(rig, queued)
     assert rig.reserve(queued).state == "reserved"
 
 

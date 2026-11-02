@@ -16,6 +16,7 @@ class Context:
         self.db, self.approval_policy = db, approval_policy
         self.principals, self.approvals, self.evidence = principals, approvals, evidence
         self.renderer, self.clock = renderer, clock
+        self.scheduling = None
 
     def proof(self, ref, kind, scope, subject) -> Evidence:
         if not ref:
@@ -67,6 +68,8 @@ class Context:
             **(payload or {}),
         }
         event = events.append(conn, task.session_id, task.id, kind, payload)
+        if self.scheduling is not None:
+            self.scheduling.source_changed(conn, task, event)
         if outbound_kind:
             outbox.append(
                 conn,

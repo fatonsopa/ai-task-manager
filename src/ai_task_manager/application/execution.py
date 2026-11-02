@@ -18,7 +18,7 @@ from ai_task_manager.domains.work.models import (
 from ai_task_manager.domains.work.models import AttemptState as A
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.domains.work.transitions import check_transition
-from ai_task_manager.storage import attempts, capacity, issue_claims, sessions, work
+from ai_task_manager.storage import attempts, capacity, issue_claims, scheduling, sessions, work
 from ai_task_manager.storage.database import encode
 
 from .existing_issues import ExistingIssues
@@ -53,6 +53,7 @@ class Execution:
         ):
             raise InvalidTransition("Work lease is no longer authorized")
         self.require_open(conn, scope, task)
+        self.c.scheduling.require(conn, scope, task, "lease", attempt)
         return attempt
 
     def validate_work_lease(self, handle, attempt_id, expected_attempt_version):
@@ -137,9 +138,11 @@ class Execution:
                 )
             if attempts.active(conn, task.id):
                 raise CapacityExceeded("Task already owns an active or unresolved attempt")
+            graph_version = self.c.scheduling.require(conn, scope, task, "reserve")
             capacity.check(conn, host, scope)
             attempt = Attempt(str(uuid4()), task.id, sid, host, A.RESERVED, task.decision_revision)
             attempts.insert(conn, attempt)
+            scheduling.bind_attempt(conn, attempt.id, task.id, graph_version)
             task = work.save(conn, replace(task, execution_state=A.RESERVED), task.version)
             self.c.changed(
                 conn,
@@ -234,6 +237,7 @@ class Execution:
                 cause,
                 TransitionFacts(authorized=True, queued=task.queued_once, worker_started=True),
             )
+            self.c.scheduling.require(conn, scope, task, "start", attempt)
             attempt = replace(
                 attempt,
                 state=A.STARTING,
@@ -300,6 +304,7 @@ class Execution:
                     "Running requires confirmed In Progress and current ownership"
                 )
             self.require_open(conn, scope, task)
+            self.c.scheduling.require(conn, scope, task, "running", attempt)
             proof = self.c.proof(resources_ref, "resources_ready", scope, attempt.id)
             required = {
                 "task_id": task.id,
