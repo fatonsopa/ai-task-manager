@@ -1781,7 +1781,8 @@ def test_hd14b_actual_ingest_result_precedes_blocked_finished_diagnostics(rig, t
     assert clock_records(server, tmp_path)[0]["response_completed"]
 
 
-def test_hd16_bounded_header_prefix_refuses_over_limit_input(tmp_path):
+@pytest.mark.parametrize("shape", ["single_line", "cumulative"])
+def test_hd16_bounded_header_prefix_refuses_over_limit_input(tmp_path, shape):
     counter, record = HttpCounter(), ledger(tmp_path)
     server = BoundedReceiver(counter, record, response_budget=0.8, output_reserve=0.2)
     raw = None
@@ -1789,6 +1790,12 @@ def test_hd16_bounded_header_prefix_refuses_over_limit_input(tmp_path):
         server.start()
         raw = owned_socket(server)
         data = f"POST {server.route} HTTP/1.1\r\nX-Private: ".encode() + b"z" * 66000
+        if shape == "cumulative":
+            data = (
+                f"POST {server.route} HTTP/1.1\r\nContent-Length: 0\r\n".encode()
+                + b"".join(f"X-{number}: ".encode() + b"z" * 850 + b"\r\n" for number in range(80))
+                + b"\r\n"
+            )
         try:
             raw.sendall(data)
         except OSError:
