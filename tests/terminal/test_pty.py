@@ -11,11 +11,13 @@ from tests.application.helpers import ServiceRig
 from .pty_driver import Terminal, color_codes
 
 
-def fixture_task(fixture):
+def fixture_task(fixture, *, body=None, display_identifier="TST-9001"):
     # Synthetic exact provider readback; no scheduling declaration or live issue.
     rig = fixture.rig
     prose = TaskProse(
-        "Verify session isolation", "Run `check --scope=session` and retain its result.", False
+        "Verify session isolation",
+        body or "Run `check --scope=session` and retain its result.",
+        False,
     )
     task = rig.core.intake.submit(rig.handle, prose, rig.approval(prose), rig.key())
     operation = rig.core.sync.list_operations(rig.handle)[-1]
@@ -30,7 +32,7 @@ def fixture_task(fixture):
             "body": task.body,
             "representation": task.representation,
             "issue_id": "TST:" + task.id,
-            "display_identifier": "TST-9001",
+            "display_identifier": display_identifier,
         },
     )
     return rig.core.intake.confirm_status(
@@ -111,3 +113,48 @@ def test_actual_pty_keyboard_mouse_resize_and_no_color(tmp_path):
 )
 def test_color_oracle_distinguishes_selection_from_default_reset(raw, expected):
     assert bool(color_codes(raw)) is expected
+
+
+def test_actual_pty_five_wrapped_lines_more_less_and_whole_scroll(tmp_path):
+    fixture = ServiceRig(tmp_path / "product")
+    body = " ".join(f"word{i:02}" for i in range(80)) + "\nTAIL AFTER SHOW MORE"
+    task = fixture_task(fixture, body=body, display_identifier=None)
+    config = fixture.configuration()
+    terminal = Terminal(
+        [
+            sys.executable,
+            "-c",
+            "from ai_task_manager.presentation.cli.main import main; raise SystemExit(main())",
+            "--config",
+            str(config),
+            "--no-color",
+            "view",
+            "sidebar",
+        ],
+        tmp_path / "pty",
+        environment={"NO_COLOR": "1"},
+    )
+
+    def click_label(label):
+        row = next(i for i, line in enumerate(terminal.screen.display) if label in line)
+        terminal.send(f"\x1b[<0;6;{row + 1}M\x1b[<0;6;{row + 1}m".encode())
+
+    try:
+        terminal.wait(lambda s: "local:" in s and "Verify session" in s, label="local-id-compact")
+        terminal.send(b"\x1b[<0;10;4M\x1b[<0;10;4m")
+        terminal.wait(lambda s: "word29" in s and "[show more]" in s, label="five-wrapped-lines")
+        assert "word30" not in "\n".join(terminal.screen.display)
+        assert ("local:" + task.id) in "\n".join(terminal.screen.display)
+        click_label("[show more]")
+        terminal.pump(0.2)
+        terminal.send(b"\x1b[F")
+        terminal.wait(
+            lambda s: "TAIL AFTER SHOW MORE" in s and "[show less]" in s,
+            label="whole-sidebar-scroll",
+        )
+        assert "Session tasks" in "\n".join(terminal.screen.display)
+        assert "Backlog (1)" not in "\n".join(terminal.screen.display)
+        click_label("[show less]")
+        terminal.wait(lambda s: "word29" in s and "word30" not in s, label="preview-restored")
+    finally:
+        terminal.close()

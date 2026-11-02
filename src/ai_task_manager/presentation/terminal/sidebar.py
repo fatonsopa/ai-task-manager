@@ -176,7 +176,9 @@ class SidebarApp(App):
                 if self.use_color:
                     label.stylize(ACTIVITIES[task.activity][3], 0, len(task.symbol(self.ascii)))
                 row = Control(label, "task", task.id)
-                row.tooltip = f"{task.identifier}: {task.title}; {ACTIVITIES[task.activity][2]}"
+                row.tooltip = Text(
+                    f"{task.identifier}: {task.title}; {ACTIVITIES[task.activity][2]}"
+                )
                 await viewport.mount(row)
                 if task.id not in self.view.expanded_tasks:
                     continue
