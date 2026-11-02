@@ -12,6 +12,7 @@ from pathlib import Path
 
 MAX_FRAME = 262144
 OUTPUT_LIMITS = {"stdout": 4194304, "stderr": 1048576}
+DRAIN_GRACE_SECONDS = 0.5
 
 
 def terminate(reason):
@@ -52,6 +53,8 @@ def main():
     child = None
     active_call = None
     exit_seen = None
+    overflow_reason = None
+    drain_until = None
     outputs = {}
     pending = {1: bytearray(), 2: bytearray()}
     totals = {1: 0, 2: 0}
@@ -59,12 +62,17 @@ def main():
     for fd in (0, 1, 2, ready_fd):
         os.set_blocking(fd, False)
     while time.monotonic() < deadline and time.time() < min(absolute, current_utc):
+        if overflow_reason is not None:
+            if not any(pending.values()) or time.monotonic() >= drain_until:
+                terminate(overflow_reason)
         if child is not None and child.poll() is not None:
             if exit_seen is None:
                 exit_seen = time.monotonic()
             if (not outputs and not any(pending.values())) or time.monotonic() - exit_seen >= 0.5:
                 terminate("native_exit")
-        reads = [0, *outputs]
+        # A producer cannot extend the prefix or drain window after overflow.
+        # Keep the control pipe live so EOF/stop preempts buffered output.
+        reads = [0, *(outputs if overflow_reason is None else ())]
         writes = [fd for fd, data in pending.items() if data]
         ready, writable, _ = select.select(reads, writes, [], 0.02)
         for fd in writable:
@@ -76,6 +84,8 @@ def main():
             except OSError:
                 terminate("output_disconnected")
         for fd in ready:
+            if fd != 0 and overflow_reason is not None:
+                continue
             try:
                 part = os.read(fd, 65536)
             except BlockingIOError:
@@ -85,10 +95,18 @@ def main():
                     outputs.pop(fd)
                     continue
                 target = outputs[fd]
-                totals[target] += len(part)
-                if totals[target] > limits[target]:
-                    terminate("native_" + ("stdout" if target == 1 else "stderr") + "_limit")
-                pending[target].extend(part)
+                available = limits[target] - totals[target]
+                accepted = min(len(part), available)
+                pending[target].extend(part[:accepted])
+                totals[target] += accepted
+                if accepted != len(part):
+                    overflow_reason = "native_" + ("stdout" if target == 1 else "stderr") + "_limit"
+                    drain_until = time.monotonic() + DRAIN_GRACE_SECONDS
+                    # The relay survives TERM to drain its finite accepted
+                    # prefix. Resistant descendants still receive group KILL
+                    # at completion, timeout, control loss or hard deadline.
+                    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+                    os.killpg(os.getpgrp(), signal.SIGTERM)
                 continue
             if not part:
                 terminate("controller_disconnected")

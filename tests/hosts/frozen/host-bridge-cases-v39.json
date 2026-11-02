@@ -1,0 +1,26 @@
+{
+  "version": 39,
+  "extends": "host-bridge-cases-v38.json",
+  "preserves_all_prior_objectives": true,
+  "precode_contract_fingerprint": "15757a555080dab6a6cffd168f319e90e1cfaf70865a068ec9cabe325cc1ce8f",
+  "original_exact_oracle_source_sha256": "90f540efc4d7ed6ab337f85ab1d0a5a5fcc7f35a8a535acc4889c2a251d4dbea",
+  "retained_cases": [
+    "test_native_output_overflow_keeps_a_finite_prefix_and_stops_owned_group[stdout-4194304]",
+    "test_native_output_overflow_keeps_a_finite_prefix_and_stops_owned_group[stderr-1048576]",
+    "test_relay_watchdog_survives_output_backpressure",
+    "test_final_output_is_drained_after_actual_child_exit"
+  ],
+  "additive_cases": [
+    "test_overflow_drain_stays_bounded_when_reader_is_blocked",
+    "test_controller_loss_preempts_observed_overflow_drain",
+    "test_private_capture_precedes_native_control_and_input",
+    "test_missing_private_capture_blocks_native_launch"
+  ],
+  "limits": {
+    "stdout_bytes": 4194304,
+    "stderr_bytes": 1048576,
+    "overflow_drain_seconds": 0.5
+  },
+  "harness": "Explicit private pytest observer logs actual group capture before native launch control, native identity, original stop outcomes and missing captures. It grants no product authority and does not consume protocol-journal rows as resource proof.",
+  "retains": "All old failures and UNKNOWN receipts remain unchanged. Current cleanup is separately reconciled from actual captured PID/group metadata."
+}
