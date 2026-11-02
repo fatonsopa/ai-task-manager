@@ -360,6 +360,8 @@ def test_final_workflow_map_change_is_not_a_stable_observation(provider):
 
 
 def test_missing_opposite_direction_is_not_complete(provider):
+    from ai_task_manager.adapters.linear.dependencies.schema import RELATIONS
+
     a, task = provider.task(), provider.task()
     provider.edge(a, task)
     original = provider.send
@@ -367,7 +369,7 @@ def test_missing_opposite_direction_is_not_complete(provider):
     def missing(query, variables, credentials):
         response = original(query, variables, credentials)
         data = json.loads(response.body)
-        if "relations(" in query and variables["id"] == a.issue_id:
+        if query == RELATIONS["relations"] and variables["id"] == a.issue_id:
             data["data"]["issue"]["relations"]["nodes"] = []
         return WireResponse(200, {}, json.dumps(data).encode())
 
