@@ -113,7 +113,10 @@ def test_ep01_owned_objects_admit_only_endpoint_reference(endpoint):
     admin.endpoint_authority = authority
     admin.graphql.actions.reserve_receiver(WEBHOOK)
     admin.create_webhook("hook", WEBHOOK, reference, lambda: "x" * 32)
-    assert ledger.resource(WEBHOOK)["state"] == "disabled"
+    assert ledger.resource(WEBHOOK)["kind"] == "webhook"
+    assert ledger.resource(WEBHOOK)["state"] == "active"
+    observed = admin.read("webhook", WEBHOOK, expected_url=receipt.url)
+    assert observed.state == "disabled"
 
 
 @pytest.mark.parametrize("target", ["stopped", "route", "source"])
