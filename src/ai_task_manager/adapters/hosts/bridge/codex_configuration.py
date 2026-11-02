@@ -24,8 +24,12 @@ class CodexConfigurationObserver:
             and row["payload"].get("configuration_digest") == binding.configuration_digest
             for row in journal._history("trace")
         )
+        self._fence_recorded = self.fenced
 
     def check(self):
+        if self.fenced:
+            self.fence()
+            raise AccessDenied("Native configuration continuity needs trusted recovery")
         try:
             self.settings.check()
         except AccessDenied:
@@ -36,6 +40,18 @@ class CodexConfigurationObserver:
             and self.settings.sources.credential_metadata() != self.account_metadata
         ):
             self.fence()
+        if self.fenced:
+            raise AccessDenied("Native configuration continuity needs trusted recovery")
+
+    def check_metadata(self):
+        """The Core admission path performs no content reads or journal writes."""
+        try:
+            current = self.settings.sources.check_metadata()
+        except AccessDenied:
+            self.fence(record=False)
+            raise
+        if self.account_metadata is not None and current != self.account_metadata:
+            self.fence(record=False)
         if self.fenced:
             raise AccessDenied("Native configuration continuity needs trusted recovery")
 
@@ -149,20 +165,23 @@ class CodexConfigurationObserver:
             sources=tuple(self.observations.values()),
         )
 
-    def fence(self):
-        if self.fenced:
+    def fence(self, *, record=True):
+        if self.fenced and (self._fence_recorded or not record):
             return
         self.fenced = True
-        source = self.journal._append(
-            "trace",
-            {
-                "effect": "codex_configuration_fenced",
-                "attempt_id": self.binding.attempt_id,
-                "configuration_digest": self.binding.configuration_digest,
-            },
-        )
+        source = None
+        if record:
+            source = self.journal._append(
+                "trace",
+                {
+                    "effect": "codex_configuration_fenced",
+                    "attempt_id": self.binding.attempt_id,
+                    "configuration_digest": self.binding.configuration_digest,
+                },
+            )
+            self._fence_recorded = True
         if self.fence_callback is not None:
-            self.fence_callback(source)
+            self.fence_callback(source, record=record)
 
     def account_changed(self):
         self.account_observed = False

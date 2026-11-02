@@ -1,0 +1,19 @@
+{
+  "version": 20,
+  "extends": "host-bridge-cases-v19.json",
+  "preserves_all_prior_cases": true,
+  "status": "frozen_not_run",
+  "reason": "Source review strengthens exact prepared-component ownership and private FileSeal metadata coverage within the approved prepared-startup repair.",
+  "cases": [
+    {
+      "id": "HB-START-GUARD-OWNER",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_replaced_guard_or_configuration_refuses_cached_worker_start",
+      "expected": "Replacing the exact model guard, observer configuration or guard configuration object with a same-attribute copy after proof issuance cannot consume old prepared startup authority. Each authored owned-process control leaves zero startup/status effects."
+    },
+    {
+      "id": "HB-START-SEAL-METADATA",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_prepared_policy_seals_check_metadata_without_content_reads",
+      "expected": "Full policy/FileSeal preparation occurs first. During metadata-only consumption, monkeypatched content readers are forbidden; unchanged owned private seals pass, while replaced/edited/weaker/unknown seal metadata refuses. No account/model command is run."
+    }
+  ]
+}

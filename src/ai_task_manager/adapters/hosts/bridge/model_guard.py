@@ -108,9 +108,9 @@ class PinnedModelGuard:
         self._lock = RLock()
         self._restore(self._history())
 
-    def configuration_changed(self, source):
+    def configuration_changed(self, source, *, record=True):
         with self._lock:
-            self._refuse("native_configuration_continuity_failed", source, record=True)
+            self._refuse("native_configuration_continuity_failed", source, record=record)
 
     def _history(self):
         identity = self.transcript.process.identity
@@ -208,10 +208,22 @@ class PinnedModelGuard:
 
     def _check(self, rows):
         self._restore(rows)
+        self._check_bound()
+
+    def _check_bound(self):
+        if self.refusal:
+            raise AccessDenied("The owned model refusal fence remains active")
         if self.codex is not None and self.codex.thread_id is None:
             raise AccessDenied("No correlated native Codex thread is ready for managed effects")
         if self.binding.host == "claude" and self.observed != self.requested:
             raise AccessDenied("No matching observed model is ready for managed effects")
+
+    def check_current(self):
+        """Inspect prepared live state without replaying durable history."""
+        with self._lock:
+            if self.configuration is not None:
+                self.configuration.check_metadata()
+            self._check_bound()
 
     def check(self):
         if self.configuration is not None:

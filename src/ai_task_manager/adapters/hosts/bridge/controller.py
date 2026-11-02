@@ -281,7 +281,9 @@ class ManagedHostFactory:
         self.process_registry = (
             process_registry if process_registry is not None else ManagedProcesses()
         )
-        self.startup_verifier = HostStartupReceipts(journal, self.process_registry)
+        self.startup_verifier = HostStartupReceipts(
+            journal, self.process_registry, hosts=self.owned
+        )
 
     def check_admission(self, host):
         # Trusted installer/evaluator port, not a public caller flag. It must

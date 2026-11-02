@@ -159,7 +159,7 @@ class CodexHomeBoundary:
             raise AccessDenied("Configuration inventory exceeds its source limit")
         return sorted(paths, key=lambda source: str(source.path))
 
-    def _snapshot(self):
+    def _snapshot(self, *, content=True):
         result, total = {}, 0
         for source in self._inventory():
             path = Path(source.path).absolute()
@@ -170,11 +170,13 @@ class CodexHomeBoundary:
                 continue
             except OSError:
                 raise AccessDenied("Configuration presence is unknown") from None
-            metadata, data = self._file(path, private=source.private, content=True)
-            total += len(data)
+            metadata, data = self._file(path, private=source.private, content=content)
+            total += metadata[1]
             if total > self.MAX_TOTAL_BYTES:
                 raise AccessDenied("Configuration inventory exceeds its aggregate limit")
-            result[str(path)] = (metadata, hashlib.sha256(data).hexdigest())
+            if metadata[1] > self.MAX_FILE_BYTES:
+                raise AccessDenied("Configuration source exceeds its size limit")
+            result[str(path)] = (metadata, hashlib.sha256(data).hexdigest() if content else None)
         if isinstance(result.get(str(self.home / "config.toml")), dict):
             raise AccessDenied("The coherent native user configuration is unavailable")
         return result
@@ -215,6 +217,19 @@ class CodexHomeBoundary:
         if self._directory(self.home) != self._home_identity or self._snapshot() != self._sources:
             raise AccessDenied("Native source generation changed; do not silently re-seal")
         self.credential_metadata()
+
+    def check_metadata(self):
+        """Recheck the prepared generation without source-content reads."""
+        expected = {
+            path: value if isinstance(value, dict) else (value[0], None)
+            for path, value in self._sources.items()
+        }
+        if (
+            self._directory(self.home) != self._home_identity
+            or self._snapshot(content=False) != expected
+        ):
+            raise AccessDenied("Protected source metadata changed after preparation")
+        return self.credential_metadata()
 
     def check_readonly_credential(self, before):
         self.check()

@@ -92,3 +92,20 @@ class FileSeal:
         private_path(self.path)
         if hashlib.sha256(self.path.read_bytes()).hexdigest() != self.sha256:
             raise AccessDenied("Configuration changed; restart and verify the new binding")
+
+    def metadata(self):
+        """Inspect the sealed private file without reading its contents."""
+        try:
+            info = private_path(self.path).lstat()
+            return (
+                info.st_dev,
+                info.st_ino,
+                info.st_uid,
+                info.st_mode,
+                info.st_nlink,
+                info.st_size,
+                info.st_mtime_ns,
+                info.st_ctime_ns,
+            )
+        except OSError:
+            raise AccessDenied("Sealed configuration metadata is unavailable") from None

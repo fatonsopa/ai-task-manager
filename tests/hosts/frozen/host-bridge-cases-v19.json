@@ -1,0 +1,51 @@
+{
+  "version": 19,
+  "extends": "host-bridge-cases-v18.json",
+  "preserves_all_prior_cases": true,
+  "source_commit": "29118cfb83528e890ac78fe67dd7f7c5b4d19dc2",
+  "status": "frozen_not_run",
+  "contract": "startup-current-observation-contract-v2.json",
+  "cases": [
+    {
+      "id": "HB-START-CURRENT-POSITIVE",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_consumption_checks_metadata_without_full_validation_inside_core",
+      "expected": "Valid actual composition still reaches Running; instruments the real Core.start call to forbid process inspection, source-content reads, full history replay and policy/full-startup checks during proof consumption."
+    },
+    {
+      "id": "HB-START-OWNER-ABSENT",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_missing_live_owner_refuses_cached_worker_start",
+      "expected": "Remove the actual trusted owner after proof issuance; no Core worker_started or provider confirmation."
+    },
+    {
+      "id": "HB-START-OWNER-REPLACED",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_replaced_live_owner_refuses_cached_worker_start",
+      "expected": "Replace the live owner with a distinct object carrying the same attributes; identity mismatch refuses before startup/status effects."
+    },
+    {
+      "id": "HB-START-COMPONENT-REPLACED",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_replaced_observer_or_process_refuses_cached_worker_start",
+      "expected": "Replace either the exact observer or registered process object after proof issuance; each phase refuses with no startup/status effects."
+    },
+    {
+      "id": "HB-START-ORIGINAL-BINDING",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_original_startup_binding_and_expiry_are_not_renewed",
+      "expected": "Changed original HostStartup fields/reference or expired first receipt cannot use cached preparation; a valid check returns the identical original fields and expiry."
+    },
+    {
+      "id": "HB-START-SOURCE-METADATA",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_source_metadata_change_refuses_before_core_start_without_content_read",
+      "expected": "Modify an owned protected config source after proof issuance; cheap metadata inspection denies before Core/provider effects and no source content is read under Core."
+    },
+    {
+      "id": "HB-START-STICKY-MODEL",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_sticky_model_refusal_after_proof_prevents_start",
+      "expected": "An authored existing in-memory sticky model refusal after proof issuance denies before Core/provider effects; no full replay or issuer creation supplies this negative control."
+    },
+    {
+      "id": "HB-START-UNPREPARED",
+      "test": "tests/hosts/test_startup_configuration_fence.py::test_process_only_startup_verifier_cannot_consume_prepared_authority",
+      "expected": "The process-only standalone verification surface cannot substitute for a trusted prepared live-owner gate."
+    }
+  ],
+  "method": "Owned credential-free subprocess and actual production Core/factory/observer/runtime-proof composition. Retain both original v18 failing aliases; these added checks are synthetic controls, not actual native/account/model acceptance."
+}

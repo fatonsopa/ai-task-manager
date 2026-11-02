@@ -8,6 +8,7 @@ from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import Scope
 
 from .model_guard import PinnedModelGuard, verify_model_history
+from .startup_gate import PreparedStartup
 
 
 class StartupObserver:
@@ -218,9 +219,11 @@ class StartupObserver:
 
 
 class HostStartupReceipts:
-    def __init__(self, journal, processes=None):
+    def __init__(self, journal, processes=None, *, hosts=None):
         self.journal = journal
         self.processes = processes if processes is not None else {}
+        self.hosts = hosts
+        self._prepared = {}
 
     def verify_host_ready(self, opaque_ref):
         stored = self.journal._read(opaque_ref, "startup")
@@ -235,7 +238,7 @@ class HostStartupReceipts:
         ):
             raise AccessDenied("Native startup process identity changed")
         verify_model_history(self.journal, data, vars(identity))
-        return HostStartup(
+        observed = HostStartup(
             Scope(**data["scope"]),
             data["attempt_id"],
             data["worker_id"],
@@ -248,3 +251,39 @@ class HostStartupReceipts:
             opaque_ref,
             stored["expires_at"],
         )
+        if self.hosts is not None:
+            owner = self.hosts.get(observed.attempt_id)
+            if (
+                owner is None
+                or owner.process is not process
+                or not isinstance(owner.startup, StartupObserver)
+            ):
+                raise AccessDenied("The trusted current startup owner is unavailable")
+            metadata = owner.policy.prepare_admission()
+            owner.startup.assert_stable()
+            prepared = PreparedStartup(
+                observed,
+                owner,
+                process,
+                owner.startup,
+                owner.startup.model_guard,
+                owner.startup.configuration,
+                owner.policy,
+                owner.binding,
+                owner.session,
+                metadata,
+            )
+            prepared.check(observed, self.hosts, self.processes, self.journal.clock)
+            previous = self._prepared.get(opaque_ref)
+            if previous is not None and previous != prepared:
+                raise AccessDenied("Original prepared startup cannot be replaced")
+            self._prepared[opaque_ref] = prepared
+        return observed
+
+    def check_prepared_host_ready(self, observed):
+        if not isinstance(observed, HostStartup):
+            raise AccessDenied("Current startup needs its exact original observation")
+        prepared = self._prepared.get(observed.observation_ref)
+        if prepared is None or self.hosts is None:
+            raise AccessDenied("Current startup needs a prepared trusted live owner")
+        return prepared.check(observed, self.hosts, self.processes, self.journal.clock)

@@ -140,7 +140,8 @@ class RuntimeProofs:
             "source": fact["id"],
             "source_digest": digest(fact),
             "expires_at": min(
-                owner["deadline"], self.journal.clock() + 60,
+                owner["deadline"],
+                self.journal.clock() + 60,
                 fact.get("host_source_expires_at", owner["deadline"]),
             ),
             "payload": {
@@ -193,6 +194,16 @@ class RuntimeProofs:
             fact = self.journal.observation(data["source"], attempt_id=data["subject"])
             if digest(fact) != data["source_digest"]:
                 raise EvidenceRequired("Runtime receipt source changed")
+            if (
+                data["kind"] == "worker_start"
+                and data["payload"].get("startup_origin") == "authenticated_host"
+            ):
+                original = dict(fact["host_observation"])
+                original["scope"] = Scope(**original["scope"])
+                observed = HostStartup(**original)
+                checker = getattr(self.host_startups, "check_prepared_host_ready", None)
+                if not callable(checker) or checker(observed) != observed:
+                    raise EvidenceRequired("Current prepared host startup is required")
             return Evidence(
                 data["kind"],
                 Scope(**data["scope"]),
