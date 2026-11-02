@@ -1544,6 +1544,59 @@ def test_hd16_handler_shutdown_waits_for_actual_deadline_send(tmp_path, monkeypa
     assert rows[0]["response_completed"] and not rows[0]["workers_alive"]
 
 
+def test_hd17_shutdown_lock_wait_is_bounded_by_original_deadline(tmp_path):
+    server = BoundedReceiver(None, ledger(tmp_path), response_budget=0.3, output_reserve=0.1)
+    owned, peer = socket.socketpair()
+    connection = receiver_module.DeadlineConnection(owned, time.monotonic(), server)
+    connection.lease = receiver_module.Lease(server.server, connection)
+    lock = connection.lease.response_lock
+    lock.acquire()
+    entered, done = threading.Event(), threading.Event()
+    result = {}
+
+    def close():
+        entered.set()
+        try:
+            server.server.shutdown_request(connection)
+            result["returned_at"] = time.monotonic()
+        finally:
+            done.set()
+
+    thread = threading.Thread(target=close, name="owned-held-response-close")
+    try:
+        thread.start()
+        assert entered.wait(0.1)
+        assert not done.wait(0.05) and connection.fileno() >= 0
+        thread.join(0.5)
+        assert not thread.is_alive() and done.is_set()
+        assert connection.deadline <= result["returned_at"] <= connection.deadline + 0.1
+        assert connection.fileno() == -1
+        peer.settimeout(0.1)
+        assert peer.recv(1) == b""
+        assert not connection.lease.response_completed and not connection.lease.response_claimed
+        assert connection.lease.adapter is None
+    finally:
+        lock.release()
+        thread.join(0.5)
+        owned.close()
+        peer.close()
+        assert not thread.is_alive()
+        assert server.stop(1)["stopped"]
+        (tmp_path / "held-close-observation.json").write_text(
+            json.dumps(
+                {
+                    "hard_deadline": connection.deadline,
+                    "result": result,
+                    "thread_alive": thread.is_alive(),
+                    "descriptor": connection.fileno(),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        )
+
+
 def test_hd04_idle_headers_refuse_without_waiting_for_a_new_read_budget(tmp_path):
     counter = HttpCounter()
     server = BoundedReceiver(

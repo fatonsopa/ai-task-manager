@@ -273,6 +273,18 @@ class Server(HTTPServer):
             lease.finish("handler")
             self.owner.record("handler_failed", request_id=lease.id, code="handler_exception")
 
+    def shutdown_request(self, request):
+        # The input handler may finish while the deadline watcher still sends.
+        # Share its response lock until the original hard deadline; closing a
+        # timed-out response still makes no claim about underlying adapter work.
+        lock = request.lease.response_lock
+        acquired = lock.acquire(timeout=request.hard_remaining)
+        try:
+            super().shutdown_request(request)
+        finally:
+            if acquired:
+                lock.release()
+
     def reap(self):
         # A worker cannot attest its own thread exit. Release only from an observer.
         with self.lock:
