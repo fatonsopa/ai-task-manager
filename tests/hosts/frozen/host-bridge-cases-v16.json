@@ -1,0 +1,24 @@
+{
+  "version": 16,
+  "extends": "host-bridge-cases-v15.json",
+  "preserves_all_prior_cases": true,
+  "reason": "The remaining pinned notification inventory and current official app-server guide also expose safety-buffering model metadata and required account verification. Preserve v15 and add exact controls for these documented methods.",
+  "execution_status": "not_run",
+  "cases": [
+    {
+      "id": "HB-H29",
+      "test": "tests/hosts/test_codex_model_stability.py::test_safety_buffering_model_is_checked_without_selecting_suggestion",
+      "expected": "The documented model/safetyBuffering/updated frame must report the bound thread and pinned model. A changed or missing model refuses. fasterModel is a suggestion, never evidence of execution or authorization to select another model. Same-model buffering alone is not rewritten as a reroute."
+    },
+    {
+      "id": "HB-H30",
+      "test": "tests/hosts/test_codex_model_stability.py::test_native_verification_requires_operator_review",
+      "expected": "The documented model/verification notification fences managed effects for operator review. No automatic verification flow, policy bypass or model fallback is invoked."
+    }
+  ],
+  "schema_hashes": {
+    "v2/ModelSafetyBufferingUpdatedNotification.json": "4cf853e3a2f968fdfde75206fd497d3d530b26769026bee343c3ef09ce438cfd",
+    "v2/ModelVerificationNotification.json": "4f27a99d0c8664c29abb4d65384ab16853bbc29b61de5e749111cefdc6994655"
+  },
+  "scope": "Authored owned-process native frames only, not actual account or provider operations."
+}

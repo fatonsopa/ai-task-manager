@@ -25,6 +25,7 @@ def codex_start(native, binding, **overrides):
                 "model": "fixture-model",
                 "modelProvider": "openai",
                 "approvalPolicy": "never",
+                "approvalsReviewer": "user",
                 "sandbox": {"type": "readOnly"},
                 "cwd": str(policy.cwd),
             },
@@ -92,6 +93,7 @@ def test_unrestricted_native_thread_refuses(native, binding, field, value):
         "model": "fixture-model",
         "modelProvider": "openai",
         "approvalPolicy": "never",
+        "approvalsReviewer": "user",
         "sandbox": {"type": "readOnly"},
         "cwd": "/placeholder",
     }
