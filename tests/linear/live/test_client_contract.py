@@ -41,13 +41,22 @@ def peer(wire, observation_path, *, early):
         try:
             connection, _ = listener.accept()
             connection.settimeout(2)
-            request = bytearray()
-            while b"\r\n\r\n" not in request:
-                value = connection.recv(4096)
-                assert value and len(request) + len(value) <= 16384
-                request.extend(value)
-            _, body = bytes(request).split(b"\r\n\r\n", 1)
-            if not early:
+            if early:
+                prefix = connection.recv(1)
+                assert prefix == b"P"
+                unread = connection.recv(1, socket.MSG_PEEK)
+                assert unread
+                observations["request_bytes_consumed"] = len(prefix)
+                observations["unread_request_bytes_at_least"] = len(unread)
+                observations["unread_observed_at"] = time.monotonic()
+                body = b""
+            else:
+                request = bytearray()
+                while b"\r\n\r\n" not in request:
+                    value = connection.recv(4096)
+                    assert value and len(request) + len(value) <= 16384
+                    request.extend(value)
+                _, body = bytes(request).split(b"\r\n\r\n", 1)
                 while len(body) < 565:
                     value = connection.recv(565 - len(body))
                     assert value
@@ -60,6 +69,7 @@ def peer(wire, observation_path, *, early):
             if connection is not None:
                 connection.close()
                 observations["peer_descriptor_after_close"] = connection.fileno()
+                observations["peer_closed_at"] = time.monotonic()
             closed.set()
             release.wait(2)
 
@@ -95,7 +105,10 @@ def pace_actual_upload(monkeypatch, observations):
             self.sends += 1
             if self.sends == 2:
                 assert observations["closed"].wait(1)
+                assert observations["unread_request_bytes_at_least"] >= 1
                 time.sleep(0.05)
+                observations["body_send_started_at"] = time.monotonic()
+                assert observations["body_send_started_at"] >= observations["peer_closed_at"]
             try:
                 return super().send(value)
             except BrokenPipeError as error:
