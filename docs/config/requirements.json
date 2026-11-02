@@ -31,7 +31,7 @@
     },
     {
       "id": "R08",
-      "text": "Preserve merge command names, arguments, checks, foreground flow, result meanings and owned database lifecycle. Retain the latest pinned script bytes as the regression baseline. Refactor the workflow into the new system only where a source-grounded compatibility audit demonstrates that the current implementation prevents approved coordinator goals; freeze regression cases before changes and verify migration."
+      "text": "Fully refactor merge internals into focused domains while preserving command names, arguments and intended foreground behavior. Workers commit in their own branches/worktrees; one authority validates and integrates into dev. Audit the latest source and relevant CG history, version retained/corrected scenarios, fix defective checks/sequencing/resource lifetime, verify concurrency/recovery/migration in disposable copies and measure commit/merge/test performance without discarding valid checks or historical failures."
     },
     {
       "id": "R09",
@@ -154,7 +154,7 @@
       "text": "Every new or updated task prose uses Technical Writer, the appropriate issue-type reference and Writing Style; exact content/version approval precedes publication; skill updates trigger scoped audits and retained evidence."
     }
   ],
-  "requirements_revision": 4,
+  "requirements_revision": 5,
   "revision_history": [
     {
       "revision": 3,
@@ -181,6 +181,14 @@
           "text": "Results are bound to artifact hashes and declared host/model/effort/OS profiles; failed attempts are retained."
         }
       ],
+      "prior_results_reinterpreted": false
+    },
+    {
+      "revision": 5,
+      "requirement": "R08",
+      "reason": "Actual user authorizes full internal merge refactor and correction of flawed test design, sequencing and resource handling. Preserve command intent and historical evidence; one merge authority integrates owned worker branches.",
+      "previous_text": "Preserve merge command names, arguments, checks, foreground flow, result meanings and owned database lifecycle. Retain the latest pinned script bytes as the regression baseline. Refactor the workflow into the new system only where a source-grounded compatibility audit demonstrates that the current implementation prevents approved coordinator goals; freeze regression cases before changes and verify migration.",
+      "implementation_status": "latest-source/history audit and corrected scenario mapping pending; refactor not shipped",
       "prior_results_reinterpreted": false
     }
   ]

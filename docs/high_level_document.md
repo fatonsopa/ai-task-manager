@@ -28,7 +28,7 @@ The plugin is one host adapter around the reusable core. Relationship arrows sho
 | 3. Workflow core | Application operations coordinate the separate Work, Execution, Scheduling and Resources modules through public interfaces. |
 | 4. Control store | The transactional store retains tasks, attempts, reservations, evidence and sync records, separately from application databases. |
 | 5. Linear adapter | The provider adapter exchanges authorized human intent and observed execution facts while preserving human decisions. |
-| 6. Project adapters | Project bindings prepare resources and preserve existing procedures. The current merge script remains the merge authority. |
+| 6. Project adapters | Project bindings prepare isolated resources. The compatible foreground merge command invokes one merge authority that validates and integrates worker branches; its internals are being refactored under R08 revision 5. |
 | 7. Worker runtime | A supervised worker executes one assigned attempt and reports its actual startup, progress and outcome. |
 
 **Mermaid source**
@@ -212,18 +212,18 @@ flowchart TD
 
 ![Worker-owned merge view](assets/diagrams/worker-merge.svg)
 
-The worker keeps responsibility for the existing merge procedure. The controller records its result rather than introducing a replacement route.
+The worker remains responsible for its foreground merge request. The compatible command invokes one merge authority; the controller observes publication and cleanup separately. The diagram preserves the command-level overview. The full internal refactor and its source-derived scenario mapping remain pending.
 
 | Component | Explanation |
 | --- | --- |
-| 1. Worker commits its changes | The worker commits its own task on its branch in its own worktree, preserving current issue attribution. |
-| 2. Run merge prechecks | Run `bash scripts/merge-to-dev.sh --checks` in that worktree. This remains the existing precheck. |
-| 3. CHECKS PASSED? | `CHECKS PASSED` permits the merge call; `WOULD NOT MERGE` returns the reported cause to the worker; `NOTHING TO MERGE` follows the current already-on-dev route. |
-| 4. Worker fixes the reported cause | The worker follows the script’s answer, resolves the named cause or wait, and commits any repair before retrying. |
-| 5. Run existing merge script | Run `bash scripts/merge-to-dev.sh` as the current foreground call. It retains rebase, serialization, checks, database lifecycle and dev-update ownership. |
-| 6. Successful merge result? | `NOT MERGED` remains unfinished work. `MERGED` and `NOTHING TO MERGE` keep their current meanings, including existing warning semantics. |
-| 7. Record the script’s answer | Record the actual command/result and attribution. Add no merge queue, additional merge gate or alternative cleanup route; risk-based verification alone does not authorize a merge rewrite. Necessary refactoring follows the audited R08 exception in the Spec Driven Development document (SDD). |
-| 8. Close execution under existing rules | Close execution under the existing task and merge rules. This does not imply deployment to production. |
+| 1. Worker commits its changes | The worker commits its own task on its branch in its own worktree, preserving issue attribution. It does not commit in the primary checkout. |
+| 2. Run merge prechecks | Run `bash scripts/merge-to-dev.sh --checks` in that worktree. This remains the non-rebasing precheck. |
+| 3. CHECKS PASSED? | `CHECKS PASSED` permits the merge request; `WOULD NOT MERGE` reports its blocking cause; `NOTHING TO MERGE` requires reconciliation against `dev`. |
+| 4. Worker fixes the reported cause | Repair an attributed task defect and commit the repair. Infrastructure failure, contention and unknown publication need their own recovery paths; they do not prove the branch is defective. |
+| 5. Run existing merge script | Run `bash scripts/merge-to-dev.sh` in the foreground. The retained entry point calls the single authority for current-base validation, checks, owned resource lifecycle and `dev` integration. |
+| 6. Successful merge result? | Verify publication independently. `NOT MERGED` does not prove delivery; `MERGED` and reconciled `NOTHING TO MERGE` retain their intended meanings. A later cleanup failure remains a separate obligation. |
+| 7. Record the script’s answer | Record actual publication, verification, failure attribution and pending cleanup. The full internal refactor may correct defective sequencing or tests under the governing Spec Driven Development document (SDD), without another approval step for routine approved work. |
+| 8. Close execution under existing rules | Settle execution only with required ownership, delivery and cleanup evidence. A merge does not imply production deployment. |
 
 **Mermaid source**
 
@@ -440,6 +440,6 @@ The design uses one local supervisor and transactional metadata store so task cl
 
 The Spec Driven Development document (SDD) owns single-cutover, delivery, cleanup and installation guarantees; this design implements them through authority epochs, scoped capabilities, owned settings and durable records. The Implementation Plan (IP) schedules the migration and the future `migrate.md` How-to Guide (HTG) will expose tested script-backed commands.
 
-Keep the pinned merge bytes as the regression baseline and use the existing route by default. The user-authorized R08 exception permits necessary refactoring only after a latest-source audit demonstrates incompatibility, freezes existing-scenario regressions and verifies the preserved command contract, migration and recovery. A missing adapter alone cannot justify a rewrite. Translate legacy task-state entry points only to the sole new engine; the compatibility audit/refactor work remains pending. Resource ownership includes stable owner identifiers for a separately reviewed future parent/role grouping; shared application databases remain disabled today.
+The user authorizes a full internal merge refactor under R08 revision 5, superseding the former compatibility-only restriction. Keep old source and outcomes as regression evidence; preserve command intent while correcting flawed selection, sequencing and resource handling through explicit contracts. Use focused local domains for orchestration, Git publication, checks, resources and reporting; a network service requires a real lifecycle or deployment reason. Workers commit in their own branches/worktrees and one authority integrates into `dev`. Current-source/CG history review, detailed scenario mapping and verification remain pending; this design does not claim the refactor has shipped. Resource ownership represents future parent/role grouping, while shared application databases remain disabled today.
 
 Existing-issue lookup, inspection and admission are implemented through `task_find`, `task_inspect` and `task_admit`, with scoped writing/selection approvals and operation-bound provider readbacks. Actual host lead-selection integration and the delivered-follow-up issuer remain pending; the default selection verifier refuses without trusted observations. These component interfaces do not establish live host acceptance. Missing real-host proof, unsafe migration ambiguity or an unguarded required execution surface blocks acceptance. The Test Plan (TP), [test_plan.md](test_plan.md), owns checks; the Test Status Report (TSR), [test_status_report.md](test_status_report.md), owns current results.

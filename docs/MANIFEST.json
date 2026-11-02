@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "aa7dedff8cbad8b2b764536d949ebfb4e170e339b570c128831bd06bfa16fbec"
+      "sha256": "fc76214ab63dcc3697986150048786c1c2f4708a7b8676c70e4570e36c444e5b"
     },
     {
       "path": "assets/diagrams/architecture.mmd",
@@ -108,7 +108,7 @@
     },
     {
       "path": "config/requirements.json",
-      "sha256": "a31b5877178f07425df85011dbfc5e6fe38cd74a252859a2e4bba06d5ef5fc28"
+      "sha256": "aa12979ab21934d91ce29cb60ebd46005e68fbe36ab4d832d5af1f265c27e9c0"
     },
     {
       "path": "config/research-sources.json",
@@ -124,7 +124,7 @@
     },
     {
       "path": "high_level_document.md",
-      "sha256": "27087f406ea2344b40ecbfde1a10b8857bbb6147ea3c88af254e65112ba5e2b1"
+      "sha256": "59dd30f878010c4df39613af6c89a851c5b0f9aa7945dd543a42f5ab86498cc7"
     },
     {
       "path": "implementation_plan.md",
@@ -160,7 +160,7 @@
     },
     {
       "path": "policy.md",
-      "sha256": "0a4231aa508e6d907e12a76f35816dfc89f96f782c34892de1276e06e1289093"
+      "sha256": "2ffb7bd8eedc7b511d1e0d6afd468d92bb316f8c1ddaa6094d0c9439b400dfb9"
     },
     {
       "path": "readme.md",
@@ -168,7 +168,7 @@
     },
     {
       "path": "spec_driven_development.md",
-      "sha256": "d62f369c8f2d71873b24d32158d2ffbfb7338f737224e0a22356b53f9084d9b7"
+      "sha256": "8a01302fc5dcbdfe72f9bd7f41e5c2bee02870bb0a146717e5350dbf6f5ccf7d"
     },
     {
       "path": "terminal/spec_driven_development.md",

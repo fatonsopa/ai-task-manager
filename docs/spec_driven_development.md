@@ -394,11 +394,9 @@ Automatic maintenance and updates require configured opt-in, authority, channel 
 
 ### Protected merge and command behavior
 
-Preserve `#push`, `#release`, `#hotfix`, `/sync-with-dev` and all inventory-listed command intent/arguments. The lead routes protected pipeline/recovery commands; workers use the preserved merge route. Do not restore a batch merge queue. Keep the latest pinned `scripts/merge-to-dev.sh` bytes as the regression baseline and preserve the current foreground route by default.
+R08 revision 5 records the user's full-refactor direction of 2 November 2026 and supersedes revision 3's compatibility-only restriction. Preserve `#push`, `#release`, `#hotfix`, `/sync-with-dev` and inventory-listed command intent/arguments. The lead routes protected pipeline/recovery commands. Do not restore the retired batch merge queue. The pinned old source remains historical regression evidence; its internal implementation may be replaced. This is required work, not a completed refactor or permission to activate normal sessions.
 
-The user authorizes refactoring into the new system only where a source-grounded audit of the latest workflow demonstrates that it prevents approved coordinator goals (R08 revision 3). Inspect existing scenarios and regression lessons, identify the actual incompatibility and freeze regression cases before changing implementation. Preserve command names, arguments, checks, foreground flow, result meanings and owned database lifecycle; verify the necessary change, migration and recovery in disposable copies. Missing runner integration or an unfinished adapter is not evidence that the existing script obstructs the goal. This compatibility audit is a separate pending assignment; this document does not claim a refactor occurred or authorize production/normal-session activation.
-
-The worker runs these foreground commands in its own worktree:
+Each worker commits its task in its own branch and worktree, using its isolated database. The worker invokes the compatible foreground commands below; one merge authority owns validation and integration into `dev`. Workers must not commit in the primary checkout or independently publish competing `dev` updates. Waiting for integration remains part of the foreground assignment, without an extra human or lead permission step for approved work.
 
 ```sh
 bash scripts/merge-to-dev.sh --checks
@@ -406,9 +404,15 @@ bash scripts/merge-to-dev.sh --checks
 bash scripts/merge-to-dev.sh
 ```
 
-`--checks` judges the branch as it stands and does not rebase it; resolve a behind-dev warning before attributing a failure or asking for a new decision. `WOULD NOT MERGE` needs its actual cause repaired. `NOT MERGED` is not success. `NOTHING TO MERGE` requires Git reconciliation because dev may already contain the change. `MERGED: dev <old> -> <new>` establishes the merge fact under the script's existing warning semantics; warning-only database/runtime/mirror conditions do not become failed merges.
+Before replacement, audit the latest scripts, instructions, tests and relevant CG issue descriptions/comments. Map each scenario to retained behavior, a justified correction or a superseded mechanism. Freeze its source, input, expected result and failure/recovery observation. Keep old failures and separately version corrected oracles; changing a test to match a defect is not a repair. The detailed Test Specification (TS), [merge checks](merge/test_specification.md), must be extended from that audit before each dependent replacement.
 
-The script owns its existing database stop/removal sequence. The controller observes it rather than holding the worker database alive or cleaning it competitively. A missing worker uses the lead's preserved recovery command, `bash scripts/merge-to-dev.sh <worktree>`. See [the build plan](implementation_plan.md) and [legacy contracts](migration/current-contracts.md).
+`--checks` remains a non-rebasing precheck. A behind-dev warning needs its actual cause understood before branch attribution. `WOULD NOT MERGE` reports the blocking cause. `NOT MERGED` does not certify delivery. `NOTHING TO MERGE` requires Git/content reconciliation. `MERGED: dev <old> -> <new>` requires independently verified publication. A later database, mirror, cleanup or reporting failure must remain visible without turning a proven merge into an unmerged branch or inventing a successful merge. Unknown publication requires reconciliation before retry.
+
+The merge authority must verify the candidate against the current `dev` revision before publication and refuse or recompute stale input. A carried check may be reused only with a verified complete dependency/input identity, environment and check contract. Keep valid carried evidence distinct from a fresh physical execution. Changed commit IDs alone neither prove content changed nor justify reusing checks. Test selection must cover relevant callers, schema and runtime dependencies; uncertainty must not become an empty passing selection.
+
+A resource must remain available until its last possible consumer is finished. If waiting, rebasing or check invalidation can require a database again, retain it or explicitly reacquire and verify the correct owned resource before those checks. Do not run database-dependent checks against a stopped URL, release uncertain ownership, or let the controller clean a resource concurrently with the merge authority. A missing worker retains the lead recovery command, `bash scripts/merge-to-dev.sh <worktree>`, with fresh ownership and Git reconciliation.
+
+Verify concurrent contenders, advancing `dev`, valid/invalid carried checks, database capacity, process death, lost responses, partial publication, hooks, conflicts, duplicate requests and interrupted cleanup in disposable copies. Report check failure, infrastructure failure, contention and uncertain observation separately. Record committing, active checks/tests, queue/resource waits, rebases, repair and cleanup with defined start/end points. Compare equivalent workloads and clocks; establish bottlenecks before setting performance targets or removing repeated work. No new numerical performance target is implied.
 
 ## Quality and interface constraints
 
@@ -468,7 +472,7 @@ Actual application-database preparation, preserved merge integration, managed ho
 
 ## Open decisions
 
-No unresolved workflow-policy choice remains. The later user-directed R08 revision 3 is recorded above; its compatibility audit is pending. A reachable authorized HTTPS route, run-owned TST webhook configuration and a distinct second Linear identity must be verified for their live acceptance cells. They do not block independent implementation, and preparing documentation does not prove those cells passed. No paid hosting, workspace-wide webhook or production changes are authorized here.
+No unresolved workflow-policy choice remains. R08 revision 5 records the approved full internal merge refactor; its current-source/history audit and scenario mapping remain pending. A reachable authorized HTTPS route, run-owned TST webhook configuration and a distinct second Linear identity must be verified for their live acceptance cells. They do not block independent implementation, and preparing documentation does not prove those cells passed. No paid hosting, workspace-wide webhook or production changes are authorized here.
 
 Existing sessions are not silently activated. Required implementation work and missing execution evidence are not permission to weaken the approved behavior.
 

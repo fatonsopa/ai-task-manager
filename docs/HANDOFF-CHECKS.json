@@ -21,36 +21,39 @@
   "documents": {
     "policy.md": {
       "checked_delivery": "delivered",
-      "sha256": "0a4231aa508e6d907e12a76f35816dfc89f96f782c34892de1276e06e1289093",
+      "sha256": "2ffb7bd8eedc7b511d1e0d6afd468d92bb316f8c1ddaa6094d0c9439b400dfb9",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "objective_sha256": "c56e62e679463b14737755a8f245bfc4ba9cd6219116dff0d3af6ecfca217a64",
+      "message_sha256": "a3802ac6de70096bdc110d962581c02e89ee48758d755c19c84b6f771f664f6b",
+      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status."
     },
     "spec_driven_development.md": {
       "checked_delivery": "delivered",
-      "sha256": "d62f369c8f2d71873b24d32158d2ffbfb7338f737224e0a22356b53f9084d9b7",
+      "sha256": "8a01302fc5dcbdfe72f9bd7f41e5c2bee02870bb0a146717e5350dbf6f5ccf7d",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "scope": "Existing-issue/store-validation excerpt; unaffected merged content preserved",
-      "objective_sha256": "9ec8085a8970254b688558c53d226f6585bf83998b1680c5a3cf7a994fb1f113",
-      "message_sha256": "03f1b426acbf7e775f793bd5b5b61b3034a6792d4d071634948bf207801a21b9"
+      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status.",
+      "objective_sha256": "db9a70e5d811f64c0adcf34ee17fc7bec055c48870efde541a4d63e21982a4f2",
+      "message_sha256": "d83c26c28dcc96a496a0ecc4e85fc3635ea2c1dab23e7f2caff9edd870ca2e46"
     },
     "high_level_document.md": {
       "checked_delivery": "delivered",
-      "sha256": "27087f406ea2344b40ecbfde1a10b8857bbb6147ea3c88af254e65112ba5e2b1",
+      "sha256": "59dd30f878010c4df39613af6c89a851c5b0f9aa7945dd543a42f5ab86498cc7",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "89610644abe5da111c28ff96a596dfaf5ff02dc1e9d85f6599ce4cad25eb5a1e",
+      "objective_sha256": "2b73b8a67a54e79649ff40fe7a8c1898f61a15d9b177ddc71560797b0edaa4ce",
       "message_sha256": "0f70008b99f7eb71f33ea6c2da70326d1ee78dda84555db2817c70c2c829dc5b",
-      "scope": "Current implemented intake interfaces and remaining host/issuer integration; one paragraph only"
+      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status."
     },
     "implementation_plan.md": {
       "checked_delivery": "delivered",
@@ -1093,6 +1096,56 @@
       "objective_sha256": "62c6a24ca7aa6e621e608159296ec743bc62246310f29df10ad92b6829b1b612",
       "message_sha256": "cd3f2318f5f7fd71de94b7c23a445f084d337b423a56873deebca5080d3b04ae",
       "scope": "User-directed asset placement and normal T34 order; one paragraph only"
+    },
+    {
+      "path": "policy.md",
+      "checked_delivery": "delivered",
+      "sha256": "0a4231aa508e6d907e12a76f35816dfc89f96f782c34892de1276e06e1289093",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+    },
+    {
+      "path": "spec_driven_development.md",
+      "checked_delivery": "delivered",
+      "sha256": "d62f369c8f2d71873b24d32158d2ffbfb7338f737224e0a22356b53f9084d9b7",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "scope": "Existing-issue/store-validation excerpt; unaffected merged content preserved",
+      "objective_sha256": "9ec8085a8970254b688558c53d226f6585bf83998b1680c5a3cf7a994fb1f113",
+      "message_sha256": "03f1b426acbf7e775f793bd5b5b61b3034a6792d4d071634948bf207801a21b9"
+    },
+    {
+      "path": "spec_driven_development.md",
+      "checked_delivery": "delivered",
+      "sha256": "193357c9169c85c442345746cc897a0533ad2dca81dbcc095562773de4197628",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "scope": "User-directed full merge refactor authority, owned worker commits and single publication authority; preserved commands/diagrams and unimplemented audit/refactor status.",
+      "objective_sha256": "cbd7455855867d921858bfba37086bf4b5e2c24bcbb0e4eb37d7b652697fc0e6",
+      "message_sha256": "d83c26c28dcc96a496a0ecc4e85fc3635ea2c1dab23e7f2caff9edd870ca2e46"
+    },
+    {
+      "path": "high_level_document.md",
+      "checked_delivery": "delivered",
+      "sha256": "27087f406ea2344b40ecbfde1a10b8857bbb6147ea3c88af254e65112ba5e2b1",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "objective_sha256": "89610644abe5da111c28ff96a596dfaf5ff02dc1e9d85f6599ce4cad25eb5a1e",
+      "message_sha256": "0f70008b99f7eb71f33ea6c2da70326d1ee78dda84555db2817c70c2c829dc5b",
+      "scope": "Current implemented intake interfaces and remaining host/issuer integration; one paragraph only"
     }
-  ]
+  ],
+  "requirements_revision": 5
 }
