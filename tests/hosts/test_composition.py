@@ -22,6 +22,7 @@ from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import CapacityPolicy
 from ai_task_manager.supervisor.managed import ManagedWorkers
 from ai_task_manager.supervisor.models import RuntimeUncertain
+from tests.hosts.accounting_fixtures import FixtureAccounting
 from tests.hosts.fixture_cli import ACCOUNT
 from tests.runtime.helpers import ProviderFixture, RuntimeRig
 
@@ -29,8 +30,9 @@ from tests.runtime.helpers import ProviderFixture, RuntimeRig
 class AuthoredPermits:
     """Exact trusted-port signatures; admits only the synthetic test configuration."""
 
-    def __init__(self, deny=False):
+    def __init__(self, root, deny=False):
         self.deny, self.outcomes = deny, []
+        self.accounting = FixtureAccounting(root)
 
     def check_admission(self, host):
         if self.deny or host != "codex":
@@ -38,16 +40,18 @@ class AuthoredPermits:
 
     def authorize_initialization(self, policy, binding):
         assert policy.executable.name == "synthetic-cli"
-        return "synthetic-initialization"
+        return self.accounting.initialize(policy, binding)
 
     def record_initialization(self, permit, *, outcome, observation_ref, detail):
         self.outcomes.append(("initialization", outcome))
 
     def authorize_auth(self, policy, binding):
         assert policy.executable.name == "synthetic-cli"
+        return self.accounting.authorize_auth(policy, binding)
 
     def record_auth(self, binding, completion):
         self.outcomes.append(("authored-status-control", completion["outcome"]))
+        self.accounting.record_auth(binding, completion)
 
     def require_native_conformance(self, policy, binding):
         assert policy.executable.name == "synthetic-cli"
@@ -61,18 +65,21 @@ class AuthoredPermits:
 
     def record_host_stop(self, binding, stop):
         self.outcomes.append(("stop", stop.confirmed))
+        self.accounting.stop(binding, stop)
 
 
 class AuthoredAccounting:
-    def __init__(self):
+    def __init__(self, permits):
         self.outcomes = []
+        self.permits = permits
 
     def authorize(self, accounting_ref, attempt):
         assert accounting_ref == "synthetic-accounting"
-        return "synthetic-accounting"
+        return self.permits.accounting.assignment(attempt)
 
     def record(self, permit, *, outcome, detail):
         self.outcomes.append(outcome)
+        self.permits.accounting.complete(permit, outcome)
 
 
 class UnusedCommands:
@@ -104,6 +111,7 @@ def composition(tmp_path, journal):
     def create(*, deny=False, provider_fail=False, early_tool=False):
         root = tmp_path / ("graph-" + str(len(instances)))
         root.mkdir(mode=0o700)
+        permits = AuthoredPermits(root / "accounting", deny)
         r = RuntimeRig(root / "runtime")
         r.rig.now = journal.clock()
         fixture_proofs = r.rig.proofs
@@ -147,7 +155,7 @@ def composition(tmp_path, journal):
                 codex_settings=settings,
             )
 
-        permits, accounting = AuthoredPermits(deny), AuthoredAccounting()
+        accounting = AuthoredAccounting(permits)
         factory = ManagedHostFactory(
             r.rig.core,
             r.resources,

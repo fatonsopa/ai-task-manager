@@ -12,6 +12,8 @@ from ai_task_manager.adapters.process.groups import (
 )
 from ai_task_manager.domains.work.errors import AccessDenied
 
+from .invocations import require_invocation, spawn_claimed
+
 
 class CodexAuthProbe:
     MAX_OUTPUT = 16384
@@ -28,11 +30,17 @@ class CodexAuthProbe:
         require_group_monitoring()
         argv = (str(policy.executable), *settings.arguments(), "login", "status")
         settings.sources.require_acl_acknowledgement()
-        self.permits.authorize_auth(policy, binding)
+        permit = require_invocation(
+            self.permits.authorize_auth(policy, binding), policy, binding, "auth"
+        )
+        end = self.journal.clock() + permit.bounded_timeout(
+            10, original_deadline=binding.deadline, clock=self.journal.clock
+        )
         settings.sources.require_acl_acknowledgement()
         output = {"stdout": bytearray(), "stderr": bytearray()}
         overflow = False
-        process = subprocess.Popen(
+        process = spawn_claimed(
+            permit,
             argv,
             cwd=policy.cwd,
             env=dict(policy.environment),
@@ -68,7 +76,7 @@ class CodexAuthProbe:
             try:
                 completion = supervise(
                     group,
-                    timeout_seconds=min(10, binding.deadline - self.journal.clock()),
+                    timeout_seconds=max(0, end - self.journal.clock()),
                     boundary_check=boundary,
                 )
                 try:

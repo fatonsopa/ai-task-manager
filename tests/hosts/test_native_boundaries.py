@@ -45,7 +45,7 @@ def bridge_fixture(running_managed, journal, tmp_path):
     bridge = ManagedNativeHost(
         binding,
         workers.dispatches[attempt.id].resources,
-        SimpleNamespace(check=lambda: None),
+        SimpleNamespace(check=lambda: None, codex_settings=None),
         tmp_path / "bridge",
         journal,
         r.rig.core,

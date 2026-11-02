@@ -1,7 +1,7 @@
 """Model effect surface: exact registered tools with a current scoped lease."""
 
 import math
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from threading import RLock
 
 from jsonschema import Draft202012Validator
@@ -48,6 +48,7 @@ class ManagedToolGateway:
         notifications=None,
         process_registry=None,
         model_guard=None,
+        invocation_source=None,
     ):
         if not math.isfinite(deadline):
             raise AccessDenied("A finite immutable work deadline is required")
@@ -56,6 +57,7 @@ class ManagedToolGateway:
         self.deadline, self.commands, self.notifications = deadline, commands, notifications
         self.process_registry = process_registry
         self.model_guard = model_guard
+        self.invocation_source = invocation_source
         self.schemas = {name: tool_schema(name) for name in SCHEMAS}
         self.lock = RLock()
         self._attempt_version = None
@@ -66,6 +68,8 @@ class ManagedToolGateway:
             raise AccessDenied("Model workers require registered actual native process ownership")
         if attempt.host in {"claude", "codex"} and self.model_guard is None:
             raise AccessDenied("Model workers require a bound continuous model guard")
+        if attempt.host in {"claude", "codex"} and not callable(self.invocation_source):
+            raise AccessDenied("Model workers require a registered invocation source")
         if self.model_guard is not None:
             sid, _ = self.core.session_binding(self.handle)
             binding = self.model_guard.binding
@@ -136,12 +140,12 @@ class ManagedToolGateway:
                     # A prior intent without atomic filesystem receipt is uncertain, not retry-safe.
                     raise AccessDenied("Existing edit intent requires reconciliation")
             # Core serializes this bounded publication with independent human writers.
-            guard = self.model_guard.effect_boundary() if self.model_guard else nullcontext()
-            with guard:
-                with self.core.execution.work_boundary(
-                    self.handle, self.dispatch.attempt_id, self._attempt_version
-                ):
-                    self.check_deadline_resources()
+            prepared = self.model_guard.prepare_effect() if self.model_guard else None
+            invocation = self.invocation_source() if self.invocation_source else None
+            root = invocation.effect_boundary() if invocation else nullcontext()
+            guard = self.model_guard.current_boundary(prepared) if prepared else nullcontext()
+            with root, guard:
+                with self.lease_boundary():
                     if name == "read_file":
                         return self.workspace.read(arguments["path"])
                     result = self.workspace.write(
@@ -151,6 +155,15 @@ class ManagedToolGateway:
                 "trace", {"effect": "file_published", "intent": intent, "result": result}
             )
             return result
+
+    @contextmanager
+    def lease_boundary(self):
+        """Only current Core authority and cached resource metadata, no I/O preparation."""
+        with self.core.execution.work_boundary(
+            self.handle, self.dispatch.attempt_id, self._attempt_version
+        ):
+            self.check_deadline_resources()
+            yield
 
     def check_deadline_resources(self):
         if self.journal.clock() >= self.deadline:

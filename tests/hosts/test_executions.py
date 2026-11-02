@@ -56,7 +56,10 @@ def call(
         handle=None,
         attempt=SimpleNamespace(id="attempt", task_id="task", host="codex"),
         resources=resources,
-        host=SimpleNamespace(execute_model_turn=lambda prompt: {"fixture_turn": prompt}),
+        host=SimpleNamespace(
+            execute_model_turn=lambda prompt, *, invocation: {"fixture_turn": prompt},
+            invocation_completed=lambda permit: None,
+        ),
         command_ref=reference,
         operation_key=key,
         boundary=boundary,
@@ -213,7 +216,7 @@ def test_actual_attempted_model_failure_is_recorded_without_erasing_intent(journ
         FixtureTests(),
     )
 
-    def fail(prompt):
+    def fail(prompt, *, invocation):
         raise RuntimeUncertain("Synthetic interrupted invocation")
 
     @contextmanager

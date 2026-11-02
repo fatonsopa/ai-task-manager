@@ -1,0 +1,131 @@
+{
+  "version": 34,
+  "extends": "host-bridge-cases-v33.json",
+  "preserves_all_prior_objectives": true,
+  "status": "frozen_physical_transport_controls_before_implementation",
+  "new_helpers": [
+    "src/ai_task_manager/adapters/hosts/transports/relay_policy.py",
+    "src/ai_task_manager/adapters/hosts/transports/native_input.py"
+  ],
+  "cases": [
+    {
+      "id": "PHY01",
+      "alias": "test_actual_relay_spawn_rechecks_root_policy",
+      "variants": [
+        "accepted",
+        "paused",
+        "foreign_owner",
+        "expired"
+      ]
+    },
+    {
+      "id": "PHY02",
+      "alias": "test_relay_binding_refuses_untrusted_or_changed_source",
+      "variants": [
+        "unknown_kind",
+        "source_changed",
+        "ledger_changed",
+        "scope_changed"
+      ]
+    },
+    {
+      "id": "PHY03",
+      "alias": "test_incomplete_object_cannot_execute_at_eof",
+      "variants": [
+        "empty_object",
+        "nested_braces",
+        "escaped_newline",
+        "unicode"
+      ]
+    },
+    {
+      "id": "PHY04",
+      "alias": "test_final_frame_commit_obeys_current_root_boundary",
+      "variants": [
+        "accepted",
+        "pause_before",
+        "deadline",
+        "partial_commit",
+        "commit_failure"
+      ]
+    },
+    {
+      "id": "PHY05",
+      "alias": "test_quarantined_input_never_resends",
+      "variants": [
+        "denied_after_prefix",
+        "partial_suffix",
+        "lost_observation"
+      ]
+    },
+    {
+      "id": "PHY06",
+      "alias": "test_parent_owned_input_backpressure_stays_outside_root",
+      "variants": [
+        "blocked_prefix",
+        "blocked_suffix"
+      ]
+    },
+    {
+      "id": "PHY07",
+      "alias": "test_relay_watchdog_survives_output_backpressure",
+      "variants": [
+        "stdout",
+        "stderr",
+        "controller_loss"
+      ]
+    },
+    {
+      "id": "PHY08",
+      "alias": "test_deadline_kills_term_resistant_owned_descendant",
+      "variants": [
+        "host_deadline",
+        "invocation_deadline"
+      ]
+    },
+    {
+      "id": "PHY09",
+      "alias": "test_managed_producers_require_typed_invocations",
+      "variants": [
+        "initialization",
+        "auth",
+        "neutral",
+        "assignment",
+        "gateway"
+      ]
+    },
+    {
+      "id": "PHY10",
+      "alias": "test_actual_composition_keeps_root_model_core_order",
+      "variants": [
+        "write",
+        "command",
+        "held_task"
+      ]
+    },
+    {
+      "id": "PHY11",
+      "alias": "test_initialization_guard_cannot_grant_work_proof",
+      "variants": [
+        "no_model_yet",
+        "sticky_fence"
+      ]
+    },
+    {
+      "id": "PHY12",
+      "alias": "test_protected_merge_does_not_inherit_small_model_window",
+      "variants": [
+        "unconfigured_refuses",
+        "independent_authority"
+      ]
+    }
+  ],
+  "rules": [
+    "Actual native Popen delegates the same current Root policy in the relay,not a queued grant. Fixed adapter import plus source manifest is derived only from a trusted prepared controller binding and inherited private descriptor; model payload has no module/source selection.",
+    "Parent retains native stdin. Canonical single-object JSON is staged without its final closing brace. Final brace+delimiter is a nonblocking bounded effect under current authority; partial/unknown commits quarantine and never resend.",
+    "All relay forwarding and diagnostics are nonblocking/bounded. Preserve existing totals,deadline/controller-loss TERM/KILL and all historical stopped-relay limits.",
+    "Raw transport fixtures grant no Core task authority. Every managed factory/producer requires typed actual invocation capabilities. Account/model/provider operations remain excluded.",
+    "Protected merge stays a separately accounted authority/lifecycle; no foreground script rewrite or small native-model deadline imposed on its process. Unconfigured live merge authority refuses rather than substitutes a flow."
+  ],
+  "runtime_gate": "Standing user authorization covers own-reviewed finite local mechanical batches only. Freeze actual source/command/resources and preserve every attempted outcome; no actual native accounts/models/providers or normal activation."
+}

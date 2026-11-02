@@ -1,4 +1,4 @@
-"""Credential-free stdlib relay: controller loss and deadline kill its own group."""
+"""Bounded nonblocking relay; only the parent owns the native input writer."""
 
 import json
 import os
@@ -7,13 +7,21 @@ import signal
 import subprocess
 import sys
 import time
+from contextlib import nullcontext
+from pathlib import Path
 
 MAX_FRAME = 262144
 OUTPUT_LIMITS = {"stdout": 4194304, "stderr": 1048576}
+DRAIN_GRACE_SECONDS = 0.5
 
 
 def terminate(reason):
-    print(f"host_relay:{reason}", file=sys.stderr, flush=True)
+    # Diagnostics must not block the watchdog behind a full stderr pipe/file.
+    try:
+        os.set_blocking(2, False)
+        os.write(2, ("host_relay:" + reason + "\n").encode()[:256])
+    except OSError:
+        pass
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
     os.killpg(os.getpgrp(), signal.SIGTERM)
     time.sleep(0.1)
@@ -21,66 +29,131 @@ def terminate(reason):
 
 
 def main():
-    ready_fd, nonce, duration = int(sys.argv[1]), sys.argv[2], float(sys.argv[3])
+    ready_fd, nonce = int(sys.argv[1]), sys.argv[2]
+    duration, absolute = float(sys.argv[3]), float(sys.argv[4])
+    specification_fd, input_fd = int(sys.argv[5]), int(sys.argv[6])
+    # These paths come from this installed relay, never a model command.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from relay_policy import RelayPolicy, read_spec
+
+    specification = read_spec(specification_fd)
+    os.close(specification_fd)
+    if specification["nonce"] != nonce:
+        terminate("invalid_binding_nonce")
+    command = specification["command"]
+    policy = (
+        RelayPolicy(specification["policy"], command)
+        if specification.get("policy") is not None
+        else None
+    )
     deadline = time.monotonic() + duration
+    current_utc = absolute
     control = b""
     child = None
-    written = {name: 0 for name in OUTPUT_LIMITS}
-    while time.monotonic() < deadline:
+    active_call = None
+    exit_seen = None
+    overflow_reason = None
+    drain_until = None
+    outputs = {}
+    pending = {1: bytearray(), 2: bytearray()}
+    totals = {1: 0, 2: 0}
+    limits = {1: OUTPUT_LIMITS["stdout"], 2: OUTPUT_LIMITS["stderr"]}
+    for fd in (0, 1, 2, ready_fd):
+        os.set_blocking(fd, False)
+    while time.monotonic() < deadline and time.time() < min(absolute, current_utc):
+        if overflow_reason is not None:
+            if not any(pending.values()) or time.monotonic() >= drain_until:
+                terminate(overflow_reason)
         if child is not None and child.poll() is not None:
-            terminate("native_exit")
-        reads = [sys.stdin.fileno()]
-        if child is not None:
-            reads.append(child.stdout.fileno())
-            reads.append(child.stderr.fileno())
-        ready, _, _ = select.select(reads, [], [], min(0.05, deadline - time.monotonic()))
+            if exit_seen is None:
+                exit_seen = time.monotonic()
+            if (not outputs and not any(pending.values())) or time.monotonic() - exit_seen >= 0.5:
+                terminate("native_exit")
+        # A producer cannot extend the prefix or drain window after overflow.
+        # Keep the control pipe live so EOF/stop preempts buffered output.
+        reads = [0, *(outputs if overflow_reason is None else ())]
+        writes = [fd for fd, data in pending.items() if data]
+        ready, writable, _ = select.select(reads, writes, [], 0.02)
+        for fd in writable:
+            try:
+                count = os.write(fd, pending[fd][:65536])
+                del pending[fd][:count]
+            except BlockingIOError:
+                pass
+            except OSError:
+                terminate("output_disconnected")
         for fd in ready:
-            if fd == sys.stdin.fileno():
+            if fd != 0 and overflow_reason is not None:
+                continue
+            try:
                 part = os.read(fd, 65536)
+            except BlockingIOError:
+                continue
+            if fd != 0:
                 if not part:
-                    terminate("controller_disconnected")
-                control += part
-                if len(control) > MAX_FRAME:
-                    terminate("oversized_control")
-                while b"\n" in control:
-                    raw, control = control.split(b"\n", 1)
-                    data = json.loads(raw)
-                    if child is None:
-                        if data.get("op") != "launch" or data.get("nonce") != nonce:
-                            terminate("invalid_launch")
+                    outputs.pop(fd)
+                    continue
+                target = outputs[fd]
+                available = limits[target] - totals[target]
+                accepted = min(len(part), available)
+                pending[target].extend(part[:accepted])
+                totals[target] += accepted
+                if accepted != len(part):
+                    overflow_reason = "native_" + ("stdout" if target == 1 else "stderr") + "_limit"
+                    drain_until = time.monotonic() + DRAIN_GRACE_SECONDS
+                    # The relay survives TERM to drain its finite accepted
+                    # prefix. Resistant descendants still receive group KILL
+                    # at completion, timeout, control loss or hard deadline.
+                    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+                    os.killpg(os.getpgrp(), signal.SIGTERM)
+                continue
+            if not part:
+                terminate("controller_disconnected")
+            control += part
+            if len(control) > MAX_FRAME:
+                terminate("oversized_control")
+            while b"\n" in control:
+                raw, control = control.split(b"\n", 1)
+                data = json.loads(raw)
+                operation = data.get("op")
+                if operation == "launch" and child is None and data.get("nonce") == nonce:
+                    boundary = policy.actual_spawn() if policy is not None else nullcontext(None)
+                    with boundary as report:
                         child = subprocess.Popen(
-                            data["argv"],
-                            cwd=data["cwd"],
-                            env=data["environment"],
-                            stdin=subprocess.PIPE,
+                            command["argv"],
+                            cwd=command["cwd"],
+                            env=command["environment"],
+                            stdin=input_fd,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             close_fds=True,
                         )
-                        with os.fdopen(ready_fd, "w") as stream:
-                            json.dump({"nonce": nonce, "pid": child.pid}, stream)
-                            stream.write("\n")
-                            stream.flush()
-                    elif data.get("op") == "write" and not child.stdin.closed:
-                        child.stdin.write(data["data"].encode())
-                        child.stdin.flush()
-                    elif data.get("op") == "eof" and not child.stdin.closed:
-                        child.stdin.close()
-                    elif data.get("op") == "stop":
-                        terminate("requested")
-                    else:
-                        terminate("invalid_control")
-            else:
-                part = os.read(fd, 65536)
-                if part:
-                    name = "stdout" if fd == child.stdout.fileno() else "stderr"
-                    available = OUTPUT_LIMITS[name] - written[name]
-                    output = getattr(sys, name).buffer
-                    output.write(part[:available])
-                    output.flush()
-                    written[name] += min(len(part), available)
-                    if len(part) > available:
-                        terminate("native_" + name + "_limit")
+                        if report is not None:
+                            report(process_pid=None, process_start_identity=None)
+                    os.close(input_fd)
+                    for stream, target in ((child.stdout, 1), (child.stderr, 2)):
+                        os.set_blocking(stream.fileno(), False)
+                        outputs[stream.fileno()] = target
+                    record = json.dumps({"nonce": nonce, "pid": child.pid}).encode() + b"\n"
+                    if os.write(ready_fd, record) != len(record):
+                        terminate("partial_handshake")
+                    os.close(ready_fd)
+                elif operation == "invocation" and child is not None and policy is not None:
+                    if active_call is not None:
+                        terminate("active_invocation_unreconciled")
+                    # Same ledger determines the persisted bound; no caller extension.
+                    current_utc = min(absolute, policy.invocation_deadline(data["call_id"]))
+                    active_call = data["call_id"]
+                elif operation == "complete" and child is not None and policy is not None:
+                    if not policy.completed(data["call_id"], active_call=active_call):
+                        terminate("unconfirmed_completion")
+                    current_utc = absolute
+                    active_call = None
+                elif operation == "stop":
+                    terminate("requested")
+                else:
+                    terminate("invalid_control")
     terminate("deadline")
 
 

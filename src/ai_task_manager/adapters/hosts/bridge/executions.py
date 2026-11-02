@@ -101,13 +101,14 @@ class ReviewedExecutions:
             permit = self.accounting.authorize(plan.accounting_ref, attempt)
             try:
                 boundary()
-                result = host.execute_model_turn(plan.prompt)
+                result = host.execute_model_turn(plan.prompt, invocation=permit)
             except BaseException as exc:
                 self.accounting.record(
                     permit, outcome="failed_or_uncertain", detail=type(exc).__name__
                 )
                 raise
             self.accounting.record(permit, outcome="observed_turn", detail=None)
+            host.invocation_completed(permit)
             return result
         if isinstance(plan, ProtectedMergeWork):
             if self.merge_runner is None or merge_authority is None:
