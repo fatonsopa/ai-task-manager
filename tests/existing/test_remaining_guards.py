@@ -39,8 +39,10 @@ def test_ea26_valid_signed_selection_cannot_authorize_different_context(rig, pro
     )
     before = rig.effects()
     expected = AccessDenied if mismatch == "expiry" else EvidenceRequired
+    key = str(uuid4())
+    fresh = rig.admission_readback(ref, key)
     with pytest.raises(expected):
-        rig.core.existing.admit(rig.handle, ref, ref, prose, approval, selected, str(uuid4()))
+        rig.core.existing.admit(rig.handle, ref, fresh, prose, approval, selected, key)
     assert rig.effects() == before
 
 
@@ -78,47 +80,18 @@ def test_ea03_current_authenticated_workspace_must_match(rig, provider):
 
 
 def queue_todo(rig, task):
-    ref = rig.intake.guard(task)
-    return rig.core.transitions.transition(
-        rig.handle,
-        task.id,
-        "Todo",
-        "enqueue",
-        task.version,
-        task.decision_revision,
-        rig.decision(task),
-        {"existing_source": ref},
-        str(uuid4()),
-    )
+    return rig.queue(task)
 
 
 def test_ea30_active_own_binding_reuses_attempt_and_rejects_duplicate_reservation(rig, provider):
     issue = provider.seed("Todo")
     task = queue_todo(rig, rig.admit(issue))
-    rig.intake.guard(task, startup=True)
-    attempt = rig.core.execution.reserve(
-        rig.handle,
-        task.id,
-        "fixture",
-        task.version,
-        task.decision_revision,
-        rig.decision(task, "In Progress"),
-        str(uuid4()),
-    )
+    attempt = rig.reserve(task)
     current = rig.core.get_task(rig.handle, task.id)
     assert rig.admit(issue) == current
     assert rig.core.get_attempt(rig.handle, attempt.id) == attempt
-    rig.intake.guard(current, startup=True)
     with pytest.raises(CapacityExceeded):
-        rig.core.execution.reserve(
-            rig.handle,
-            current.id,
-            "fixture",
-            current.version,
-            current.decision_revision,
-            rig.decision(current, "In Progress"),
-            str(uuid4()),
-        )
+        rig.reserve(current)
     assert len(rig.effects()["attempts"]) == 1
 
 
@@ -139,7 +112,8 @@ def test_ea32_own_guarded_binding_does_not_release_human_hold(rig, provider, sta
         )
     reused = rig.admit(issue)
     assert reused.human_hold and reused.queued_once and reused.observed_status == status
-    source = rig.intake.guard(reused)
+    key = str(uuid4())
+    source = rig.intake.queue_readback(reused.id, reused.version, reused.decision_revision, key)
     before = rig.effects()
     with pytest.raises((EvidenceRequired, StaleVersion)):
         rig.core.transitions.transition(
@@ -151,7 +125,7 @@ def test_ea32_own_guarded_binding_does_not_release_human_hold(rig, provider, sta
             task.decision_revision,
             rig.decision(task),
             {"existing_source": source},
-            str(uuid4()),
+            key,
         )
     assert rig.effects() == before
 
@@ -161,18 +135,7 @@ def test_ea36_backlog_queue_uses_original_outbox_and_exact_todo_readback(rig, pr
 
     issue = provider.seed()
     task = rig.admit(issue)
-    ref = rig.intake.guard(task)
-    requested = rig.core.transitions.transition(
-        rig.handle,
-        task.id,
-        "Todo",
-        "enqueue",
-        task.version,
-        task.decision_revision,
-        rig.decision(task),
-        {"existing_source": ref},
-        str(uuid4()),
-    )
+    requested = rig.queue(task)
     assert requested.sync_state == "pending" and not requested.queued_once
     confirmed = OutboundDrain(rig.core, rig.client, rig.journal).confirm_pending(
         rig.handle, task.id
@@ -182,13 +145,14 @@ def test_ea36_backlog_queue_uses_original_outbox_and_exact_todo_readback(rig, pr
     mutations = [request for request, _ in provider.requests if "mutation " in request["query"]]
     assert len(mutations) == 1 and "mutation UpdateIssue" in mutations[0]["query"]
     assert len(provider.issues) == 1
-    rig.intake.guard(confirmed, startup=True)
+    rig.startup_source(confirmed, "confirmed-readback:reserve")
 
 
 def test_ea46_new_human_hold_between_source_read_and_queue_commit_wins(rig, provider):
     issue = provider.seed("Todo")
     task = rig.admit(issue)
-    source = rig.intake.guard(task)
+    key = str(uuid4())
+    source = rig.intake.queue_readback(task.id, task.version, task.decision_revision, key)
     human = rig.authority._evidence(
         "human_decision",
         rig.scope,
@@ -208,7 +172,7 @@ def test_ea46_new_human_hold_between_source_read_and_queue_commit_wins(rig, prov
             task.decision_revision,
             rig.decision(task),
             {"existing_source": source},
-            str(uuid4()),
+            key,
         )
     assert rig.core.get_task(rig.handle, task.id) == held and rig.effects() == before
 

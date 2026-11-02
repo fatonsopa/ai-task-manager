@@ -129,17 +129,10 @@ def test_ea47_reassignment_and_hidden_task_never_release_unresolved_leases(rig, 
         runtime.evidence[ref] = Evidence(kind, rig.scope, subject, payload)
         return ref
 
-    rig.intake.guard(task, startup=True)
-    attempt = rig.core.execution.reserve(
-        rig.handle,
-        task.id,
-        "fixture",
-        task.version,
-        task.decision_revision,
-        rig.decision(task, "In Progress"),
-        str(uuid4()),
-    )
+    attempt = rig.reserve(task)
     task = rig.core.get_task(rig.handle, task.id)
+    start_key = str(uuid4())
+    start_source = rig.startup_source(task, start_key, phase="start", attempt_id=attempt.id)
     attempt = rig.core.execution.start(
         rig.handle,
         attempt.id,
@@ -151,7 +144,8 @@ def test_ea47_reassignment_and_hidden_task_never_release_unresolved_leases(rig, 
             {"task_id": task.id, "host": "fixture", "worker_id": "authored-fixture-worker"},
         ),
         rig.decision(task, "In Progress"),
-        str(uuid4()),
+        start_key,
+        readback_ref=start_source,
     )
     task = OutboundDrain(rig.core, rig.client, rig.journal).confirm_pending(rig.handle, task.id)
     attempt = rig.core.execution.running(
@@ -184,7 +178,7 @@ def test_ea47_reassignment_and_hidden_task_never_release_unresolved_leases(rig, 
         other.admit(issue)
     provider.issues[issue]["assignee"] = {"id": uid(999)}
     with pytest.raises(ExistingBlocked):
-        rig.intake.guard(rig.core.get_task(rig.handle, task.id), startup=True)
+        rig.intake.guard(rig.core.get_task(rig.handle, task.id))
     with pytest.raises(AccessDenied):
         other.admit(issue)
     assert rig.effects()["resource_leases"] == resources
@@ -316,9 +310,10 @@ def test_ea68_invocations_are_bound_to_installation_not_just_scope(rig, provider
     issue = provider.seed()
     ref, prose, approved, selected = rig.packet(issue)
     other.core.context.evidence = rig.router
+    fresh = rig.admission_readback(ref, "different-store")
     with pytest.raises(EvidenceRequired):
         other.core.existing.admit(
-            other.handle, ref, ref, prose, approved, selected, "different-store"
+            other.handle, ref, fresh, prose, approved, selected, "different-store"
         )
 
 

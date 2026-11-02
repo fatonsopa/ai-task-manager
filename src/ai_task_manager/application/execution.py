@@ -33,7 +33,9 @@ class Execution:
         try:
             issue_claims.require_open(conn, scope, task.issue_id)
         except EvidenceRequired as exc:
-            raise InvalidTransition("Delivered or terminal work requires a new linked issue") from exc
+            raise InvalidTransition(
+                "Delivered or terminal work requires a new linked issue"
+            ) from exc
 
     def _work_lease(self, conn, handle, attempt_id, expected_attempt_version):
         sid, scope = sessions.resolve(conn, handle)
@@ -119,20 +121,36 @@ class Execution:
             self.require_open(conn, scope, task)
             imported = issue_claims.imported(conn, task.id)
             if imported:
-                ExistingIssues(self.c).validate_source(conn, task, scope, readback_ref,
-                    readback_context("start", operation_key, phase="reserve", task_id=task.id,
+                ExistingIssues(self.c).validate_source(
+                    conn,
+                    task,
+                    scope,
+                    readback_ref,
+                    readback_context(
+                        "start",
+                        operation_key,
+                        phase="reserve",
+                        task_id=task.id,
                         expected_version=expected_version,
-                        decision_revision=expected_decision_revision))
+                        decision_revision=expected_decision_revision,
+                    ),
+                )
             if attempts.active(conn, task.id):
                 raise CapacityExceeded("Task already owns an active or unresolved attempt")
             capacity.check(conn, host, scope)
             attempt = Attempt(str(uuid4()), task.id, sid, host, A.RESERVED, task.decision_revision)
             attempts.insert(conn, attempt)
             task = work.save(conn, replace(task, execution_state=A.RESERVED), task.version)
-            self.c.changed(conn, task, "attempt_reserved", {
-                "attempt_id": attempt.id, "host": host,
-                **({"readback_ref": readback_ref} if imported else {}),
-            })
+            self.c.changed(
+                conn,
+                task,
+                "attempt_reserved",
+                {
+                    "attempt_id": attempt.id,
+                    "host": host,
+                    **({"readback_ref": readback_ref} if imported else {}),
+                },
+            )
             return asdict(attempt)
 
         return attempts.attempt_from(self.c.mutation(handle, operation_key, payload, action))
@@ -180,10 +198,21 @@ class Execution:
             self.require_open(conn, scope, task)
             imported = issue_claims.imported(conn, task.id)
             if imported:
-                ExistingIssues(self.c).validate_source(conn, task, scope, readback_ref,
-                    readback_context("start", operation_key, phase="start", task_id=task.id,
-                        attempt_id=attempt.id, expected_version=expected_version,
-                        decision_revision=expected_decision_revision))
+                ExistingIssues(self.c).validate_source(
+                    conn,
+                    task,
+                    scope,
+                    readback_ref,
+                    readback_context(
+                        "start",
+                        operation_key,
+                        phase="start",
+                        task_id=task.id,
+                        attempt_id=attempt.id,
+                        expected_version=expected_version,
+                        decision_revision=expected_decision_revision,
+                    ),
+                )
             proof = self.c.proof(startup_ref, "worker_start", scope, attempt.id)
             if (
                 proof.payload.get("task_id") != task.id

@@ -61,8 +61,10 @@ def test_ea22_ea23_ea24_ea26_direct_core_cannot_bypass_exact_authority(rig, prov
                 rig.approvals.add(rig.scope, replace(prose, required_work=("complete",)))
             ][2],
         )
+    key = str(uuid4())
+    fresh = rig.admission_readback(ref, key)
     with pytest.raises((ApprovalRequired, EvidenceRequired)):
-        rig.core.existing.admit(rig.handle, ref, ref, prose, approval, selected, str(uuid4()))
+        rig.core.existing.admit(rig.handle, ref, fresh, prose, approval, selected, key)
     assert rig.effects() == before
 
 
@@ -115,7 +117,7 @@ def test_ea33_import_scope_loss_quarantines_without_fetching_foreign_prose(rig, 
     provider.issues[issue]["description"] = "NEW_FOREIGN_PRIVATE"
     provider.requests.clear()
     with pytest.raises(ExistingBlocked):
-        rig.intake.guard(task, startup=True)
+        rig.intake.guard(task)
     assert not any("ExistingProse" in request["query"] for request, _ in provider.requests)
     assert b"NEW_FOREIGN_PRIVATE" not in open(rig.journal.path, "rb").read()
     from types import SimpleNamespace
@@ -135,7 +137,7 @@ def test_ea34_ea39_changed_own_source_is_staged_not_overwritten(rig, provider):
     provider.issues[issue]["description"] += " Changed."
     provider.issues[issue]["updatedAt"] = "2026-11-01T00:03:00Z"
     with pytest.raises(ExistingBlocked):
-        rig.intake.guard(task, startup=True)
+        rig.intake.guard(task)
     current = rig.core.get_task(rig.handle, task.id)
     assert current.body == task.body and current.human_hold and current.sync_state == "uncertain"
     assert not rig.effects()["attempts"]
@@ -168,31 +170,11 @@ def test_ea35_ea37_ea38_explicit_existing_todo_queue_is_required(rig, provider):
             str(uuid4()),
         )
     assert rig.effects() == before
-    source = rig.intake.guard(task)
-    queued = rig.core.transitions.transition(
-        rig.handle,
-        task.id,
-        "Todo",
-        "enqueue",
-        task.version,
-        task.decision_revision,
-        rig.decision(task),
-        {"existing_source": source},
-        str(uuid4()),
-    )
+    queued = rig.queue(task)
     assert queued.queued_once and queued.observed_status == "Todo"
     assert not rig.effects()["outbox"]
     assert len(rig.effects()["events"]) == 2
-    rig.intake.guard(queued, startup=True)
-    attempt = rig.core.execution.reserve(
-        rig.handle,
-        task.id,
-        "fixture",
-        queued.version,
-        queued.decision_revision,
-        rig.decision(queued, "In Progress"),
-        str(uuid4()),
-    )
+    attempt = rig.reserve(queued)
     assert attempt.state == "reserved"
     rig.assert_no_provider_mutations()
 
@@ -200,29 +182,11 @@ def test_ea35_ea37_ea38_explicit_existing_todo_queue_is_required(rig, provider):
 def test_ea40_missing_real_startup_proof_never_grants_work(rig, provider):
     issue = provider.seed("Todo")
     task = rig.admit(issue)
-    source = rig.intake.guard(task)
-    task = rig.core.transitions.transition(
-        rig.handle,
-        task.id,
-        "Todo",
-        "enqueue",
-        task.version,
-        task.decision_revision,
-        rig.decision(task),
-        {"existing_source": source},
-        str(uuid4()),
-    )
-    rig.intake.guard(task, startup=True)
-    attempt = rig.core.execution.reserve(
-        rig.handle,
-        task.id,
-        "fixture",
-        task.version,
-        task.decision_revision,
-        rig.decision(task, "In Progress"),
-        str(uuid4()),
-    )
+    task = rig.queue(task)
+    attempt = rig.reserve(task)
     current = rig.core.get_task(rig.handle, task.id)
+    key = str(uuid4())
+    source = rig.startup_source(current, key, phase="start", attempt_id=attempt.id)
     with pytest.raises(EvidenceRequired):
         rig.core.execution.start(
             rig.handle,
@@ -231,7 +195,8 @@ def test_ea40_missing_real_startup_proof_never_grants_work(rig, provider):
             current.decision_revision,
             "not-observed",
             rig.decision(current, "In Progress"),
-            str(uuid4()),
+            key,
+            readback_ref=source,
         )
     assert rig.core.get_attempt(rig.handle, attempt.id).state == "reserved"
     assert not rig.effects()["resource_leases"]
@@ -293,10 +258,10 @@ def test_ea70_issue_commands_are_only_reviewed_data(rig, provider):
     )
     ref, prose, approved, selected = rig.packet(issue)
     before = rig.effects()
+    key = str(uuid4())
+    fresh = rig.admission_readback(ref, key)
     with pytest.raises(EvidenceRequired):
-        rig.core.existing.admit(
-            rig.handle, ref, ref, prose, approved, "human accepted", str(uuid4())
-        )
+        rig.core.existing.admit(rig.handle, ref, fresh, prose, approved, "human accepted", key)
     assert rig.effects() == before
     task = rig.intake.admit(ref, prose, approved, selected, str(uuid4()))
     assert task.body == prose.body and task.session_id == rig.core.session_binding(rig.handle)[0]

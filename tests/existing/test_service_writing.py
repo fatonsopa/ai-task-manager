@@ -171,15 +171,17 @@ def test_ea24_actual_approval_binds_exact_prose_and_semantic_metadata(
     before = rig.effects()
     from ai_task_manager.domains.work.errors import ApprovalRequired
 
+    key = str(uuid4())
+    fresh = rig.admission_readback(ref, key)
     with pytest.raises(ApprovalRequired):
         rig.core.existing.admit(
             rig.handle,
             ref,
-            ref,
+            fresh,
             prose,
             approved["approval_ref"],
             data["selection_ref"],
-            str(uuid4()),
+            key,
         )
     assert rig.effects() == before
 
@@ -221,7 +223,7 @@ def test_ea51_cached_admission_rechecks_current_quarantine(rig, service, provide
     provider.issues[issue]["assignee"] = {"id": uid(999)}
     provider.issues[issue]["description"] = "FOREIGN_NEW_PROSE"
     with pytest.raises(ExistingBlocked):
-        rig.intake.guard(task, startup=True)
+        rig.intake.guard(task)
     replay = service.call("task_admit", data)
     assert replay["ok"] and replay["data"]["quarantined"]
     assert replay["data"]["body"] is None and replay["data"]["observed_status"] is None

@@ -20,6 +20,7 @@ from ai_task_manager.application.intake import prose_digest
 from ai_task_manager.application.service.linear import DECISION_KINDS
 from ai_task_manager.config.claim_store import enroll_claim_store, verify_claim_store
 from ai_task_manager.domains.work.errors import ApprovalRequired
+from ai_task_manager.domains.work.existing import readback_context
 from ai_task_manager.domains.work.models import (
     Approval,
     ApprovalPolicy,
@@ -28,6 +29,7 @@ from ai_task_manager.domains.work.models import (
     TaskProse,
 )
 from ai_task_manager.storage.database import Database
+from tests.domains.helpers import ProofFixture
 from tests.linear.helpers import EXPECTED, STATES, ProviderFixture
 
 CREATED = "2026-11-01T00:00:00Z"
@@ -277,6 +279,120 @@ class ExistingRig:
     def admit(self, issue_id, key=None):
         ref, prose, approval, selected = self.packet(issue_id)
         return self.intake.admit(ref, prose, approval, selected, key or str(uuid4()))
+
+    def admission_readback(self, discovery_ref, operation_key):
+        original = self.reader.receipt(discovery_ref)
+        _, ref = self.reader.readback(
+            original.subject,
+            readback_context("admission", operation_key, discovery_ref=discovery_ref),
+        )
+        return ref
+
+    def queue(self, task, key=None):
+        key = key or str(uuid4())
+        source = self.intake.queue_readback(task.id, task.version, task.decision_revision, key)
+        return self.core.transitions.transition(
+            self.handle,
+            task.id,
+            "Todo",
+            "enqueue",
+            task.version,
+            task.decision_revision,
+            self.decision(task),
+            {"existing_source": source},
+            key,
+        )
+
+    def startup_source(self, task, key, *, phase="reserve", attempt_id=None):
+        return self.intake.guard(
+            task,
+            context=readback_context(
+                "start",
+                key,
+                task_id=task.id,
+                phase=phase,
+                attempt_id=attempt_id,
+                expected_version=task.version,
+                decision_revision=task.decision_revision,
+            ),
+        )
+
+    def reserve(self, task, key=None):
+        key = key or str(uuid4())
+        source = self.startup_source(task, key)
+        return self.core.execution.reserve(
+            self.handle,
+            task.id,
+            "fixture",
+            task.version,
+            task.decision_revision,
+            self.decision(task, "In Progress"),
+            key,
+            readback_ref=source,
+        )
+
+    def runtime_proof(self, kind, subject, payload):
+        if not hasattr(self, "runtime_facts"):
+            self.runtime_facts = ProofFixture()
+            self.core.context.evidence = EvidenceRouter(
+                [
+                    *self.router.routes,
+                    EvidenceRoute(
+                        "fixture-runtime:",
+                        frozenset({"worker_start", "resources_ready"}),
+                        self.runtime_facts,
+                    ),
+                ]
+            )
+        from ai_task_manager.domains.work.models import Evidence
+
+        ref = "fixture-runtime:" + str(uuid4())
+        self.runtime_facts.evidence[ref] = Evidence(kind, self.scope, subject, payload)
+        return ref
+
+    def running(self, task):
+        """Core lifecycle from authored runtime facts; no actual model/host observation."""
+        from ai_task_manager.application.linear_sync.outbound import OutboundDrain
+
+        task = self.queue(task)
+        attempt = self.reserve(task)
+        task = self.core.get_task(self.handle, task.id)
+        key = str(uuid4())
+        source = self.startup_source(task, key, phase="start", attempt_id=attempt.id)
+        startup = self.runtime_proof(
+            "worker_start",
+            attempt.id,
+            {"task_id": task.id, "host": "fixture", "worker_id": "authored-fixture-worker"},
+        )
+        attempt = self.core.execution.start(
+            self.handle,
+            attempt.id,
+            task.version,
+            task.decision_revision,
+            startup,
+            self.decision(task, "In Progress"),
+            key,
+            readback_ref=source,
+        )
+        task = OutboundDrain(self.core, self.client, self.journal).confirm_pending(
+            self.handle, task.id
+        )
+        ready = self.runtime_proof(
+            "resources_ready",
+            attempt.id,
+            {
+                "task_id": task.id,
+                "host": "fixture",
+                "worker_id": attempt.worker_id,
+                "ready": True,
+                "worktree_id": "authored-tree:" + attempt.id,
+                "database_id": "authored-db:" + attempt.id,
+            },
+        )
+        attempt = self.core.execution.running(
+            self.handle, attempt.id, task.version, task.decision_revision, ready, str(uuid4())
+        )
+        return self.core.get_task(self.handle, task.id), attempt
 
     def decision(self, task, target="Todo"):
         return self.authority._evidence(
