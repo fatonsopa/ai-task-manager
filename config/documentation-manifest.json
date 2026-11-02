@@ -22,7 +22,7 @@
     },
     {
       "path": "config/build/evidence-index.json",
-      "sha256": "581440969386ea9676b5937d2166a9e66bc28c4fb4954bf0147fb478bcfec177"
+      "sha256": "de61a9d67288bf22e3d447c7dcf64c12b2c58fd078efcb0c20f9437a15d3c7d8"
     },
     {
       "path": "config/execution-policy.json",
@@ -194,7 +194,7 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "b75e2f3fb2c139a4e578971f63b19e637d766cf0f0282f7366e65d341ac69a6f"
+      "sha256": "e11cda1ef839bb842114368f4d6b7b6c3b7eca71bddf05e61d8a6d74ffa381f8"
     },
     {
       "path": "prototypes/terminal/session-task-management.html",
