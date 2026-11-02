@@ -78,7 +78,7 @@ class Intake:
         def action(conn, sid, scope):
             if parent_task_id:
                 parent = work.get(conn, sid, parent_task_id)
-                if not parent.delivered_once:
+                if not issue_claims.known_delivered(conn, scope, parent):
                     raise InvalidTransition("Delivered-issue follow-up must link a delivered task")
                 proof = self.c.proof(followup_ref, "delivered_followup", scope, parent.id)
                 if (
@@ -143,7 +143,7 @@ class Intake:
             task = work.get(conn, sid, task_id)
             self.c.check(task, expected_version, expected_decision_revision)
             if (
-                task.delivered_once
+                issue_claims.known_delivered(conn, scope, task)
                 or task.sync_state != SyncState.CONFIRMED
                 or attempts.active(conn, task.id) is not None
             ):
@@ -269,7 +269,17 @@ class Intake:
                     observed_status=task.desired_status,
                     sync_state=SyncState.CONFIRMED,
                     execution_state=execution,
-                    queued_once=task.queued_once or task.desired_status == S.TODO,
+                    queued_once=task.queued_once
+                    or (
+                        task.desired_status == S.TODO
+                        and (
+                            not issue_claims.imported(conn, task.id)
+                            or (
+                                operation.kind == "set_status"
+                                and operation.payload.get("cause") in {"enqueue", "review_decision"}
+                            )
+                        )
+                    ),
                     delivered_once=task.delivered_once or task.desired_status in DELIVERED,
                 ),
                 task.version,

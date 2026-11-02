@@ -26,13 +26,24 @@ def fence(conn, scope, issue_id, *, delivered=False, terminal=False, source=""):
     )
 
 
-def require_open(conn, scope, issue_id):
+def _facts(conn, scope, issue_id):
     row = conn.execute(
         "SELECT delivered,terminal FROM issue_lifecycle WHERE identity_key=?",
         (identity(scope, issue_id),),
     ).fetchone()
     if row and any(type(value) is not int or value not in {0, 1} for value in row):
         raise SchemaError("Canonical lifecycle facts are invalid")
+    return row
+
+
+def known_delivered(conn, scope, task):
+    """Positive authority only; absence never proves a safe provider history."""
+    row = _facts(conn, scope, task.issue_id)
+    return task.delivered_once or bool(row and row[0])
+
+
+def require_open(conn, scope, issue_id):
+    row = _facts(conn, scope, issue_id)
     if row and (row[0] or row[1]):
         raise EvidenceRequired("Delivered or terminal history requires a new authorized issue")
 

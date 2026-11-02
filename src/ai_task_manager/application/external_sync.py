@@ -198,7 +198,7 @@ class ExternalSynchronization:
                 row is None
                 or row["state"] != "pending"
                 or task.decision_ref != row["proof_ref"]
-                or task.delivered_once
+                or issue_claims.known_delivered(conn, scope, task)
                 or attempts.active(conn, task.id) is not None
             ):
                 raise EvidenceRequired(
@@ -330,7 +330,8 @@ class ExternalSynchronization:
                     observed_status=target,
                     sync_state=SyncState.CONFIRMED,
                     human_hold=(target == S.ON_HOLD or data.get("assigned_to_owner") is not True),
-                    queued_once=task.queued_once or target == S.TODO,
+                    queued_once=task.queued_once
+                    or (target == S.TODO and not issue_claims.imported(conn, task.id)),
                     delivered_once=task.delivered_once or target in DELIVERED,
                     execution_state=AttemptState.PAUSED
                     if active and facts.quiescent
