@@ -289,6 +289,7 @@ class Server(HTTPServer):
                     self.slots.release()
 
     def service_actions(self):
+        self.owner.loop_entered.set()
         self.reap()
 
     def handle_error(self, request, client_address):
@@ -479,6 +480,9 @@ class BoundedReceiver:
         self.stopping, self.started = False, False
         self.diagnostic_failures = 0
         self.thread = self.shutdown_thread = None
+        self.lifecycle = threading.RLock()
+        self.loop_entered = threading.Event()
+        self.startup_rollback = None
         self.server = Server(self, (host, port))
 
     def record(self, kind, **fields):
@@ -501,54 +505,109 @@ class BoundedReceiver:
         return self.server.server_address
 
     def start(self):
-        if self.started or self.stopping:
-            raise DriverRefused("receiver_not_startable")
-        self.server.server_bind()
-        self.server.server_activate()
-        self.started = True
-        self.thread = threading.Thread(
-            target=lambda: self.server.serve_forever(poll_interval=0.02), name="owned-http-accept"
-        )
-        self.thread.start()
-        return self.address
+        with self.lifecycle:
+            if self.started or self.stopping:
+                raise DriverRefused("receiver_not_startable")
+
+            def serve():
+                try:
+                    self.server.serve_forever(poll_interval=0.02)
+                except BaseException:
+                    self.record("server_failed", code="server_exception")
+
+            try:
+                self.server.server_bind()
+                self.server.server_activate()
+                if self.stopping:
+                    raise DriverRefused("receiver_stopped_during_start")
+                self.thread = threading.Thread(target=serve, name="owned-http-accept")
+                self.thread.start()
+                if self.stopping:
+                    raise DriverRefused("receiver_stopped_during_start")
+                self.started = True
+                return self.address
+            except BaseException:
+                self.started = False
+                self.stopping = True
+                try:
+                    self.startup_rollback = self.stop(1.0)
+                except BaseException as error:
+                    self.startup_rollback = {
+                        "stopped": False,
+                        "rollback_error": type(error).__name__,
+                    }
+                raise
+
+    def _owned_threads(self):
+        return [
+            self.thread,
+            self.shutdown_thread,
+            *self.server.handlers,
+            *self.server.adapters,
+            *self.server.watchers,
+        ]
+
+    def _stop_snapshot(self, *, lifecycle_pending=False, shutdown_start_failed=False):
+        live = [
+            thread.name
+            for thread in self._owned_threads()
+            if thread is not None and thread.is_alive()
+        ]
+        active = self.active
+        return {
+            "stopped": not lifecycle_pending
+            and not live
+            and active == 0
+            and self.server.socket.fileno() == -1,
+            "active_requests": active,
+            "live_workers": live,
+            "diagnostic_failures": self.diagnostic_failures,
+            "lifecycle_pending": lifecycle_pending,
+            "shutdown_start_failed": shutdown_start_failed,
+        }
 
     def stop(self, timeout=12.0):
         if type(timeout) not in {int, float} or not math.isfinite(timeout) or timeout < 0:
             raise DriverRefused("invalid_stop_bound")
         end = time.monotonic() + timeout
         self.stopping = True
-        if self.started and self.shutdown_thread is None:
-            self.shutdown_thread = threading.Thread(
-                target=self.server.shutdown, name="owned-http-shutdown"
-            )
-            self.shutdown_thread.start()
-        threads = [
-            self.thread,
-            self.shutdown_thread,
-            *self.server.handlers,
-            *self.server.adapters,
-            *self.server.watchers,
-        ]
-        for thread in threads:
-            if (
-                thread is not None
-                and thread is not threading.current_thread()
-                and thread.ident is not None
+        if not self.lifecycle.acquire(timeout=max(0, end - time.monotonic())):
+            return self._stop_snapshot(lifecycle_pending=True)
+        failed = False
+        try:
+            # Thread launch alone does not prove BaseServer's shutdown event
+            # was initialized. Only its actual public loop hook witnesses entry.
+            while (
+                self.thread is not None
+                and self.thread.is_alive()
+                and not self.loop_entered.is_set()
+                and time.monotonic() < end
             ):
-                thread.join(max(0, end - time.monotonic()))
-        if self.shutdown_thread is None or not self.shutdown_thread.is_alive():
-            self.server.server_close()
-        threads = [
-            self.thread,
-            self.shutdown_thread,
-            *self.server.handlers,
-            *self.server.adapters,
-            *self.server.watchers,
-        ]
-        live = [thread.name for thread in threads if thread is not None and thread.is_alive()]
-        return {
-            "stopped": not live and self.active == 0,
-            "active_requests": self.active,
-            "live_workers": live,
-            "diagnostic_failures": self.diagnostic_failures,
-        }
+                self.loop_entered.wait(min(0.01, max(0, end - time.monotonic())))
+            if (
+                self.thread is not None
+                and self.thread.is_alive()
+                and self.loop_entered.is_set()
+                and (self.shutdown_thread is None or self.shutdown_thread.ident is None)
+            ):
+                self.shutdown_thread = threading.Thread(
+                    target=self.server.shutdown, name="owned-http-shutdown"
+                )
+                try:
+                    self.shutdown_thread.start()
+                except BaseException:
+                    failed = True
+            for thread in self._owned_threads():
+                if (
+                    thread is not None
+                    and thread is not threading.current_thread()
+                    and thread.ident is not None
+                ):
+                    thread.join(max(0, end - time.monotonic()))
+            accept_alive = self.thread is not None and self.thread.is_alive()
+            shutdown_alive = self.shutdown_thread is not None and self.shutdown_thread.is_alive()
+            if not accept_alive and not shutdown_alive:
+                self.server.server_close()
+            return self._stop_snapshot(shutdown_start_failed=failed)
+        finally:
+            self.lifecycle.release()
