@@ -1,0 +1,41 @@
+{
+  "assignment": "TST-81",
+  "phase": "HOST-BRIDGE-13",
+  "scope": "restrict-only atomic owner/parent deadlines and trusted unreturned initialization abort",
+  "new_nodes": [
+    "tests/test_build_control_deadline_caps.py::test_owner_cap_is_persisted_across_claim_delay_and_reopen",
+    "tests/test_build_control_deadline_caps.py::test_actual_parent_deadline_caps_later_child_claim",
+    "tests/test_build_control_deadline_caps.py::test_expired_absolute_cap_leaves_reservation_unlaunched",
+    "tests/test_build_control_deadline_caps.py::test_unavailable_parent_cannot_grant_child_deadline[missing]",
+    "tests/test_build_control_deadline_caps.py::test_unavailable_parent_cannot_grant_child_deadline[reserved]",
+    "tests/test_build_control_deadline_caps.py::test_unavailable_parent_cannot_grant_child_deadline[foreign]",
+    "tests/test_build_control_deadline_caps.py::test_unavailable_parent_cannot_grant_child_deadline[finished]",
+    "tests/test_build_control_deadline_caps.py::test_explicit_cap_refuses_legacy_unbounded_storage",
+    "tests/hosts/test_accounting_deadline_caps.py::test_real_clock_validation_latency_cannot_extend_relay_parent",
+    "tests/hosts/test_accounting_deadline_caps.py::test_pre_return_failure_reconciles_exact_never_started_claims",
+    "tests/hosts/test_accounting_deadline_caps.py::test_claim_failure_after_reservation_is_recorded_without_a_pid",
+    "tests/hosts/test_accounting_deadline_caps.py::test_changed_or_started_claims_are_not_reconciled[started]",
+    "tests/hosts/test_accounting_deadline_caps.py::test_changed_or_started_claims_are_not_reconciled[unknown_pid]",
+    "tests/hosts/test_accounting_deadline_caps.py::test_changed_or_started_claims_are_not_reconciled[scope_drift]",
+    "tests/hosts/test_accounting_deadline_caps.py::test_required_abort_journal_failure_keeps_claims_and_original_error",
+    "tests/hosts/test_accounting_deadline_caps.py::test_abort_cannot_be_called_outside_its_original_catch",
+    "tests/hosts/test_accounting_deadline_caps.py::test_concurrent_initialization_cannot_abort_the_winning_owner"
+  ],
+  "expected_new_node_count": 17,
+  "criteria": [
+    "all scopes and existing InitializationInvocation ordering remain strict",
+    "claim stores absolute cap with original owner and actual parent under the same transaction",
+    "pre-return abort cannot touch started/unknown/changed claims, including a concurrent change during required journal publication",
+    "no generic model-supplied stop or GroupStop proof; no original ledger or Core history mutation"
+  ],
+  "affected_existing": [
+    "tests/hosts/test_accounting_adapter.py",
+    "tests/test_build_control.py",
+    "tests/test_build_control_boundaries.py",
+    "tests/test_build_control_effect_boundaries.py",
+    "tests/test_build_control_policy_amendment.py",
+    "tests/test_build_control_policy_batches.py",
+    "tests/test_build_control_policy_integrity.py",
+    "tests/test_build_control_policy_migration.py"
+  ]
+}
