@@ -1,0 +1,26 @@
+{
+  "version": 14,
+  "extends": "host-bridge-cases-v13.json",
+  "preserves_all_prior_cases": true,
+  "reason": "The user selected two canonical profiles per CLI with requested high effort and excluded Fable. Bind requested effort without inventing an observed effort value.",
+  "authorization": "root build run model-matrix-authorization-v1.json",
+  "execution_status": "not_run",
+  "cases": [
+    {
+      "id": "HB-H15",
+      "test": "tests/hosts/test_model_stability.py::test_requested_effort_is_bound_to_policy_digest_and_native_argv",
+      "expected": "Requested effort changes the configuration digest, is explicit in Claude SDK argv and Codex model_reasoning_effort, and cannot be altered in SDK options after policy review. Existing four-turn and API-equivalent pilot bounds remain unchanged."
+    },
+    {
+      "id": "HB-H16",
+      "test": "tests/hosts/test_model_stability.py::test_unreported_native_effort_stays_unknown",
+      "expected": "A requested high effort setting is recorded separately from observed native effort. Native startup without an effort observation retains null; a configuration flag is not fabricated as actual host telemetry."
+    },
+    {
+      "id": "HB-H17",
+      "test": "tests/hosts/test_model_stability.py::test_factory_profile_matches_both_model_and_effort",
+      "expected": "The trusted factory profile contains model and effort as typed configuration. A policy with a different model or effort refuses; task prose and booleans cannot select or widen the profile."
+    }
+  ],
+  "scope": "Local configuration, SDK-argv and synthetic native-frame controls only. No provider execution, model selection or reopened live packet. The original stability failure is retained."
+}

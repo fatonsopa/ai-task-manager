@@ -1,0 +1,21 @@
+{
+  "version": 9,
+  "extends": "host-bridge-cases-v8.json",
+  "preserves_all_prior_cases": true,
+  "reason": "Complete the existing public report boundary with an actual terminal sink and source-bound recovery; synthetic terminal delivery is distinct from human acceptance.",
+  "cases": [
+    {
+      "id": "HB-N11",
+      "expected": "Only complete bounded output to the configured terminal produces a sink receipt. Nonterminal, disconnected, changed or partial output remains pending. An uncertain durable publication intent refuses a repeated write."
+    },
+    {
+      "id": "HB-N12",
+      "expected": "Completed sink delivery replays without printing again. Render terminal control characters inertly and retain separate exact source-output and rendered-byte hashes."
+    },
+    {
+      "id": "HB-N13",
+      "expected": "Observer restart restores a pending final report only from stored signed native frames bound to the same attempt, worker, configuration, native session and turn. Queued text or foreign frames cannot substitute."
+    }
+  ],
+  "scope": "Local synthetic terminal and owned subprocess fixtures. No human acceptance, real host or model execution is established."
+}

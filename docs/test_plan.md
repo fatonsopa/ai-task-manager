@@ -53,13 +53,13 @@ Use real foreground merge checks and the preserved command call in disposable ap
 
 ### Fresh behavior evaluation
 
-Freeze the host/model/effort matrix before a broad batch. The authored manifest has the declared semantic behavior cases, each required on Claude Code and Codex CLI. Repeat the seven listed drift-critical cases three times per host. Keep one passing profile per required host without mixing different models/efforts to cherry-pick results. Unknown observed model identity remains unknown, never guessed.
+Freeze the host/model/effort matrix before a broad batch. Use every selected profile in `config/execution-policy.json` under `acceptance.required_profiles`: at least two models on each CLI, with Fable excluded. Run each declared behavior case and all three repetitions of the seven drift-critical cases on each required profile. Keep complete results separate; one passing model cannot replace another required profile, and results from different models or efforts cannot be mixed. Unknown observed model identity remains unknown, never guessed.
 
 Create performing packets with realistic inputs and necessary resources but no expected answers, grading criteria, frozen grader or prior outputs. Execute in fresh contexts through the actual installed skill with tools. Use live TST fixture tasks for task-management cases. Review actual public traces and artifacts with a separate evaluator context and deterministic state oracles. The performing model's self-report cannot grade its own work. Do not claim independent review if the same context performs it.
 
 Retain input, trace, package/case hashes, host/model/effort, duration, measured usage, artifacts and assessment for every attempt. Keep mechanical, workflow-process and behavioral results separate. A timeout is a failed attempted task. Missing observations are not run. Controls, replay and historical traces are useful but do not count as fresh performance.
 
-Gate: both host profiles satisfy all required behavior cells, repetitions and mechanical checks on the release candidate. Missing observations or an unavailable host prevent acceptance.
+Gate: every required host/model/effort profile satisfies its complete behavior cells, repetitions and mechanical checks on the release candidate. Missing observations or an unavailable host prevent acceptance.
 
 Test the supported native agent/task tools, shell/SDK/CLI launch paths, direct MCP operations and stale configuration. A general shell is not a universal sandbox: if a required host surface cannot be guarded, report the host incomplete. Verify actual task admission and startup, not a waiting harness. Perform the complete request/result loop with tools and separate observed lead delivery, AI acknowledgement and public report.
 
@@ -99,9 +99,9 @@ Report counts and denominators separately for mechanical, process, live Linear, 
 
 Keep raw private traces/credentials outside public artifacts; publish only safe fixtures, distributable packages and redacted summaries. The Test Status Report (TSR) owns ongoing observations. A final completion report is due at the release milestone, not created merely to fill a document catalog.
 
-For a failed case, preserve the attempt and diagnose the actual cause. Use at most five rounds for the same frozen objective within global and invoked-skill limits. Rerun impacted checks after a fix and the complete required final suite on the exact candidate; repeat unchanged passes only for a new concern or declared repetition. Never change frozen expectations or result records to pass. Missing observations are not run; an observed timeout remains a failed attempt.
+For a failed case, preserve the attempt and diagnose its cause. Continue through finite reviewed batches with a current checkpoint and supporting evidence; the authorized build has no overall retry ceiling. Rerun impacted checks after a fix and the complete required final suite on the exact candidate; repeat unchanged passes only for a new concern or declared repetition. Preserve earlier source-skill guard records and report incompatible guards for a scoped transition instead of resetting managed state. Never change frozen expectations or results to pass. Missing observations are not run; an observed timeout remains a failed attempt.
 
-Use remaining authorized time for measured mixed-workload endurance with deterministic faults, multiple sessions, varied tasks and dependency chains. Report actual duration, workload, concurrency and invariant checks; the 48-hour build window is not proof of a 48-hour soak. Cleanup only proven owned fixtures after verdict capture and retain unresolved cleanup/recovery state.
+Use a finite reviewed batch for measured mixed-workload endurance with deterministic faults, multiple sessions, varied tasks and dependency chains. Report actual duration, workload, concurrency and invariant checks; elapsed build time and lifted overall ceilings do not prove an endurance duration. Cleanup only proven owned fixtures after verdict capture and retain unresolved cleanup/recovery state.
 
 ### Captured interface references
 

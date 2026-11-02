@@ -1,0 +1,29 @@
+{
+  "version": 7,
+  "extends": "host-bridge-cases-v6.json",
+  "preserves_all_prior_cases": true,
+  "reason": "The lead clarified the existing worker foreground merge route and its script-owned database lifecycle. Freeze these port fixtures before implementation; actual project compatibility remains a separate acceptance gate.",
+  "cases": [
+    {
+      "id": "HB-M01",
+      "expected": "A task-bound protected merge reference invokes its configured foreground project adapter directly, preserving exact arguments, source hash, checks and result meanings. It adds no lead approval, queue or replacement script. The generic confined test runner cannot handle the merge reference."
+    },
+    {
+      "id": "HB-M02",
+      "expected": "Full resource checks precede launch. While the existing merge script owns its database stop/removal, authority checks use the coordinator store and do not require a running or present application database. The supervisor performs no competing cleanup or database resurrection."
+    },
+    {
+      "id": "HB-M03",
+      "expected": "A trusted MERGED result remains MERGED when script-owned database cleanup returns a warning. Git reconciliation and result facts remain separate from cleanup; no generic post-merge resource check rewrites success."
+    },
+    {
+      "id": "HB-M04",
+      "expected": "No-effect refusals, unknown ownership, interruption and missing-worker outcomes remain distinct and return through the existing lead route. Active or uncertain merge processes retain capacity and resources. A long database transaction never surrounds the foreground merge."
+    },
+    {
+      "id": "HB-L13",
+      "expected": "A scoped edit preserves an existing regular file's executable mode, so editing a command does not silently remove its execution permission."
+    }
+  ],
+  "fixture_limit": "These checks validate dispatch contracts using disposable controls. They do not establish actual application database, native host or protected project-script acceptance."
+}

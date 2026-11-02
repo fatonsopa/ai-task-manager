@@ -8,6 +8,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from .authorization import PinnedRecords
 from .ledger import BuildControl
 from .process import run_command
 from .values import MAX_SECONDS, ControlError
@@ -16,6 +17,9 @@ from .values import MAX_SECONDS, ControlError
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ledger", type=Path, required=True)
+    parser.add_argument("--policy-revision", type=int)
+    parser.add_argument("--authority-config", type=Path)
+    parser.add_argument("--authority-sha256")
     commands = parser.add_subparsers(dest="action", required=True)
     create = commands.add_parser("init")
     create.add_argument("--run-id", required=True)
@@ -25,12 +29,25 @@ def main(argv: list[str] | None = None) -> int:
     create.add_argument("--duration-seconds", type=int, default=MAX_SECONDS)
     create.add_argument("--admission-buffer-seconds", type=int, default=1800)
     commands.add_parser("status")
+    preparation = commands.add_parser("prepare-amendment")
+    preparation.add_argument("backup_path", type=Path)
+    for action in (
+        "amend-policy",
+        "register-batch",
+        "bind-legacy",
+        "pause-admission",
+        "resume-admission",
+    ):
+        command = commands.add_parser(action)
+        command.add_argument("--request-json", type=json.loads, required=True)
     reserve = commands.add_parser("reserve")
     reserve.add_argument("call_id")
     reserve.add_argument("--label", required=True)
     reserve.add_argument("--paid", action="store_true")
     reserve.add_argument("--max-cost-usd")
     reserve.add_argument("--without-worker", action="store_true")
+    reserve.add_argument("--batch-id")
+    reserve.add_argument("--timeout-seconds", type=float)
     start = commands.add_parser("start")
     start.add_argument("call_id")
     start.add_argument("--worker-identity", required=True)
@@ -62,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     execute.add_argument("--max-cost-usd")
     execute.add_argument("--timeout-seconds", type=float, required=True)
     execute.add_argument("--output-directory", type=Path, required=True)
+    execute.add_argument("--batch-id")
     execute.add_argument(
         "--command-json",
         type=json.loads,
@@ -69,8 +87,15 @@ def main(argv: list[str] | None = None) -> int:
         help="Command argv as a JSON array; no shell is used.",
     )
     arguments = parser.parse_args(argv)
-    control = BuildControl(arguments.ledger)
     try:
+        records = None
+        if arguments.authority_config is not None:
+            records = PinnedRecords.from_config(
+                arguments.authority_config, arguments.authority_sha256
+            )
+        control = BuildControl(
+            arguments.ledger, expected_policy_revision=arguments.policy_revision, records=records
+        )
         match arguments.action:
             case "init":
                 result = control.initialize(
@@ -83,6 +108,30 @@ def main(argv: list[str] | None = None) -> int:
                 )
             case "status":
                 result = control.snapshot()
+            case "prepare-amendment":
+                result = control.prepare_policy_amendment(arguments.backup_path)
+            case (
+                "amend-policy"
+                | "register-batch"
+                | "bind-legacy"
+                | "pause-admission"
+                | "resume-admission"
+            ):
+                methods = {
+                    "amend-policy": control.amend_policy,
+                    "register-batch": control.register_batch,
+                    "bind-legacy": control.bind_legacy_invocation,
+                    "pause-admission": control.pause_admission,
+                    "resume-admission": control.resume_admission,
+                }
+                if not isinstance(arguments.request_json, dict):
+                    raise ControlError("invalid_input", "The operation request must be an object.")
+                try:
+                    result = methods[arguments.action](**arguments.request_json)
+                except TypeError as error:
+                    raise ControlError(
+                        "invalid_input", "The operation request has invalid fields."
+                    ) from error
             case "reserve":
                 result = control.reserve(
                     arguments.call_id,
@@ -90,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
                     paid=arguments.paid,
                     max_cost_usd=arguments.max_cost_usd,
                     uses_worker=not arguments.without_worker,
+                    batch_id=arguments.batch_id,
+                    timeout_seconds=arguments.timeout_seconds,
                 )
             case "start":
                 result = control.mark_started(
@@ -131,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
                     max_cost_usd=arguments.max_cost_usd,
                     timeout_seconds=arguments.timeout_seconds,
                     output_directory=arguments.output_directory,
+                    batch_id=arguments.batch_id,
                 )
         print(json.dumps(result, indent=2))
         if arguments.action == "run":

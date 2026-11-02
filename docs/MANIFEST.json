@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "HANDOFF-CHECKS.json",
-      "sha256": "3c934ef33be8b0cdfe006dd98112e8f26d84bfb079614c726e51ec71786beb6d"
+      "sha256": "46c3e33e5915e483f695a21b6182c69e4d996e41282405ca90dfe547baf30fcb"
     },
     {
       "path": "assets/diagrams/architecture.mmd",
@@ -100,15 +100,15 @@
     },
     {
       "path": "config/acceptance-cases.json",
-      "sha256": "5fa99d0b4304258880442f8869b417f01011c94a06e6327f425f5fbd1dd4819b"
+      "sha256": "59dd4148fed2eadb55914864db03c5ea44125d583f0a6f6b79fe720d77fbb793"
     },
     {
       "path": "config/execution-policy.json",
-      "sha256": "48e328f85bfbe93a423be1570b16d49e670a4e2cbe38e1f27006e8e4cad81278"
+      "sha256": "4731f88c821f781ff0b7ead6f2df9a0f055db6844410bf6f42d4f5a992874b1e"
     },
     {
       "path": "config/requirements.json",
-      "sha256": "b008a08c7ccc8f08844defd7b2ad4372a431843e5fecd7b2377c7336130c004a"
+      "sha256": "a31b5877178f07425df85011dbfc5e6fe38cd74a252859a2e4bba06d5ef5fc28"
     },
     {
       "path": "config/research-sources.json",
@@ -128,7 +128,7 @@
     },
     {
       "path": "implementation_plan.md",
-      "sha256": "352329a761af0be9f34c4423ea41daa04b4deb2ca5c05a1e36ac7c05ffefd7c5"
+      "sha256": "76c565d6e400f52dcb9026f0fc379ed90489fd78aef50182224a5628c3a2a18d"
     },
     {
       "path": "migration/current-contracts.md",
@@ -152,11 +152,11 @@
     },
     {
       "path": "policy.md",
-      "sha256": "ef4d28254b59185dfdf73be722ed0e634a255ffcbf27865068ab0c33e16dd96e"
+      "sha256": "0a4231aa508e6d907e12a76f35816dfc89f96f782c34892de1276e06e1289093"
     },
     {
       "path": "readme.md",
-      "sha256": "c80a3afba740df07dfe4fae51dc7f65b91bf96ed564988ecfe552610644a952b"
+      "sha256": "76548c241c8ede6aefc9ebf7834bd43e8ae4cbec599fe402ca1373348f051fff"
     },
     {
       "path": "spec_driven_development.md",
@@ -168,15 +168,15 @@
     },
     {
       "path": "test_plan.md",
-      "sha256": "627ae72e29841a27e7914e3b21b323772bcdb8c00722d4d2c3eeff84b9c91430"
+      "sha256": "8cf7fa3b1eb74df3ecbe289b360d51e0f05be00fe9cf17ce2444b9c6eea30f7f"
     },
     {
       "path": "test_status_report.md",
-      "sha256": "ed25e6a96bd723ddf70c1ae3b171f3e2721757d52acd50949c8cbf20f9bf54e0"
+      "sha256": "9bb33a08f8b2e10f4a92f4f98f6bf842dd8b5a214932bdc9b9abf0bd9d473cc3"
     },
     {
       "path": "tools/check_handoff.py",
-      "sha256": "ee8c109a32da42a517a2f800dbff5af64e46b953a0e1c547ada318ae079de813"
+      "sha256": "32d2929a054faa16b40264b3d7ad8d70b551ecaaf6a58b93ac8b2dcf71c8e28b"
     },
     {
       "path": "tools/setup_test_credentials.py",

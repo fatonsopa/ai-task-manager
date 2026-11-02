@@ -1,0 +1,21 @@
+{
+  "version": 6,
+  "extends": "host-bridge-cases-v5.json",
+  "preserves_all_prior_cases": true,
+  "reason": "The original immutable-intent and unknown-ownership rules also apply to competing command controllers and failed startup calls. These additional checks are frozen before implementation and execution.",
+  "cases": [
+    {
+      "id": "HB-J07",
+      "expected": "Intent identity and immutable data have a verified MAC across restart. Changed data or an unsigned legacy intent refuses authority and remains unresolved; migration retains original records."
+    },
+    {
+      "id": "HB-D10",
+      "expected": "Independent command controllers serialize the same runner slot. A crashed controller's durable unresolved intent prevents another launch even after its OS lock is released; only complete owned stop observations permit later admission."
+    },
+    {
+      "id": "HB-S10",
+      "expected": "A native Claude startup frame followed by a failed or limited initialization turn cannot grant a work lease. The actual failed call remains recorded, and overlapping model turns on one owned host refuse."
+    }
+  ],
+  "scope": "Runtime invocation ownership only; task policy and protected merge commands remain unchanged."
+}

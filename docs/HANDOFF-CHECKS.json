@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "scope": "Current source-document checks and observed component evidence; this is not product acceptance.",
-  "checked_date": "2026-11-01",
+  "checked_date": "2026-11-02",
   "historical_baseline": {
     "commit": "281197b",
     "requirements": 34,
@@ -21,7 +21,7 @@
   "documents": {
     "policy.md": {
       "checked_delivery": "delivered",
-      "sha256": "ef4d28254b59185dfdf73be722ed0e634a255ffcbf27865068ab0c33e16dd96e",
+      "sha256": "0a4231aa508e6d907e12a76f35816dfc89f96f782c34892de1276e06e1289093",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -48,7 +48,7 @@
     },
     "implementation_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "352329a761af0be9f34c4423ea41daa04b4deb2ca5c05a1e36ac7c05ffefd7c5",
+      "sha256": "76c565d6e400f52dcb9026f0fc379ed90489fd78aef50182224a5628c3a2a18d",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -57,7 +57,7 @@
     },
     "test_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "627ae72e29841a27e7914e3b21b323772bcdb8c00722d4d2c3eeff84b9c91430",
+      "sha256": "8cf7fa3b1eb74df3ecbe289b360d51e0f05be00fe9cf17ce2444b9c6eea30f7f",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -75,7 +75,7 @@
     },
     "readme.md": {
       "checked_delivery": "delivered",
-      "sha256": "c80a3afba740df07dfe4fae51dc7f65b91bf96ed564988ecfe552610644a952b",
+      "sha256": "76548c241c8ede6aefc9ebf7834bd43e8ae4cbec599fe402ca1373348f051fff",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
@@ -84,12 +84,13 @@
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "ed25e6a96bd723ddf70c1ae3b171f3e2721757d52acd50949c8cbf20f9bf54e0",
+      "sha256": "9bb33a08f8b2e10f4a92f4f98f6bf842dd8b5a214932bdc9b9abf0bd9d473cc3",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
-      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+      "reporting_period": "2026-11-01 15:56 UTC through 2026-11-02 00:45 UTC"
     }
   },
   "diagram_collection": {
@@ -172,10 +173,82 @@
       "installed_cli_and_actual_mcp_stdio_passed": true,
       "actual_ai_public_delivery_or_full_product_acceptance": false,
       "cached_projection_followup": "Current quarantine handling across cached progress/execute receipts remains pending."
+    },
+    "host_bridge": {
+      "source_commit": "c445b0e6b3a12f6c4981ad3c856e704fdc59f9e3",
+      "integrated_into_main": true,
+      "selected_mechanical_tests_passed": 1702,
+      "actual_claude_component_attempts": 1,
+      "operational_edit_test_and_cleanup_completed": true,
+      "complete_pilot_accepted": false,
+      "failed_gate": "Unapproved native model fallback was not rejected; initial startup receipt was overwritten.",
+      "failed_attempt_retained": true,
+      "requested_model": "native CLI default",
+      "initial_advertised_model": "claude-opus-5",
+      "observed_performing_model": "claude-opus-4-8",
+      "model_stability_accepted": false,
+      "authored_provider_controls_are_live_linear": false,
+      "native_reported_cumulative_api_equivalent_estimate_usd": 0.08296959999999999,
+      "auxiliary_models_reported": [
+        "claude-haiku-5-5",
+        "claude-opus-4-8",
+        "claude-opus-5"
+      ],
+      "foundation_integration_commit": "2998c74",
+      "current_guard_component": {
+        "claude_source_commit": "67b358802b1f3529e4d609b54909261e298aa927",
+        "claude_integration_commit": "5dcf8d1",
+        "codex_source_commit": "d73609153be6e828e4ca76881fa427d395685162",
+        "codex_integration_commit": "b342cc1",
+        "worker_host_tests_passed": 163,
+        "worker_host_tests_skipped": 6,
+        "affected_tests_passed": 66,
+        "lead_claude_subset_passed": 31,
+        "lead_codex_subset_passed": 40,
+        "counts_overlap": true,
+        "new_live_rerun": false,
+        "original_live_pilot_remains_failed": true
+      }
+    },
+    "build_limit_policy": {
+      "status": "integrated_and_original_ledger_amendment_verified",
+      "focused_macos_tests_passed": 285,
+      "failed": 0,
+      "skipped": 0,
+      "earlier_focused_batch_passed": 175,
+      "batches_overlap_and_must_not_be_summed": true,
+      "linux_current_amendment_cases": "not_run",
+      "actual_model_or_provider_acceptance": false,
+      "original_ledger_migrated": true,
+      "frozen_case_groups": 55,
+      "frozen_case_manifest_sha256": "e273e2bc42bcdfff12c9356ea280b97b31a96f89b4e08d1ee6ad5c54d7f11fe5",
+      "current_focused_scope": "Original 201 directly affected control/process/planning checks plus 84 additive LP13 format, creation and disposable-storage checks; all pass on corrected source. Earlier passes and the actual pre-correction failed reproduction remain retained.",
+      "historical_candidates": [
+        {
+          "commit": "a59ef610c6b529a98b38ba1aff0e716cd7799116",
+          "focused_checks_passed": 201,
+          "later_located_finding": "Hash-valid policy with missing fields passed the pure format validator; not a live-ledger observation or exploit claim.",
+          "original_evidence_retained": true
+        }
+      ],
+      "lp13_addendum_sha256": "6a5cfd800a4bb37afa960e639d09d93925cc2f027a9bcde379493737d0ad9214",
+      "pre_correction_failed_reproduction_retained": true,
+      "format_validation": "One shared complete format validator checks creation and storage, explicit null/field/type relationships and the selected four High profiles.",
+      "source_commit": "541e4338d41931453d5d3f8bae814600dfaeca4c",
+      "integrated_commit": "6977f46",
+      "lead_focused_subset_passed": 128,
+      "original_ledger_schema_version": 2,
+      "effective_policy_revision": 1,
+      "original_calls_preserved": 31,
+      "original_events_preserved": 123,
+      "new_amendment_events": 1,
+      "original_run_and_accounting_preserved": true,
+      "exact_amendment_replay_verified": true,
+      "first_projection_assertion_failure_retained": true
     }
   },
   "product_acceptance_cases_executed": 0,
-  "external_model_invocations": 2,
+  "external_model_invocations": 4,
   "known_blocks": [
     "Live two-user Linear acceptance requires the unavailable second identity."
   ],
@@ -186,7 +259,7 @@
   ],
   "skill_versions": {
     "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-    "skill_builder_snapshot": "12517cc19a49f0cd9903c2a99b7816eb224f15052d65809a0a8529d67360e28f",
+    "skill_builder_snapshot": "cb26e81105888ef9581192f5047f9cfa7075230cacb472842bd5ed74b2fe5992",
     "update_policy": "Use current snapshots; audit affected work and rerun impacted checks when the user supplies newer versions.",
     "historical_snapshots": {
       "technical_writer_snapshot": "7a0dbe4a69d07de868db1dd56ec1bd74b0870db3e184d4990ab6f2f894deeb72",
@@ -195,7 +268,27 @@
     "capture": "20261101T202854Z",
     "audit_status": {
       "documents": "complete for the exact listed document hashes",
-      "generated_skill": "in_progress"
+      "generated_skill": "upstream heading blocker resolved; controlled source-version correction waits for verified product interface pin and actual host evidence"
+    },
+    "later_history": [
+      {
+        "skill_builder_snapshot": "12517cc19a49f0cd9903c2a99b7816eb224f15052d65809a0a8529d67360e28f",
+        "reason": "Retained before the user-announced upstream navigation fix."
+      }
+    ],
+    "skill_builder_source_commit": "7351966a7eff4f8ab51bbe47dc9e2cf99c9f5498",
+    "builder_reload": {
+      "changed_files": [
+        "README.md",
+        "references/readme.md",
+        "scripts/runtime/readme.py",
+        "tests/test_runtime.py"
+      ],
+      "top_level_SKILL_and_AGENTS_unchanged": true,
+      "source_read_directly": true,
+      "actual_candidate_readme_render_probe_passed_current_writer_structure": true,
+      "original_candidate_and_history_unchanged": true,
+      "generated_skill_full_acceptance": false
     }
   },
   "project_changes": "Application files and merge script unchanged. Code is local; normal sessions remain unmodified.",
@@ -211,6 +304,13 @@
       "ahead_of_local_checkout": 81,
       "new_commits_inspected": 9,
       "merge_script_unchanged": true
+    },
+    "latest_discovery": {
+      "pin": "44a91116d73d0a3ac279aa3b064d373000356477",
+      "prior_formal_pin": "873155ac73f486912e4e9fe6e3daa719388e0665",
+      "protected_merge_and_instruction_surfaces_unchanged": true,
+      "formal_baseline_update_pending": true,
+      "wider_semantic_audit_complete": false
     }
   },
   "migration_delivery": {
@@ -220,11 +320,20 @@
     "status": "required; implementation pending",
     "interrupted_removal_before_replacement_case": "C33"
   },
-  "acceptance_inventory_revision": 3,
+  "acceptance_inventory_revision": 4,
   "case_oracle_corrections": [
     {
       "case": "C11",
       "reason": "Align the stale required-polling/optional-webhook case with already approved R37. Prior inventory and oracle retained; no executed result replaced."
+    },
+    {
+      "cases": [
+        "C08",
+        "B11"
+      ],
+      "revision": 4,
+      "reason": "Actual later user authorization lifts overall ceilings; retain capped defaults as a separate variant, finite execution controls and old criteria/history. Matrix now requires all four selected profiles.",
+      "prior_results_reinterpreted": false
     }
   ],
   "merge_refactor_authorization": {
@@ -238,7 +347,10 @@
     "work_item": "T34",
     "status": "planned; implementation audit not started",
     "principles": "Current Skill Builder responsibility/ownership/import guidance adapted to a modular application; source skills unchanged.",
-    "packaging_prerequisite": true
+    "packaging_prerequisite": true,
+    "priority": "normal_dependency_order",
+    "diagrams_and_screenshots_stay_in_docs": true,
+    "scripts_configuration_tests_and_raw_records": "Audit ownership and all consumers before planned moves; no move has occurred."
   },
   "historical_document_checks": [
     {
@@ -299,6 +411,58 @@
         "consumers": 7,
         "browser_visual_review": "Three new/changed diagrams inspected; lifecycle subtitle corrected to distinguish lead acknowledgement from public reporting."
       }
+    },
+    {
+      "document": "readme.md",
+      "reason": "Superseded current build-limit/profile guidance under later actual user authorization; original check retained.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "c80a3afba740df07dfe4fae51dc7f65b91bf96ed564988ecfe552610644a952b",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "policy.md",
+      "reason": "Superseded current build-limit/profile guidance under later actual user authorization; original check retained.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "ef4d28254b59185dfdf73be722ed0e634a255ffcbf27865068ab0c33e16dd96e",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "implementation_plan.md",
+      "reason": "Superseded current build-limit/profile guidance under later actual user authorization; original check retained.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "352329a761af0be9f34c4423ea41daa04b4deb2ca5c05a1e36ac7c05ffefd7c5",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "document": "test_plan.md",
+      "reason": "Superseded current build-limit/profile guidance under later actual user authorization; original check retained.",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "627ae72e29841a27e7914e3b21b323772bcdb8c00722d4d2c3eeff84b9c91430",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
     }
   ],
   "project_entrypoints": {
@@ -320,5 +484,52 @@
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
     }
-  }
+  },
+  "historical_status_periods": [
+    {
+      "reporting_period": "2026-11-01 15:56\u201320:12 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "ed25e6a96bd723ddf70c1ae3b171f3e2721757d52acd50949c8cbf20f9bf54e0",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    },
+    {
+      "reporting_period": "2026-11-01 15:56\u201322:50 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "afb88a3c778af0ba4aceb13721c2f71151b31cf30b3b5fba95e7b287e6a7f068",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58"
+      }
+    }
+  ],
+  "external_model_invocation_basis": "Four host-level submitted turns: two prior tool-free pilots, one neutral initialization submission and one assigned Claude component submission. The later native results report two neutral and four assigned agentic turns plus auxiliary model usage; the provider-internal request count is not fully exposed. These are not four billed API calls.",
+  "external_native_fallback_events": 1,
+  "limits_warning_policy": {
+    "status": "paused_as_reported_in_actual_user_authorization_record",
+    "reason": "Earlier warnings refer to lifted overall ceilings; historical thresholds/counters are retained.",
+    "effective_total_spend_ceiling_usd": null,
+    "effective_elapsed_ceiling_seconds": null,
+    "source_authorization_id": "USER-UNTIL-PROVEN-20261101T230813Z"
+  },
+  "historical_limits_warning_policies": [
+    {
+      "budget_warn_at_usd": 80,
+      "warn_when_remaining_hours": 8,
+      "earlier_step_admission_check": true,
+      "hard_budget_usd": 100,
+      "hard_deadline_utc": "2026-11-03T15:56:48Z",
+      "coordination_skill_original_rounds_used": 4,
+      "coordination_skill_original_rounds_cap": 5,
+      "advance_warning_sent": true
+    }
+  ]
 }
