@@ -76,6 +76,7 @@ class HostInvocationAccounting:
             not isinstance(plan, AccountingPlan)
             or not callable(getattr(admissions, "check_admission", None))
             or not callable(getattr(admissions, "verify_authenticated", None))
+            or not callable(getattr(admissions, "verify_policy", None))
         ):
             raise AccessDenied("A trusted native admission and authentication verifier is required")
         state = controller.snapshot()
@@ -137,6 +138,7 @@ class HostInvocationAccounting:
         ):
             raise AccessDenied("Accounting differs from the actual Core/runtime owner")
         self._owner_binding = binding
+        self.admissions.verify_policy(policy, binding, self.plan, self.control)
         return attempt
 
     def _claim(

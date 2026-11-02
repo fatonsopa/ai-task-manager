@@ -37,6 +37,9 @@ class AuthoredAdmission:
         if not self.authenticated:
             raise AccessDenied("Authored authentication refusal")
 
+    def verify_policy(self, policy, binding, plan, controller):
+        assert (policy.model, policy.effort) == (plan.model, plan.effort)
+
 
 @pytest.fixture
 def graph(tmp_path):
@@ -361,6 +364,9 @@ def test_real_producers_use_adapter_through_owned_fixture_host(composition):
 
         def verify_authenticated(self, policy, binding, journal):
             raise AssertionError("Codex fixture never runs a Claude neutral turn")
+
+        def verify_policy(self, policy, binding, plan, controller):
+            assert policy.model == "synthetic-no-model"
 
         def require_native_conformance(self, policy, binding, journal):
             return prior.require_native_conformance(policy, binding)
