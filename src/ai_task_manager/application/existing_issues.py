@@ -4,7 +4,7 @@ from dataclasses import asdict
 from uuid import UUID, uuid4
 
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
-from ai_task_manager.domains.work.existing import ExistingBlocked, assess, digest
+from ai_task_manager.domains.work.existing import ExistingBlocked, assess, digest, readback_context
 from ai_task_manager.domains.work.models import (
     Evidence,
     IssueStatus,
@@ -31,7 +31,7 @@ class ExistingIssues:
     def __init__(self, context):
         self.c = context
 
-    def snapshot(self, ref, scope):
+    def snapshot(self, ref, scope, kind="existing_issue_snapshot"):
         proof = self.c.evidence.verify_evidence(ref)
         if not isinstance(proof, Evidence) or not isinstance(proof.payload, dict):
             raise EvidenceRequired("Typed existing issue evidence is required")
@@ -43,7 +43,11 @@ class ExistingIssues:
                 raise ValueError()
         except (KeyError, TypeError, ValueError, AttributeError) as exc:
             raise EvidenceRequired("Canonical existing issue evidence is required") from exc
-        self.c.proof(ref, "existing_issue_snapshot", scope, issue_id)
+        if kind is None:
+            kind = proof.kind
+        if kind not in {"existing_issue_snapshot", "existing_issue_readback"}:
+            raise EvidenceRequired("Existing issue observation kind is invalid")
+        self.c.proof(ref, kind, scope, issue_id)
         claim_store = getattr(self.c.db, "claim_context", None)
         if (
             not claim_store
@@ -53,10 +57,21 @@ class ExistingIssues:
             raise EvidenceRequired("Discovery belongs to another claim store or source")
         return snapshot, assess(snapshot)
 
+    def readback(self, ref, scope, expected_context):
+        snapshot, assessment = self.snapshot(ref, scope, "existing_issue_readback")
+        proof = self.c.proof(ref, "existing_issue_readback", scope, snapshot["issue_id"])
+        context = proof.payload.get("context")
+        try:
+            if context != readback_context(**context) or context != expected_context:
+                raise EvidenceRequired("Readback does not match this exact operation context")
+        except (TypeError, ValueError) as exc:
+            raise EvidenceRequired("Readback operation context is invalid") from exc
+        return snapshot, assessment
+
     def observed(self, handle, ref):
         with self.c.db.transaction() as conn:
             _, scope = sessions.resolve(conn, handle)
-            snapshot, assessment = self.snapshot(ref, scope)
+            snapshot, assessment = self.snapshot(ref, scope, kind=None)
             if assessment.delivered or assessment.terminal:
                 issue_claims.fence(
                     conn,
@@ -107,7 +122,9 @@ class ExistingIssues:
 
         def action(conn, sid, scope):
             original, _ = self.snapshot(discovery_ref, scope)
-            snapshot, assessment = self.snapshot(fresh_ref, scope)
+            snapshot, assessment = self.readback(fresh_ref, scope, readback_context(
+                "admission", operation_key, discovery_ref=discovery_ref
+            ))
             if digest(original) != digest(snapshot):
                 raise EvidenceRequired("Issue changed after inspection")
             selected = self.c.proof(
@@ -193,8 +210,8 @@ class ExistingIssues:
             work.get(conn, sid, task_id)
             return issue_claims.imported(conn, task_id) is not None
 
-    def validate_source(self, conn, task, scope, source_ref):
-        snapshot, assessment = self.snapshot(source_ref, scope)
+    def validate_source(self, conn, task, scope, source_ref, expected_context):
+        snapshot, assessment = self.readback(source_ref, scope, expected_context)
         if (
             snapshot["issue_id"] != task.issue_id
             or (snapshot["title"], snapshot["body"]) != (task.title, task.body)
@@ -215,28 +232,3 @@ class ExistingIssues:
             raise ExistingBlocked("Imported issue needs ownership/history reconciliation")
         return assessment
 
-    def check_start(self, handle, task_id, source_ref):
-        with self.c.db.transaction() as conn:
-            sid, scope = sessions.resolve(conn, handle)
-            task = work.get(conn, sid, task_id)
-            self.validate_source(conn, task, scope, source_ref)
-            conn.execute(
-                "INSERT INTO existing_checks VALUES(?,?,?,?,?) ON CONFLICT(task_id) DO UPDATE SET "
-                "version=excluded.version,revision=excluded.revision,source_ref=excluded.source_ref,"
-                "checked_at=excluded.checked_at",
-                (task.id, task.version, task.decision_revision, source_ref, self.c.clock()),
-            )
-
-    def require_start_check(self, conn, task, scope, *, reservation=False):
-        if not issue_claims.imported(conn, task.id):
-            return
-        check = conn.execute("SELECT * FROM existing_checks WHERE task_id=?", (task.id,)).fetchone()
-        if (
-            check is None
-            or check["revision"] != task.decision_revision
-            or check["checked_at"] + 30 <= self.c.clock()
-            or reservation
-            and check["version"] != task.version
-        ):
-            raise EvidenceRequired("Imported work requires a fresh source check before startup")
-        self.validate_source(conn, task, scope, check["source_ref"])

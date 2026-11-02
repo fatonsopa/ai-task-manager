@@ -7,6 +7,7 @@ from ai_task_manager.domains.work.errors import (
     InvalidTransition,
     StaleVersion,
 )
+from ai_task_manager.domains.work.existing import readback_context
 from ai_task_manager.domains.work.models import (
     Attempt,
     Cause,
@@ -26,13 +27,19 @@ class Execution:
     def __init__(self, context):
         self.c = context
 
+    @staticmethod
+    def require_open(conn, scope, task):
+        try:
+            issue_claims.require_open(conn, scope, task.issue_id)
+        except EvidenceRequired as exc:
+            raise InvalidTransition("Delivered or terminal work requires a new linked issue") from exc
+
     def validate_work_lease(self, handle, attempt_id, expected_attempt_version):
         """Recheck authority at a host work boundary, including later human decisions."""
         with self.c.db.transaction() as conn:
             sid, scope = sessions.resolve(conn, handle)
             attempt = attempts.get(conn, sid, attempt_id)
             task = work.get(conn, sid, attempt.task_id)
-            issue_claims.require_open(conn, scope, task.issue_id)
             if attempt.version != expected_attempt_version:
                 raise StaleVersion("Attempt version has changed")
             if (
@@ -44,6 +51,7 @@ class Execution:
                 or task.sync_state != SyncState.CONFIRMED
             ):
                 raise InvalidTransition("Work lease is no longer authorized")
+            self.require_open(conn, scope, task)
             return attempt
 
     def reserve(
@@ -55,6 +63,8 @@ class Execution:
         expected_decision_revision,
         decision_ref,
         operation_key,
+        *,
+        readback_ref=None,
     ):
         payload = {
             "command": "reserve",
@@ -67,8 +77,6 @@ class Execution:
 
         def action(conn, sid, scope):
             task = work.get(conn, sid, task_id)
-            issue_claims.require_open(conn, scope, task.issue_id)
-            ExistingIssues(self.c).require_start_check(conn, task, scope, reservation=True)
             self.c.check(task, expected_version, expected_decision_revision)
             self.c.decision(
                 conn,
@@ -93,13 +101,23 @@ class Execution:
                 raise InvalidTransition(
                     "Work requires confirmed queue history on an undelivered issue"
                 )
+            self.require_open(conn, scope, task)
+            imported = issue_claims.imported(conn, task.id)
+            if imported:
+                ExistingIssues(self.c).validate_source(conn, task, scope, readback_ref,
+                    readback_context("start", operation_key, phase="reserve", task_id=task.id,
+                        expected_version=expected_version,
+                        decision_revision=expected_decision_revision))
             if attempts.active(conn, task.id):
                 raise CapacityExceeded("Task already owns an active or unresolved attempt")
             capacity.check(conn, host, scope)
             attempt = Attempt(str(uuid4()), task.id, sid, host, A.RESERVED, task.decision_revision)
             attempts.insert(conn, attempt)
             task = work.save(conn, replace(task, execution_state=A.RESERVED), task.version)
-            self.c.changed(conn, task, "attempt_reserved", {"attempt_id": attempt.id, "host": host})
+            self.c.changed(conn, task, "attempt_reserved", {
+                "attempt_id": attempt.id, "host": host,
+                **({"readback_ref": readback_ref} if imported else {}),
+            })
             return asdict(attempt)
 
         return attempts.attempt_from(self.c.mutation(handle, operation_key, payload, action))
@@ -113,6 +131,8 @@ class Execution:
         startup_ref,
         decision_ref,
         operation_key,
+        *,
+        readback_ref=None,
     ):
         payload = {
             "command": "start",
@@ -126,8 +146,6 @@ class Execution:
         def action(conn, sid, scope):
             attempt = attempts.get(conn, sid, attempt_id)
             task = work.get(conn, sid, attempt.task_id)
-            issue_claims.require_open(conn, scope, task.issue_id)
-            ExistingIssues(self.c).require_start_check(conn, task, scope)
             self.c.check(task, expected_version, expected_decision_revision)
             self.c.decision(
                 conn,
@@ -144,6 +162,13 @@ class Execution:
                 or task.sync_state != SyncState.CONFIRMED
             ):
                 raise InvalidTransition("Attempt is not eligible for startup")
+            self.require_open(conn, scope, task)
+            imported = issue_claims.imported(conn, task.id)
+            if imported:
+                ExistingIssues(self.c).validate_source(conn, task, scope, readback_ref,
+                    readback_context("start", operation_key, phase="start", task_id=task.id,
+                        attempt_id=attempt.id, expected_version=expected_version,
+                        decision_revision=expected_decision_revision))
             proof = self.c.proof(startup_ref, "worker_start", scope, attempt.id)
             if (
                 proof.payload.get("task_id") != task.id
@@ -190,6 +215,7 @@ class Execution:
                     "attempt_id": attempt.id,
                     "worker_id": attempt.worker_id,
                     "startup_ref": startup_ref,
+                    **({"readback_ref": readback_ref} if imported else {}),
                 },
                 "set_status",
             )
@@ -229,6 +255,7 @@ class Execution:
                 raise InvalidTransition(
                     "Running requires confirmed In Progress and current ownership"
                 )
+            self.require_open(conn, scope, task)
             proof = self.c.proof(resources_ref, "resources_ready", scope, attempt.id)
             required = {
                 "task_id": task.id,

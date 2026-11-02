@@ -38,8 +38,9 @@ def perform(service, data, invocation):
     )
     evidence_refs = dict(data.get("evidence_refs", {}))
     if target == IssueStatus.TODO and service.core.existing.is_imported(service.handle, task.id):
-        current = service.core.get_task(service.handle, task.id)
-        evidence_refs["existing_source"] = service._required("existing").guard(current)
+        evidence_refs["existing_source"] = service._required("existing").queue_readback(
+            task.id, version, revision, data["operation_key"]
+        )
     updated = service.core.transitions.transition(
         service.handle,
         task.id,

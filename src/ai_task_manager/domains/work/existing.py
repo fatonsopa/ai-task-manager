@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from .errors import WorkError
+from .errors import EvidenceRequired, WorkError
 from .models import DELIVERED, IssueStatus
 
 
@@ -26,6 +26,34 @@ def stamp(value):
     if result.tzinfo is None:
         raise ValueError("Missing timezone")
     return result.astimezone(UTC)
+
+
+def readback_context(purpose, operation_key, *, phase=None, discovery_ref=None, task_id=None,
+                     attempt_id=None, expected_version=None, decision_revision=None):
+    result = {"purpose": purpose, "phase": phase, "operation_key": operation_key,
+              "discovery_ref": discovery_ref, "task_id": task_id, "attempt_id": attempt_id,
+              "expected_version": expected_version, "decision_revision": decision_revision}
+    valid = isinstance(operation_key, str) and bool(operation_key.strip())
+    if purpose == "admission":
+        valid = valid and isinstance(discovery_ref, str) and bool(discovery_ref)
+        valid = valid and all(value is None for value in (
+            phase, task_id, attempt_id, expected_version, decision_revision
+        ))
+    elif purpose in {"queue", "start"}:
+        valid = valid and discovery_ref is None and isinstance(task_id, str) and bool(task_id)
+        valid = valid and type(expected_version) is int and expected_version >= 1
+        valid = valid and type(decision_revision) is int and decision_revision >= 0
+        valid = valid and (
+            purpose == "queue" and phase is None and attempt_id is None
+            or purpose == "start" and phase == "reserve" and attempt_id is None
+            or purpose == "start" and phase == "start"
+            and isinstance(attempt_id, str) and bool(attempt_id)
+        )
+    else:
+        valid = False
+    if not valid:
+        raise EvidenceRequired("A complete exact readback context is required")
+    return result
 
 
 @dataclass(frozen=True)

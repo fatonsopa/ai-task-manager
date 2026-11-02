@@ -1,6 +1,7 @@
 from dataclasses import asdict, replace
 
 from ai_task_manager.domains.work.errors import InvalidTransition
+from ai_task_manager.domains.work.existing import readback_context
 from ai_task_manager.domains.work.models import (
     AttemptState,
     Cause,
@@ -43,7 +44,10 @@ class Transitions:
             "version": expected_version,
             "revision": expected_decision_revision,
             "decision_ref": decision_ref,
-            "evidence_refs": evidence_refs,
+            # This internal source observation may be renewed before an uncommitted retry.
+            # Public authority/delivery inputs remain stable and fingerprinted.
+            "evidence_refs": {key: value for key, value in evidence_refs.items()
+                              if key != "existing_source"},
         }
 
         def action(conn, sid, scope):
@@ -62,7 +66,11 @@ class Transitions:
             imported_queue = issue_claims.imported(conn, task.id) and target == S.TODO
             if imported_queue:
                 ExistingIssues(self.c).validate_source(
-                    conn, task, scope, evidence_refs.get("existing_source")
+                    conn, task, scope, evidence_refs.get("existing_source"), readback_context(
+                        "queue", operation_key, task_id=task.id,
+                        expected_version=expected_version,
+                        decision_revision=expected_decision_revision,
+                    )
                 )
             if target == task.observed_status:
                 if target == S.TODO and cause == Cause.ENQUEUE and not task.queued_once:

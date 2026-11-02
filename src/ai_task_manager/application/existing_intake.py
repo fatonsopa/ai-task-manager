@@ -3,7 +3,7 @@
 from uuid import uuid4
 
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
-from ai_task_manager.domains.work.existing import ExistingBlocked, digest
+from ai_task_manager.domains.work.existing import ExistingBlocked, digest, readback_context
 
 
 class ExistingIntake:
@@ -33,7 +33,9 @@ class ExistingIntake:
 
     def admit(self, discovery_ref, prose, writing_ref, selection_ref, operation_key):
         original = self.reader.receipt(discovery_ref)
-        snapshot, fresh_ref = self.reader.inspect(original.subject)
+        snapshot, fresh_ref = self.reader.readback(original.subject, readback_context(
+            "admission", operation_key, discovery_ref=discovery_ref
+        ))
         self.core.existing.observed(self.handle, fresh_ref)
         if digest(snapshot) != original.payload["discovery_digest"]:
             raise EvidenceRequired("Issue changed; inspect and select its current revision")
@@ -51,11 +53,14 @@ class ExistingIntake:
             "existing-observation:" + str(uuid4()),
         )
 
-    def guard(self, task, *, startup=False):
+    def guard(self, task, *, context=None):
         if not self.core.existing.is_imported(self.handle, task.id):
             return None
         try:
-            snapshot, ref = self.reader.inspect(task.issue_id)
+            snapshot, ref = (
+                self.reader.readback(task.issue_id, context) if context is not None
+                else self.reader.inspect(task.issue_id)
+            )
         except AccessDenied:
             self._fence(task, self.reader.fence_receipt(task))
             raise ExistingBlocked("Task left managed scope; ownership reconciliation is required")
@@ -65,6 +70,27 @@ class ExistingIntake:
         ] != task.observed_status:
             self._fence(task, self.reader.fence_receipt(task, snapshot))
             raise ExistingBlocked("A current provider change requires guarded reconciliation")
-        if startup:
-            self.core.existing.check_start(self.handle, task.id, ref)
         return ref
+
+    def queue_readback(self, task_id, expected_version, decision_revision, operation_key):
+        task = self.core.get_task(self.handle, task_id)
+        self.core.context.check(task, expected_version, decision_revision)
+        return self.guard(task, context=readback_context(
+            "queue", operation_key, task_id=task_id, expected_version=expected_version,
+            decision_revision=decision_revision,
+        ))
+
+    def worker_readbacks(self, task_id, root_operation_key):
+        def source_readbacks(*, phase, task_id: str, expected_version, decision_revision,
+                             attempt_id, operation_key):
+            if (task_id != bound_task or phase not in {"reserve", "start"}
+                    or operation_key != root_operation_key + ":" + phase):
+                raise EvidenceRequired("Startup readback belongs to another task or operation")
+            task = self.core.get_task(self.handle, bound_task)
+            self.core.context.check(task, expected_version, decision_revision)
+            return self.guard(task, context=readback_context(
+                "start", operation_key, phase=phase, task_id=bound_task, attempt_id=attempt_id,
+                expected_version=expected_version, decision_revision=decision_revision,
+            ))
+        bound_task = task_id
+        return source_readbacks

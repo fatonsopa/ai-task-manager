@@ -10,9 +10,10 @@ def worker_start(service, data, invocation):
     require_owned(service, task)
     service._required("decisions")
     decision, version, revision = authorize(service, task, "In Progress", "start", data, invocation)
+    source = {}
     if service.core.existing.is_imported(service.handle, task.id):
-        service._required("existing").guard(
-            service.core.get_task(service.handle, task.id), startup=True
+        source["source_readbacks"] = service._required("existing").worker_readbacks(
+            task.id, data["operation_key"]
         )
     attempt = service._required("workers").start(
         service.handle,
@@ -22,6 +23,7 @@ def worker_start(service, data, invocation):
         decision_revision=revision,
         decision_ref=decision,
         operation_key=data["operation_key"],
+        **source,
     )
     current = service.core.get_attempt(service.handle, attempt.id)
     return result(attempt_view(service, current))

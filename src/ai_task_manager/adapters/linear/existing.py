@@ -3,7 +3,7 @@
 import re
 
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
-from ai_task_manager.domains.work.existing import digest
+from ai_task_manager.domains.work.existing import digest, readback_context
 from ai_task_manager.domains.work.models import IssueStatus, valid_display_identifier
 
 from .errors import LinearError
@@ -191,7 +191,7 @@ class ExistingReader:
                 raise LinearError("incomplete_state_history") from exc
         raise LinearError("state_history_limit")
 
-    def inspect(self, issue):
+    def _snapshot(self, issue):
         if not valid_display_identifier(issue):
             raise AccessDenied("A canonical issue UUID or provider identifier is required")
         before, _ = self._read(READ_META, issue)
@@ -210,17 +210,35 @@ class ExistingReader:
             "body": raw["description"],
             "history": history,
         }
+        return snapshot
+
+    def _receipt(self, snapshot, kind, context=None):
         payload = {
             "snapshot": snapshot,
             "claim_store": self.claim_store,
             "discovery_digest": digest(snapshot),
             "observed_at": self.journal.clock(),
         }
+        if context is not None:
+            payload["context"] = context
         with self.journal.transaction() as conn:
             ref = self.journal._proof(
-                conn, "existing_issue_snapshot", self.scope, current["issue_id"], payload
+                conn, kind, self.scope, snapshot["issue_id"], payload
             )
-        return snapshot, ref
+        return ref
+
+    def inspect(self, issue):
+        snapshot = self._snapshot(issue)
+        return snapshot, self._receipt(snapshot, "existing_issue_snapshot")
+
+    def readback(self, issue, context):
+        try:
+            if not isinstance(context, dict) or context != readback_context(**context):
+                raise EvidenceRequired("Exact readback context is required")
+        except (TypeError, ValueError) as exc:
+            raise EvidenceRequired("Exact readback context is required") from exc
+        snapshot = self._snapshot(issue)
+        return snapshot, self._receipt(snapshot, "existing_issue_readback", context)
 
     def receipt(self, ref):
         proof = self.journal.verify_evidence(ref)
@@ -234,13 +252,6 @@ class ExistingReader:
         ):
             raise EvidenceRequired("Discovery belongs to another issue, scope or installation")
         return proof
-
-    def fresh(self, ref):
-        original = self.receipt(ref)
-        snapshot, fresh_ref = self.inspect(original.subject)
-        if digest(snapshot) != original.payload["discovery_digest"]:
-            raise EvidenceRequired("Issue changed; inspect and select its current revision")
-        return snapshot, fresh_ref
 
     def fence_receipt(self, task, snapshot=None):
         if snapshot is not None:

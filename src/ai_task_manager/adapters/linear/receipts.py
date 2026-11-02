@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 import os
 import sqlite3
 import time
@@ -34,6 +35,7 @@ KINDS = frozenset(
         "external_prose_readback",
         "provider_progress",
         "existing_issue_snapshot",
+        "existing_issue_readback",
     }
 )
 SCHEMA = """
@@ -128,6 +130,14 @@ class ProviderJournal:
             if not row or row["kind"] not in KINDS:
                 raise EvidenceRequired("Provider proof is missing or has an invalid issuer kind")
             payload = json.loads(row["payload"])
+            expiring = row["kind"] in {
+                "existing_issue_snapshot", "existing_issue_readback", "external_prose_readback"
+            }
+            if expiring and (
+                type(payload.get("observed_at")) not in {int, float}
+                or not math.isfinite(payload["observed_at"])
+            ):
+                raise EvidenceRequired("Provider observation timestamp is invalid")
             return Evidence(
                 row["kind"],
                 Scope(**json.loads(row["scope"])),
@@ -135,7 +145,7 @@ class ProviderJournal:
                 payload,
                 expires_at=payload["observed_at"]
                 + (900 if row["kind"] == "existing_issue_snapshot" else 30)
-                if row["kind"] in {"external_prose_readback", "existing_issue_snapshot"}
+                if expiring
                 else None,
             )
 

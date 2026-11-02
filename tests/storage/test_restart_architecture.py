@@ -58,6 +58,7 @@ def test_p22_directional_imports_and_no_provider_process_ui_or_legacy_dependency
         "secrets",
         "uuid",
         "time",
+        "datetime",
     }
     core_paths = [
         *root.joinpath("domains", "work").rglob("*.py"),
