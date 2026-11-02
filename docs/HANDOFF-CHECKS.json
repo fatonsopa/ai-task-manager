@@ -96,16 +96,16 @@
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "98d4eb5abaa762f7e8db25240f4964a58435c0bfb1246fc6890126986250d8e2",
+      "sha256": "703f6b583256cb54e462f0033e43182c8e61f8d2ba781eb025e176a5a2723399",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
-      "objective_sha256": "b0519c2f80857d311bc47ce2d5e7b530e73d58dda7385058aa7af7fcc0393744",
+      "objective_sha256": "0c4d8c6cb9d2769ff362e53f79cdcf911d97775132f3a06a2dc8ae2a2b5811d9",
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
-      "scope": "Current period; local passes and unaccepted candidates separated from full-tested e713",
-      "reporting_period": "2026-11-02 04:57\u201307:18 UTC"
+      "scope": "Current period;141 local receiver passes,144 isolated scheduler passes and44/1 failed host candidate remain separate from full-tested e713.",
+      "reporting_period": "2026-11-02 07:18\u201310:15 UTC"
     },
     "merge/decision_record.md": {
       "checked_delivery": "delivered",
@@ -437,53 +437,56 @@
       "actual_live_Linear": false
     },
     "linear_receiver_startup_candidate": {
-      "source_commit": "62b38036e286c1fcd9df055b41534a4a22cac951",
-      "accepted": false,
-      "integrated": false,
-      "passed": 127,
-      "failed": 2,
-      "new_startup_scenarios_passed": 11,
-      "capacity_failures": "BrokenPipeError during upload before complete expected503 response; cause unproved",
-      "first_probe_failed_timed_out": true,
-      "corrected_probe_reproduced_defect": true,
-      "checkpoint_late_seconds": 42,
-      "owned_groups_stopped": true,
-      "current_continuation": "LINEAR-LIVE-PRIMARY-6; diagnostic preparation only"
+      "candidate": "205047466ffed3a3466548d23d8d2ac922f3f80f",
+      "integrated_head": "fa3566bafd022b069d4730cc9b590ff78217c578",
+      "tests": 141,
+      "passed": 141,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "scope": "Local actual socket-error and spawned-import controls; no live provider or model acceptance.",
+      "prior_failures_retained": true,
+      "owned_processes_stopped_and_reaped": true
     },
     "host_acl_candidate": {
-      "based_on": "9a9599be",
-      "committed": false,
+      "base": "9a9599be81c4d5f4b0a10f9e38efb997597e6b45",
+      "execution_history": [
+        {
+          "tests": 45,
+          "passed": 43,
+          "failed": 2
+        },
+        {
+          "tests": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        {
+          "tests": 45,
+          "passed": 44,
+          "failed": 1
+        }
+      ],
+      "accepted": false,
       "integrated": false,
-      "earlier_raw_passes": 68,
-      "final_raw": {
-        "passed": 67,
-        "failed": 1
-      },
-      "required_old_callback_missing": true,
-      "targeted_diagnostic": {
-        "raw_passed": 5,
-        "accepted": false,
-        "authored_status_completions_succeeded": 7,
-        "recorded_owned_processes_absent": 20,
-        "current_descriptor_change": "shared OS temporary ancestor; ctime changed, initial link count omitted",
-        "older_interruption_cause": "unknown"
-      },
-      "current_continuation": "HOST-BRIDGE-6; implementation, execution not admitted",
-      "actual_account_model_acceptance": false
+      "last_failure": "Repeated shared-temporary-ancestor ctime changes correctly refused before the intended callback.",
+      "last_fixture_pid_group_identities_independently_absent": 49,
+      "older_callback_phases_reached": 4,
+      "source_and_guard_changes_for_placement": false,
+      "scope": "Authored local fixtures; no actual account, model or provider acceptance."
     },
     "dependency_scheduling_candidate": {
-      "task": "TST-89",
-      "base": "af2d43de",
-      "committed": false,
-      "accepted": false,
-      "draft_source_files": 14,
-      "static_parse_passed": true,
-      "public_input_schemas_unchanged": true,
-      "frozen_groups": 28,
-      "planned_variants": 122,
-      "variants_executed": 0,
-      "first_phase_outcome": "interrupted; deliberate partial checkpoint",
-      "current_continuation": "DEPENDENCY-SCHEDULING-2; tests and fixture setup pending"
+      "candidate_manifest_sha256": "9ba9ce2667644747405abb949cd51582695022fc3721d8b5dc8f4db36f8a34b7",
+      "source_paths": 33,
+      "tests": 144,
+      "passed": 144,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "consumer_tests_not_run": 74,
+      "integrated": false,
+      "scope": "Owned SQLite/thread/architecture component controls only.",
+      "prior_failures_retained": true
     }
   },
   "product_acceptance_cases_executed": 0,
@@ -955,6 +958,22 @@
         "scope": "New reporting period; current main9a distinguished from full-tested e713",
         "reporting_period": "2026-11-02 02:30\u201304:57 UTC"
       }
+    },
+    {
+      "reporting_period": "2026-11-02 04:57\u201307:18 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "98d4eb5abaa762f7e8db25240f4964a58435c0bfb1246fc6890126986250d8e2",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_snapshot": "5dc4bab593c828e08a6fa943915c4084b755a2e756710d364dfc4e23ebc2aa58",
+        "objective_sha256": "b0519c2f80857d311bc47ce2d5e7b530e73d58dda7385058aa7af7fcc0393744",
+        "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+        "scope": "Current period; local passes and unaccepted candidates separated from full-tested e713",
+        "reporting_period": "2026-11-02 04:57\u201307:18 UTC"
+      }
     }
   ],
   "external_model_invocation_basis": "Four host-level submitted turns: two prior tool-free pilots, one neutral initialization submission and one assigned Claude component submission. The later native results report two neutral and four assigned agentic turns plus auxiliary model usage; the provider-internal request count is not fully exposed. These are not four billed API calls.",
@@ -1004,5 +1023,61 @@
     "zero_loss_gaps": 0,
     "documentation_integrity_checks_passed": 17,
     "scope": "Checked proposed documents only; F0 code, real application resources, host/provider acceptance and cutover remain separately gated."
-  }
+  },
+  "historical_candidate_results": [
+    {
+      "reporting_period": "2026-11-02 04:57\u201307:18 UTC",
+      "records": {
+        "linear_receiver_startup_candidate": {
+          "source_commit": "62b38036e286c1fcd9df055b41534a4a22cac951",
+          "accepted": false,
+          "integrated": false,
+          "passed": 127,
+          "failed": 2,
+          "new_startup_scenarios_passed": 11,
+          "capacity_failures": "BrokenPipeError during upload before complete expected503 response; cause unproved",
+          "first_probe_failed_timed_out": true,
+          "corrected_probe_reproduced_defect": true,
+          "checkpoint_late_seconds": 42,
+          "owned_groups_stopped": true,
+          "current_continuation": "LINEAR-LIVE-PRIMARY-6; diagnostic preparation only"
+        },
+        "host_acl_candidate": {
+          "based_on": "9a9599be",
+          "committed": false,
+          "integrated": false,
+          "earlier_raw_passes": 68,
+          "final_raw": {
+            "passed": 67,
+            "failed": 1
+          },
+          "required_old_callback_missing": true,
+          "targeted_diagnostic": {
+            "raw_passed": 5,
+            "accepted": false,
+            "authored_status_completions_succeeded": 7,
+            "recorded_owned_processes_absent": 20,
+            "current_descriptor_change": "shared OS temporary ancestor; ctime changed, initial link count omitted",
+            "older_interruption_cause": "unknown"
+          },
+          "current_continuation": "HOST-BRIDGE-6; implementation, execution not admitted",
+          "actual_account_model_acceptance": false
+        },
+        "dependency_scheduling_candidate": {
+          "task": "TST-89",
+          "base": "af2d43de",
+          "committed": false,
+          "accepted": false,
+          "draft_source_files": 14,
+          "static_parse_passed": true,
+          "public_input_schemas_unchanged": true,
+          "frozen_groups": 28,
+          "planned_variants": 122,
+          "variants_executed": 0,
+          "first_phase_outcome": "interrupted; deliberate partial checkpoint",
+          "current_continuation": "DEPENDENCY-SCHEDULING-2; tests and fixture setup pending"
+        }
+      }
+    }
+  ]
 }
