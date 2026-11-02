@@ -10,7 +10,11 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from uuid import uuid4
 
-from .ledger import DriverRefused
+from .ledger import DriverRefused, uuid
+
+
+def receiver_route(run_id):
+    return "/hooks/linear/" + uuid(run_id)
 
 
 class HeaderLimit(ValueError):
@@ -488,7 +492,7 @@ class BoundedReceiver:
             output_reserve,
             maximum,
         )
-        self.route, self.health_route = "/hooks/linear/" + ledger.run_id, "/health/" + ledger.run_id
+        self.route, self.health_route = receiver_route(ledger.run_id), "/health/" + ledger.run_id
         self.stopping, self.started = False, False
         self.diagnostic_failures = 0
         self.thread = self.shutdown_thread = None

@@ -8,6 +8,7 @@ from ai_task_manager.config.files import digest
 
 from .fixture_control import Observation
 from .ledger import DriverRefused, Limits, uuid
+from .receiver import receiver_route
 
 
 @dataclass(frozen=True)
@@ -53,7 +54,7 @@ class FixtureAdministration:
             or parsed.password
             or parsed.query
             or parsed.fragment
-            or not parsed.path.startswith("/linear/")
+            or parsed.path != receiver_route(self.ledger.run_id)
             or not observed.receiver_identity
             or not observed.tunnel_identity
             or not self.graphql.clock() < observed.expires_at

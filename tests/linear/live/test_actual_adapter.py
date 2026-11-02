@@ -21,7 +21,7 @@ from .fixture_admin import FixtureAdministration, VerifiedEndpoint, adapter_limi
 from .fixture_graphql import OPERATIONS, REQUIRED, SHAPE, FixtureGraphQL
 from .fixture_http import FixtureRequestTransport
 from .ledger import DriverRefused, RunLedger, Scope
-from .receiver import BoundedReceiver
+from .receiver import BoundedReceiver, receiver_route
 
 
 class AuthoredEndpoint:
@@ -30,7 +30,7 @@ class AuthoredEndpoint:
     def __init__(self, ledger, candidate):
         s = ledger.scope
         self.observed = VerifiedEndpoint(
-            "https://fixture.invalid/linear/owned",
+            "https://fixture.invalid" + receiver_route(ledger.run_id),
             "authored-receiver",
             "authored-tunnel",
             ledger.clock() + 1000,
@@ -121,6 +121,42 @@ def test_a43_actual_receiver_route_binds_disabled_hook_and_delivers(adapter):
         assert observed.calls == 1
     finally:
         assert server.stop(3)["stopped"]
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "legacy_prefix",
+        "other_run",
+        "suffix",
+        "trailing_slash",
+        "encoded_path",
+        "query",
+        "fragment",
+        "userinfo",
+    ],
+)
+def test_a44_endpoint_requires_exact_run_receiver_route_before_any_effect(adapter, target):
+    admin, graphql, ledger, provider, endpoint, candidate, _ = ready(adapter)
+    graphql.actions.reserve_receiver(candidate)
+    path = receiver_route(ledger.run_id)
+    changed = {
+        "legacy_prefix": "/linear/owned",
+        "other_run": receiver_route(str(uuid4())),
+        "suffix": path + "/extra",
+        "trailing_slash": path + "/",
+        "encoded_path": path.replace("hooks", "%68ooks"),
+        "query": path + "?run=other",
+        "fragment": path + "#other",
+        "userinfo": path,
+    }[target]
+    host = "other@fixture.invalid" if target == "userinfo" else "fixture.invalid"
+    endpoint.observed = replace(endpoint.observed, url="https://" + host + changed)
+    before = len(provider.requests)
+    with pytest.raises(DriverRefused, match="endpoint_admission_mismatch"):
+        admin.create_webhook("hook", candidate, "authored-endpoint", lambda: "x" * 32)
+    assert len(provider.requests) == before and not provider.webhooks
+    assert not [row for row in ledger.summary()["operations"] if row["kind"] == "webhook"]
 
 
 def test_a01_a05_a06_actual_http_project_fresh_reads_and_accounting(adapter):
