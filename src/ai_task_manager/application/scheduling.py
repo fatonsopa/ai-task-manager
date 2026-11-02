@@ -4,12 +4,19 @@ from dataclasses import asdict
 
 from ai_task_manager.domains.scheduling import policy
 from ai_task_manager.domains.scheduling.models import (
-    Blocker, Completion, Readiness, RejectSchedulingSources, SchedulingBlocked,
+    Blocker,
+    Completion,
+    Readiness,
+    RejectRenewalSources,
+    RejectSchedulingSources,
+    SchedulingBlocked,
 )
 from ai_task_manager.domains.work.errors import EvidenceRequired, StaleVersion
-from ai_task_manager.domains.work.models import DELIVERED, IssueStatus as S, SyncState
+from ai_task_manager.domains.work.models import DELIVERED, SyncState
 from ai_task_manager.domains.work.models import AttemptState as A
-from ai_task_manager.storage import attempts, events, issue_claims, scheduling as store, sessions, work
+from ai_task_manager.domains.work.models import IssueStatus as S
+from ai_task_manager.storage import attempts, events, issue_claims, sessions, work
+from ai_task_manager.storage import scheduling as store
 
 from .transition_evidence import destination_facts
 
@@ -23,6 +30,12 @@ class _DeliveryContext:
 class Scheduling:
     def __init__(self, context, sources=None):
         self.c, self.sources = context, sources or RejectSchedulingSources()
+        self.renewals = RejectRenewalSources()
+
+    def renew(self, handle, observation_ref, operation_key):
+        from .renewals import renew
+
+        return renew(self, handle, observation_ref, operation_key)
 
     def observe(self, handle, task_id, expected_version, expected_decision_revision,
                 snapshot_ref, operation_key):
@@ -52,15 +65,16 @@ class Scheduling:
                 if snapshot.source_id != prior["snapshot"].source_id:
                     raise EvidenceRequired("A different source cannot reset dependency ordering")
                 if snapshot.source_revision <= prior["source_revision"]:
-                    if snapshot.source_revision == prior["source_revision"] and digest == prior["digest"]:
+                    if (snapshot.source_revision == prior["source_revision"]
+                            and digest == prior["digest"]):
                         return self._view(conn, scope, task)
                     raise StaleVersion("Dependency observation is stale or conflicting")
             graph = store.graph(conn, sid)
             graph[task.id] = tuple(edge.predecessor for edge in snapshot.dependencies)
             policy.check_cycles(graph)
-            definition = lambda value: sorted(
-                (edge.predecessor, edge.condition, edge.unit or "") for edge in value.dependencies
-            )
+            def definition(value):
+                return sorted((edge.predecessor, edge.condition, edge.unit or "")
+                              for edge in value.dependencies)
             changed = not prior or definition(snapshot) != definition(prior["snapshot"])
             graph_version += int(changed)
             store.save(conn, snapshot, graph_version, digest)
@@ -89,7 +103,8 @@ class Scheduling:
         except Exception:
             return unavailable("missing")
         if predecessor.observed_status in {S.CANCELED, S.DUPLICATE}:
-            return unavailable("canceled" if predecessor.observed_status == S.CANCELED else "duplicate")
+            return unavailable(
+                "canceled" if predecessor.observed_status == S.CANCELED else "duplicate")
         if predecessor.human_hold:
             return unavailable("held")
         if predecessor.execution_state in {A.FAILED, A.CANCELED, A.UNKNOWN}:
@@ -163,7 +178,8 @@ class Scheduling:
                     "Reconcile the existing attempt through the guarded stop/resume workflow",
                 ),))
         completions = {(edge.predecessor, edge.condition, edge.unit):
-                       self._completion(conn, scope, task.session_id, edge) for edge in snapshot.dependencies}
+                       self._completion(conn, scope, task.session_id, edge)
+                       for edge in snapshot.dependencies}
         return policy.evaluate(snapshot, completions, self.c.clock())
 
     def _view(self, conn, scope, task):
@@ -226,7 +242,8 @@ class Scheduling:
             return
         for dependent_id in store.dependents(conn, task.id, task.session_id):
             if store.invalidate(conn, dependent_id, event.id, "predecessor_changed"):
-                row = conn.execute("SELECT session_id FROM tasks WHERE id=?", (dependent_id,)).fetchone()
+                row = conn.execute(
+                    "SELECT session_id FROM tasks WHERE id=?", (dependent_id,)).fetchone()
                 if row:
                     events.append(conn, row[0], dependent_id, "dependency_inputs_changed", {
                         "source_event": event.id, "reason": "Refresh authorized dependency facts"

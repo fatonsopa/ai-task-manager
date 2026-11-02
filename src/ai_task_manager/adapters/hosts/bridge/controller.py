@@ -1,11 +1,13 @@
 """One managed native host, with no work tools until Core admission completes."""
 
+import inspect
 import json
 from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 from threading import Lock
 
+import anyio
 from anyio.from_thread import start_blocking_portal
 
 from ai_task_manager.adapters.hosts.transports.claude import (
@@ -85,6 +87,9 @@ class ManagedNativeHost:
         self.process = self.session = self.startup = None
         self._portal_context = self.portal = None
         self._turn_lock = Lock()
+        self._stop_lock = Lock()
+        self._session_close_attempted = False
+        self.authority = None
         self._source_auditor = source_auditor
         if self.policy.codex_settings is not None:
             context = _audit_context(binding.host, pair, asdict(binding.scope))
@@ -256,6 +261,7 @@ class ManagedNativeHost:
             process_registry=self.process_registry,
             model_guard=self.startup.model_guard,
             invocation_source=self.current_invocation,
+            authority=self.authority,
         )
         gateway.admit()
         self.gateway.delegate = gateway
@@ -269,6 +275,8 @@ class ManagedNativeHost:
             self.policy.check()
             self.startup.assert_stable()
             self._flush_source_observations()
+            if self.authority is not None:
+                self.authority.check_prepared()
             return self.core.execution.validate_work_lease(handle, attempt.id, attempt.version)
 
     def verify_active(self):
@@ -321,15 +329,28 @@ class ManagedNativeHost:
         self.process.complete_invocation(permit)
 
     def stop(self):
+        if not self._stop_lock.acquire(blocking=False):
+            raise AccessDenied("Owned native stopping is already in progress")
+        try:
+            return self._stop_owned()
+        finally:
+            self._stop_lock.release()
+
+    def _stop_owned(self):
         with self._source_audit_boundary(before=False):
             if self.process is None:
                 raise AccessDenied("Native startup outcome is unresolved")
             errors = []
             try:
-                if self.portal is not None:
-                    self.portal.call(self.session.close)
-                elif self.session is not None:
-                    self.session.close()
+                if not self._session_close_attempted:
+                    self._session_close_attempted = True
+                    if self.portal is not None:
+                        self.portal.call(self.session.close)
+                    elif self.session is not None:
+                        if inspect.iscoroutinefunction(self.session.close):
+                            anyio.run(self.session.close)
+                        else:
+                            self.session.close()
             except BaseException as error:
                 errors.append(("session_close", type(error).__name__))
             finally:

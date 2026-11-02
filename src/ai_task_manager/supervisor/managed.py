@@ -46,6 +46,7 @@ class ManagedWorkers:
         principal_ref,
         executions=None,
         base="HEAD",
+        dependencies=None,
     ):
         if isinstance(deadline, bool) or not math.isfinite(deadline) or deadline <= journal.clock():
             raise AccessDenied("Managed workers require the original finite future deadline")
@@ -55,6 +56,23 @@ class ManagedWorkers:
         self.executions = executions or RejectExecutions()
         self.dispatches = {}
         self._waiting_stops = {}
+        self.authorities = None
+        self._freshness = {}
+        if dependencies is not None:
+            self.bind_dependencies(dependencies)
+
+    def bind_dependencies(self, source):
+        """Trusted installer/service composition, never a model tool argument."""
+        from ai_task_manager.supervisor.authority import WorkAuthorities
+
+        if self.authorities is not None:
+            if self.authorities.dependencies is not source:
+                raise AccessDenied("The managed dependency source cannot be replaced")
+            return
+        if self.dispatches or self._freshness:
+            raise AccessDenied("Dependency authority must be installed before dispatch")
+        self.authorities = WorkAuthorities(self.core, source)
+        self.core.scheduling.renewals = self.authorities
 
     def start(
         self,
@@ -120,6 +138,19 @@ class ManagedWorkers:
             native = self.hosts.launch(binding, pair)
             # initialize() accepts no assigned task prompt and exposes no work lease.
             ready_ref = native.initialize()
+            if self.authorities is not None:
+                from ai_task_manager.adapters.hosts.bridge.continuity import NativeContinuity
+
+                freshness = self.authorities.attach(
+                    handle,
+                    attempt,
+                    native,
+                    NativeContinuity(native),
+                    on_failure=lambda reason: self._authority_lost(handle, attempt.id, reason),
+                )
+                self._freshness[attempt.id] = freshness
+                native.authority = freshness
+                freshness.refresh()
             startup = self.proofs.startup(
                 scope, attempt.id, waiting.observation_id, host_ready_ref=ready_ref
             )
@@ -161,7 +192,11 @@ class ManagedWorkers:
             )
             dispatch = ManagedDispatch(attempt.id, pair, waiting, native)
             self.dispatches[attempt.id] = dispatch
+            if attempt.id in self._freshness:
+                self._freshness[attempt.id].refresh()
             native.admit(handle, dispatch, running)
+            if attempt.id in self._freshness:
+                self._freshness[attempt.id].start()
             return running
         except BaseException as error:
             self._abort(handle, attempt.id, waiting, native, operation_key, type(error).__name__)
@@ -240,6 +275,8 @@ class ManagedWorkers:
     def _boundary(self, handle, dispatch, version):
         if self.journal.clock() >= self.deadline:
             raise AccessDenied("Original managed deadline expired")
+        if dispatch.attempt_id in self._freshness:
+            self._freshness[dispatch.attempt_id].ensure_current()
         dispatch.host.verify_active()
         self.resources.verify(dispatch.resources)
         return self.core.execution.validate_work_lease(handle, dispatch.attempt_id, version)
@@ -264,6 +301,8 @@ class ManagedWorkers:
             guard = boundary()
         with guard:
             with self.core.execution.work_boundary(handle, dispatch.attempt_id, version):
+                if dispatch.attempt_id in self._freshness:
+                    self._freshness[dispatch.attempt_id].check_prepared()
                 if self.journal.clock() >= self.deadline:
                     raise AccessDenied("Original managed deadline expired")
                 for kind, path in (
@@ -315,6 +354,8 @@ class ManagedWorkers:
 
     def _finish(self, handle, attempt_id, waiting, native, key, reason, state):
         outcomes = []
+        if attempt_id in self._freshness:
+            outcomes.append(self._freshness[attempt_id].close())
         try:
             outcomes.append(self.executions.reconcile_stopped(attempt_id) is True)
         except BaseException:
@@ -359,6 +400,26 @@ class ManagedWorkers:
             },
         )
         return self._settle_observation(handle, attempt_id, observation, key)
+
+    def _authority_lost(self, handle, attempt_id, reason):
+        """Record uncertainty promptly; only complete later stop can release ownership."""
+        attempt = self.core.get_attempt(handle, attempt_id)
+        if attempt.state not in ACTIVE_ATTEMPTS or attempt.state == "unknown":
+            return attempt
+        observation = self.journal.observe(
+            attempt_id,
+            "runtime_outcome",
+            {
+                "state": "unknown",
+                "quiescent": False,
+                "worker_id": attempt.worker_id,
+                "managed_stop": True,
+                "reason": "authority_refresh_failed:" + reason,
+            },
+        )
+        return self._settle_observation(
+            handle, attempt_id, observation, "authority-loss:" + observation
+        )
 
     def _settle_observation(self, handle, attempt_id, observation, key):
         attempt = self.core.get_attempt(handle, attempt_id)
