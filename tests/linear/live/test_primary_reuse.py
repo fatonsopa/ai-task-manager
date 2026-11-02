@@ -205,3 +205,20 @@ def test_pr09_actual_drain_thread_start_failure_preserves_original_error(owned, 
     assert server.adapter is placeholder and server.thread.is_alive()
     assert run.drain.thread.ident is None
     assert run.drain.stop(1)["stopped"]
+
+
+def test_pr10_different_run_cannot_take_existing_receiver(owned):
+    rig, record, server, runs = owned
+    first = configured(rig, record, receiver=server)
+    second = configured(rig, record, receiver=server)
+    runs.append(first)
+    first.start()
+    adapter, thread = server.adapter, first.drain.thread
+    with pytest.raises(DriverRefused, match="existing_receiver_not_quiescent"):
+        second.start()
+    with pytest.raises(DriverRefused, match="existing_receiver_not_quiescent"):
+        configured(rig, record, receiver=server)
+    assert second.drain.thread is None and not second.drain.closing.is_set()
+    assert server.product_run is first and server.adapter is adapter
+    assert first.drain.thread is thread and thread.is_alive()
+    assert not first.drain.closing.is_set()

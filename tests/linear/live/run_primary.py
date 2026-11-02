@@ -102,6 +102,10 @@ class PrimaryRun:
         receiver = self.receiver
         if (
             not isinstance(receiver, BoundedReceiver)
+            or (
+                getattr(receiver, "product_run", None) is not None
+                and receiver.product_run is not self
+            )
             or receiver.ledger is not self.drain.ledger
             or receiver.route != receiver_route(self.drain.ledger.run_id)
             or not receiver.started
