@@ -87,6 +87,8 @@ Use the approved `claude_roni` profile: resolve its configuration under `$HOME` 
 
 The machine-readable dependency graph is `config/work-items.json`. It contains 11 phase gates and 34 planned work items, including T34, the repository responsibility/layout audit and packaging prerequisite. Split a work item further when necessary, preserving its acceptance and dependencies. Every implementation task gets its own tracked assignment and worktree; overlapping owned files require coordination or serialization. A phase is complete only when its output and evidence pass review.
 
+Use short vertical slices: agree the relevant contract/checks, implement a working user flow, verify it and integrate it promptly. Prioritize one real task through Linear, one CLI worker and confirmed result reporting; then extend to code delivery and remaining profiles/failure paths. Run independent slices in parallel with one tracked assignment and isolated resources per worker. Phase gates define release evidence, not a waterfall delivery order. Update affected documents, reuse matching accepted evidence and retain failures. All final live, host/model and whole-candidate checks remain required.
+
 ### P00 — Bootstrap and verify prerequisites
 
 Read the approved product policy and maintained sources. Resolve `PRODUCT_REPO` in the separate build workspace and inspect existing content before acting. An empty-project build/install must not require the AI Index checkout or its instructions. Read-only historical analysis may separately discover `SOURCE_REPO`; that optional evidence source grants no execution or modification authority. Clone only the authorized product repository using structured arguments and preserve unrelated work.
