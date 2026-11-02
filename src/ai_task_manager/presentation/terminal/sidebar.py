@@ -266,8 +266,8 @@ class SidebarApp(App):
         self.query_one("#visibility", Control).update(Text("[show]" if hidden else "[hide]"))
 
     def on_resize(self):
-        if self.is_mounted:
-            self.apply_visibility()
+        # App resize arrives before its child layout has adopted the new size.
+        self.call_after_refresh(self.apply_visibility)
 
     def action_hide_sidebar(self):
         if not self.view.hidden:
