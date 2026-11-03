@@ -72,6 +72,19 @@ class Execution:
         with self.c.db.transaction() as conn:
             yield self._work_lease(conn, handle, attempt_id, expected_attempt_version)
 
+    @contextmanager
+    def work_snapshot_boundary(self, handle, attempt_id, expected_attempt_version):
+        """Yield immutable authority facts under the existing short-effect lease lock.
+
+        Consumers compare their frozen identities here. Provider, source, resource
+        reads and command waits belong outside this transaction.
+        """
+        with self.c.db.transaction() as conn:
+            attempt = self._work_lease(conn, handle, attempt_id, expected_attempt_version)
+            _, scope = sessions.resolve(conn, handle)
+            task = work.get(conn, attempt.session_id, attempt.task_id)
+            yield attempt, task, scope
+
     def reserve(
         self,
         handle,
