@@ -1,0 +1,15 @@
+{
+  "task": "TST-117",
+  "case_version": 3,
+  "retained_run": "25 passes in run-v2",
+  "new_oracles": [
+    "After a physical-effect callback error or omitted start report, same-key launch-boundary reentry must refuse and retain capacity",
+    "Original unchanged callable clock advancing beyond deadline refuses admission but history stays observable"
+  ],
+  "reason": "Persist effect entry before the short spawn transaction; rollback cannot erase an already attempted physical effect",
+  "paths": [
+    "installation/native/controller.py",
+    "tests/native_installation/test_normal.py"
+  ],
+  "external_effects": 0
+}

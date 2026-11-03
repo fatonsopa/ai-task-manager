@@ -2,7 +2,9 @@
 
 from .authority import MissingNativeAuthority, NativeAuthoritySource, NativePermission
 from .manifest import NativeManifest
+from .normal import NormalAuthoritySource, enroll
 from .resolver import resolve
+from .store import NativeStore
 
 __all__ = [
     "MissingNativeAuthority",
@@ -10,4 +12,7 @@ __all__ = [
     "NativePermission",
     "NativeManifest",
     "resolve",
+    "NormalAuthoritySource",
+    "NativeStore",
+    "enroll",
 ]

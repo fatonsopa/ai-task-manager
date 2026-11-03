@@ -52,7 +52,7 @@ class NativeManifest:
         if (
             type(d) is not dict
             or not FIELDS <= set(d)
-            or set(d) - FIELDS - {"commands_manifest"}
+            or set(d) - FIELDS - {"commands_manifest", "authority_store"}
             or type(d["version"]) is not int
             or d["version"] != 1
         ):

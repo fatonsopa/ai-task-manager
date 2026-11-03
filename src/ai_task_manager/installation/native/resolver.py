@@ -44,6 +44,10 @@ def resolve(
         or installation.get("native_digest") != expected
     ):
         raise AccessDenied("Cold native reference/source digest differs from installation")
+    if authority_source is None and d.get("authority_store") is not None:
+        from .normal import NormalAuthoritySource
+
+        authority_source = NormalAuthoritySource(manifest)
     source = authority_source or MissingNativeAuthority()
     permission = source.resolve(manifest.data["authorization_ref"], manifest)
     if type(permission) is not NativePermission:
