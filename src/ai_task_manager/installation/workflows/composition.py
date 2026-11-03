@@ -113,7 +113,11 @@ class InstalledWorkflow:
             asdict(core.session_binding(handle)[1]) != d["scope"]
             or task.prose_digest != d["prose_digest"]
         ):
-            raise AccessDenied("Installed task, scope or approved prose differs")
+            raise AccessDenied(
+                "Installed non-code task, scope or approved prose differs"
+                if not task.code_bearing
+                else "Installed task, scope or approved prose differs"
+            )
         if provider is None or self.dependencies is None:
             raise Unavailable("Real provider/dependency ports required before native execution")
         if not isinstance(core.context.evidence, EvidenceRouter):

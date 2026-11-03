@@ -112,11 +112,11 @@ class InstalledCommands:
             reference, resources, boundary, effect_boundary, operation_key
         )
 
-    def verified_result(self, attempt_id, reference):
+    def verified_result(self, attempt_id, reference, *, operation_key=None):
         if reference not in self.definitions:
             raise AccessDenied("Unknown registered result")
         self._current(attempt_id)
-        return self.runner.verified_result(attempt_id, reference)
+        return self.runner.verified_result(attempt_id, reference, operation_key=operation_key)
 
     def reconcile_stopped(self, attempt_id):
         self._current(attempt_id)

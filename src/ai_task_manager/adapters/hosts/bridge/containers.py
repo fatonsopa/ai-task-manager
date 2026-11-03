@@ -367,12 +367,13 @@ class DockerCommands:
         job["verified_result"] = digest(result)
         return result
 
-    def verified_result(self, attempt_id, command_ref):
+    def verified_result(self, attempt_id, command_ref, *, operation_key=None):
         """Read only one actual successful owned result; restart/ambiguity refuses."""
         matches = [
             job
-            for job in self.jobs.values()
-            if job["record"]["attempt_id"] == attempt_id
+            for key, job in self.jobs.items()
+            if (operation_key is None or key == "container:" + operation_key)
+            and job["record"]["attempt_id"] == attempt_id
             and job["record"]["command_ref"] == command_ref
             and job.get("verified_ref")
         ]

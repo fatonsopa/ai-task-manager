@@ -6,12 +6,14 @@ import subprocess
 import time
 from pathlib import Path
 
-from ai_task_manager.adapters.git.publication import _GATE, _Drain
+from ai_task_manager.adapters.git.publication import _GATE
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup, _inventory, supervise
 from ai_task_manager.adapters.resources.paths import confined
 from ai_task_manager.domains.checks.models import fingerprint, repo_path
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.supervisor.models import RuntimeUncertain
+
+from .output import CommitOutput
 
 
 class WorkerGit:
@@ -94,18 +96,26 @@ class WorkerGit:
                 result[name] = None
         return result
 
-    def stage(self, attempt_id, path, files, boundary, seconds):
-        return self._effect(attempt_id, "stage", path, ("add", "--", *files), boundary, seconds)
-
-    def whitespace(self, attempt_id, path, boundary, seconds):
+    def stage(self, attempt_id, path, files, boundary, seconds, effect_boundary):
         return self._effect(
-            attempt_id, "diff-check", path, ("diff", "--cached", "--check"), boundary, seconds
+            attempt_id, "stage", path, ("add", "--", *files), boundary, seconds, effect_boundary
+        )
+
+    def whitespace(self, attempt_id, path, boundary, seconds, effect_boundary):
+        return self._effect(
+            attempt_id,
+            "diff-check",
+            path,
+            ("diff", "--cached", "--check"),
+            boundary,
+            seconds,
+            effect_boundary,
         )
 
     def tree(self, path):
         return self.query(path, "write-tree").decode().strip()
 
-    def commit(self, attempt_id, path, message, boundary, seconds):
+    def commit(self, attempt_id, path, message, boundary, seconds, effect_boundary):
         return self._effect(
             attempt_id,
             "commit",
@@ -113,9 +123,10 @@ class WorkerGit:
             ("commit", "--cleanup=verbatim", "-m", message),
             boundary,
             seconds,
+            effect_boundary,
         )
 
-    def _effect(self, attempt_id, stage, path, args, boundary, seconds):
+    def _effect(self, attempt_id, stage, path, args, boundary, seconds, effect_boundary):
         import sys
 
         boundary()
@@ -156,6 +167,10 @@ class WorkerGit:
             group = OwnedProcessGroup(child)
             self.live[(attempt_id, stage)] = group
             initial = group.capture()
+            directory = self.journal.path.parent / "worker-commit-output" / attempt_id
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            stdout = CommitOutput(child.stdout, directory / (stage + ".stdout"))
+            stderr = CommitOutput(child.stderr, directory / (stage + ".stderr"))
             self.journal.observe(
                 attempt_id,
                 "worker-git-process",
@@ -164,16 +179,24 @@ class WorkerGit:
                     "pid": child.pid,
                     "birth": group.start_identity,
                     "initial": initial.record(),
+                    "output": {"stdout": stdout.record(), "stderr": stderr.record()},
                 },
             )
-            stdout, stderr = _Drain(child.stdout), _Drain(child.stderr)
             if not initial.known:
                 raise RuntimeUncertain("Worker Git process identity is uncertain")
             boundary()
-            os.write(writefd, b"G")
+            with effect_boundary():
+                os.write(writefd, b"G")
             os.close(writefd)
             writefd = -1
-            result = supervise(group, timeout_seconds=max(0.01, min(30, seconds)))
+
+            def watch():
+                with effect_boundary():
+                    pass
+
+            result = supervise(
+                group, timeout_seconds=max(0.01, min(30, seconds)), boundary_check=watch
+            )
             stdout.thread.join(0.5)
             stderr.thread.join(0.5)
             result.update(
@@ -181,6 +204,7 @@ class WorkerGit:
                 seconds=time.monotonic() - started,
                 stdout=stdout.excerpt(),
                 stderr=stderr.excerpt(),
+                output={"stdout": stdout.record(), "stderr": stderr.record()},
             )
             self.journal.observe(attempt_id, "worker-git-result", result)
             if not result["group"]["confirmed_stop"]:

@@ -88,6 +88,46 @@ class Execution:
             yield attempt, task, scope
 
     @contextmanager
+    def worker_commit_boundary(
+        self,
+        handle,
+        task_id,
+        attempt_id,
+        expected_task_version,
+        expected_attempt_version,
+        expected_decision_revision,
+    ):
+        """Release a fixed commit/check child after the owned worker has stopped.
+
+        Only the short gate release belongs inside this transaction. Source,
+        resource and process observations remain in the trusted commit service.
+        """
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            task = work.get(conn, sid, task_id)
+            attempt = attempts.get(conn, sid, attempt_id)
+            self.c.check(task, expected_task_version, expected_decision_revision)
+            if attempt.version != expected_attempt_version:
+                raise StaleVersion("Worker commit attempt version changed")
+            if (
+                not task.code_bearing
+                or task.human_hold
+                or task.delivered_once
+                or task.observed_status != S.IN_PROGRESS
+                or task.desired_status != S.IN_PROGRESS
+                or task.sync_state != SyncState.CONFIRMED
+                or task.execution_state != A.DONE
+                or attempt.task_id != task.id
+                or attempt.state != A.DONE
+                or attempt.decision_revision != task.decision_revision
+                or attempts.active(conn, task.id) is not None
+            ):
+                raise InvalidTransition("Current stopped code worker is required for commit")
+            self.require_open(conn, scope, task)
+            self.c.scheduling.require(conn, scope, task, "lease", attempt)
+            yield task, attempt, scope
+
+    @contextmanager
     def merge_snapshot_boundary(
         self,
         handle,

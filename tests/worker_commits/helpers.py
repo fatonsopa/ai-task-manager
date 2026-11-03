@@ -40,13 +40,13 @@ class FixedChecks:
             raise RuntimeError("Authored independent check failed")
         self.results.add((pair.attempt_id, reference))
 
-    def verified_result(self, attempt_id, reference):
+    def verified_result(self, attempt_id, reference, *, operation_key=None):
         assert (attempt_id, reference) in self.results
         return {"verified": True}
 
 
 class WorkerFixture:
-    def __init__(self, path, *, faults=None, git_faults=None, check_failure=False):
+    def __init__(self, path, *, faults=None, git_faults=None, check_failure=False, program=None):
         path.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.rr = RuntimeRig(path)
         self.rig = r = self.rr.rig
@@ -71,7 +71,8 @@ class WorkerFixture:
                         sys.executable,
                         "-I",
                         "-c",
-                        "from pathlib import Path;"
+                        program
+                        or "from pathlib import Path;"
                         "Path('result.py').write_text('def total(values):\\n"
                         "    return sum(values)\\n')",
                     ),

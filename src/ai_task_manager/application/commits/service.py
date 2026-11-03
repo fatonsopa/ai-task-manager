@@ -1,7 +1,7 @@
 """Commit verified actual owned work from persisted workflow facts."""
 
 import time
-from contextlib import nullcontext
+from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 
 from ai_task_manager.domains.checks.models import fingerprint
@@ -30,6 +30,10 @@ class WorkerCommits:
             or task.observed_status != IssueStatus.IN_PROGRESS
             or task.desired_status != IssueStatus.IN_PROGRESS
             or task.sync_state != "confirmed"
+            or task.execution_state != "done"
+            or task.delivered_once
+            or attempt.session_id != self.binding[0]
+            or attempt.decision_revision != row["decision_revision"]
             or attempt.task_id != task.id
             or attempt.state != "done"
             or attempt.host != plan.host
@@ -37,6 +41,16 @@ class WorkerCommits:
             or self.runtime.binding(task, plan) != row["runtime_digest"]
         ):
             raise AccessDenied("Current worker commit authority differs from its saved workflow")
+        reservations = [
+            event
+            for event in self.core.notifications.list_events(self.handle)
+            if event.task_id == task.id and event.kind == "attempt_reserved"
+        ]
+        if (
+            not reservations
+            or max(reservations, key=lambda e: e.sequence).payload.get("attempt_id") != attempt.id
+        ):
+            raise AccessDenied("A newer attempt supersedes this worker commit authority")
         owner = self.journal.attempt(attempt.id)
         if owner["task_id"] != task.id or owner["deadline"] != plan.deadline:
             raise AccessDenied("Worker commit original owner or deadline differs")
@@ -65,7 +79,9 @@ class WorkerCommits:
         snapshot = self.git.snapshot(pair.worktree, plan.allowed_files)
         return {
             "task_id": task.id,
+            "task_version": task.version,
             "attempt_id": attempt.id,
+            "attempt_version": attempt.version,
             "plan_digest": plan.digest,
             "base": plan.base,
             "worktree": fact,
@@ -82,9 +98,11 @@ class WorkerCommits:
         self.journal.intend(attempt.id, "worker-commit-intent", intent)
 
         def boundary():
-            _, _, current_pair, current = self._current(row, plan)
+            current_task, current_attempt, current_pair, current = self._current(row, plan)
             if (
                 self.clock() >= plan.deadline
+                or current_task.version != intent["task_version"]
+                or current_attempt.version != intent["attempt_version"]
                 or current != intent["worktree"]
                 or [current_pair.worktree_id, current_pair.database_id] != intent["resource_ids"]
                 or self.git.source(pair.worktree) != intent["git_source"]
@@ -92,11 +110,27 @@ class WorkerCommits:
             ):
                 raise AccessDenied("Worker commit source, resources or authority changed")
 
+        @contextmanager
+        def effect_boundary():
+            if self.clock() >= plan.deadline:
+                raise AccessDenied("Original worker commit deadline expired")
+            with self.core.execution.worker_commit_boundary(
+                self.handle,
+                task.id,
+                attempt.id,
+                intent["task_version"],
+                intent["attempt_version"],
+                row["decision_revision"],
+            ):
+                yield
+
         def seconds():
             return min(30, plan.deadline - self.clock())
 
-        self.git.stage(attempt.id, pair.worktree, intent["files"], boundary, seconds())
-        self.git.whitespace(attempt.id, pair.worktree, boundary, seconds())
+        self.git.stage(
+            attempt.id, pair.worktree, intent["files"], boundary, seconds(), effect_boundary
+        )
+        self.git.whitespace(attempt.id, pair.worktree, boundary, seconds(), effect_boundary)
         checks_started = time.monotonic()
         if plan.commit_checks:
             if self.checks is None:
@@ -115,10 +149,14 @@ class WorkerCommits:
                         reference,
                         pair,
                         boundary,
-                        nullcontext,
+                        effect_boundary,
                         row["id"] + ":worker-check:" + reference,
                     )
-                    verified = self.checks.verified_result(attempt.id, reference)
+                    verified = self.checks.verified_result(
+                        attempt.id,
+                        reference,
+                        operation_key=row["id"] + ":worker-check:" + reference,
+                    )
                     evidence = asdict(verified) if is_dataclass(verified) else verified
                     outcome = "verified"
                 finally:
@@ -167,7 +205,7 @@ class WorkerCommits:
         )
         effect = {**intent, "tree": tree, "message": message}
         self.journal.intend(attempt.id, "worker-commit-candidate", effect)
-        self.git.commit(attempt.id, pair.worktree, message, boundary, seconds())
+        self.git.commit(attempt.id, pair.worktree, message, boundary, seconds(), effect_boundary)
         return self.reconcile(row, plan, intent)
 
     def reconcile(self, row, plan, intent):
