@@ -163,19 +163,29 @@ class Chain:
         return self.profile.reference(self.tree, "refs/heads/integration")
 
     def close(self):
+        if getattr(self, "closed", False):
+            return
         try:
-            outcome = self.runtime.supervisor.stop(
-                self.r.handle, self.dispatch, operation_key=self.r.key(), reason="fixture close"
-            )
-            state = {
-                "quiescent": outcome.quiescent,
-                "attempt": self.r.core.get_attempt(self.r.handle, self.attempt.id).state,
-            }
+            worker = self.runtime.runtime.workers[self.attempt.id]
+            if worker.process.returncode is None:
+                outcome = self.runtime.supervisor.stop(
+                    self.r.handle, self.dispatch, operation_key=self.r.key(), reason="fixture close"
+                )
+                state = {"quiescent": outcome.quiescent}
+            else:
+                observations = self.runtime.journal.observations(self.attempt.id, "runtime_outcome")
+                last = observations[-1] if observations else {}
+                state = {
+                    "already_stopped": True,
+                    "prior_quiescence": last.get("quiescent"),
+                    "prior_outcome_ref": last.get("id"),
+                }
+            state["attempt"] = self.r.core.get_attempt(self.r.handle, self.attempt.id).state
         except Exception as error:
             self.runtime.close()
             state = {
                 "settlement_pending": type(error).__name__,
-                "reason": "Revoked scope cannot fabricate a settled Core record",
+                "reason": "Record the failed Core settlement without inventing a settled record",
             }
         self.runtime.close()
         state["all_workers_stopped"] = all(
