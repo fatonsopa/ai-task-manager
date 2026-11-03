@@ -1,6 +1,9 @@
-"""Native environment names cannot also select provider credentials."""
+"""Product credential namespace and native host environment names."""
 
 from types import MappingProxyType
+
+# This namespace is consumed only by explicit operator credential lookup.
+CREDENTIAL_ENVIRONMENT_NAME_PATTERN = r"AITM_CREDENTIAL_[A-Za-z0-9_]+"
 
 _COMMON = frozenset({"PATH", "HOME", "USER", "LANG"})
 NATIVE_ENVIRONMENT_KEYS = MappingProxyType(
@@ -9,4 +12,3 @@ NATIVE_ENVIRONMENT_KEYS = MappingProxyType(
         "codex": _COMMON | {"CODEX_HOME"},
     }
 )
-RESERVED_CREDENTIAL_ENVIRONMENT_NAMES = frozenset().union(*NATIVE_ENVIRONMENT_KEYS.values())

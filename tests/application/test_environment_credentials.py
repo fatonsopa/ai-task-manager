@@ -2,11 +2,13 @@
 
 import json
 import os
+import socket
 import sys
 import time
 import traceback
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -23,7 +25,7 @@ from ai_task_manager.installation.sessions import setup
 from ai_task_manager.supervisor.models import Command
 from tests.session_observations.helpers import OwnedProvider
 
-NAME = "Operator_Selected_Linear_Credential_135"
+NAME = "AITM_CREDENTIAL_Operator_Selected_Linear_135"
 SECRET = "authored-credential-135-never-persist"
 
 
@@ -33,7 +35,7 @@ SECRET = "authored-credential-135-never-persist"
 )
 def test_EC11_native_environment_names_cannot_select_credentials(monkeypatch, name):
     monkeypatch.setenv(name, "authored-collision-credential")
-    with pytest.raises(ValidationError, match="reserved"):
+    with pytest.raises(ValidationError, match="credential namespace"):
         linear.CredentialEnvironment(name)
 
 
@@ -247,10 +249,12 @@ def test_EC08_EC09_session_setup_persistence_and_model_boundary(provider, monkey
     assert service.call("session_show", {})["ok"]
     service.decisions.observations.verify_enrollment(service.grant_ref)
     before = provider.requests
-    assert not service.call("session_show", {"credential_environment": "MODEL_SELECTED_NAME"})["ok"]
+    assert not service.call(
+        "session_show", {"credential_environment": "AITM_CREDENTIAL_MODEL_SELECTED_NAME"}
+    )["ok"]
     assert provider.requests == before
     updated = read_private(provider.config)
-    updated["linear"]["credential_environment"] = "MODEL_SELECTED_NAME"
+    updated["linear"]["credential_environment"] = "AITM_CREDENTIAL_MODEL_SELECTED_NAME"
     write_private(provider.config, updated, replace=True)
     assert not service.call("session_show", {})["ok"]
     assert provider.requests == before
@@ -279,7 +283,7 @@ def test_EC10_actual_relay_child_omits_parent_credentials(tmp_path, monkeypatch,
         "import json,os,sys\n"
         "for line in sys.stdin:\n"
         " print(json.dumps({"
-        "'selected': 'Operator_Selected_Linear_Credential_135' in os.environ, "
+        "'selected': 'AITM_CREDENTIAL_Operator_Selected_Linear_135' in os.environ, "
         "'unrelated': 'UNRELATED_PROVIDER_TOKEN_135' in os.environ}),flush=True)\n"
     )
     command = Command((sys.executable, "-I", "-u", "-c", program), tmp_path, environment, 10)
@@ -294,3 +298,76 @@ def test_EC10_actual_relay_child_omits_parent_credentials(tmp_path, monkeypatch,
     for path in (tmp_path / "output").iterdir():
         if path.is_file():
             assert SECRET.encode() not in path.read_bytes()
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "HTTPS_PROXY",
+        "https_proxy",
+        "SSLKEYLOGFILE",
+        "LINEAR_API_KEY",
+        "Operator_Selected_Linear_Credential_135",
+        "AITM_OPERATOR_LINEAR_PRIMARY",
+        "AITM_CREDENTIAL_",
+        "aitm_CREDENTIAL_operator",
+        "AITM_CREDENTIALX_operator",
+        "AITM_CREDENTIAL_operator-name",
+        "AITM_CREDENTIAL_operator\n",
+        "AITM_CREDENTIAL_\u2603",
+    ],
+)
+def test_EC12_outside_credential_namespace_refuses(name):
+    with pytest.raises(ValidationError, match="credential namespace"):
+        linear.CredentialEnvironment(name)
+
+
+@pytest.mark.parametrize("suffix", ["a", "Z", "0", "_", "Operator_135", "a_z09"])
+def test_EC12_operator_selected_namespace_boundaries(monkeypatch, suffix):
+    name = "AITM_CREDENTIAL_" + suffix
+    monkeypatch.setenv(name, SECRET)
+    assert linear.CredentialEnvironment(name)().value == SECRET
+
+
+def guard_dns(monkeypatch):
+    lookups = []
+
+    def no_dns(host, *args, **kwargs):
+        lookups.append(host)
+        raise OSError("authored network guard")
+
+    monkeypatch.setattr(socket, "getaddrinfo", no_dns)
+    return lookups
+
+
+@pytest.mark.parametrize("name", ["HTTPS_PROXY", "SSLKEYLOGFILE"])
+def test_EC13_runtime_names_refuse_before_transport(provider, tmp_path, monkeypatch, name):
+    monkeypatch.chdir(tmp_path)
+    lookups = guard_dns(monkeypatch)
+    config = {
+        "expected": provider.linear["expected"],
+        "credential_environment": name,
+        "journal": provider.linear["journal"],
+    }
+    with patch.dict(os.environ, {name: SECRET}, clear=True):
+        with pytest.raises(ValidationError, match="credential namespace"):
+            linear.LinearComponents(config)
+    assert lookups == []
+    assert not (tmp_path / SECRET).exists()
+    assert provider.requests == 0
+
+
+@pytest.mark.parametrize("suffix", ["HTTPS_PROXY", "SSLKEYLOGFILE"])
+def test_EC14_credential_namespace_is_opaque_to_http_runtime(tmp_path, monkeypatch, suffix):
+    name = "AITM_CREDENTIAL_" + suffix
+    monkeypatch.chdir(tmp_path)
+    lookups = guard_dns(monkeypatch)
+    with patch.dict(os.environ, {name: SECRET}, clear=True):
+        source = linear.CredentialEnvironment(name)
+        transport = HttpTransport()
+        assert not (tmp_path / SECRET).exists()
+        with pytest.raises(LinearError, match="transport_failure"):
+            transport.send("query VerifyBinding { viewer { id } }", {}, source())
+    assert lookups == ["api.linear.app"]
+    assert SECRET not in lookups
+    assert not (tmp_path / SECRET).exists()
