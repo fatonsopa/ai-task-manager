@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "task": "TST-154",
+  "scope": "Installed listener composition with synthetic signed provider controls; no real Linear, ngrok, model or complete M2/LINK-01 acceptance.",
+  "cases": {
+    "IR01": "Explicit private sealed receiver configuration accepts only supported route, webhook, secret file, loopback port and finite lifetime; unknown fields, bad values and changed sources refuse.",
+    "IR02": "Actual installed CLI starts one loopback listener and wakes existing inbound processing after durable signed intake; task query sees the resulting existing Core policy state.",
+    "IR03": "Wrong signature, organization/webhook scope, method, route, duplicate headers, malformed JSON and body/header bounds refuse without an applied task effect; legitimate unrelated issues retain only existing minimal ignored metadata.",
+    "IR04": "Slow/partial reads and exhausted concurrency remain bounded; acknowledgement waits only for durable intake and never provider readback. Late callback work remains owned until settled.",
+    "IR05": "Restart drains durable received work and waits for an existing delivery lease expiry; duplicate delivery does not duplicate an applied effect.",
+    "IR06": "A second owner or occupied port refuses without stopping the first owner or an unrelated listener; owner lock identity replacement refuses.",
+    "IR07": "Startup/drain failure, session revocation/expiration, changed configuration/credential/secret and termination stop admission and report actual bounded cleanup. Unknown live work is not called stopped.",
+    "IR08": "Installed source/package bindings and supported command are retained; existing affected submit/enqueue/interface checks remain valid. Runtime imports no tests, arbitrary import or transport override from operator data."
+  }
+}

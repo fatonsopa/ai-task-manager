@@ -54,6 +54,7 @@ def load_service(
         "linear",
         "workflow_control",
         "session_observations",
+        "receiver_file",
     }
     if (
         not isinstance(config, dict)

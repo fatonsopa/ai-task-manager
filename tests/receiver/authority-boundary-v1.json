@@ -1,0 +1,15 @@
+{
+  "task": "TST-154",
+  "finding": "M2-RECEIVER-P1-1",
+  "extends": "cases-v2.json IR02/IR05/IR07/IR08",
+  "requirements": ["R04", "R14", "R30", "R36"],
+  "guarantee": "A completed listener enrollment revocation/expiry or configured-source change during provider I/O prevents every later Core mutation or applied receipt. Recheck existing authority after readback, after evidence collection and immediately before effect calls; release the delivery for a valid future owner. These are fresh consumption checks, not atomic exclusion against changes occurring after a check.",
+  "cases": {
+    "RA01": "Gate real loopback readback, revoke signed enrollment while Core capability remains valid, then release: task and applied receipt remain unchanged; listener stops and delivery is recoverable.",
+    "RA02": "The same ordering with enrollment expiry, receiver config, secret and credential changes refuses ordinary, reordered and outbound-echo application branches.",
+    "RA03": "Loss during evidence collection prevents settlement; loss after a prior legitimate Core application prevents a new applied receipt and retains the committed fact for recovery.",
+    "RA04": "Removal/scope-removal and recovered-application branches consume current authority; revoked source cannot be replaced by a still-valid Core capability.",
+    "RA05": "Positive authenticated wake/drain, durable restart, duplicate handling and installed command cleanup retain their existing controls. No runtime endpoint override or new authority issuer."
+  },
+  "limits": "Authored provider/local installed checks only. Original failed independent review remains retained; no live Linear/model/ngrok/credential effects."
+}

@@ -58,6 +58,16 @@ def main(argv=None, *, workflow_registry=None):
             return exit_code(envelope)
         if args.installation:
             raise ValueError("Installation input is only valid for workflow owner")
+        if args.group == "sync" and args.action == "listen":
+            if args.input:
+                raise ValueError("Listener uses only sealed operator configuration")
+            from ai_task_manager.application.linear_sync.listener import serve_config
+
+            def emit(event):
+                sys.stdout.write(json.dumps(event, ensure_ascii=False, allow_nan=False) + "\n")
+                sys.stdout.flush()
+
+            return serve_config(args.config, args.session_file, emit)
         service = load_service(args.config, args.session_file)
         if args.group == "view":
             if args.input or args.json:

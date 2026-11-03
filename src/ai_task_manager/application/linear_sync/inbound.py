@@ -54,12 +54,35 @@ class InboundDrain:
             raise LinearError("staged_readback_changed")
         return self.journal.prose_readback_receipt(scope, task, snapshot)
 
-    def run_once(self, handle, worker_id="linear-inbound"):
+    def run_once(self, handle, worker_id="linear-inbound", *, check_authority=None):
+        # The installed owner supplies its existing local enrollment/source
+        # check. It is a consumption guard, never a new authority issuer.
+        if check_authority is not None:
+            check_authority()
         worker_id = f"{worker_id}:{uuid4()}"
         _, scope = self.core.session_binding(handle)
         receipt = self.journal.claim_delivery(scope, worker_id, self.clock())
         if receipt is None:
             return None
+        authority_lost = False
+
+        def check():
+            nonlocal authority_lost
+            if check_authority is not None:
+                try:
+                    check_authority()
+                except BaseException:
+                    authority_lost = True
+                    raise
+
+        def applied():
+            check()
+            ref = self.journal.application_receipt(scope, receipt["delivery_id"], payload)
+            check()
+            self.core.sync.mark_applied(handle, receipt["delivery_id"], ref)
+            check()
+            self.journal.finish_delivery(receipt["id"], worker_id, "applied", self.clock())
+
         payload = json.loads(receipt["payload"])
         checkpoint = json.loads(receipt["checkpoint"])
         task = next(
@@ -71,12 +94,14 @@ class InboundDrain:
             None,
         )
         try:
+            check()
             if task is None:
                 self.journal.finish_delivery(
                     receipt["id"], worker_id, "ignored", self.clock(), "unregistered_issue"
                 )
                 return {"state": "ignored", "reason": "unregistered_issue"}
             if payload["data"].get("scopeRemoval") is True:
+                check()
                 record_scope_removal(
                     self.core,
                     self.journal,
@@ -84,10 +109,12 @@ class InboundDrain:
                     task,
                     payload["data"],
                     f"linear-scope-removal:{receipt['id']}",
+                    check_authority=check,
                 )
                 raise LinearError("registered_issue_scope_removed")
             if payload["action"] == "remove":
                 ref = self.journal.removal_receipt(scope, task, payload, self.authorized_actors)
+                check()
                 self.core.external.observe(
                     handle,
                     task.id,
@@ -98,6 +125,7 @@ class InboundDrain:
                 )
                 raise LinearError("remote_issue_removed")
             snapshot = self.client.read_issue(task.issue_id)
+            check()
             checkpoint = self.journal.checkpoint(
                 receipt["id"], worker_id, {"snapshot": asdict(snapshot)}, self.clock()
             )
@@ -105,6 +133,7 @@ class InboundDrain:
 
             if revision(payload["data"]["updatedAt"]) != snapshot.revision:
                 ref = self.journal.external_receipt(scope, task, snapshot, {}, frozenset())
+                check()
                 self.core.external.observe(
                     handle,
                     task.id,
@@ -115,9 +144,7 @@ class InboundDrain:
                 )
                 raise LinearError("event_readback_revision_conflict")
             if task.sync_state == "confirmed" and self.journal.is_echo(scope, snapshot):
-                ref = self.journal.application_receipt(scope, receipt["delivery_id"], payload)
-                self.core.sync.mark_applied(handle, receipt["delivery_id"], ref)
-                self.journal.finish_delivery(receipt["id"], worker_id, "applied", self.clock())
+                applied()
                 return {"state": "applied", "classification": "outbound_echo"}
             matching_pending = any(
                 operation.task_id == task.id
@@ -147,8 +174,10 @@ class InboundDrain:
                     },
                     self.clock(),
                 )
+            check()
             observed = self.core.external.observe(handle, **checkpoint["observe"])
             if observed["state"] in {"stale", "duplicate"}:
+                check()
                 self.journal.finish_delivery(
                     receipt["id"], worker_id, "ignored", self.clock(), observed["state"]
                 )
@@ -162,9 +191,7 @@ class InboundDrain:
                 None,
             )
             if already and already["state"] == "applied":
-                ref = self.journal.application_receipt(scope, receipt["delivery_id"], payload)
-                self.core.sync.mark_applied(handle, receipt["delivery_id"], ref)
-                self.journal.finish_delivery(receipt["id"], worker_id, "applied", self.clock())
+                applied()
                 return {"state": "applied", "classification": "recovered_application"}
             task = self.core.get_task(handle, task.id)
             refs = self.evidence_for(task, payload)
@@ -174,6 +201,7 @@ class InboundDrain:
             settled = None
             for cause in causes:
                 try:
+                    check()
                     settled = self.core.external.settle(
                         handle,
                         task.id,
@@ -189,13 +217,23 @@ class InboundDrain:
                     continue
             if settled is None:
                 raise InvalidTransition("Remote transition has no permitted cause and evidence")
-            ref = self.journal.application_receipt(scope, receipt["delivery_id"], payload)
-            self.core.sync.mark_applied(handle, receipt["delivery_id"], ref)
-            self.journal.finish_delivery(receipt["id"], worker_id, "applied", self.clock())
+            applied()
             return {"state": "applied", "task_id": task.id, "task": settled}
         except (LinearError, WorkError) as exc:
+            if authority_lost:
+                raise
+            check()
             category = exc.category if isinstance(exc, LinearError) else type(exc).__name__
             self.journal.finish_delivery(
                 receipt["id"], worker_id, "conflict", self.clock(), category
             )
             return {"state": "conflict", "error": category, "task_id": task.id if task else None}
+        finally:
+            if authority_lost:
+                # Preserve acceptance/checkpoints for a later valid owner. If the
+                # lease already expired, its existing recovery wake still owns it.
+                try:
+                    self.journal.release_delivery(receipt["id"], worker_id, self.clock())
+                except LinearError as exc:
+                    if exc.category != "lost_receiver_lease":
+                        raise
