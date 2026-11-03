@@ -1,0 +1,40 @@
+{
+  "format": 1,
+  "query_shape_version": 2,
+  "baseline_fixture": "../fixtures/dependency_reader_v1.json",
+  "baseline_fixture_sha256": "865649eb9f9dbbd05995acd1c65674090783f22e7d40220f685634007ff612e4",
+  "baseline_source_commit": "844818b",
+  "details_query_sha256": "b108a86e90f1259afe01c5133a611e25721bdb3284314223a75175274ca12771",
+  "request_counts": {
+    "single": {
+      "before": 17,
+      "after": 13
+    },
+    "paginated_three_nodes": {
+      "before": 39,
+      "after": 27
+    }
+  },
+  "guard_order": [
+    "Fresh binding and verified schema.",
+    "Metadata-only ownership validation for each node.",
+    "Combined approved prose and both first relation pages.",
+    "Independent remaining forward/inverse pages with per-page metadata validation.",
+    "Closing metadata and an independently repeated complete scan.",
+    "Fresh binding comparison before returning the unchanged Observation."
+  ],
+  "shared_fixture_delta": "Return all requested whole GraphQL field tokens; preserve old metadata,prose and single-direction branches,callback order and foreign-prose omission.",
+  "existing_fault_injection_version": {
+    "case": "test_missing_opposite_direction_is_not_complete",
+    "change": "Extend the same owned-issue missing-forward fault to the combined first page;assert nonempty data was removed and exact incomplete_dependency_direction receipt.",
+    "original_expected_state": "unknown",
+    "changed_failure_semantics": false
+  },
+  "unchanged": [
+    "Receipt/source interfaces and identity/history/idempotency.",
+    "30-second freshness and20-second reader budget.",
+    "Node/relation/page/request limits and unknown refusal.",
+    "No mutable authority cache or weakened proof."
+  ],
+  "measurement": "Authored deterministic request counts and raw response equivalence only; no live latency or provider-cost measurement."
+}

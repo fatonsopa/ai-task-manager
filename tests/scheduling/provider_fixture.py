@@ -2,6 +2,7 @@
 
 import copy
 import json
+import re
 from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
@@ -151,14 +152,14 @@ class ProviderFixture:
             if "DependencyProse" not in query:
                 node.pop("title")
                 node.pop("description")
-            direction = (
-                "inverseRelations"
-                if "inverseRelations(" in query
-                else "relations"
-                if "relations(" in query
-                else None
-            )
-            if direction:
+            # Query shape v2 can request both first pages after metadata ownership.
+            # A v1 directional request still returns only its requested connection.
+            directions = [
+                d
+                for d in ("relations", "inverseRelations")
+                if re.search(r"\b" + re.escape(d) + r"\s*\(", query)
+            ]
+            for direction in directions:
                 endpoint = "relatedIssue" if direction == "inverseRelations" else "issue"
                 rows = [copy.deepcopy(x) for x in self.edges if x[endpoint]["id"] == issue]
                 start = int(variables.get("after") or 0)

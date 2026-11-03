@@ -12,7 +12,7 @@ from ai_task_manager.adapters.linear.models import canonical_id, revision
 from ai_task_manager.domains.scheduling.policy import check_cycles
 from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
 
-from .schema import METADATA, PROSE, RELATIONS, SCHEMA, DependencySchema
+from .schema import DETAILS, METADATA, RELATIONS, SCHEMA, DependencySchema
 
 
 def digest(value):
@@ -113,7 +113,7 @@ class DependencyReader:
             if current is None:
                 raise LinearError("dependency_predecessor_unresolved")
             meta, _ = self._read(METADATA, issue)
-            prose_meta, prose = self._read(PROSE, issue)
+            prose_meta, prose = self._read(DETAILS, issue)
             if (
                 meta != prose_meta
                 or prose.get("title") != current.title
@@ -126,10 +126,14 @@ class DependencyReader:
             predecessors = set()
             for direction, query in RELATIONS.items():
                 after, cursors, page_ids = None, set(), set()
-                for _ in range(self.client.max_pages):
-                    page_meta, raw = self._read(query, issue, after=after)
-                    if page_meta != meta:
-                        raise LinearError("dependency_revision_changed")
+                for page_number in range(self.client.max_pages):
+                    if page_number == 0:
+                        # The owned prose response also contains both first pages.
+                        raw = prose
+                    else:
+                        page_meta, raw = self._read(query, issue, after=after)
+                        if page_meta != meta:
+                            raise LinearError("dependency_revision_changed")
                     try:
                         connection = raw[direction]
                         page, items = connection["pageInfo"], connection["nodes"]
