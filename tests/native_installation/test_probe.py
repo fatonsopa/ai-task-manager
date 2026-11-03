@@ -184,3 +184,72 @@ def test_P304_fresh_authority_cannot_rebind_enrolled_scope(probe):
         NativeProbeAuthority(
             authority.store, authority.manifest, authority.pins, wrong, profile=authority.profile
         )
+
+
+def test_P305_real_store_managed_read_inside_actual_assignment(probe, monkeypatch):
+    """Exercise real accounting SQL and canary guards, not a null effect boundary."""
+    _, authority, context, journal, factory = probe
+    gateway = CanaryGateway(context, authority, journal)
+    native = factory.start(context, gateway)
+    gateway.bind(native)
+    native.gateway.delegate = gateway
+    case = next(c for c in cases(context) if c.case_id == "native_shell_absent")
+    gateway.begin(case)
+    original = native.portal.call
+    reads = []
+
+    def turn_and_managed_read(function, *args, **kwargs):
+        result = original(function, *args, **kwargs)
+        if function == native.session.turn:
+            reads.append(gateway.call("read_file", {"path": "input.txt"}))
+        return result
+
+    monkeypatch.setattr(native.portal, "call", turn_and_managed_read)
+    factory.execute(context, native, case)
+    assert len(reads) == 1
+    assert reads[0]["text"]
+    events = gateway.end()
+    assert len(events) == 1
+    payload = journal._read(events[0], "trace")["payload"]
+    assert payload["tool"] == "read_file" and payload["outcome"] == "succeeded"
+    assert payload["before"] == payload["after"]
+
+
+def test_P306_revoked_real_store_refuses_managed_read(probe):
+    _, authority, context, journal, factory = probe
+    gateway = CanaryGateway(context, authority, journal)
+    native = factory.start(context, gateway)
+    gateway.bind(native)
+    native.gateway.delegate = gateway
+    case = next(c for c in cases(context) if c.case_id == "native_shell_absent")
+    gateway.begin(case)
+    before = gateway.snapshot()
+    authority.store.revoke(authority.reference)
+    with pytest.raises(AccessDenied, match="revoked"):
+        gateway.call("read_file", {"path": "input.txt"})
+    assert gateway.snapshot() == before
+    assert gateway.end() == ()
+
+
+def test_P307_permission_read_reuses_only_own_thread_transaction_and_clears(probe):
+    import sqlite3
+    from concurrent.futures import ThreadPoolExecutor
+
+    _, authority, _, _, _ = probe
+    store = authority.store
+    other = NativeStore(store.path, store.pointer)
+    with store.transaction() as conn:
+        assert store.permission(authority.reference)["reference"] == authority.reference
+        with pytest.raises(sqlite3.OperationalError, match="locked"):
+            other.permission(authority.reference)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with pytest.raises(sqlite3.OperationalError, match="locked"):
+                pool.submit(store.permission, authority.reference).result(timeout=2)
+        assert conn.in_transaction
+    assert getattr(store._active, "connection", None) is None
+    with pytest.raises(RuntimeError, match="rollback"):
+        with store.transaction():
+            assert store.permission(authority.reference)["reference"] == authority.reference
+            raise RuntimeError("rollback")
+    assert getattr(store._active, "connection", None) is None
+    assert store.permission(authority.reference)["reference"] == authority.reference

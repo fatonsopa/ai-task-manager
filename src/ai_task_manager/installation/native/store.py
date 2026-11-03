@@ -4,6 +4,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
+from threading import local
 from uuid import uuid4
 
 from ai_task_manager.config.files import digest, private_path
@@ -14,6 +15,7 @@ from ai_task_manager.storage.coherence import StoreBinding, probe_connection
 class NativeStore:
     def __init__(self, path, binding):
         self.path = Path(path).absolute()
+        self._active = local()
         self.binding = StoreBinding(
             self.path, binding["device"], binding["inode"], "native_meta", 3, binding["store_id"]
         )
@@ -71,6 +73,7 @@ class NativeStore:
         try:
             conn.execute("BEGIN IMMEDIATE")
             probe_connection(conn, self.binding)
+            self._active.connection = conn
             yield conn
             probe_connection(conn, self.binding)
             conn.commit()
@@ -78,6 +81,8 @@ class NativeStore:
             conn.rollback()
             raise
         finally:
+            if getattr(self._active, "connection", None) is conn:
+                del self._active.connection
             conn.close()
 
     @staticmethod
@@ -126,8 +131,16 @@ class NativeStore:
         )
 
     def permission(self, reference):
-        with self.transaction() as conn:
-            value = self.read(conn, "native_permissions", reference)
+        # A managed canary rechecks authority while its invocation owns the
+        # writer transaction. Read that exact same-thread/store transaction;
+        # opening another writer would deadlock against our own effect guard.
+        active = getattr(self._active, "connection", None)
+        if active is not None:
+            probe_connection(active, self.binding)
+            value = self.read(active, "native_permissions", reference)
+        else:
+            with self.transaction() as conn:
+                value = self.read(conn, "native_permissions", reference)
         if value is None:
             raise AccessDenied("Normal native permission was not enrolled")
         return value
