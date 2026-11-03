@@ -16,11 +16,13 @@ from ai_task_manager.adapters.decisions.observations import (
 from ai_task_manager.application.core import Core
 from ai_task_manager.application.service.linear import LinearComponents
 from ai_task_manager.config.claim_store import enroll_claim_store, open_claim_store
-from ai_task_manager.config.files import digest, private_path, read_private, write_private
+from ai_task_manager.config.files import FileSeal, digest, private_path, read_private, write_private
 from ai_task_manager.config.sessions import SessionControl, SessionFile
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.domains.work.models import ApprovalPolicy, Scope
 from ai_task_manager.storage.database import Database
+
+from .recovery import history, renewal, setup_lock, setup_origin
 
 # Capability names only; transition semantics remain exclusively in Core.
 ACTIONS = frozenset(
@@ -50,14 +52,50 @@ class _PendingSetup:
         return self.observations._pending_enrollment(reference)
 
 
-def setup(config_file, *, logical_session, actions, deadline, operation_key, components=None):
+def setup(
+    config_file,
+    *,
+    logical_session,
+    actions,
+    deadline,
+    operation_key,
+    components=None,
+    renew_from=None,
+    workflow_control=None,
+):
     """Trusted operator/host port, never a tool or a JSON verdict importer.
 
     The caller is the installer acting on actual operator authorization. Explicit
     action names grant only delegation; they never record a human instruction.
     ``components`` is a trusted code port for bounded transport controls.
+    ``renew_from`` explicitly selects completed expired enrollment history;
+    optional new owner paths preserve a verified stopped owner's descriptor.
     """
     config_file = private_path(config_file)
+    with setup_lock(config_file):
+        return _setup(
+            config_file,
+            logical_session,
+            actions,
+            deadline,
+            operation_key,
+            components,
+            renew_from,
+            workflow_control,
+        )
+
+
+def _setup(
+    config_file,
+    logical_session,
+    actions,
+    deadline,
+    operation_key,
+    components,
+    renew_from,
+    workflow_control,
+):
+    seal = FileSeal(config_file)
     config = read_private(config_file)
     if (
         not isinstance(logical_session, str)
@@ -83,23 +121,6 @@ def setup(config_file, *, logical_session, actions, deadline, operation_key, com
     )
     journal = AuthorityJournal(config["authority_database"], config["authority_key"])
     reference = PREFIX + digest({"config": str(config_file), "key": operation_key})
-    payload = {
-        "scope": asdict(scope),
-        "provider": asdict(expected),
-        "config_path": str(config_file),
-        "config_intent": intent(config),
-        "actions": list(actions),
-        "expires_at": deadline,
-    }
-    created = bind_record(journal, reference, payload)
-    pointer = {
-        "reference": reference,
-        "journal": identity(journal.path),
-        "key": identity(journal.key_path, content=True),
-    }
-    observations = SessionObservations(journal, components.client, config_file, pointer)
-    pending = _PendingSetup(observations)
-    pending.verify_enrollment(reference)
     db_path = private_path(config["core_database"], existing=False)
     database = Database(db_path)
     db_path.chmod(0o600)
@@ -115,21 +136,76 @@ def setup(config_file, *, logical_session, actions, deadline, operation_key, com
     )
     destination = Path(config["session_file"]).absolute()
     result_ref = "session-setup-result:" + digest(reference)
-    if not created and not destination.exists():
-        raise EvidenceRequired("Prior session setup may have committed; reconcile without replay")
+    origin_ref, origin = setup_origin(
+        journal, reference, asdict(scope), destination, config, renew_from, workflow_control
+    )
+    if workflow_control is not None and renew_from is None:
+        raise AccessDenied("Owner changes require explicit session renewal")
     if destination.exists():
         handle = SessionFile(destination).load(core)
         if core.session_binding(handle)[1] != scope:
             raise AccessDenied("Existing capability belongs to another logical session")
-        if created:
-            raise AccessDenied("New enrollment cannot adopt an existing capability")
-    else:
+        if origin["capability"] is not None and origin["capability"] != identity(
+            destination, content=True
+        ):
+            raise AccessDenied("Existing capability changed during setup recovery")
+        if renew_from is not None and config.get("grant_ref") != reference:
+            config = renewal(
+                journal,
+                config_file,
+                config,
+                renew_from,
+                asdict(scope),
+                time.time(),
+                core,
+                handle,
+                workflow_control,
+            )
+            # Refresh the connected application as well as the human/project binding.
+            components.client.check_connection(scope, refresh=True)
+    elif renew_from is not None:
+        raise AccessDenied("Renewal requires its existing session capability")
+    prior = history(journal, reference)
+    if prior is not None and not destination.exists():
+        raise EvidenceRequired("Prior session setup may have committed; reconcile without replay")
+    if deadline <= time.time():
+        raise AccessDenied("Session delegation expired during provider verification")
+    if renew_from is None and origin["capability"] is None:
+        bind_record(
+            journal,
+            "session-initial-setup:" + digest(str(config_file)),
+            {
+                "enrollment": reference,
+                "scope": asdict(scope),
+            },
+        )
+    bind_record(journal, origin_ref, origin)
+    payload = {
+        "scope": asdict(scope),
+        "provider": asdict(expected),
+        "config_path": str(config_file),
+        "config_intent": intent(config),
+        "actions": list(actions),
+        "expires_at": deadline,
+    }
+    bind_record(journal, reference, payload)
+    pointer = {
+        "reference": reference,
+        "journal": identity(journal.path),
+        "key": identity(journal.key_path, content=True),
+    }
+    observations = SessionObservations(journal, components.client, config_file, pointer)
+    pending = _PendingSetup(observations)
+    if renew_from is None:
+        pending.verify_enrollment(reference)
+    if not destination.exists():
         SessionControl(core, components.client, components.journal, pending).establish(
             reference, destination
         )
     result = {"scope": asdict(scope), "session_file": identity(destination, content=True)}
     bind_record(journal, result_ref, result)
     updated = {**config, "grant_ref": reference, "session_observations": pointer}
+    seal.check()
     if updated != config:
         write_private(config_file, updated, replace=True)
     return {"enrollment_ref": reference, "scope": asdict(scope), "capability_saved": True}

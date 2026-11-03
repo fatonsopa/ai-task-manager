@@ -100,6 +100,14 @@ Provider journal schema 4 adds the selected connection digest to durable sends a
 
 Operators must add `agent_connection` before constructing installed Linear components, select an existing application user in the intended workspace, and match the intended human and logical session. Existing configurations without this selection refuse. The selected user is verified as an application user in the workspace; that observation does not attest the application's OAuth scopes or execution capability. Actual provider acceptance remains separate from authored HTTP controls.
 
+### Expired session delegation
+
+The trusted installer `installation.sessions.setup` accepts `renew_from` to request a new bounded delegation for the same existing session. The caller supplies a new operation key and future deadline. The previous enrollment must be completed, expired and unrevoked, with its original configuration path/intent, authority journal/key, capability, enrolled Core store and provider scope intact. The installer verifies the current provider and selected application again. It retains the session capability and old signed records; it does not extend an old grant, workflow, plan or attempt deadline.
+
+Renewal refuses active or unknown attempts, retained resource leases, leased or uncertain Core writes, unsettled provider sends and leased or uncertain progress publication. A retained owner descriptor requires observed process death or PID reuse and an absent endpoint. Explicit `workflow_control` paths and instance must be new and unused; the previous descriptor remains history. This is a trusted installer operation, not model-visible authorization or permission to resume an expired workflow.
+
+A private nonblocking installer lock serializes setup. An immutable initial-setup claim and per-operation origin distinguish first establishment, recovery of a published capability, and explicit renewal. Fresh setup rejects an existing capability before writing a new grant. A legacy partial enrollment without completion cannot become adoption on a same-key retry. Interrupted renewal may resume its exact publication, while changed arguments conflict. These source and authored local controls do not establish actual provider or native-host acceptance.
+
 ### Product boundaries and repository layout
 
 Build one modular Python application with one local supervisor and isolated worker processes. Use a supported Python version selected after dependency checks; record it in the lock and compatibility matrix. SQLite stores local control metadata on local disk. Do not introduce network microservices to coordinate claims, attempts and resource reservations that need one transaction boundary.
