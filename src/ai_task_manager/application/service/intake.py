@@ -1,6 +1,8 @@
 """Focused intake operations over the configured session."""
 
+from ai_task_manager.domains.work.errors import InvalidTransition
 from ai_task_manager.domains.work.models import TaskProse
+from ai_task_manager.storage import issue_claims
 
 from .authorization import authorize
 from .models import Unavailable, external_result, result
@@ -34,13 +36,35 @@ def writing_finalize(service, data, invocation):
 def task_submit(service, data, invocation):
     view = service._required("writer").approvals_for_tasks(service.scope)
     prose = view.prose(data["writing_ref"])
+    followup_ref = data.get("followup_ref")
+    if data.get("parent_task_id"):
+        parent = service.core.get_task(service.handle, data["parent_task_id"])
+        require_owned(service, parent)
+        if followup_ref is None:
+
+            def issue_followup():
+                # Reuse Core's approval and canonical delivery predicates. Provider
+                # enrollment checks occur only after this local transaction closes.
+                _, approved_digest = service.core.intake.approved(
+                    prose, data["writing_ref"], service.scope
+                )
+                with service.core.context.db.transaction() as conn:
+                    if not issue_claims.known_delivered(conn, service.scope, parent):
+                        raise InvalidTransition(
+                            "Delivered-issue follow-up must link a delivered task"
+                        )
+                return service._required("decisions").delivered_followup(
+                    service.scope, parent, approved_digest, grant_ref=service.grant_ref
+                )
+
+            followup_ref = invocation.reference("delivered_followup", issue_followup)
     task = service.core.intake.submit(
         service.handle,
         prose,
         data["writing_ref"],
         data["operation_key"],
         data.get("parent_task_id"),
-        data.get("followup_ref"),
+        followup_ref,
     )
     return service.confirm(task)
 

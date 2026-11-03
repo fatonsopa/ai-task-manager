@@ -126,10 +126,16 @@ def test_ea82_canonical_positive_parent_requires_separate_exact_followup_proof(r
     with pytest.raises(EvidenceRequired):
         rig.core.intake.submit(rig.handle, prose, approved, str(uuid4()), parent_task_id=task.id)
     assert rig.effects() == before
-    # Only this explicit authored fixture route owns the missing production proof kind.
+    # Retain this original synthetic consumer control. Production now owns the
+    # kind, so only this copied test route relinquishes it to the authored fixture.
+    # Installed producer/router coverage lives in test_followup_submission.py.
     facts = ProofFixture()
+    routes = [
+        EvidenceRoute(route.prefix, route.kinds - {"delivered_followup"}, route.verifier)
+        for route in rig.router.routes
+    ]
     rig.core.context.evidence = EvidenceRouter(
-        [*rig.router.routes, EvidenceRoute("synthetic-followup:", {"delivered_followup"}, facts)]
+        [*routes, EvidenceRoute("synthetic-followup:", {"delivered_followup"}, facts)]
     )
     ref = "synthetic-followup:" + str(uuid4())
     digest = prose_digest(prose, rig.renderer.render(prose))

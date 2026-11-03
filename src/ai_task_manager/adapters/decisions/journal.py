@@ -117,6 +117,12 @@ class AuthorityJournal:
             and origin.startswith(PREFIX)
         ):
             current_enrollment(self, origin, data["scope"])
+        if data["kind"] == "delivered_followup":
+            if not isinstance(origin, str) or not origin.startswith(PREFIX):
+                raise AccessDenied("Delivered follow-up requires enrolled delegation")
+            enrollment = current_enrollment(self, origin, data["scope"])
+            if "delivered_followup" not in enrollment["actions"]:
+                raise AccessDenied("Enrollment does not authorize delivered follow-up")
         return Evidence(
             data["kind"],
             Scope(**data["scope"]),

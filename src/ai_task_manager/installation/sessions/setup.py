@@ -36,6 +36,7 @@ from .recovery import (
 ACTIONS = frozenset(
     {
         "enqueue",
+        "delivered_followup",
         "dequeue",
         "hold",
         "start",

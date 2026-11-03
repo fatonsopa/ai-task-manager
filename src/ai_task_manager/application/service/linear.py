@@ -31,6 +31,7 @@ from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
 DECISION_KINDS = frozenset(
     {
         "decision",
+        "delivered_followup",
         "existing_issue_selection",
         "human_decision",
         "session_resume",
