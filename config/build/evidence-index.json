@@ -105,16 +105,16 @@
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "e11cda1ef839bb842114368f4d6b7b6c3b7eca71bddf05e61d8a6d74ffa381f8",
+      "sha256": "a1a50ead08acf2583a546e3d05d334f6931a263b8081f741578085eb71e114bd",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
-      "objective_sha256": "f39c40ede8e6b6665a25fc07cd3a66c09d49c5043c006808325eeb53542b77c8",
+      "objective_sha256": "92bfb0d614c019c6dda8ae9a5526d13c062f6ac55e622d651e90957bdc285a19",
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
-      "scope": "New reporting period; exact actual startup distinguished from full task/profile acceptance; integrated components retain source-bound results.",
-      "reporting_period": "2026-11-02 15:12\u201319:05 UTC"
+      "scope": "Source-bound component integration, actual failedcase5, corrected decision preparation and pending real/installed acceptance.",
+      "reporting_period": "2026-11-03 00:30-02:00 UTC"
     },
     "merge/decision_record.md": {
       "checked_delivery": "delivered",
@@ -1318,6 +1318,21 @@
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
       "scope": "10:15\u201313:10UTC current period: integrated147+74,45,57and221 scoped checks; actual primary/secondary metadata preflights; real workflows remain unrun.",
       "reporting_period": "2026-11-02 10:15\u201313:10 UTC"
+    },
+    {
+      "path": "test_status_report.md",
+      "checked_delivery": "delivered",
+      "sha256": "e11cda1ef839bb842114368f4d6b7b6c3b7eca71bddf05e61d8a6d74ffa381f8",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "f39c40ede8e6b6665a25fc07cd3a66c09d49c5043c006808325eeb53542b77c8",
+      "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+      "scope": "New reporting period; exact actual startup distinguished from full task/profile acceptance; integrated components retain source-bound results.",
+      "reporting_period": "2026-11-02 15:12\u201319:05 UTC",
+      "preserved_reason": "Replaced current index entry by source-bound00:30-02:00UTC period; original historical periods and Git evidence retained."
     }
   ],
   "requirements_revision": 5,
