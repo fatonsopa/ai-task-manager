@@ -179,19 +179,7 @@ class WorkerCommits:
                 "references": plan.commit_checks,
             },
         )
-        # Checks may neither stage other files nor rewrite the candidate.
-        staged = self.git.query(pair.worktree, "diff", "--cached", "--name-only", "-z")
-        if sorted(p.decode() for p in staged.split(b"\0") if p) != intent["files"]:
-            raise AccessDenied("Staged files differ from the worker commit intent")
-        if self.git.query(pair.worktree, "diff", "--name-only", "-z"):
-            raise AccessDenied("Checked worktree content differs from the staged candidate")
-        untracked = self.git.query(
-            pair.worktree, "ls-files", "--others", "--exclude-standard", "-z"
-        )
-        if untracked:
-            raise AccessDenied("New untracked files appeared during worker commit checks")
-        tree = self.git.tree(pair.worktree)
-        self.git.validate_tree(pair.worktree, tree, intent)
+        tree = self.git.checked_tree(pair.worktree, intent)
         index = self.git.prepare_index(
             attempt.id, pair.worktree, tree, boundary, seconds(), effect_boundary
         )
@@ -232,6 +220,22 @@ class WorkerCommits:
         results = self.journal.observations(attempt.id, "worker-git-result")
         actual = [result for result in results if result["stage"] == "commit"]
         self.git.require_quiescent_commit(attempt.id)
+
+        @contextmanager
+        def recovery_boundary():
+            if self.clock() >= plan.deadline:
+                raise AccessDenied("Original worker commit deadline expired")
+            with self.core.execution.worker_commit_boundary(
+                self.handle,
+                row["task_id"],
+                attempt.id,
+                intent["task_version"],
+                intent["attempt_version"],
+                row["decision_revision"],
+            ):
+                yield
+
+        self.git.reconcile_publication(attempt.id, pair.worktree, candidate, recovery_boundary)
         head = self.git.committed(pair.worktree, candidate)
         if head is None or (
             actual and (actual[-1]["returncode"] != 0 or actual[-1]["outcome"] != "succeeded")

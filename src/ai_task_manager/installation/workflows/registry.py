@@ -19,8 +19,13 @@ class NativeAuthorities:
     decision_preparation: object = None
     confined_commands: object = None
     command_refs: tuple[str, ...] = ()
+    worker_git: object = None
 
     def require(self):
+        from ai_task_manager.adapters.git.commits import ConfinedWorkerGit
+
+        if self.worker_git is not None and type(self.worker_git) is not ConfinedWorkerGit:
+            raise Unavailable("Worker commits require explicit actual-resource Git authority")
         if (
             type(self.command_refs) is not tuple
             or len(set(self.command_refs)) != len(self.command_refs)

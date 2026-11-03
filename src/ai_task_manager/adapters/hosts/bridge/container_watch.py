@@ -20,6 +20,11 @@ def publish(path, value):
         output.flush()
         os.fsync(output.fileno())
     os.replace(temporary, path)
+    directory = os.open(Path(path).parent, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
 
 
 def main():

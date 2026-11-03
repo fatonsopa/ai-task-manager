@@ -25,8 +25,15 @@ class WorkerGit:
 
     def query(self, path, *args, index=None):
         result = subprocess.run(
-            [self.executable, "-C", str(path), *args],
-            env={**self.environment, **({"GIT_INDEX_FILE": str(index)} if index else {})},
+            [self.executable, "-c", "core.fsmonitor=false", "-C", str(path), *args]
+            if args[0] in {"status", "diff", "ls-files"}
+            else [self.executable, "-C", str(path), *args],
+            env={
+                **self.environment,
+                "GIT_OPTIONAL_LOCKS": "0",
+                "GIT_PAGER": "cat",
+                **({"GIT_INDEX_FILE": str(index)} if index else {}),
+            },
             capture_output=True,
             timeout=10,
         )
@@ -40,11 +47,13 @@ class WorkerGit:
         directory = Path(hooks.decode().strip())
         entries = []
         if directory.exists():
-            for entry in sorted(directory.iterdir()):
-                if entry.is_file() and not entry.name.endswith(".sample"):
+            for entry in sorted(directory.rglob("*")):
+                if entry.is_symlink():
+                    raise AccessDenied("Git hook symlinks require separate admission")
+                if entry.is_file():
                     entries.append(
                         (
-                            entry.name,
+                            str(entry.relative_to(directory)),
                             entry.stat().st_mode,
                             hashlib.sha256(entry.read_bytes()).hexdigest(),
                         )
@@ -141,14 +150,35 @@ class WorkerGit:
         if {name: actual.get(name) for name in intent["files"]} != intent["content"]:
             raise AccessDenied("Candidate tree bytes or modes differ from the checked change")
 
+    def checked_tree(self, path, intent):
+        staged = self.query(path, "diff", "--cached", "--name-only", "-z")
+        if sorted(p.decode() for p in staged.split(b"\0") if p) != intent["files"]:
+            raise AccessDenied("Staged files differ from the worker commit intent")
+        if self.query(path, "diff", "--name-only", "-z"):
+            raise AccessDenied("Checked worktree content differs from the staged candidate")
+        if self.query(path, "ls-files", "--others", "--exclude-standard", "-z"):
+            raise AccessDenied("New untracked files appeared during worker commit checks")
+        tree = self.tree(path)
+        self.validate_tree(path, tree, intent)
+        return tree
+
+    def reconcile_publication(self, attempt_id, path, candidate, effect_boundary):
+        """The host adapter has no separate publication to recover."""
+
     def prepare_index(self, attempt_id, path, tree, boundary, seconds, effect_boundary):
         directory = self.journal.path.parent / "worker-commit-output" / attempt_id
         index = private_path(directory / "candidate.index", existing=False)
         if index.exists() or directory.stat().st_mode & 0o077:
             raise AccessDenied("A new private worker commit index is required")
         self._effect(
-            attempt_id, "candidate-index", path, ("read-tree", tree), boundary, seconds,
-            effect_boundary, index=index,
+            attempt_id,
+            "candidate-index",
+            path,
+            ("read-tree", tree),
+            boundary,
+            seconds,
+            effect_boundary,
+            index=index,
         )
         if self.query(path, "write-tree", index=index).decode().strip() != tree:
             raise RuntimeUncertain("Private worker index differs from its checked tree")
@@ -176,7 +206,8 @@ class WorkerGit:
 
         boundary()
         self.journal.intend(
-            attempt_id, "worker-" + stage,
+            attempt_id,
+            "worker-" + stage,
             {"path": str(path), "args": args, "index": str(index) if index else None},
         )
         started = time.monotonic()

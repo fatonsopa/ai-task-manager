@@ -268,13 +268,15 @@ class InstalledWorkflow:
         from ai_task_manager.adapters.git.commits import WorkerGit
         from ai_task_manager.application.commits import WorkerCommits
 
+        if authority.worker_git is not None and authority.worker_git.journal is not self.journal:
+            raise AccessDenied("Worker Git authority belongs to another runtime journal")
         commits = (
             WorkerCommits(
                 core,
                 handle,
                 runtime,
                 self.journal,
-                WorkerGit(self.journal),
+                authority.worker_git or WorkerGit(self.journal),
                 checks=authority.confined_commands,
             )
             if task.code_bearing

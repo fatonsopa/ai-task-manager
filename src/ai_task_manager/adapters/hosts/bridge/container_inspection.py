@@ -1,7 +1,9 @@
 """Read actual daemon facts and remove only an exactly observed owned container."""
 
 import json
+import re
 import subprocess
+from pathlib import Path
 
 
 def docker(plan, *arguments):
@@ -20,7 +22,15 @@ def docker(plan, *arguments):
 
 
 def owned(plan):
-    observed = docker(plan, "inspect", plan["name"])
+    identity = plan["name"]
+    if plan.get("cidfile"):
+        path = Path(plan["cidfile"])
+        if not path.is_file() or path.is_symlink():
+            return None, {"error": "container_identity_missing"}
+        identity = path.read_text().strip()
+        if not re.fullmatch(r"[0-9a-f]{64}", identity):
+            return None, {"error": "container_identity_invalid"}
+    observed = docker(plan, "inspect", identity)
     if observed["returncode"] != 0:
         return None, observed
     rows = json.loads(observed["stdout"])
@@ -30,6 +40,11 @@ def owned(plan):
     if (
         container.get("Name") != "/" + plan["name"]
         or not container.get("Id")
+        or (plan.get("cidfile") and container.get("Id") != identity)
+        or any(
+            container.get("Config", {}).get("Labels", {}).get(k) != v
+            for k, v in plan.get("labels", {}).items()
+        )
         or container.get("Config", {}).get("Labels", {}).get("aitm.owner") != plan["owner"]
     ):
         return None, observed
@@ -59,15 +74,18 @@ def restrictions(plan):
         and host.get("Tmpfs") == expected["tmpfs"]
         and config.get("User") == expected["user"]
         and isinstance(mounts, list)
-        and len(mounts) == 2
+        and len(mounts) == len(expected.get("mount_records", expected["mounts"]))
     )
     if safe:
         actual = {
             m.get("Destination"): (m.get("Source"), m.get("Type"), m.get("RW")) for m in mounts
         }
-        safe = actual == {
-            target: (source, "bind", False) for target, source in expected["mounts"].items()
-        }
+        admitted = expected.get("mount_records")
+        if admitted is None:
+            admitted = {
+                target: [source, "bind", False] for target, source in expected["mounts"].items()
+            }
+        safe = actual == {target: tuple(value) for target, value in admitted.items()}
     return safe, observed
 
 
