@@ -2,7 +2,7 @@
   "schema_version": 3,
   "scope": "Documentation and declared supporting inputs; not whole-product or runtime attestation.",
   "path_base": "repository_root",
-  "previous_manifest_sha256": "36ef3e652228581a9ccb6d573b498fb063810b6fddd76a7df259c12e89b0e389",
+  "previous_manifest_sha256": "a96c883b371760522552728d73302125a7415002c1834ddc430f7f8b6bcb7f1e",
   "files": [
     {
       "path": ".gitignore",
@@ -22,7 +22,7 @@
     },
     {
       "path": "config/build/evidence-index.json",
-      "sha256": "b899f81ee5fe9755e0bf34afff0526380c3cc7716d4ff0eb6b6d1a9b208b113b"
+      "sha256": "f1216c1ca2bfc4958c8fef14fe5e1477dae90c1adc80f339fc3d2767a9080adb"
     },
     {
       "path": "config/execution-policy.json",
@@ -146,7 +146,7 @@
     },
     {
       "path": "docs/high_level_document.md",
-      "sha256": "a38978489265e7a9b042e30f4ae1b766b9e3494e35627b16947f599967460b8f"
+      "sha256": "c001a188afed923499926924febf5785ede03a80747c284885016955bb9c51dd"
     },
     {
       "path": "docs/implementation_plan.md",
