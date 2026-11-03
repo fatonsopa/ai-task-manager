@@ -47,6 +47,7 @@ class ManagedWorkers:
         executions=None,
         base="HEAD",
         dependencies=None,
+        decision_preparation=None,
     ):
         if isinstance(deadline, bool) or not math.isfinite(deadline) or deadline <= journal.clock():
             raise AccessDenied("Managed workers require the original finite future deadline")
@@ -59,6 +60,7 @@ class ManagedWorkers:
         self.authorities = None
         self._freshness = {}
         self._startup_freshness = {}
+        self.decision_preparation = self._decision_preparation = decision_preparation
         if dependencies is not None:
             self.bind_dependencies(dependencies)
 
@@ -104,6 +106,7 @@ class ManagedWorkers:
             if source_readbacks is not None
             else None
         )
+        self._prepare_decision(decision_ref, handle, task_id, expected_version, decision_revision)
         attempt = self.core.execution.reserve(
             handle,
             task_id,
@@ -177,6 +180,9 @@ class ManagedWorkers:
                 if source_readbacks is not None
                 else None
             )
+            self._prepare_decision(
+                decision_ref, handle, task_id, task.version, task.decision_revision
+            )
             self.core.execution.start(
                 handle,
                 attempt.id,
@@ -211,6 +217,18 @@ class ManagedWorkers:
         except BaseException as error:
             self._abort(handle, attempt.id, waiting, native, operation_key, type(error).__name__)
             raise
+
+    def _prepare_decision(self, ref, handle, task_id, version, revision):
+        if self.decision_preparation is not self._decision_preparation:
+            raise AccessDenied("The trusted decision preparation owner changed")
+        if self.decision_preparation is not None:
+            self.decision_preparation.prepare_consumption(
+                ref,
+                handle=handle,
+                task_id=task_id,
+                expected_version=version,
+                decision_revision=revision,
+            )
 
     def execute_worker_command(self, handle, attempt_id, command_ref, operation_key):
         attempt = self.core.get_attempt(handle, attempt_id)
