@@ -2,7 +2,7 @@
   "schema_version": 3,
   "scope": "Documentation and declared supporting inputs; not whole-product or runtime attestation.",
   "path_base": "repository_root",
-  "previous_manifest_sha256": "dbc3de30db1b7b16a05ffc212e8fae0a9d57d0508bed4e3addd4a34468a8bdc0",
+  "previous_manifest_sha256": "36ef3e652228581a9ccb6d573b498fb063810b6fddd76a7df259c12e89b0e389",
   "files": [
     {
       "path": ".gitignore",
@@ -22,7 +22,7 @@
     },
     {
       "path": "config/build/evidence-index.json",
-      "sha256": "27707930e3d76207179430e644f870446b7a312dd01f1e508178ec4cf58226a3"
+      "sha256": "b899f81ee5fe9755e0bf34afff0526380c3cc7716d4ff0eb6b6d1a9b208b113b"
     },
     {
       "path": "config/execution-policy.json",
@@ -194,7 +194,7 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "a1a50ead08acf2583a546e3d05d334f6931a263b8081f741578085eb71e114bd"
+      "sha256": "32a175b21ef9ee67abc1912a9eaddff2077737ab8f58c47945ce2b752b628f58"
     },
     {
       "path": "prototypes/terminal/session-task-management.html",

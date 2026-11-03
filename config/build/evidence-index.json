@@ -105,16 +105,15 @@
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "a1a50ead08acf2583a546e3d05d334f6931a263b8081f741578085eb71e114bd",
+      "sha256": "32a175b21ef9ee67abc1912a9eaddff2077737ab8f58c47945ce2b752b628f58",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
-      "objective_sha256": "92bfb0d614c019c6dda8ae9a5526d13c062f6ac55e622d651e90957bdc285a19",
+      "objective_sha256": "7e3043f52a56fac1011efc061a5584d6ac1cf2e7af4209bad0d2e4a0c797548d",
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
-      "scope": "Source-bound component integration, actual failedcase5, corrected decision preparation and pending real/installed acceptance.",
-      "reporting_period": "2026-11-03 00:30-02:00 UTC"
+      "scope": "Reporting period02:00\u201304:17UTC: version-bound controller/review/installedconsumer/diagnostics components; retained failed native cases and verified CASE9 terminal/artifact before failed shutdown; no complete live/profile/normal installation claim."
     },
     "merge/decision_record.md": {
       "checked_delivery": "delivered",
@@ -1401,6 +1400,20 @@
       "objective_sha256": "ededd7875cd97300ab3b8f7b00213ab2d5d4df1ab80322c2ba5737a758d462d7",
       "message_sha256": "4230006c424a868f05aa409e7410a68eb1c59aeb76e55ef0131e0b33164e1aef",
       "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
+    },
+    {
+      "path": "test_status_report.md",
+      "checked_delivery": "delivered",
+      "sha256": "a1a50ead08acf2583a546e3d05d334f6931a263b8081f741578085eb71e114bd",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "92bfb0d614c019c6dda8ae9a5526d13c062f6ac55e622d651e90957bdc285a19",
+      "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+      "scope": "Source-bound component integration, actual failedcase5, corrected decision preparation and pending real/installed acceptance.",
+      "reporting_period": "2026-11-03 00:30-02:00 UTC"
     }
   ],
   "requirements_revision": 7,
