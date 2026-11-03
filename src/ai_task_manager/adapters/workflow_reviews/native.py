@@ -6,6 +6,7 @@ from dataclasses import asdict
 
 from ai_task_manager.adapters.hosts.bridge.controller import ManagedHostFactory, ManagedNativeHost
 from ai_task_manager.adapters.hosts.bridge.executions import ModelWork, ReviewedExecutions
+from ai_task_manager.adapters.hosts.transports.native_input import NativeInput
 from ai_task_manager.config.files import MAX_JSON_BYTES, strict_json
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.installation.workflows.registry import NativeRegistration
@@ -101,6 +102,20 @@ class NativeReviewCapture:
             return captured
         store.require_unused(inspection)
         prompt = review_prompt(inspection)
+        # Current ClaudeSession string-query framing is known before startup.
+        # Use the transport's actual validator; prompt byte length alone misses
+        # the extra JSON escaping in the outgoing request.
+        NativeInput.frames(
+            json.dumps(
+                {
+                    "type": "user",
+                    "message": {"role": "user", "content": prompt},
+                    "parent_tool_use_id": None,
+                    "session_id": "default",
+                }
+            )
+            + "\n"
+        )
         w, registration = self.workers, self.registration
         registration.check()
         core = w.core
@@ -230,7 +245,13 @@ class NativeReviewCapture:
                         w.stop(self.handle, attempt.id, operation_key=key + ":stop")
                     except BaseException as stop_error:
                         error.review_stop_error = type(stop_error).__name__
-            store.failed(directory, error)
+            store.failed(
+                directory,
+                error,
+                outcome="completed_unpublished"
+                if self._completion is not None
+                else "failed_or_unknown",
+            )
             raise
 
     def _export(self, completed, token, inspection):

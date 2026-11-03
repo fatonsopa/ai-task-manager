@@ -17,6 +17,12 @@ def graph(tmp_path, request):
     author = ReviewRig(tmp_path / "author")
     try:
         mode = getattr(request, "param", None)
+        if mode in {"large-plain", "escaped-input"}:
+            author.report.write_text("a" * 150000 if mode == "large-plain" else '"' * 70000)
+            author.saved = author.inspector.inspect(author.task, author.attempt, author.plan)
+            from ai_task_manager.config.files import write_private
+
+            write_private(author.store.path, author.saved, replace=True)
         inspected = author.artifacts.prepare(author.scope, author.task, author.saved["digest"])
         verdict = None
         if mode == "reject":
@@ -26,6 +32,12 @@ def graph(tmp_path, request):
                     {"id": "request", "judgment": "reject", "reason": "Authored rejection"}
                 ],
                 "reason": "Actual authored rejection fixture",
+            }
+        elif mode == "large-plain":
+            verdict = {
+                "context_digest": inspected.digest,
+                "criteria": [{"id": "request", "judgment": "accept", "reason": "r" * 150000}],
+                "reason": "Authored large valid verdict",
             }
         elif mode == "malformed":
             verdict = {"unknown": True}
@@ -257,3 +269,120 @@ print(json.dumps({'reference':c.reference,'model':c.model,'pid':os.getpid()}))
     default = owner._review_source(store.root.parent)
     assert default.factory is None
     assert default.resolve(inspection).reference == captured.reference
+
+
+def test_RC13_cold_missing_revocation_never_reinitializes(graph):
+    from ai_task_manager.config.files import write_private
+
+    _, inspection, producer, store = graph
+    captured = producer.capture(inspection, store)
+    write_private(store.revoked, {"revoked": [captured.reference]}, replace=True)
+    with pytest.raises(EvidenceRequired, match="revoked"):
+        store.resolve(inspection)
+    directory = store.directory(inspection)
+    store.revoked.unlink()
+    with pytest.raises(EvidenceRequired):
+        CaptureStore(store.root).resolve(inspection)
+    assert not store.revoked.exists()
+    assert (directory / "binding.json").exists()
+
+
+@pytest.mark.parametrize("graph", ["large-plain"], indirect=True)
+def test_RC14_combined_serialization_refuses_before_binding_and_never_relaunches(graph):
+    from ai_task_manager.adapters.hosts.transports.native_input import NativeInput
+    from ai_task_manager.adapters.workflow_reviews.native import review_prompt
+    from ai_task_manager.config.files import MAX_JSON_BYTES
+
+    _, inspection, producer, store = graph
+    prompt = review_prompt(inspection)
+    NativeInput.frames(
+        json.dumps(
+            {
+                "type": "user",
+                "message": {"role": "user", "content": prompt},
+                "parent_tool_use_id": None,
+                "session_id": "default",
+            }
+        )
+        + "\n"
+    )
+    with pytest.raises(EvidenceRequired):
+        producer.capture(inspection, store)
+    directory = store.directory(inspection)
+    native = next(iter(producer.workers.hosts.owned.values()))
+    terminal = native.journal._read(native.startup.transcript._last, "trace", fresh=False)
+    assert len(json.dumps(terminal["payload"]["frame"]).encode()) < MAX_JSON_BYTES
+    assert native.process._closed
+    assert not (directory / "binding.json").exists()
+    assert not (directory / "capture.json").exists()
+    assert not (directory / "public-trace.json").exists()
+    assert (directory / "intent.json").exists() and (directory / "failure.json").exists()
+    assert (
+        json.loads((directory / "failure.json").read_text())["outcome"] == "completed_unpublished"
+    )
+    assert store.resolve(inspection) is None
+    with pytest.raises(EvidenceRequired, match="reconciliation"):
+        producer.capture(inspection, store)
+    assert len(producer.workers.dispatches) == 1
+
+
+@pytest.mark.parametrize("graph", ["escaped-input"], indirect=True)
+def test_RC15_known_native_input_bound_refuses_before_dispatch(graph):
+    from ai_task_manager.adapters.hosts.transports.native_input import NativeInput
+    from ai_task_manager.adapters.workflow_reviews.native import review_prompt
+
+    _, inspection, producer, store = graph
+    prompt = review_prompt(inspection)
+    with pytest.raises(AccessDenied):
+        NativeInput.frames(
+            json.dumps(
+                {
+                    "type": "user",
+                    "message": {"role": "user", "content": prompt},
+                    "parent_tool_use_id": None,
+                    "session_id": "default",
+                }
+            )
+            + "\n"
+        )
+    with pytest.raises((EvidenceRequired, AccessDenied)):
+        producer.capture(inspection, store)
+    assert not producer.workers.dispatches
+    assert not (store.directory(inspection) / "intent.json").exists()
+
+
+@pytest.mark.parametrize("fault", ["key", "invalid-revocations"])
+def test_RC16_cold_partial_or_invalid_store_refuses(tmp_path, fault):
+    from ai_task_manager.config.files import write_private
+
+    store = CaptureStore(tmp_path / "state")
+    assert CaptureStore(store.root).key.read_bytes() == store.key.read_bytes()
+    if fault == "key":
+        store.key.unlink()
+    else:
+        write_private(store.revoked, {"unknown": []}, replace=True)
+    with pytest.raises(EvidenceRequired):
+        CaptureStore(store.root)
+    if fault == "key":
+        assert not store.key.exists()
+
+
+@pytest.mark.parametrize("text", ["plain", '"\\\n', "é"])
+def test_RC17_serializer_matches_actual_writer_and_reader_limit(tmp_path, text):
+    from ai_task_manager.adapters.workflow_reviews.source import InstalledReviews
+    from ai_task_manager.config.files import MAX_JSON_BYTES, write_private
+
+    value = {"text": text}
+    raw = CaptureStore._serialized(value)
+    path = tmp_path / "serialized.json"
+    write_private(path, value)
+    assert raw == path.read_bytes()
+    assert InstalledReviews._read(path)[0] == raw
+    overhead = len(CaptureStore._serialized({"text": ""}))
+    exact = {"text": "x" * (MAX_JSON_BYTES - overhead)}
+    bounded = CaptureStore._serialized(exact)
+    assert len(bounded) == MAX_JSON_BYTES
+    write_private(path, exact, replace=True)
+    assert InstalledReviews._read(path)[0] == bounded
+    with pytest.raises(EvidenceRequired, match="reader bound"):
+        CaptureStore._serialized({"text": exact["text"] + "x"})

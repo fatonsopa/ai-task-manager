@@ -2,13 +2,14 @@
 
 import hashlib
 import hmac
+import json
 import os
 from dataclasses import asdict
 from pathlib import Path
 
-from ai_task_manager.config.files import private_path, read_private, write_private
+from ai_task_manager.config.files import MAX_JSON_BYTES, private_path, read_private, write_private
 from ai_task_manager.domains.checks.models import canonical
-from ai_task_manager.domains.work.errors import EvidenceRequired
+from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired, ValidationError
 from ai_task_manager.domains.work.models import Scope
 
 from .models import FileWitness
@@ -27,14 +28,46 @@ class CaptureStore:
             raise EvidenceRequired("Review captures require original private storage")
         self._root_identity = self._identity()
         self.key = self.root / "capture.key"
-        if not self.key.exists():
+        self.revoked = self.root / "revoked.json"
+        # Any existing state makes this a reopen, including interrupted setup.
+        # Missing authority files require explicit recovery, never regeneration.
+        if not any(self.root.iterdir()):
             with self.key.open("xb") as stream:
                 self.key.chmod(0o600)
                 stream.write(os.urandom(32))
-        self.revoked = self.root / "revoked.json"
-        if not self.revoked.exists():
+                stream.flush()
+                os.fsync(stream.fileno())
             write_private(self.revoked, {"revoked": []})
-        self.key_witness = FileWitness.capture(private_path(self.key))
+        try:
+            self.key_witness = FileWitness.capture(private_path(self.key))
+            if len(self.key.read_bytes()) != 32 or self.key.stat().st_nlink != 1:
+                raise EvidenceRequired("Original review capture key is unavailable")
+            self._check_revocations()
+        except (OSError, AccessDenied, ValidationError) as error:
+            raise EvidenceRequired("Original review capture authority is unavailable") from error
+
+    def _check_revocations(self):
+        try:
+            value = read_private(self.revoked)
+        except (OSError, AccessDenied, ValidationError) as error:
+            raise EvidenceRequired("Original review revocation state is unavailable") from error
+        if (
+            type(value) is not dict
+            or set(value) != {"revoked"}
+            or type(value["revoked"]) is not list
+            or any(type(ref) is not str or not ref for ref in value["revoked"])
+        ):
+            raise EvidenceRequired("Original review revocation state is invalid")
+
+    @staticmethod
+    def _serialized(value):
+        # Match write_private exactly, including indentation, escaping and LF.
+        raw = (
+            json.dumps(value, sort_keys=True, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+        ).encode()
+        if len(raw) > MAX_JSON_BYTES:
+            raise EvidenceRequired("Serialized review exceeds the installed reader bound")
+        return raw
 
     def _identity(self):
         info = self.root.stat()
@@ -44,6 +77,7 @@ class CaptureStore:
         if self.root.resolve() != self.root or self._identity() != self._root_identity:
             raise EvidenceRequired("Original review capture directory changed")
         self.key_witness.check()
+        self._check_revocations()
 
     def directory(self, inspection):
         self.check_binding()
@@ -62,7 +96,7 @@ class CaptureStore:
         write_private(intent, {"context_digest": inspection.digest, "registration": registration})
         return directory
 
-    def failed(self, directory, error):
+    def failed(self, directory, error, *, outcome="failed_or_unknown"):
         path = directory / "failure.json"
         if not path.exists():
             write_private(
@@ -70,7 +104,7 @@ class CaptureStore:
                 {
                     "type": type(error).__name__,
                     "message": str(error),
-                    "outcome": "failed_or_unknown",
+                    "outcome": outcome,
                 },
             )
 
@@ -85,12 +119,13 @@ class CaptureStore:
         inspection.check()
         directory = self.directory(inspection)
         trace_path, capture_path = directory / "public-trace.json", directory / "capture.json"
-        write_private(trace_path, trace)
-        record = {**record, "trace_sha256": sha(trace_path)}
+        trace_bytes = self._serialized(trace)
+        record = {**record, "trace_sha256": hashlib.sha256(trace_bytes).hexdigest()}
         signature = hmac.new(
             self.key.read_bytes(), canonical(record).encode(), hashlib.sha256
         ).hexdigest()
-        write_private(capture_path, {"record": record, "signature": signature})
+        envelope = {"record": record, "signature": signature}
+        capture_bytes = self._serialized(envelope)
         binding = ReviewBinding(
             record["reference"],
             inspection.digest,
@@ -98,9 +133,9 @@ class CaptureStore:
             inspection.context["task_id"],
             record["operation_key"],
             capture_path,
-            sha(capture_path),
+            hashlib.sha256(capture_bytes).hexdigest(),
             trace_path,
-            sha(trace_path),
+            hashlib.sha256(trace_bytes).hexdigest(),
             record["reviewer_id"],
             record["host"],
             record["model"],
@@ -108,6 +143,10 @@ class CaptureStore:
         )
         value = asdict(binding)
         value.update(capture_path=str(capture_path), trace_path=str(trace_path))
+        self._serialized(value)
+        # All immutable reader inputs fit before publishing any of them.
+        write_private(trace_path, trace)
+        write_private(capture_path, envelope)
         write_private(directory / "binding.json", value)
         return self.resolve(inspection)
 
