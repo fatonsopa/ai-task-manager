@@ -1,0 +1,144 @@
+{
+  "revision": 6,
+  "scope": "Reconcile seven historical host success oracles with the reviewed descendant-containment contract",
+  "preserved_versions": [
+    "frozen-v1.json",
+    "frozen-v2.json",
+    "frozen-v3.json",
+    "frozen-v4.json",
+    "frozen-v5.json"
+  ],
+  "preserved_sha256": {
+    "frozen-v1.json": "b41af1a10dd10353c95c633f441a945c650dccc4518f015233d040eb25439fc6",
+    "frozen-v2.json": "1a65725bacb0809fe8b4e84d7836c81ad082fa5c197bb3dae8aa148e1f33435a",
+    "frozen-v3.json": "9dc77e2473366234bf1c548b6b4d25a21b6defea07f42fab04e79541a25967a1",
+    "frozen-v4.json": "94dce2870ec113432012113fa314151086df8ce44cc21337a653f0e156ac560d",
+    "frozen-v5.json": "27bea30e906cf023a34db2fe66833a9f9100d9d5599d4ebe8b08119e2f0e0962"
+  },
+  "basis": [
+    {
+      "source": "docs/spec_driven_development.md",
+      "section": "Standalone merge behavior",
+      "requirements": [
+        "R08",
+        "R10",
+        "R30",
+        "R31",
+        "R32"
+      ],
+      "rule": "Preserve uncertain ownership, inspect actual effects before retry, retain resources until their last possible consumer finishes and version corrected historical oracles."
+    },
+    {
+      "source": "docs/high_level_document.md",
+      "section": "Installed workflow launch",
+      "rule": "ConfinedWorkerGit requires verified container removal; the host adapter retains uncertainty because a POSIX group cannot contain detached descendants."
+    },
+    {
+      "source": "docs/test_plan.md",
+      "section": "Entry and exit criteria",
+      "rule": "Current component checks do not waive final required acceptance; preserve every historical result and its source binding."
+    }
+  ],
+  "historical_failures": {
+    "source_commit": "ffdd390cb8a4d0a8128c4c8592f9ab7f7c850223",
+    "test_file_sha256": "e456b3c4a81818b7fe05db635311c6f1a448298a0109f72a2440e58007c42d54",
+    "recorded_outcome": "Seven failed cases in the retained cleanup run; these remain failed for that source/oracle revision.",
+    "author_handoff_sha256": "05906cd56d24120423899f5ddbf2b3df83c4a99776e1c6c6fda3d493406dde92",
+    "review_handoff_sha256": "8f6fb6486d68f5018eb5fe4405c0867d9f656edba3eff2922fcd707f6bf1fc07",
+    "integrated_baseline": "65e907cba32ea24dc7cddaf733edfa6bc4947045"
+  },
+  "reconciliations": [
+    {
+      "historical_id": "tests/worker_commits/test_commits.py::test_saved_workflow_commits_owned_change_and_keeps_lead_boundary",
+      "intent": "Owned checked commit, lead target preservation, task delivery boundary and idempotency.",
+      "decision": "Correct the host success oracle: the actual commit remains, but completion is uncertain; a repeated request preserves refs, index, database, task, attempt and effect records. The exact measured host stages include candidate-index, which prepares the immutable checked commit index; the old three-stage assertion omitted this existing operation.",
+      "current_host_case": "tests/worker_commits/test_commits.py::test_saved_workflow_commits_owned_change_and_keeps_lead_boundary",
+      "positive_component_cases": [
+        "tests/worker_commits/test_private_commit_controls.py::test_private_checked_commit_publication_is_exact_and_idempotent"
+      ]
+    },
+    {
+      "historical_id": "tests/worker_commits/test_commits.py::test_lost_reply_reconciles_actual_commit_without_repeating_hooks[after:commit]",
+      "intent": "Recover a lost commit reply without repeating enabled hooks or checks.",
+      "decision": "Correct the host recovery oracle: the injected fault is reached once; retry retains uncertainty and the same commit with one hook/check execution.",
+      "current_host_case": "tests/worker_commits/test_commits.py::test_lost_reply_reconciles_actual_commit_without_repeating_hooks[after:commit]",
+      "positive_component_cases": [
+        "tests/worker_commits/test_private_commit_controls.py::test_private_commit_lost_publication_reply_recovers_without_recreating_commit[after:publish-ref]",
+        "tests/worker_commits/test_private_commit_controls.py::test_private_commit_lost_publication_reply_recovers_without_recreating_commit[after:publish-index]"
+      ]
+    },
+    {
+      "historical_id": "tests/worker_commits/test_commits.py::test_lost_reply_reconciles_actual_commit_without_repeating_hooks[after:worker-commit]",
+      "intent": "Recover a lost completed-workflow-step reply without repeating effects.",
+      "decision": "Retire successful host step completion as a reachable fault point: containment refusal precedes it. Assert the fault is never reached, no step result exists and retry changes no owned state. The historical case ID remains executable.",
+      "current_host_case": "tests/worker_commits/test_commits.py::test_lost_reply_reconciles_actual_commit_without_repeating_hooks[after:worker-commit]",
+      "positive_component_cases": [
+        "tests/worker_commits/test_private_commit_controls.py::test_private_checked_commit_publication_is_exact_and_idempotent"
+      ]
+    },
+    {
+      "historical_id": "tests/worker_commits/test_commits.py::test_two_workers_commit_concurrently_and_preserve_distinct_branches",
+      "intent": "Independent projects retain distinct worker commits, worktrees and databases.",
+      "decision": "Correct both host outcomes to uncertainty while retaining real distinct commits, lead targets and isolated resources; retry must preserve each state.",
+      "current_host_case": "tests/worker_commits/test_commits.py::test_two_workers_commit_concurrently_and_preserve_distinct_branches",
+      "positive_component_cases": [
+        "tests/worker_commits/test_private_commit_controls.py::test_private_commits_publish_concurrently_to_distinct_owned_branches[False]"
+      ]
+    },
+    {
+      "historical_id": "tests/worker_commits/test_commits.py::test_same_project_workers_commit_distinct_owned_branches",
+      "intent": "Concurrent workers in one repository retain distinct branch and database ownership.",
+      "decision": "Correct both host outcomes to uncertainty; keep distinct commits/resources, unchanged primary HEAD and refusal of cleanup. Startup follows the existing eligible queue order before the two commit operations meet at a barrier. Concurrent startup could correctly refuse the later task before reaching this case's commit boundary; a separate deterministic guard retains that refusal coverage.",
+      "current_host_case": "tests/worker_commits/test_commits.py::test_same_project_workers_commit_distinct_owned_branches",
+      "positive_component_cases": [
+        "tests/worker_commits/test_private_commit_controls.py::test_private_commits_publish_concurrently_to_distinct_owned_branches[True]"
+      ],
+      "related_guard_cases": [
+        "tests/worker_commits/test_commits.py::test_later_worker_cannot_start_before_earlier_eligible_task"
+      ]
+    },
+    {
+      "historical_id": "tests/worker_commits/test_commits.py::test_effective_hook_reads_original_owned_database",
+      "intent": "Enabled configured hook reads the original database and verifies its owner.",
+      "decision": "Retain the actual hook/database assertion, correct completion to uncertainty and preserve database identity/content on retry.",
+      "current_host_case": "tests/worker_commits/test_commits.py::test_effective_hook_reads_original_owned_database",
+      "positive_component_cases": [
+        "tests/worker_commits/test_private_commit_controls.py::test_private_checked_commit_publication_is_exact_and_idempotent"
+      ]
+    },
+    {
+      "historical_id": "tests/worker_commits/test_commits.py::test_lost_git_result_reconciles_commit_from_physical_quiescence",
+      "intent": "Recover a commit whose process result was not persisted, without repeating checks.",
+      "decision": "Retire process-group absence as proof of descendant closure. Assert the result was lost, the commit exists, no closure/completion receipt is emitted and retry preserves owned state.",
+      "current_host_case": "tests/worker_commits/test_commits.py::test_lost_git_result_reconciles_commit_from_physical_quiescence",
+      "positive_component_cases": [
+        "tests/worker_commits/test_private_commit_controls.py::test_private_commit_lost_publication_reply_recovers_without_recreating_commit[after:publish-index]"
+      ]
+    }
+  ],
+  "positive_component_scope": "Actual Python checks and Git objects, confined snapshot/checked-tree/private-attribution validation and owned publication under the real Core boundary. Private commit objects are authored with Git commit-tree. No container success, StopReceipt or worker_commit_ready is supplied; these controls do not execute enabled hooks inside a container.",
+  "historical_container_evidence": {
+    "artifact": "actual-fixture-results-v1.json",
+    "sha256": "cf9dc01dd799ce98773dacc87f55efc0dfc5fea2c8dad76db6d9e810a095e4f5",
+    "cases": [
+      "success-loss",
+      "hook-substitution"
+    ],
+    "containers": 4,
+    "source_sha256": {
+      "src/ai_task_manager/adapters/git/commits/__init__.py": "90ebaa29ffe84dff9a2920ea0cc31d2cd158f622752ec350c7c43ea806a81021",
+      "src/ai_task_manager/adapters/git/commits/confined.py": "bc0593c70dc7e5319f32be51ff057fbaaf481dae78bcfb77b54aaf88f00618c5",
+      "src/ai_task_manager/adapters/git/commits/container.py": "ccbf25acd195612554cc5a526dad04001e19d66613b0ebb5b50933b008b0cf63",
+      "src/ai_task_manager/adapters/git/commits/container_job.py": "a04e71bedf2632e1a122c62f0a0485006a85da6cfd118f883b3039f9515b7c8f",
+      "src/ai_task_manager/adapters/git/commits/output.py": "2ed84340e9a027eef4fd8f6ce534ab3daa54e644d7c93434521f44e44aba9041",
+      "src/ai_task_manager/adapters/git/commits/private.py": "786cf72a330a6d5f44d01ab32fcb7cc0a8f042d9319a3aad6f19f1de777c9a7d",
+      "src/ai_task_manager/adapters/git/commits/publication.py": "ebd7ccaccd331aacf8534258571514bad0c96dda87f3af4deea18d8eaf08e5ec",
+      "src/ai_task_manager/adapters/git/commits/repository.py": "db60942f6721ef97c8352cdb3138ac58e2f9555d885f9c233dd0da92d8769ebe",
+      "src/ai_task_manager/application/commits/service.py": "0a4128fd4f5b197cf2b06d8192a91005cc2266c5e001f19f053ff16ff941e41a",
+      "src/ai_task_manager/adapters/hosts/bridge/container_inspection.py": "bb47fafb00ac47b726a102d9e7616536a5c304abf8bbe726c4d823b76f4ded9c",
+      "src/ai_task_manager/adapters/hosts/bridge/container_watch.py": "4b08b09cab89195eaa11bab448f0ebaa75bf6305cb4ed9042a6d69b7e70738b7"
+    },
+    "scope": "Earlier actual contained success with lost Git result, original database hook access and hook-substitution refusal. The original source bindings remain authoritative; confined.py, private.py, publication.py and repository.py differ from the current candidate. This is historical evidence, not fresh current execution."
+  },
+  "remaining_acceptance": "Current complete contained workflow, including post-workflow-step lost reply and concurrent contained workers, still needs separately admitted actual execution. Local publication controls cover only their stated layer. Installed/provider/model and complete-suite acceptance remain separate. No global case denominator or release criterion changes."
+}

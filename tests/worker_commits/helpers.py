@@ -113,7 +113,8 @@ class WorkerFixture:
         )
         self.ref = self.driver.begin(self.task.id, self.plan.id, "integer-workflow")
 
-    def execute_only(self):
+    def execute_only(self, reference=None):
+        reference = reference or self.ref
         old = self.driver.plans
 
         # Original saved plan stays identical; bounded driver interruption follows execute.
@@ -123,17 +124,17 @@ class WorkerFixture:
                     raise RuntimeError("Lost execution reply")
 
         self.driver.faults = StopAfterExecution()
-        self.driver.run(self.ref)
+        self.driver.run(reference)
         self.driver.faults = None
         owner = "fixture-reconcile"
-        self.store.claim(self.ref, self.rig.scope, owner)
-        row = self.store.read(self.ref, self.rig.scope)
-        task = self.rig.core.get_task(self.rig.handle, self.task.id)
+        self.store.claim(reference, self.rig.scope, owner)
+        row = self.store.read(reference, self.rig.scope)
+        task = self.rig.core.get_task(self.rig.handle, row["task_id"])
         result = self.driver._reconcile(row, task, "execute", row["steps"]["execute"])
-        self.store.finish(self.ref, owner, "execute", result, attempt_id=result["attempt_id"])
-        self.store.release(self.ref, owner)
+        self.store.finish(reference, owner, "execute", result, attempt_id=result["attempt_id"])
+        self.store.release(reference, owner)
         self.driver.plans = old
-        return self.store.read(self.ref, self.rig.scope)
+        return self.store.read(reference, self.rig.scope)
 
     def close(self):
         self.rr.close()

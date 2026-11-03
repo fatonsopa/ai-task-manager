@@ -1,11 +1,16 @@
-"""Frozen worker-commit controls run against authored projects and actual local Git."""
+"""Host controls using actual local Git; historical IDs follow frozen-v6.json oracles."""
 
+import ast
+import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from pathlib import Path
+from threading import Barrier
 
 import pytest
 
+from ai_task_manager.adapters.git.commits.private import file_state
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.supervisor.models import RuntimeRefused
 
@@ -21,14 +26,59 @@ def project(tmp_path):
         fixture.close()
 
 
+def assert_host_refusal(fixture, outcome, reference=None):
+    """An actual host commit grants neither descendant closure nor task delivery."""
+    assert outcome["state"] == "uncertain", outcome
+    assert outcome["reason"] == "RuntimeUncertain", outcome
+    assert "verified descendant containment" in outcome["detail"], outcome
+    row = fixture.store.read(reference or fixture.ref, fixture.rig.scope)
+    pair = fixture.runtime.pair(row["attempt_id"])
+    task = fixture.rig.core.get_task(fixture.rig.handle, row["task_id"])
+    assert task.observed_status == "In Progress" and task.completed_work == ()
+    assert not task.delivered_once and "deliver" not in row["steps"]
+    assert row["steps"]["worker-commit"]["result"] is None
+    assert not fixture.rr.journal.observations(pair.attempt_id, "worker-commit-complete")
+    assert not fixture.rr.journal.observations(pair.attempt_id, "worker-commit-reconciled-stop")
+    assert pair.database.exists() and pair.worktree.exists()
+    assert git(fixture.rr.repo, "rev-parse", "HEAD") == fixture.base
+    with pytest.raises(RuntimeRefused, match="Unresolved worker commit"):
+        fixture.rr.resources.cleanup(fixture.rig.core, fixture.rig.handle, pair.attempt_id)
+    return row, pair
+
+
+def host_state(fixture, row, pair):
+    """Capture effects that an uncertain retry must preserve exactly."""
+    gitdir = Path(git(pair.worktree, "rev-parse", "--path-format=absolute", "--git-dir"))
+    return {
+        "refs": git(fixture.rr.repo, "show-ref"),
+        "index": file_state(gitdir / "index"),
+        "database": file_state(pair.database),
+        "worktree": {
+            str(path.relative_to(pair.worktree)): path.read_bytes()
+            for path in pair.worktree.rglob("*")
+            if path.is_file()
+        },
+        "task": fixture.rig.core.get_task(fixture.rig.handle, row["task_id"]),
+        "attempt": fixture.rig.core.get_attempt(fixture.rig.handle, pair.attempt_id),
+        "checks": fixture.checks.calls,
+        "git_results": fixture.rr.journal.observations(pair.attempt_id, "worker-git-result"),
+        "candidate": fixture.rr.journal.effect(pair.attempt_id, "worker-commit-candidate"),
+    }
+
+
+def assert_retry_preserves_host_state(fixture, row, pair, reference=None):
+    before = host_state(fixture, row, pair)
+    repeated = fixture.driver.run(reference or fixture.ref)
+    assert_host_refusal(fixture, repeated, reference)
+    assert host_state(fixture, row, pair) == before
+
+
 def test_saved_workflow_commits_owned_change_and_keeps_lead_boundary(project):
     result = project.driver.run(project.ref)
-    assert result["reason"] == "worker_commit_ready", result
-    row = project.store.read(project.ref, project.rig.scope)
+    row, pair = assert_host_refusal(project, result)
     attempt = project.rig.core.get_attempt(project.rig.handle, row["attempt_id"])
-    pair = project.runtime.pair(attempt.id)
-    receipt = row["steps"]["worker-commit"]["result"]
-    assert receipt["commit"] == git(pair.worktree, "rev-parse", "HEAD") != project.base
+    candidate = project.rr.journal.effect(attempt.id, "worker-commit-candidate")
+    assert project.git.committed(pair.worktree, candidate) != project.base
     assert (
         git(pair.worktree, "show", "HEAD:result.py") == "def total(values):\n    return sum(values)"
     )
@@ -38,13 +88,11 @@ def test_saved_workflow_commits_owned_change_and_keeps_lead_boundary(project):
     assert task.observed_status == "In Progress" and task.completed_work == ()
     assert project.checks.calls == 1 and pair.database.exists()
     assert "deliver" not in row["steps"]
-    assert project.driver.run(project.ref)["commit"] == receipt["commit"]
+    assert_retry_preserves_host_state(project, row, pair)
     assert project.checks.calls == 1
     durations = project.rr.journal.observations(attempt.id, "worker-git-result")
-    assert {r["stage"] for r in durations} == {"stage", "diff-check", "commit"}
+    assert {r["stage"] for r in durations} == {"stage", "diff-check", "candidate-index", "commit"}
     assert all(r["seconds"] > 0 for r in durations)
-    from pathlib import Path
-
     for stage in durations:
         for output in stage["output"].values():
             path = Path(output["path"])
@@ -132,9 +180,12 @@ def test_failed_checks_never_commit_or_deliver_and_keep_database(tmp_path, failu
 
 @pytest.mark.parametrize("stage", ["after:commit", "after:worker-commit"])
 def test_lost_reply_reconciles_actual_commit_without_repeating_hooks(tmp_path, stage):
+    hits = []
+
     class LoseReply:
         def hit(self, name):
             if name == stage:
+                hits.append(name)
                 raise RuntimeError("Authored lost reply")
 
     f = WorkerFixture(tmp_path / "reply", faults=LoseReply(), git_faults=LoseReply())
@@ -144,10 +195,19 @@ def test_lost_reply_reconciles_actual_commit_without_repeating_hooks(tmp_path, s
         hook.write_text("#!/bin/sh\nprintf 'hook\\n' >> '" + str(audit) + "'\n")
         hook.chmod(0o700)
         first = f.driver.run(f.ref)
-        assert first["state"] == "blocked"
+        assert first["state"] == ("blocked" if stage == "after:commit" else "uncertain")
+        assert hits == ([stage] if stage == "after:commit" else [])
+        # The workflow-completion fault is unreachable without containment proof.
+        row = f.store.read(f.ref, f.rig.scope)
+        pair = f.runtime.pair(row["attempt_id"])
+        head = git(pair.worktree, "rev-parse", "HEAD")
+        assert head != f.base
         second = f.driver.run(f.ref)
-        assert second["reason"] == "worker_commit_ready", second
+        assert_host_refusal(f, second)
+        assert git(pair.worktree, "rev-parse", "HEAD") == head
         assert audit.read_text() == "hook\n" and f.checks.calls == 1
+        assert_retry_preserves_host_state(f, row, pair)
+        assert audit.read_text() == "hook\n"
     finally:
         f.close()
 
@@ -175,15 +235,17 @@ def test_two_workers_commit_concurrently_and_preserve_distinct_branches(tmp_path
     try:
         with ThreadPoolExecutor(max_workers=2) as pool:
             outcomes = list(pool.map(lambda f: f.driver.run(f.ref), fixtures))
-        assert all(r.get("reason") == "worker_commit_ready" for r in outcomes), outcomes
-        assert outcomes[0]["commit"] != outcomes[1]["commit"]
         pairs = []
-        for f in fixtures:
-            row = f.store.read(f.ref, f.rig.scope)
-            pair = f.runtime.pair(row["attempt_id"])
+        for f, outcome in zip(fixtures, outcomes, strict=True):
+            row, pair = assert_host_refusal(f, outcome)
             pairs.append(pair)
+            assert git(pair.worktree, "rev-parse", "HEAD") != f.base
             assert pair.database.exists()
             assert git(f.rr.repo, "rev-parse", "HEAD") == f.base
+            assert_retry_preserves_host_state(f, row, pair)
+        assert git(pairs[0].worktree, "rev-parse", "HEAD") != git(
+            pairs[1].worktree, "rev-parse", "HEAD"
+        )
         assert pairs[0].database != pairs[1].database
         assert pairs[0].worktree_id != pairs[1].worktree_id
     finally:
@@ -192,26 +254,82 @@ def test_two_workers_commit_concurrently_and_preserve_distinct_branches(tmp_path
 
 
 def test_frozen_control_inventory():
-    from pathlib import Path
-
     inventory = json.loads(Path(__file__).with_name("frozen-v1.json").read_text())
     assert inventory["revision"] == 1 and len(inventory["groups"]) >= 8
+    current = json.loads(Path(__file__).with_name("frozen-v6.json").read_text())
+    assert current["revision"] == 6
+    assert len(current["reconciliations"]) == 7
+    assert len({case["historical_id"] for case in current["reconciliations"]}) == 7
+    assert current["preserved_versions"] == [f"frozen-v{i}.json" for i in range(1, 6)]
+    for name, digest in current["preserved_sha256"].items():
+        assert hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest() == digest
+    root = Path(__file__).resolve().parents[2]
+    for case in current["reconciliations"]:
+        assert case["historical_id"] == case["current_host_case"]
+        assert case["intent"] and case["decision"] and case["positive_component_cases"]
+        for nodeid in [
+            case["current_host_case"],
+            *case["positive_component_cases"],
+            *case.get("related_guard_cases", []),
+        ]:
+            filename, name = nodeid.split("::")
+            functions = {
+                node.name
+                for node in ast.parse((root / filename).read_text()).body
+                if isinstance(node, ast.FunctionDef)
+            }
+            assert name.split("[")[0] in functions
 
 
-def test_same_project_workers_commit_distinct_owned_branches(project):
+def test_later_worker_cannot_start_before_earlier_eligible_task(project):
+    second = project.rig.queued()
+    reference = project.driver.begin(second.id, project.plan.id, "later-worker")
+    before = [
+        project.rig.core.get_task(project.rig.handle, task_id)
+        for task_id in (project.task.id, second.id)
+    ]
+    outcome = project.driver.run(reference)
+    assert outcome["state"] == "blocked", outcome
+    assert outcome["reason"] == "SchedulingBlocked", outcome
+    assert outcome["detail"] == "An earlier eligible queue item has priority"
+    assert project.store.read(reference, project.rig.scope)["attempt_id"] is None
+    assert project.runtime.dispatches == {}
+    assert project.checks.calls == 0
+    assert [project.rig.core.get_task(project.rig.handle, task.id) for task in before] == before
+    assert git(project.rr.repo, "rev-parse", "HEAD") == project.base
+
+
+def test_same_project_workers_commit_distinct_owned_branches(project, monkeypatch):
     second = project.rig.queued()
     second_ref = project.driver.begin(second.id, project.plan.id, "second-worker")
+    # Respect queue order during startup; this case targets simultaneous commits.
+    for reference in (project.ref, second_ref):
+        row = project.execute_only(reference)
+        assert row["steps"]["execute"]["result"]["state"] == "done"
+        assert "worker-commit" not in row["steps"]
+    together = Barrier(2, timeout=10)
+    staged_attempts = set()
+    stage = project.git.stage
+
+    def simultaneous_stage(attempt_id, *args, **kwargs):
+        staged_attempts.add(attempt_id)
+        together.wait()
+        return stage(attempt_id, *args, **kwargs)
+
+    monkeypatch.setattr(project.git, "stage", simultaneous_stage)
     with ThreadPoolExecutor(max_workers=2) as pool:
         outcomes = list(pool.map(project.driver.run, (project.ref, second_ref)))
-    assert all(o.get("reason") == "worker_commit_ready" for o in outcomes), outcomes
-    assert outcomes[0]["commit"] != outcomes[1]["commit"]
+    assert len(staged_attempts) == 2
     pairs = []
-    for reference in (project.ref, second_ref):
-        row = project.store.read(reference, project.rig.scope)
-        pair = project.runtime.pair(row["attempt_id"])
+    for reference, outcome in zip((project.ref, second_ref), outcomes, strict=True):
+        row, pair = assert_host_refusal(project, outcome, reference)
         pairs.append(pair)
         assert pair.database.exists()
         assert git(pair.worktree, "rev-parse", "HEAD") != project.base
+        assert_retry_preserves_host_state(project, row, pair, reference)
+    assert git(pairs[0].worktree, "rev-parse", "HEAD") != git(
+        pairs[1].worktree, "rev-parse", "HEAD"
+    )
     assert pairs[0].worktree_id != pairs[1].worktree_id
     assert pairs[0].database_id != pairs[1].database_id
     assert git(project.rr.repo, "rev-parse", "HEAD") == project.base
@@ -237,10 +355,10 @@ def test_effective_hook_reads_original_owned_database(project, tmp_path):
     hook.chmod(0o700)
     git(project.rr.repo, "config", "core.hooksPath", str(hooks))
     outcome = project.driver.run(project.ref)
-    assert outcome.get("reason") == "worker_commit_ready", outcome
-    row = project.store.read(project.ref, project.rig.scope)
-    pair = project.runtime.pair(row["attempt_id"])
+    row, pair = assert_host_refusal(project, outcome)
     assert audit.read_text() == str(pair.database) and pair.database.exists()
+    assert_retry_preserves_host_state(project, row, pair)
+    assert audit.read_text() == str(pair.database)
 
 
 def test_lost_git_result_reconciles_commit_from_physical_quiescence(project):
@@ -258,10 +376,15 @@ def test_lost_git_result_reconciles_commit_from_physical_quiescence(project):
     assert project.driver.run(project.ref)["state"] == "blocked"
     project.rr.journal.observe = observe
     result = project.driver.run(project.ref)
-    assert result.get("reason") == "worker_commit_ready", result
-    row = project.store.read(project.ref, project.rig.scope)
-    assert project.rr.journal.observations(row["attempt_id"], "worker-commit-reconciled-stop")
-    assert project.checks.calls == 1
+    row, pair = assert_host_refusal(project, result)
+    assert lost and project.checks.calls == 1
+    assert git(pair.worktree, "rev-parse", "HEAD") != project.base
+    assert not [
+        r
+        for r in project.rr.journal.observations(pair.attempt_id, "worker-git-result")
+        if r["stage"] == "commit"
+    ]
+    assert_retry_preserves_host_state(project, row, pair)
 
 
 @pytest.mark.parametrize("alter", ["missing_checks", "unverified_checks", "changed_plan"])
