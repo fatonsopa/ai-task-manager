@@ -31,6 +31,23 @@ RELATIONS = {
 }
 
 
+# Ownership is checked by a separate metadata-only request before this query.
+# Each connection's later pages retain their own directional query/cursor.
+DETAILS = (
+    "query DependencyProseRelations($id: String!) { issue(id: $id) { "
+    + META
+    + " title description "
+    + " ".join(
+        direction
+        + """(first: 50, includeArchived: true) {
+ nodes { id type updatedAt archivedAt issue { id } relatedIssue { id } }
+ pageInfo { hasNextPage endCursor } }"""
+        for direction in ("relations", "inverseRelations")
+    )
+    + " } }"
+)
+
+
 def named(value):
     while value and value.get("ofType"):
         value = value["ofType"]

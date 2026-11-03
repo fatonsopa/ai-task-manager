@@ -1,0 +1,412 @@
+[
+  {
+    "case": "single",
+    "query_count": 17,
+    "queries": [
+      "query VerifyBinding($team: String!, $project: String!)",
+      "query ProjectTeams($project: String!, $after: String)",
+      "query States($team: String!, $after: String)",
+      "query DependencySchema",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyProse($id: String!)",
+      "query DependencyRelations($id: String!, $after: String)",
+      "query DependencyInverserelations($id: String!, $after: String)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyProse($id: String!)",
+      "query DependencyRelations($id: String!, $after: String)",
+      "query DependencyInverserelations($id: String!, $after: String)",
+      "query DependencyMetadata($id: String!)",
+      "query VerifyBinding($team: String!, $project: String!)",
+      "query ProjectTeams($project: String!, $after: String)",
+      "query States($team: String!, $after: String)"
+    ],
+    "expected": {
+      "viewer_id": "5f6c568e-620a-4944-982a-49032aa3e85f",
+      "workspace_id": "0df2db2e-bcd4-40fe-8c34-afda260bbb24",
+      "team_id": "825cee44-11d6-4460-bcd9-b6e6d4070524",
+      "team_key": "TST",
+      "project_id": "d1b538bd-9308-42fa-9259-93646ad9bebe"
+    },
+    "scope": {
+      "provider": "linear",
+      "workspace": "0df2db2e-bcd4-40fe-8c34-afda260bbb24",
+      "principal": "5f6c568e-620a-4944-982a-49032aa3e85f",
+      "project": "d1b538bd-9308-42fa-9259-93646ad9bebe",
+      "logical_session": "session"
+    },
+    "nodes": {
+      "31405835-3826-4773-ae05-a480ce7e24de": {
+        "id": "31405835-3826-4773-ae05-a480ce7e24de",
+        "identifier": "TST-123",
+        "createdAt": "2026-11-02T00:00:00.000000Z",
+        "updatedAt": "2026-11-02T00:00:00.000000Z",
+        "archivedAt": null,
+        "trashed": false,
+        "priority": 3,
+        "assignee": {
+          "id": "5f6c568e-620a-4944-982a-49032aa3e85f"
+        },
+        "team": {
+          "id": "825cee44-11d6-4460-bcd9-b6e6d4070524",
+          "key": "TST"
+        },
+        "project": {
+          "id": "d1b538bd-9308-42fa-9259-93646ad9bebe"
+        },
+        "state": {
+          "id": "7355bd73-9a18-410f-9a5e-73b616ba2045",
+          "name": "Backlog"
+        },
+        "title": "Verify dependency scope",
+        "description": "Retain the exact scoped result."
+      }
+    },
+    "edges": [],
+    "states": {
+      "Backlog": "7355bd73-9a18-410f-9a5e-73b616ba2045",
+      "Todo": "ccc1022e-9193-47d6-af4b-678f83fe6c36",
+      "In Progress": "c3b560a8-81e0-45e7-9262-7ab24eb90d1a",
+      "On Hold": "80c0458b-d7eb-4e7d-bc6e-d2050aa915e9",
+      "In Review": "d3e73ea2-4225-4c05-b7b4-d055f85fd71a",
+      "In Dev": "6508c873-6ddd-4213-9a93-63a1b46db245",
+      "In Staging": "c8196b3f-397b-4c00-b203-1b4d67e5a5a0",
+      "Done": "b17384f4-0588-4163-b45b-47066a7294a3",
+      "Canceled": "2cbdaee3-0c47-4bc1-bb0b-60444a772994",
+      "Duplicate": "80d85af2-c496-4fc4-9316-7dfe3c605111"
+    },
+    "page_size": 50,
+    "root": "31405835-3826-4773-ae05-a480ce7e24de",
+    "local": {
+      "31405835-3826-4773-ae05-a480ce7e24de": {
+        "issue_id": "31405835-3826-4773-ae05-a480ce7e24de",
+        "title": "Verify dependency scope",
+        "body": "Retain the exact scoped result.",
+        "prose_digest": "96bc666ae6a01f4dfd5eaeb98165a3eec8727ffc402e8444106c06c4a0e290db",
+        "sync_state": "confirmed",
+        "observed_status": "Backlog"
+      }
+    },
+    "observation": {
+      "complete": true,
+      "priority": "normal",
+      "predecessors": [],
+      "schema_hash": "44b851ef96c06fb919bdf775ae7e66543c10bf7b9caaf06d048acb726ceedecb",
+      "raw": {
+        "first": {
+          "nodes": {
+            "31405835-3826-4773-ae05-a480ce7e24de": {
+              "issue_id": "31405835-3826-4773-ae05-a480ce7e24de",
+              "identifier": "TST-123",
+              "team_id": "825cee44-11d6-4460-bcd9-b6e6d4070524",
+              "state_id": "7355bd73-9a18-410f-9a5e-73b616ba2045",
+              "status": "Backlog",
+              "created_at": "2026-11-02T00:00:00.000000Z",
+              "source_revision": "2026-11-02T00:00:00.000000Z",
+              "priority": "normal",
+              "prose_digest": "96bc666ae6a01f4dfd5eaeb98165a3eec8727ffc402e8444106c06c4a0e290db"
+            }
+          },
+          "relations": {},
+          "graph": {
+            "31405835-3826-4773-ae05-a480ce7e24de": []
+          }
+        },
+        "second_digest": "990f151970bfa474efc8096555debfa7f097066454cbcfdf40df4acb97c928c2",
+        "binding": {
+          "viewer_id": "5f6c568e-620a-4944-982a-49032aa3e85f",
+          "workspace_id": "0df2db2e-bcd4-40fe-8c34-afda260bbb24",
+          "team_id": "825cee44-11d6-4460-bcd9-b6e6d4070524",
+          "team_key": "TST",
+          "project_id": "d1b538bd-9308-42fa-9259-93646ad9bebe"
+        },
+        "semantics": "blocks source -> target; authored direction acceptance pending live verification"
+      }
+    }
+  },
+  {
+    "case": "paginated",
+    "query_count": 39,
+    "queries": [
+      "query VerifyBinding($team: String!, $project: String!)",
+      "query ProjectTeams($project: String!, $after: String)",
+      "query States($team: String!, $after: String)",
+      "query DependencySchema",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyProse($id: String!)",
+      "query DependencyRelations($id: String!, $after: String)",
+      "query DependencyInverserelations($id: String!, $after: String)",
+      "query DependencyInverserelations($id: String!, $after: String)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyProse($id: String!)",
+      "query DependencyRelations($id: String!, $after: String)",
+      "query DependencyInverserelations($id: String!, $after: String)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyProse($id: String!)",
+      "query DependencyRelations($id: String!, $after: String)",
+      "query DependencyInverserelations($id: String!, $after: String)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyProse($id: String!)",
+      "query DependencyRelations($id: String!, $after: String)",
+      "query DependencyInverserelations($id: String!, $after: String)",
+      "query DependencyInverserelations($id: String!, $after: String)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyProse($id: String!)",
+      "query DependencyRelations($id: String!, $after: String)",
+      "query DependencyInverserelations($id: String!, $after: String)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyMetadata($id: String!)",
+      "query DependencyProse($id: String!)",
+      "query DependencyRelations($id: String!, $after: String)",
+      "query DependencyInverserelations($id: String!, $after: String)",
+      "query DependencyMetadata($id: String!)",
+      "query VerifyBinding($team: String!, $project: String!)",
+      "query ProjectTeams($project: String!, $after: String)",
+      "query States($team: String!, $after: String)"
+    ],
+    "expected": {
+      "viewer_id": "668f5c18-2aec-4274-bfdb-bc6c343bf045",
+      "workspace_id": "c0319051-4520-4c9d-b786-e7c32a4e2a07",
+      "team_id": "30e1e747-5ee7-4d8b-a517-49f9fc16439d",
+      "team_key": "TST",
+      "project_id": "4562559a-7ee6-4bb6-ac24-4bdbc533b37a"
+    },
+    "scope": {
+      "provider": "linear",
+      "workspace": "c0319051-4520-4c9d-b786-e7c32a4e2a07",
+      "principal": "668f5c18-2aec-4274-bfdb-bc6c343bf045",
+      "project": "4562559a-7ee6-4bb6-ac24-4bdbc533b37a",
+      "logical_session": "session"
+    },
+    "nodes": {
+      "b34d1b84-fd1e-472d-b6b6-ef07a55079f6": {
+        "id": "b34d1b84-fd1e-472d-b6b6-ef07a55079f6",
+        "identifier": "TST-123",
+        "createdAt": "2026-11-02T00:00:00.000000Z",
+        "updatedAt": "2026-11-02T00:00:00.000000Z",
+        "archivedAt": null,
+        "trashed": false,
+        "priority": 3,
+        "assignee": {
+          "id": "668f5c18-2aec-4274-bfdb-bc6c343bf045"
+        },
+        "team": {
+          "id": "30e1e747-5ee7-4d8b-a517-49f9fc16439d",
+          "key": "TST"
+        },
+        "project": {
+          "id": "4562559a-7ee6-4bb6-ac24-4bdbc533b37a"
+        },
+        "state": {
+          "id": "ac84ddaf-4cc8-4254-b30a-1ced5112567b",
+          "name": "Backlog"
+        },
+        "title": "Verify dependency scope",
+        "description": "Retain the exact scoped result."
+      },
+      "9559ef0f-0f9f-4225-a2d8-57359b96d95c": {
+        "id": "9559ef0f-0f9f-4225-a2d8-57359b96d95c",
+        "identifier": "TST-123",
+        "createdAt": "2026-11-02T00:00:00.000000Z",
+        "updatedAt": "2026-11-02T00:00:00.000000Z",
+        "archivedAt": null,
+        "trashed": false,
+        "priority": 3,
+        "assignee": {
+          "id": "668f5c18-2aec-4274-bfdb-bc6c343bf045"
+        },
+        "team": {
+          "id": "30e1e747-5ee7-4d8b-a517-49f9fc16439d",
+          "key": "TST"
+        },
+        "project": {
+          "id": "4562559a-7ee6-4bb6-ac24-4bdbc533b37a"
+        },
+        "state": {
+          "id": "ac84ddaf-4cc8-4254-b30a-1ced5112567b",
+          "name": "Backlog"
+        },
+        "title": "Verify dependency scope",
+        "description": "Retain the exact scoped result."
+      },
+      "2d836a79-781e-4829-bc97-d8cb780c2941": {
+        "id": "2d836a79-781e-4829-bc97-d8cb780c2941",
+        "identifier": "TST-123",
+        "createdAt": "2026-11-02T00:00:00.000000Z",
+        "updatedAt": "2026-11-02T00:00:00.000000Z",
+        "archivedAt": null,
+        "trashed": false,
+        "priority": 3,
+        "assignee": {
+          "id": "668f5c18-2aec-4274-bfdb-bc6c343bf045"
+        },
+        "team": {
+          "id": "30e1e747-5ee7-4d8b-a517-49f9fc16439d",
+          "key": "TST"
+        },
+        "project": {
+          "id": "4562559a-7ee6-4bb6-ac24-4bdbc533b37a"
+        },
+        "state": {
+          "id": "ac84ddaf-4cc8-4254-b30a-1ced5112567b",
+          "name": "Backlog"
+        },
+        "title": "Verify dependency scope",
+        "description": "Retain the exact scoped result."
+      }
+    },
+    "edges": [
+      {
+        "id": "74d0e21e-d7f2-40f3-a17a-79256bb02449",
+        "type": "blocks",
+        "updatedAt": "2026-11-02T00:00:00.000000Z",
+        "archivedAt": null,
+        "issue": {
+          "id": "b34d1b84-fd1e-472d-b6b6-ef07a55079f6"
+        },
+        "relatedIssue": {
+          "id": "2d836a79-781e-4829-bc97-d8cb780c2941"
+        }
+      },
+      {
+        "id": "54a8583f-11cb-48dd-ad89-5f266aec09ec",
+        "type": "blocks",
+        "updatedAt": "2026-11-02T00:00:00.000000Z",
+        "archivedAt": null,
+        "issue": {
+          "id": "9559ef0f-0f9f-4225-a2d8-57359b96d95c"
+        },
+        "relatedIssue": {
+          "id": "2d836a79-781e-4829-bc97-d8cb780c2941"
+        }
+      }
+    ],
+    "states": {
+      "Backlog": "ac84ddaf-4cc8-4254-b30a-1ced5112567b",
+      "Todo": "12011deb-6c2b-4b5b-b73d-50c1ed15b96a",
+      "In Progress": "df3c2c98-13c3-4bcf-a979-aeec2a7eaf51",
+      "On Hold": "52acbd35-cdc4-44a1-b326-2963f3119f93",
+      "In Review": "840ff923-8f5a-4d5d-8e9c-29149800fcae",
+      "In Dev": "bb9ce455-5e0a-46b1-9032-7ee73b719ae2",
+      "In Staging": "b9c4aa85-261c-4790-bf57-1effd09fd39d",
+      "Done": "64e075b3-0a55-4b52-9636-bc0fbea759fa",
+      "Canceled": "9741bd0b-81d2-431e-b218-bab12545723e",
+      "Duplicate": "976e96da-03db-4d49-b7e7-ad59bf38fd17"
+    },
+    "page_size": 1,
+    "root": "2d836a79-781e-4829-bc97-d8cb780c2941",
+    "local": {
+      "b34d1b84-fd1e-472d-b6b6-ef07a55079f6": {
+        "issue_id": "b34d1b84-fd1e-472d-b6b6-ef07a55079f6",
+        "title": "Verify dependency scope",
+        "body": "Retain the exact scoped result.",
+        "prose_digest": "96bc666ae6a01f4dfd5eaeb98165a3eec8727ffc402e8444106c06c4a0e290db",
+        "sync_state": "confirmed",
+        "observed_status": "Backlog"
+      },
+      "9559ef0f-0f9f-4225-a2d8-57359b96d95c": {
+        "issue_id": "9559ef0f-0f9f-4225-a2d8-57359b96d95c",
+        "title": "Verify dependency scope",
+        "body": "Retain the exact scoped result.",
+        "prose_digest": "96bc666ae6a01f4dfd5eaeb98165a3eec8727ffc402e8444106c06c4a0e290db",
+        "sync_state": "confirmed",
+        "observed_status": "Backlog"
+      },
+      "2d836a79-781e-4829-bc97-d8cb780c2941": {
+        "issue_id": "2d836a79-781e-4829-bc97-d8cb780c2941",
+        "title": "Verify dependency scope",
+        "body": "Retain the exact scoped result.",
+        "prose_digest": "96bc666ae6a01f4dfd5eaeb98165a3eec8727ffc402e8444106c06c4a0e290db",
+        "sync_state": "confirmed",
+        "observed_status": "Backlog"
+      }
+    },
+    "observation": {
+      "complete": true,
+      "priority": "normal",
+      "predecessors": [
+        "9559ef0f-0f9f-4225-a2d8-57359b96d95c",
+        "b34d1b84-fd1e-472d-b6b6-ef07a55079f6"
+      ],
+      "schema_hash": "44b851ef96c06fb919bdf775ae7e66543c10bf7b9caaf06d048acb726ceedecb",
+      "raw": {
+        "first": {
+          "nodes": {
+            "2d836a79-781e-4829-bc97-d8cb780c2941": {
+              "issue_id": "2d836a79-781e-4829-bc97-d8cb780c2941",
+              "identifier": "TST-123",
+              "team_id": "30e1e747-5ee7-4d8b-a517-49f9fc16439d",
+              "state_id": "ac84ddaf-4cc8-4254-b30a-1ced5112567b",
+              "status": "Backlog",
+              "created_at": "2026-11-02T00:00:00.000000Z",
+              "source_revision": "2026-11-02T00:00:00.000000Z",
+              "priority": "normal",
+              "prose_digest": "96bc666ae6a01f4dfd5eaeb98165a3eec8727ffc402e8444106c06c4a0e290db"
+            },
+            "b34d1b84-fd1e-472d-b6b6-ef07a55079f6": {
+              "issue_id": "b34d1b84-fd1e-472d-b6b6-ef07a55079f6",
+              "identifier": "TST-123",
+              "team_id": "30e1e747-5ee7-4d8b-a517-49f9fc16439d",
+              "state_id": "ac84ddaf-4cc8-4254-b30a-1ced5112567b",
+              "status": "Backlog",
+              "created_at": "2026-11-02T00:00:00.000000Z",
+              "source_revision": "2026-11-02T00:00:00.000000Z",
+              "priority": "normal",
+              "prose_digest": "96bc666ae6a01f4dfd5eaeb98165a3eec8727ffc402e8444106c06c4a0e290db"
+            },
+            "9559ef0f-0f9f-4225-a2d8-57359b96d95c": {
+              "issue_id": "9559ef0f-0f9f-4225-a2d8-57359b96d95c",
+              "identifier": "TST-123",
+              "team_id": "30e1e747-5ee7-4d8b-a517-49f9fc16439d",
+              "state_id": "ac84ddaf-4cc8-4254-b30a-1ced5112567b",
+              "status": "Backlog",
+              "created_at": "2026-11-02T00:00:00.000000Z",
+              "source_revision": "2026-11-02T00:00:00.000000Z",
+              "priority": "normal",
+              "prose_digest": "96bc666ae6a01f4dfd5eaeb98165a3eec8727ffc402e8444106c06c4a0e290db"
+            }
+          },
+          "relations": {
+            "74d0e21e-d7f2-40f3-a17a-79256bb02449": {
+              "id": "74d0e21e-d7f2-40f3-a17a-79256bb02449",
+              "source": "b34d1b84-fd1e-472d-b6b6-ef07a55079f6",
+              "target": "2d836a79-781e-4829-bc97-d8cb780c2941",
+              "type": "blocks",
+              "revision": "2026-11-02T00:00:00.000000Z",
+              "archived_at": null
+            },
+            "54a8583f-11cb-48dd-ad89-5f266aec09ec": {
+              "id": "54a8583f-11cb-48dd-ad89-5f266aec09ec",
+              "source": "9559ef0f-0f9f-4225-a2d8-57359b96d95c",
+              "target": "2d836a79-781e-4829-bc97-d8cb780c2941",
+              "type": "blocks",
+              "revision": "2026-11-02T00:00:00.000000Z",
+              "archived_at": null
+            }
+          },
+          "graph": {
+            "2d836a79-781e-4829-bc97-d8cb780c2941": [
+              "9559ef0f-0f9f-4225-a2d8-57359b96d95c",
+              "b34d1b84-fd1e-472d-b6b6-ef07a55079f6"
+            ],
+            "b34d1b84-fd1e-472d-b6b6-ef07a55079f6": [],
+            "9559ef0f-0f9f-4225-a2d8-57359b96d95c": []
+          }
+        },
+        "second_digest": "16f7d772a398c2f51b1e7d3fb5ce19320355b9c190aad27ba863686ce3b64b1c",
+        "binding": {
+          "viewer_id": "668f5c18-2aec-4274-bfdb-bc6c343bf045",
+          "workspace_id": "c0319051-4520-4c9d-b786-e7c32a4e2a07",
+          "team_id": "30e1e747-5ee7-4d8b-a517-49f9fc16439d",
+          "team_key": "TST",
+          "project_id": "4562559a-7ee6-4bb6-ac24-4bdbc533b37a"
+        },
+        "semantics": "blocks source -> target; authored direction acceptance pending live verification"
+      }
+    }
+  }
+]

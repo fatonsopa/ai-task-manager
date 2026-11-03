@@ -366,21 +366,29 @@ def test_final_workflow_map_change_is_not_a_stable_observation(provider):
 
 
 def test_missing_opposite_direction_is_not_complete(provider):
-    from ai_task_manager.adapters.linear.dependencies.schema import RELATIONS
+    from ai_task_manager.adapters.linear.dependencies.schema import DETAILS, RELATIONS
 
     a, task = provider.task(), provider.task()
     provider.edge(a, task)
     original = provider.send
+    injected = []
 
     def missing(query, variables, credentials):
         response = original(query, variables, credentials)
         data = json.loads(response.body)
-        if query == RELATIONS["relations"] and variables["id"] == a.issue_id:
+        if query in {RELATIONS["relations"], DETAILS} and variables["id"] == a.issue_id:
+            assert data["data"]["issue"]["relations"]["nodes"]
+            injected.append(variables["id"])
             data["data"]["issue"]["relations"]["nodes"] = []
         return WireResponse(200, {}, json.dumps(data).encode())
 
     provider.send = missing
-    assert provider.refresh(task)["state"] == "unknown"
+    assert provider.refresh(task, "missing-opposite")["state"] == "unknown"
+    assert injected and set(injected) == {a.issue_id}
+    ref = provider.receipts.lookup(provider.scope, task.id, "missing-opposite")["receipt"]
+    assert provider.receipts._get(ref, PREFIX)["raw"]["observation"]["unavailable"] == (
+        "incomplete_dependency_direction"
+    )
 
 
 def test_foreign_predecessor_is_checked_before_its_prose(provider):
