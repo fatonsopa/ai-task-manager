@@ -133,6 +133,12 @@ class CodexConfigurationObserver:
             "configRequirements/read",
         }:
             raise AccessDenied("Actual effective native configuration must precede thread creation")
+        from .conformance.thread import ProbeThreadGate
+
+        probe = getattr(self.conformance, "probe_thread", None)
+        if isinstance(probe, ProbeThreadGate):
+            probe.authorize(self.policy, self.binding)
+            return  # This authorizes only a fixture probe thread, not conformance.
         # This installer/evaluator port must resolve actual pinned evidence. A
         # requested flag or authored response cannot replace it in normal use.
         verifier = getattr(self.conformance, "require_native_conformance", None)

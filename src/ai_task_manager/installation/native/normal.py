@@ -14,7 +14,7 @@ from .store import NativeStore
 PURPOSES = frozenset({"host", "relay", "auth", "neutral", "assignment"})
 
 
-def enroll(store, manifest, limits):
+def enroll(store, manifest, limits, *, identity_refreshes, conformance_ref):
     """Trusted installer operation; permission is not an execution or billing receipt.
 
     This function is not a public model tool. It records the operator's exact
@@ -32,12 +32,25 @@ def enroll(store, manifest, limits):
         )
     ):
         raise AccessDenied("Exact finite normal invocation limits are required")
+    if (
+        type(identity_refreshes) is not tuple
+        or len(set(identity_refreshes)) != len(identity_refreshes)
+        or any(type(v) is not str or not v or v in PURPOSES for v in identity_refreshes)
+        or type(conformance_ref) is not str
+        or not conformance_ref
+    ):
+        raise AccessDenied("Explicit finite identity-auth names and conformance reference required")
+    if manifest.data["host"] != "claude" and identity_refreshes:
+        raise AccessDenied("Genuine same-native identity refresh is currently Claude-only")
     installation = json.loads(manifest.installation.path.read_text())
     deadline = installation["deadline"]
     if type(deadline) not in {int, float} or not math.isfinite(deadline):
         raise AccessDenied("Original finite installation deadline required")
     d = manifest.data
     permission = {
+        "kind": "normal",
+        "identity_refreshes": list(identity_refreshes),
+        "conformance_ref": conformance_ref,
         "reference": d["authorization_ref"],
         "manifest_digest": manifest.digest,
         "task_id": installation["task_id"],
@@ -78,6 +91,9 @@ class NormalAuthoritySource:
         p = self.store.permission(reference)
         expected = {
             "reference",
+            "kind",
+            "identity_refreshes",
+            "conformance_ref",
             "manifest_digest",
             "task_id",
             "scope",
@@ -93,6 +109,12 @@ class NormalAuthoritySource:
         installation = json.loads(manifest.installation.path.read_text())
         if (
             set(p) != expected
+            or p["kind"] != "normal"
+            or type(p["identity_refreshes"]) is not list
+            or len(set(p["identity_refreshes"])) != len(p["identity_refreshes"])
+            or any(type(v) is not str or not v or v in PURPOSES for v in p["identity_refreshes"])
+            or type(p["conformance_ref"]) is not str
+            or not p["conformance_ref"]
             or p["reference"] != reference
             or p["manifest_digest"] != manifest.digest
             or p["revoked"] is not False
@@ -122,6 +144,12 @@ class NormalAuthoritySource:
             limits["auth"],
             limits["neutral"],
             limits["assignment"],
+            identity_refreshes=tuple(p["identity_refreshes"]),
         )
-        a = NormalAdmissions(manifest, self.store, p, plan, c, self.conformance)
+        conformance = self.conformance
+        if conformance is None:
+            from .enrollment import CaptureEnrollments
+
+            conformance = CaptureEnrollments(self.store).consumer(manifest, p["conformance_ref"])
+        a = NormalAdmissions(manifest, self.store, p, plan, c, conformance)
         return NativePermission(reference, manifest.digest, c, a, plan)

@@ -237,7 +237,12 @@ class NativeIdentityObservations:
         )
         self._issued[current] = observed
         self._current = observed
-        return self.prepare()
+        prepared = self.prepare()
+        # Later SDK system/init frames must consume this successfully verified
+        # same-native auth child, not the expired original startup auth receipt.
+        # The original signed startup and its sources remain unchanged.
+        n.startup.claude_auth_ref = reference
+        return prepared
 
     def revoke(self):
         self._revoked = True

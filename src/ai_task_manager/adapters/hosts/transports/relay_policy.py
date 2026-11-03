@@ -33,6 +33,13 @@ def prepare_binding(permit, command):
         raise ValueError("A claimed native invocation is required")
     permit.issuer._validate(permit)
     controller = permit.issuer.controller
+    if (type(controller).__module__, type(controller).__name__) == (
+        "ai_task_manager.installation.native.controller",
+        "NormalInvocationController",
+    ):
+        from ai_task_manager.installation.native.relay import prepare
+
+        return prepare(permit, command_record(command))
     if (type(controller).__module__, type(controller).__name__) != (
         "tools.build_support.ledger",
         "BuildControl",
@@ -89,6 +96,13 @@ def read_spec(fd):
 
 
 class RelayPolicy:
+    def __new__(cls, specification, command):
+        if specification.get("kind") == "normal_native_v1":
+            from ai_task_manager.installation.native.relay import NormalRelayPolicy
+
+            return NormalRelayPolicy(specification, command)
+        return super().__new__(cls)
+
     def __init__(self, specification, command):
         if specification.get("kind") != "build_control_v1":
             raise ValueError("Unsupported inherited policy adapter")
