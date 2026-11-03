@@ -26,7 +26,7 @@ from tests.runtime.helpers import RuntimeRig
 
 
 class Chain:
-    def __init__(self, root, *, run=True):
+    def __init__(self, root, *, run=True, value="4"):
         root.mkdir(mode=0o700)
         self.runtime = RuntimeRig(root)
         self.r = self.runtime.rig
@@ -41,8 +41,9 @@ class Chain:
         from ai_task_manager.adapters.resources.git import git
 
         git(self.tree, "branch", "integration", self.old)
-        self.units = (unit(),)
+        self.units = (unit(value=value),)
         write_inputs(self.tree, self.units)
+        (self.tree / "src/a.txt").write_text(value)
         git(self.tree, "add", ".")
         git(self.tree, "commit", "-qm", "Authored checked fixture change")
         self.new = git(self.tree, "rev-parse", "HEAD")
