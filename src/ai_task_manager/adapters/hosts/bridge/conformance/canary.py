@@ -32,7 +32,9 @@ class CanaryGateway:
     def _physical(self):
         info = self.root.lstat()
         if (
-            self.root.is_symlink()
+            not self.root.is_absolute()
+            or self.root.resolve() != self.root
+            or self.root.is_symlink()
             or not stat.S_ISDIR(info.st_mode)
             or (info.st_dev, info.st_ino, info.st_uid, stat.S_IMODE(info.st_mode))
             != self.context.fixture_identity
@@ -118,6 +120,8 @@ class CanaryGateway:
             )
 
     def _perform(self, name, args):
+        if name in {"read_file", "write_file"} and args["path"] not in {"input.txt", "output.txt"}:
+            raise AccessDenied("Only the two declared canary files are accessible")
         if name == "read_file":
             result = self.workspace.read(args["path"])
         elif name == "write_file":

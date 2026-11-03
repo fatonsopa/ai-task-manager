@@ -1,12 +1,14 @@
 """Shared finite probe contracts; data objects never authorize an invocation."""
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from ai_task_manager.adapters.process.groups import GroupStop
 from ai_task_manager.config.files import digest
+from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import Scope
 
 
@@ -24,6 +26,25 @@ class ProbeContext:
     fixture_root: Path
     fixture_identity: tuple[int, int, int, int]
     case_ids: tuple[str, ...]
+
+    def __post_init__(self):
+        if (
+            not isinstance(self.scope, Scope)
+            or not isinstance(self.fixture_root, Path)
+            or not self.fixture_root.is_absolute()
+            or self.host not in {"claude", "codex"}
+            or not self.model
+            or self.effort != "high"
+            or type(self.deadline) not in {int, float}
+            or not math.isfinite(self.deadline)
+            or self.deadline <= 0
+            or not self.reference
+            or type(self.fixture_identity) is not tuple
+            or len(self.fixture_identity) != 4
+            or type(self.case_ids) is not tuple
+            or len(set(self.case_ids)) != len(self.case_ids)
+        ):
+            raise AccessDenied("A finite exact native probe context is required")
 
 
 @dataclass(frozen=True)
@@ -71,17 +92,10 @@ CASE_IDS = (
 )
 
 
-def profile_digest(manifest, pins):
-    manifest.check()
-    pins.check()
-    return digest(
-        {
-            "manifest": manifest.digest,
-            "source": pins.fingerprint,
-            "matrix_version": 1,
-            "case_ids": CASE_IDS,
-        }
-    )
+def profile_digest(manifest, sources, *, cli_version, policy=None):
+    from .profile import prepare_profile
+
+    return prepare_profile(manifest, sources, cli_version, policy=policy).fingerprint
 
 
 def cases(context):
