@@ -146,11 +146,11 @@
     },
     {
       "path": "docs/high_level_document.md",
-      "sha256": "eacf726be5f32d0518389d3a6da05fc78a1998cbc272e529c04bc2e705829322"
+      "sha256": "bafb31424011a460dfe7a6cbe38e2c2e370563bc457ed18b2c8ba84fde03081d"
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "f31003999c9964f956e2fc8cdb874111e72ef3777a4032af74be6a2fd4b15319"
+      "sha256": "18012bdcc3764040203afa61beb25392408acd46af9536feca902a7e67a45d91"
     },
     {
       "path": "docs/merge/decision_record.md",
@@ -178,11 +178,11 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "e7944e8a2ebd86861ba4444983e0ab2eaafd1b669ef41795d04a0b189fa68cb2"
+      "sha256": "fbf8de45df6457b2a646e4180ca329ff7d85f86778b53577dfacfcc0ffb52a0b"
     },
     {
       "path": "docs/spec_driven_development.md",
-      "sha256": "ab4a4dbdd01da86ff6f298d5e4b9b0fb497ea82391a091f941c759387a3d8852"
+      "sha256": "b4c86d16494f4477f77f2ca127e256917d691c56363ac7d22b6687fc204eba0a"
     },
     {
       "path": "docs/terminal/spec_driven_development.md",
@@ -190,11 +190,11 @@
     },
     {
       "path": "docs/test_plan.md",
-      "sha256": "2736e6e697ec2e052f87acba2dc2e6bba02bf1164b4630c4948de021d340216e"
+      "sha256": "96f51154f62c53f76f18f6846b7195d85ebf0dd7246ef664f01998b0207c151c"
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "fce25d1f41ff9fa2e86542b8e127e761171fa52edc28d33cdeb6791564befcd0"
+      "sha256": "dfd03202c079608f5afa6025ad93c64f8cc4e22f085e1b43aa45b4146a83b7c1"
     },
     {
       "path": "prototypes/terminal/session-task-management.html",

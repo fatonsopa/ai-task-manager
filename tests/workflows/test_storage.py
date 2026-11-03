@@ -21,7 +21,7 @@ def test_WD16_third_schema_probe_rollback_retains_identity(tmp_path):
     identity = store.identity
     with store.transaction() as conn:
         probe_connection(
-            conn, StoreBinding(store.path, *store.identity, "workflow_meta", 1, store.store_id)
+            conn, StoreBinding(store.path, *store.identity, "workflow_meta", 2, store.store_id)
         )
         assert conn.execute("SELECT store_id FROM workflow_meta").fetchone()[0] == store.store_id
     with store.transaction() as conn:
@@ -51,7 +51,7 @@ def test_WD16_third_schema_copied_connection_refuses(tmp_path):
         conn.execute("BEGIN")
         with pytest.raises(AccessDenied):
             probe_connection(
-                conn, StoreBinding(store.path, *store.identity, "workflow_meta", 1, store.store_id)
+                conn, StoreBinding(store.path, *store.identity, "workflow_meta", 2, store.store_id)
             )
     finally:
         conn.rollback()

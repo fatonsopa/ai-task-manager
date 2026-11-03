@@ -280,6 +280,19 @@ class InstalledWorkflow:
             if task.code_bearing
             else None
         )
+        from ai_task_manager.adapters.workflow_control.recovery import RecoveryHistory
+
+        provider_config = read_private(self.spec.config_seal.path).get("linear")
+        history = None
+        if provider_config:
+            history = RecoveryHistory(
+                self.spec.config_seal.path,
+                core=core.context.db.path,
+                workflow=self.store.path,
+                runtime=self.journal.path,
+                host=self.host_journal.path,
+                provider=provider_config["journal"],
+            )
         driver = WorkflowDriver(
             core,
             handle,
@@ -290,6 +303,7 @@ class InstalledWorkflow:
             commits=commits,
             provider=provider,
             reviews=ReviewedEvidence(core, reviewer.lookup),
+            recovery_history=history,
             decisions=lambda scope, current, target, action: decisions.decision(
                 scope, current, target, action, grant_ref=grant
             ),

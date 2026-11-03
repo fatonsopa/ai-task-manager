@@ -70,6 +70,20 @@ class WorkflowService:
             reference = self.driver.begin(task_id, plan_ref, operation_key)
             return self._resume(reference)
 
+    def recover_expired(self, authorization):
+        """Trusted code-only admission; this deliberately does not execute the run."""
+        from ai_task_manager.domains.work.errors import AccessDenied
+
+        from .recovery import RecoveryAuthorization, recover_expired
+
+        if type(authorization) is not RecoveryAuthorization:
+            raise AccessDenied("Trusted typed recovery authorization is required")
+        self._ready()
+        if self.task_plans.get(authorization.task_id) != authorization.plan_ref:
+            raise AccessDenied("The recovery plan is not assigned to this task")
+        with self._task_lock(authorization.task_id):
+            return recover_expired(self.driver, authorization)
+
     def resume(self, workflow_ref):
         self._ready()
         row = self.driver.store.read(workflow_ref, self.driver.scope)

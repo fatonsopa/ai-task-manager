@@ -47,11 +47,50 @@ class WorkflowStore:
                     "CREATE TABLE lineage(resource TEXT PRIMARY KEY,task_id TEXT,"
                     "attempt_id TEXT,body TEXT)"
                 )
-            elif tables != {"workflow_meta", "runs", "steps", "lineage"}:
+            elif tables not in (
+                {"workflow_meta", "runs", "steps", "lineage"},
+                {"workflow_meta", "runs", "steps", "lineage", "workflow_heads", "recoveries"},
+            ):
                 raise SchemaError("Not an owned workflow store")
             rows = conn.execute("SELECT version,store_id FROM workflow_meta").fetchall()
-            if len(rows) != 1 or rows[0][0] != 1:
+            if len(rows) != 1 or rows[0][0] not in {1, 2}:
                 raise SchemaError("Unsupported workflow store")
+            if (
+                tables
+                and tables
+                != {
+                    1: {"workflow_meta", "runs", "steps", "lineage"},
+                    2: {
+                        "workflow_meta",
+                        "runs",
+                        "steps",
+                        "lineage",
+                        "workflow_heads",
+                        "recoveries",
+                    },
+                }[rows[0][0]]
+            ):
+                raise SchemaError("Workflow schema does not match its recorded version")
+            if rows[0][0] == 1:
+                # Copy every byte of the old records; only the per-task uniqueness
+                # moves to a current-run pointer. SQLite rolls back partial migration.
+                conn.execute(
+                    "CREATE TABLE runs_v2(id TEXT PRIMARY KEY,scope TEXT,task_id TEXT,"
+                    "operation_key TEXT,body TEXT,owner TEXT,UNIQUE(scope,operation_key))"
+                )
+                conn.execute("INSERT INTO runs_v2 SELECT * FROM runs")
+                conn.execute("DROP TABLE runs")
+                conn.execute("ALTER TABLE runs_v2 RENAME TO runs")
+                conn.execute(
+                    "CREATE TABLE workflow_heads(scope TEXT,task_id TEXT,run_id TEXT UNIQUE,"
+                    "PRIMARY KEY(scope,task_id))"
+                )
+                conn.execute("INSERT INTO workflow_heads SELECT scope,task_id,id FROM runs")
+                conn.execute(
+                    "CREATE TABLE recoveries(predecessor TEXT PRIMARY KEY,successor TEXT UNIQUE,"
+                    "scope TEXT,operation_key TEXT,request TEXT,UNIQUE(scope,operation_key))"
+                )
+                conn.execute("UPDATE workflow_meta SET version=2")
             self.store_id = rows[0][1]
 
     @contextmanager
@@ -65,12 +104,12 @@ class WorkflowStore:
             conn.execute("BEGIN IMMEDIATE")
             if hasattr(self, "store_id"):
                 probe_connection(
-                    conn, StoreBinding(self.path, *self.identity, "workflow_meta", 1, self.store_id)
+                    conn, StoreBinding(self.path, *self.identity, "workflow_meta", 2, self.store_id)
                 )
             yield conn
             if hasattr(self, "store_id"):
                 probe_connection(
-                    conn, StoreBinding(self.path, *self.identity, "workflow_meta", 1, self.store_id)
+                    conn, StoreBinding(self.path, *self.identity, "workflow_meta", 2, self.store_id)
                 )
             conn.commit()
         except BaseException:
@@ -79,8 +118,9 @@ class WorkflowStore:
         finally:
             conn.close()
 
-    def create(self, scope, task, plan, key, runtime_digest=None):
-        body = {
+    @staticmethod
+    def _body(task, plan, runtime_digest, history):
+        return {
             "task_id": task.id,
             "prose_digest": task.prose_digest,
             "decision_revision": task.decision_revision,
@@ -88,11 +128,17 @@ class WorkflowStore:
             "plan_digest": plan.digest,
             "runtime_digest": runtime_digest,
             "attempt_id": None,
+            "task_version": task.version,
+            "plan": asdict(plan),
+            "recovery_history": history,
         }
+
+    def create(self, scope, task, plan, key, runtime_digest=None, history=None):
+        body = self._body(task, plan, runtime_digest, history)
         with self.transaction() as conn:
             old = conn.execute(
-                "SELECT * FROM runs WHERE scope=? AND (task_id=? OR operation_key=?)",
-                (canonical(asdict(scope)), task.id, key),
+                "SELECT * FROM runs WHERE scope=? AND operation_key=?",
+                (canonical(asdict(scope)), key),
             ).fetchone()
             if old:
                 prior = json.loads(old["body"])
@@ -105,29 +151,101 @@ class WorkflowStore:
                 ) != (key, task.id, task.prose_digest, plan.digest, runtime_digest):
                     raise IdempotencyConflict("Task already has a different workflow or plan")
                 return old["id"]
+            if conn.execute(
+                "SELECT 1 FROM workflow_heads WHERE scope=? AND task_id=?",
+                (canonical(asdict(scope)), task.id),
+            ).fetchone():
+                raise IdempotencyConflict("Task already has a workflow; trusted recovery required")
             ref = "workflow:" + str(uuid4())
             conn.execute(
                 "INSERT INTO runs VALUES(?,?,?,?,?,NULL)",
                 (ref, canonical(asdict(scope)), task.id, key, canonical(body)),
             )
+            conn.execute(
+                "INSERT INTO workflow_heads VALUES(?,?,?)",
+                (canonical(asdict(scope)), task.id, ref),
+            )
             return ref
 
     def find(self, scope, task_id, operation_key):
-        """Find exact historical admission without granting another effect."""
+        """Exact old keys retain old history even after a successor is admitted."""
         with self.transaction() as conn:
-            rows = conn.execute(
-                "SELECT id,task_id,operation_key FROM runs "
-                "WHERE scope=? AND (task_id=? OR operation_key=?)",
-                (canonical(asdict(scope)), task_id, operation_key),
-            ).fetchall()
-            if not rows:
-                return None
-            if len(rows) != 1 or (rows[0]["task_id"], rows[0]["operation_key"]) != (
-                task_id,
-                operation_key,
-            ):
+            row = conn.execute(
+                "SELECT id,task_id FROM runs WHERE scope=? AND operation_key=?",
+                (canonical(asdict(scope)), operation_key),
+            ).fetchone()
+            if row:
+                if row["task_id"] != task_id:
+                    raise IdempotencyConflict("Workflow key belongs to another task")
+                return row["id"]
+            if conn.execute(
+                "SELECT 1 FROM workflow_heads WHERE scope=? AND task_id=?",
+                (canonical(asdict(scope)), task_id),
+            ).fetchone():
                 raise IdempotencyConflict("Workflow task or original operation key changed")
-            return rows[0]["id"]
+            return None
+
+    def recovery_result(self, scope, predecessor, request):
+        with self.transaction() as conn:
+            return self._recovery_result(conn, scope, predecessor, request)
+
+    @staticmethod
+    def _recovery_result(conn, scope, predecessor, request):
+        row = conn.execute(
+            "SELECT * FROM recoveries WHERE predecessor=?", (predecessor,)
+        ).fetchone()
+        if row is None:
+            return None
+        if row["scope"] != canonical(asdict(scope)) or row["request"] != canonical(request):
+            raise IdempotencyConflict("Expired workflow already has a different recovery")
+        return row["successor"]
+
+    def recover(self, scope, predecessor, task, plan, key, runtime_digest, history, request, check):
+        """Publish a successor only inside the application's guarded boundary."""
+        with self.transaction() as conn:
+            prior = self._recovery_result(conn, scope, predecessor, request)
+            if prior is not None:
+                return prior
+            old = conn.execute(
+                "SELECT * FROM runs WHERE id=? AND scope=? AND task_id=?",
+                (predecessor, canonical(asdict(scope)), task.id),
+            ).fetchone()
+            if old is None or old["owner"] is not None:
+                raise AccessDenied("Original unclaimed scoped workflow is required")
+            head = conn.execute(
+                "SELECT run_id FROM workflow_heads WHERE scope=? AND task_id=?",
+                (canonical(asdict(scope)), task.id),
+            ).fetchone()
+            if head is None or head[0] != predecessor:
+                raise IdempotencyConflict("Only the current expired workflow can be recovered")
+            if conn.execute(
+                "SELECT 1 FROM runs WHERE scope=? AND operation_key=?",
+                (canonical(asdict(scope)), key),
+            ).fetchone():
+                raise IdempotencyConflict("Recovery requires a new scoped operation key")
+            if conn.execute("SELECT 1 FROM lineage WHERE task_id=?", (task.id,)).fetchone():
+                raise AccessDenied("Resource lineage prevents zero-effect recovery")
+            steps = conn.execute("SELECT * FROM steps WHERE run_id=?", (predecessor,)).fetchall()
+            if any(row["name"] != "start" or row["result"] is not None for row in steps):
+                raise AccessDenied("Only an unexecuted start intent can be recovered")
+            check(json.loads(old["body"]))
+            ref = "workflow:" + str(uuid4())
+            body = self._body(task, plan, runtime_digest, history)
+            conn.execute(
+                "INSERT INTO runs VALUES(?,?,?,?,?,NULL)",
+                (ref, canonical(asdict(scope)), task.id, key, canonical(body)),
+            )
+            conn.execute(
+                "INSERT INTO recoveries VALUES(?,?,?,?,?)",
+                (predecessor, ref, canonical(asdict(scope)), key, canonical(request)),
+            )
+            changed = conn.execute(
+                "UPDATE workflow_heads SET run_id=? WHERE scope=? AND task_id=? AND run_id=?",
+                (ref, canonical(asdict(scope)), task.id, predecessor),
+            ).rowcount
+            if changed != 1:
+                raise IdempotencyConflict("Workflow head changed during recovery")
+            return ref
 
     def read(self, reference, scope):
         with self.transaction() as conn:
@@ -152,6 +270,10 @@ class WorkflowStore:
     def claim(self, reference, scope, owner):
         self.read(reference, scope)
         with self.transaction() as conn:
+            if conn.execute(
+                "SELECT 1 FROM recoveries WHERE predecessor=?", (reference,)
+            ).fetchone():
+                raise AccessDenied("Expired predecessor is retained as history only")
             changed = conn.execute(
                 "UPDATE runs SET owner=? WHERE id=? AND owner IS NULL", (owner, reference)
             ).rowcount
@@ -217,7 +339,7 @@ class WorkflowStore:
         """Read actual saved inspection only; this method never grants acceptance."""
         with self.transaction() as conn:
             row = conn.execute(
-                "SELECT id FROM runs WHERE scope=? AND task_id=?",
+                "SELECT run_id AS id FROM workflow_heads WHERE scope=? AND task_id=?",
                 (canonical(asdict(scope)), task_id),
             ).fetchone()
         if row is None:

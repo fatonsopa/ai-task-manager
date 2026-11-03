@@ -163,6 +163,14 @@ The public configuration loader accepts a trusted workflow factory supplied by i
 
 Owner admission has an original finite deadline. Shutdown stops accepting requests, waits for admitted bounded work and records stop obligations through the retained runtime port. It does not signal an unknown or reaped process. The descriptor is retained when the owner exits; clients never unlink it or elect a new owner. A verified installer/recovery path must resolve uncertain operations before replacement. General installation, real host composition and the complete code/merge path remain separate delivery work.
 
+### Expired workflow recovery
+
+The recovery design implements [the narrow behavioral contract](spec_driven_development.md#expired-workflows-without-effects). Workflow storage keeps every run under its original scoped operation key and maintains a separate current-run pointer. Schema migration preserves existing run bodies, steps, owners and resource lineage; it does not infer missing admission evidence. A unique predecessor link and compare-and-set of the current pointer serialize successor creation in one workflow transaction.
+
+New admissions retain the full trusted plan, task version and optional recovery-history bindings. The installed composition records the original Core, workflow, runtime, host and provider file identities plus the exact retained owner descriptor. Recovery opens existing journals without creating replacements, verifies original file continuity and the stopped owner's process identity and absent endpoint, then holds local journal locks while checking zero effects. Unknown or replaced history refuses. Legacy rows without these bindings remain readable and idempotent but need separate explicit reconciliation before recovery.
+
+`WorkflowService.recover_expired(RecoveryAuthorization)` is the trusted code-only admission interface. Its typed authorization binds one predecessor, task/version/decision, fresh plan/key and finite expiry. The application checks a current Core-accepted start decision and eligible task facts while holding the Core transaction; it then publishes the successor and lineage atomically in workflow storage. These checks create no external effect or distributed transaction. The public operation registry remains unchanged. Each later successor effect still uses ordinary Core admission and the new plan's original deadline.
+
 ### Installed workflow launch
 
 The concrete owner command is `aitm --config CONFIG workflow owner --installation INSTALLATION`. A trusted caller can supply a `NativeRegistry` through the CLI's code-only `workflow_registry` argument or call `installation.workflows.launch` directly. The default registry is empty, so a newly started CLI refuses missing native registration before provider or worker effects. Configuration selects an installed reference; it cannot import Python code, supply commands or declare successful native admission.

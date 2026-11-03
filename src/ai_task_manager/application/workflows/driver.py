@@ -22,11 +22,13 @@ class WorkflowDriver:
         commits=None,
         clock=None,
         faults=None,
+        recovery_history=None,
     ):
         self.core, self.handle, self.store, self.plans = core, handle, store, plans
         self.runtime, self.repository, self.provider = runtime, repository, provider
         self.decisions, self.reviews, self.faults = decisions, reviews, faults
         self.commits = commits
+        self.recovery_history = recovery_history
         self.clock = clock or core.context.clock
         self.session_id, self.scope = core.session_binding(handle)
 
@@ -44,7 +46,8 @@ class WorkflowDriver:
             raise EvidenceRequired("Confirmed Todo and a configured task workflow are required")
         if plan.deadline <= self.clock():
             raise AccessDenied("Original workflow deadline expired")
-        return self.store.create(self.scope, task, plan, operation_key, binding)
+        history = self.recovery_history.capture(self.scope) if self.recovery_history else None
+        return self.store.create(self.scope, task, plan, operation_key, binding, history)
 
     def _context(self, ref):
         if self.core.session_binding(self.handle) != (self.session_id, self.scope):

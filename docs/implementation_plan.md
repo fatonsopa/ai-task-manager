@@ -196,6 +196,8 @@ Implement and exercise recovery through the fault matrix in the [Test Plan (TP)]
 
 Gate: the state-machine, process, fault and capacity tests preserve invariants with deterministic seeds and repeatable reproductions.
 
+TST-144 implements the first expired-workflow recovery slice under R14/R15/R20/R36. Define and freeze [the zero-effect contract](spec_driven_development.md#expired-workflows-without-effects), migrate workflow identity without changing historical records, then verify trusted successor admission and old-key refusal. New admissions retain their original plan, task version and history bindings. Keep legacy enrollment and workflow evidence gaps blocked for separately authorized reconciliation; do not backfill continuity or expand this slice to partially effected work. Independent source review precedes integration, and the corrected enrollment prerequisite must be reconciled first.
+
 ### P07 — Implement the terminal views
 
 Build scoped JSON/text CLI output first, then the right-hand companion pane and passive status line. Implement the approved grouping, activity, inspection, controls, scrolling and native-host layout from the [focused Spec Driven Development document (SDD)](terminal/spec_driven_development.md) through the shared scoped projection.

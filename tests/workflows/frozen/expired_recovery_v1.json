@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "requirements": [
+    "R14",
+    "R15",
+    "R20",
+    "R36"
+  ],
+  "scope": "Local authored controls; no live provider or model effects.",
+  "cases": {
+    "ER01": "Create one fresh bounded linked successor from an expired zero-effect run with original verified stores, stopped owner and current authority; original rows remain byte-for-byte unchanged.",
+    "ER02": "Original run/resume key and reference still identify old history; a fresh ordinary run key cannot bypass recovery.",
+    "ER03": "Reject absent, expired, mismatched or overlong recovery authority, stale current decision, changed plan, changed task version/revision/prose, foreign scope and unqueued/held/delivered/terminal/nonidle task.",
+    "ER04": "Reject any Core attempt including settled/unknown, lease, runtime attempt/effect/observation/receipt, host intent/record, workflow lineage or non-start step.",
+    "ER05": "Reject unsettled Core outbox, provider sends/progress and unapplied inbound observations; missing or replaced journal never becomes empty-history proof.",
+    "ER06": "Verify original descriptor identity, stopped process or PID reuse and absent endpoint; live, absent, replaced or ambiguous owner refuses.",
+    "ER07": "Concurrent identical recoveries and restart after lost commit reply return one successor; changed key/plan/authority conflicts without extra runs.",
+    "ER08": "Failure before successor commit rolls back pointer and lineage; original workflow and every failed step remain unchanged.",
+    "ER09": "Migrate schema 1 without changing run/step/lineage bytes or operation-key behavior; missing admission evidence refuses recovery rather than being backfilled.",
+    "ER10": "Successor uses normal run/resume and Core effect gates; a later hold or expiry prevents execution; no recovery operation is added to CLI/MCP."
+  }
+}
