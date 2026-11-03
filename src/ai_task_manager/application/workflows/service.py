@@ -29,7 +29,16 @@ class WorkflowService:
         safe = {
             k: v
             for k, v in observation.items()
-            if k in {"state", "reason", "workflow", "task_id", "artifact_digest", "required_units"}
+            if k
+            in {
+                "state",
+                "reason",
+                "workflow",
+                "task_id",
+                "artifact_digest",
+                "required_units",
+                "commit",
+            }
         }
         envelope = result(
             safe,
@@ -119,8 +128,8 @@ class WorkflowService:
                     else:
                         continue
                 attempt = driver.core.get_attempt(driver.handle, row["attempt_id"])
-                if task.code_bearing or attempt.task_id != task.id:
-                    raise EvidenceRequired("Known non-code task and attempt ownership required")
+                if attempt.task_id != task.id:
+                    raise EvidenceRequired("Known task and attempt ownership required")
                 prior = row["steps"].get("owner-stop")
                 if prior is not None:
                     if prior["result"] is not None:

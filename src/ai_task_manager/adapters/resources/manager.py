@@ -108,6 +108,10 @@ class ResourceManager:
         task = core.get_task(handle, attempt.task_id)
         if attempt.state in ACTIVE_ATTEMPTS or task.execution_state in {"merging", "unknown"}:
             raise RuntimeRefused("Unresolved attempt or merge retains its resources")
+        if self.journal.effect(
+            attempt_id, "worker-commit-intent"
+        ) is not None and not self.journal.observations(attempt_id, "worker-commit-complete"):
+            raise RuntimeRefused("Unresolved worker commit retains its worktree and database")
         outcomes = self.journal.observations(attempt_id, "runtime_outcome")
         if not outcomes or outcomes[-1].get("quiescent") is not True:
             raise RuntimeRefused("Actual runtime stop must be confirmed before cleanup")
@@ -153,6 +157,10 @@ class ResourceManager:
             raise RuntimeRefused("Unknown resource removal kind")
         attempt = core.get_attempt(handle, attempt_id)
         task = core.get_task(handle, attempt.task_id)
+        if self.journal.effect(
+            attempt_id, "worker-commit-intent"
+        ) is not None and not self.journal.observations(attempt_id, "worker-commit-complete"):
+            raise RuntimeRefused("Unresolved worker commit retains its worktree and database")
         outcomes = self.journal.observations(attempt_id, "runtime_outcome")
         if (
             attempt.state in ACTIVE_ATTEMPTS

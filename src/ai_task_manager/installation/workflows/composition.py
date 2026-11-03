@@ -112,9 +112,8 @@ class InstalledWorkflow:
         if (
             asdict(core.session_binding(handle)[1]) != d["scope"]
             or task.prose_digest != d["prose_digest"]
-            or task.code_bearing
         ):
-            raise AccessDenied("Installed non-code task, scope or approved prose differs")
+            raise AccessDenied("Installed task, scope or approved prose differs")
         if provider is None or self.dependencies is None:
             raise Unavailable("Real provider/dependency ports required before native execution")
         if not isinstance(core.context.evidence, EvidenceRouter):
@@ -212,6 +211,12 @@ class InstalledWorkflow:
         )
         self.factory.commands = self.workers
         plan = self.spec.plan(self.native.host)
+        if task.code_bearing:
+            if not authority.command_refs or not callable(
+                getattr(authority.confined_commands, "verified_result", None)
+            ):
+                raise Unavailable("Code workflows require installed verified commit checks")
+            plan = replace(plan, commit_checks=authority.command_refs)
 
         def binding(current, selected):
             self.spec.check()
@@ -256,6 +261,21 @@ class InstalledWorkflow:
         from ai_task_manager.config.files import read_private
 
         grant = read_private(self.spec.config_seal.path).get("grant_ref")
+        from ai_task_manager.adapters.git.commits import WorkerGit
+        from ai_task_manager.application.commits import WorkerCommits
+
+        commits = (
+            WorkerCommits(
+                core,
+                handle,
+                runtime,
+                self.journal,
+                WorkerGit(self.journal),
+                checks=authority.confined_commands,
+            )
+            if task.code_bearing
+            else None
+        )
         driver = WorkflowDriver(
             core,
             handle,
@@ -263,6 +283,7 @@ class InstalledWorkflow:
             WorkflowPlans((plan,)),
             runtime=runtime,
             repository=inspector,
+            commits=commits,
             provider=provider,
             reviews=ReviewedEvidence(core, reviewer.lookup),
             decisions=lambda scope, current, target, action: decisions.decision(
