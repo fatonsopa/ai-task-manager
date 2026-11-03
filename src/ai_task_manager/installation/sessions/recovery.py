@@ -55,6 +55,35 @@ def history(journal, reference):
     return {k: v for k, v in value.items() if k != "ref"}
 
 
+def installed_authority(config):
+    """Check the published physical binding before constructors can create files."""
+    pointer = config.get("session_observations")
+    if (
+        not isinstance(pointer, dict)
+        or set(pointer) != {"reference", "journal", "key"}
+        or pointer["reference"] != config.get("grant_ref")
+        or pointer["journal"] != identity(config["authority_database"])
+        or pointer["key"] != identity(config["authority_key"], content=True)
+    ):
+        raise AccessDenied("Renewal requires the original installed enrollment")
+
+
+def provider_history(journal, config, reference):
+    """Missing continuity evidence requires reconciliation, never a new journal."""
+    origin = history(journal, "session-setup-origin:" + digest(reference))
+    if origin is None or origin.get("provider_journal") is None:
+        raise EvidenceRequired(
+            "Original provider journal evidence requires explicit reconciliation"
+        )
+    try:
+        current = identity(config["linear"]["journal"])
+    except (AccessDenied, OSError) as exc:
+        raise AccessDenied("Original provider journal is unavailable") from exc
+    if origin["provider_journal"] != current:
+        raise AccessDenied("Original provider journal changed")
+    return current
+
+
 def setup_origin(journal, reference, scope, destination, config, renew_from, workflow_control):
     """A refused enrollment must never become an adoption on a same-key retry."""
     origin_ref = "session-setup-origin:" + digest(reference)
@@ -79,6 +108,7 @@ def setup_origin(journal, reference, scope, destination, config, renew_from, wor
         "renew_from": renew_from,
         "workflow_control": workflow_control,
         "capability": identity(destination, content=True) if destination.exists() else None,
+        "provider_journal": identity(config["linear"]["journal"]),
     }
 
 
@@ -130,6 +160,8 @@ def renewal(journal, config_file, config, reference, scope, now, core, handle, w
         ).fetchone():
             raise EvidenceRequired("Uncertain provider effects prevent session renewal")
     provider = core.context.principals
+    if provider_history(journal, config, reference) != identity(provider.path):
+        raise AccessDenied("Renewal provider journal differs from installed history")
     latest = {}
     for send in provider.sends(Scope(**scope)):
         old_send = latest.get(send["operation_id"])

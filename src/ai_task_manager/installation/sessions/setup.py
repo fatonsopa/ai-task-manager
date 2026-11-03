@@ -22,7 +22,14 @@ from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.domains.work.models import ApprovalPolicy, Scope
 from ai_task_manager.storage.database import Database
 
-from .recovery import history, renewal, setup_lock, setup_origin
+from .recovery import (
+    history,
+    installed_authority,
+    provider_history,
+    renewal,
+    setup_lock,
+    setup_origin,
+)
 
 # Capability names only; transition semantics remain exclusively in Core.
 ACTIONS = frozenset(
@@ -111,6 +118,12 @@ def _setup(
         or deadline <= time.time()
     ):
         raise AccessDenied("Explicit finite session delegation required")
+    reference = PREFIX + digest({"config": str(config_file), "key": operation_key})
+    if renew_from is not None or config.get("grant_ref") is not None:
+        installed_authority(config)
+    journal = AuthorityJournal(config["authority_database"], config["authority_key"])
+    if renew_from is not None:
+        provider_history(journal, config, config.get("grant_ref"))
     components = components or LinearComponents(config["linear"])
     if components.configuration_hash != digest(config["linear"]):
         raise AccessDenied("Session provider differs from configured provider")
@@ -119,8 +132,8 @@ def _setup(
     scope = Scope(
         "linear", expected.workspace_id, expected.viewer_id, expected.project_id, logical_session
     )
-    journal = AuthorityJournal(config["authority_database"], config["authority_key"])
-    reference = PREFIX + digest({"config": str(config_file), "key": operation_key})
+    if identity(components.journal.path) != identity(config["linear"]["journal"]):
+        raise AccessDenied("Session provider journal differs from configured history")
     db_path = private_path(config["core_database"], existing=False)
     database = Database(db_path)
     db_path.chmod(0o600)
@@ -136,6 +149,9 @@ def _setup(
     )
     destination = Path(config["session_file"]).absolute()
     result_ref = "session-setup-result:" + digest(reference)
+    published = config.get("grant_ref") == reference
+    if published and history(journal, result_ref) is None:
+        raise EvidenceRequired("Published session setup is incomplete; reconcile without replay")
     origin_ref, origin = setup_origin(
         journal, reference, asdict(scope), destination, config, renew_from, workflow_control
     )
@@ -189,6 +205,11 @@ def _setup(
         "expires_at": deadline,
     }
     bind_record(journal, reference, payload)
+    if published:
+        result = {"scope": asdict(scope), "session_file": identity(destination, content=True)}
+        bind_record(journal, result_ref, result)
+        seal.check()
+        return {"enrollment_ref": reference, "scope": asdict(scope), "capability_saved": True}
     pointer = {
         "reference": reference,
         "journal": identity(journal.path),
