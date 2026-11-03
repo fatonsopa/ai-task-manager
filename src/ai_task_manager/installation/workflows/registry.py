@@ -51,6 +51,15 @@ class NativeAuthorities:
         ):
             raise Unavailable("Real native launch/accounting capabilities are required")
 
+    def require_worker_git(self, journal):
+        from ai_task_manager.adapters.git.commits import ConfinedWorkerGit
+
+        if type(self.worker_git) is not ConfinedWorkerGit:
+            raise Unavailable("Code workflows require explicit contained worker Git authority")
+        if self.worker_git.journal is not journal:
+            raise AccessDenied("Worker Git authority belongs to another runtime journal")
+        return self.worker_git
+
 
 @dataclass(frozen=True)
 class NativeRegistration:

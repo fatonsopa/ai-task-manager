@@ -267,3 +267,14 @@ def test_authority_loss_after_import_keeps_objects_unreachable_and_original_inde
     assert not (Path(record["gitdir"]) / "index.lock").exists()
     assert git(pair.worktree, "rev-parse", "HEAD") == fixture.base
     assert not fixture.rr.journal.observations(pair.attempt_id, "worker-published")
+
+
+@pytest.mark.parametrize("adapter", [None, "legacy_host"])
+def test_code_installation_refuses_missing_or_unconfined_worker_git_authority(adapter):
+    from ai_task_manager.application.service.models import Unavailable
+    from ai_task_manager.installation.workflows.registry import NativeAuthorities
+
+    value = WorkerGit(None) if adapter else None
+    authority = NativeAuthorities(None, None, None, "", worker_git=value)
+    with pytest.raises(Unavailable, match="explicit contained worker Git authority"):
+        authority.require_worker_git(None)

@@ -151,6 +151,7 @@ class InstalledWorkflow:
         if type(authority) is not NativeAuthorities:
             raise Unavailable("Trusted native preparation did not return actual capabilities")
         authority.require()
+        worker_git = authority.require_worker_git(self.journal) if task.code_bearing else None
 
         def policy(host, pair):
             self.spec.check()
@@ -265,18 +266,15 @@ class InstalledWorkflow:
         from ai_task_manager.config.files import read_private
 
         grant = read_private(self.spec.config_seal.path).get("grant_ref")
-        from ai_task_manager.adapters.git.commits import WorkerGit
         from ai_task_manager.application.commits import WorkerCommits
 
-        if authority.worker_git is not None and authority.worker_git.journal is not self.journal:
-            raise AccessDenied("Worker Git authority belongs to another runtime journal")
         commits = (
             WorkerCommits(
                 core,
                 handle,
                 runtime,
                 self.journal,
-                authority.worker_git or WorkerGit(self.journal),
+                worker_git,
                 checks=authority.confined_commands,
             )
             if task.code_bearing
