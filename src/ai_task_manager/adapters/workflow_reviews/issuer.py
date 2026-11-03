@@ -72,6 +72,7 @@ class WorkflowReviews:
             payload = {
                 "prose_digest": task.prose_digest,
                 "artifact": artifact_digest,
+                "artifact_digest": artifact_digest,
                 "artifacts": inspection.context["inspection"]["artifacts"],
                 "source_head": inspection.context["source_version"]["head"],
                 "review_ref": captured.reference,
