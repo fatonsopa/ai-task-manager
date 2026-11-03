@@ -27,8 +27,20 @@ class WorkflowReviews:
         self._key_witness = FileWitness.capture(self.key_path)
         self._prepared = {}
         self.last_wait_reason = None
+        self._bound = (self.artifacts, self.reviews, self.clock)
+
+    def _current(self):
+        if any(a is not b for a, b in zip((self.artifacts, self.reviews, self.clock), self._bound)):
+            raise EvidenceRequired(
+                "The configured review issuer changed; prepare with its new owner"
+            )
+        self.artifacts.check_binding()
+        check = getattr(self.reviews, "check_binding", None)
+        if callable(check):
+            check()
 
     def lookup(self, scope, task, artifact_digest):
+        self._current()
         self.last_wait_reason = None
         if task.code_bearing:
             self.last_wait_reason = "non_code_review_only"
@@ -86,6 +98,7 @@ class WorkflowReviews:
         return output
 
     def verify_evidence(self, reference):
+        self._current()
         value = self._prepared.get(reference) if isinstance(reference, str) else None
         if value is None:
             raise EvidenceRequired("Unknown or unprepared workflow review reference")

@@ -72,11 +72,17 @@ class InstalledReviews:
             owned[binding.reference], keys[key] = binding, binding
         self.bindings = MappingProxyType(owned)
         self.selected = MappingProxyType(dict(selected or {}))
+        self._bound = (self.bindings, self.selected, self.key_path, self.revocation_path)
         if any(
             ref not in owned or owned[ref].context_digest != context
             for context, ref in self.selected.items()
         ):
             raise EvidenceRequired("Selected review is not installed for its exact context")
+
+    def check_binding(self):
+        current = (self.bindings, self.selected, self.key_path, self.revocation_path)
+        if any(a is not b for a, b in zip(current, self._bound)):
+            raise EvidenceRequired("The installed review provenance binding changed")
 
     @staticmethod
     def _read(path, expected=None):
@@ -92,6 +98,7 @@ class InstalledReviews:
         return raw, witness
 
     def resolve(self, inspection):
+        self.check_binding()
         reference = self.selected.get(inspection.digest)
         if reference is None:
             return None

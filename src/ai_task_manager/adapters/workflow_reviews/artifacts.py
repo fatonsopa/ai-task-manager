@@ -20,6 +20,7 @@ class CurrentArtifacts:
         self.inspector, self.runtime = inspector, runtime
         self.plans = MappingProxyType(dict(plans))
         self.criteria = MappingProxyType({key: tuple(value) for key, value in criteria.items()})
+        self._bound = (core, handle, store, inspector, runtime, self.plans, self.criteria)
         if any(
             not value
             or len({c[0] for c in value}) != len(value)
@@ -30,7 +31,21 @@ class CurrentArtifacts:
         ):
             raise EvidenceRequired("Trusted distinct criteria and descriptions are required")
 
+    def check_binding(self):
+        current = (
+            self.core,
+            self.handle,
+            self.store,
+            self.inspector,
+            self.runtime,
+            self.plans,
+            self.criteria,
+        )
+        if any(a is not b for a, b in zip(current, self._bound)):
+            raise EvidenceRequired("The configured artifact observer changed")
+
     def prepare(self, scope, task, artifact_digest):
+        self.check_binding()
         _, actual_scope = self.core.session_binding(self.handle)
         if actual_scope != scope:
             raise EvidenceRequired("Review scope does not match this session")
