@@ -1,10 +1,11 @@
 """Resource release needs project policy independently of observed process exit."""
 
-import subprocess
 from dataclasses import dataclass
 from typing import Protocol
 
 from ai_task_manager.supervisor.models import RuntimeRefused
+
+from .release_git import release_git
 
 
 class ReleasePolicy(Protocol):
@@ -24,21 +25,13 @@ class DeliveryReleasePolicy:
         ):
             raise RuntimeRefused("Code resources need trusted delivery or explicit cancellation")
         # Cancellation never grants permission to discard unmerged committed work.
-        result = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(self.repository),
-                "merge-base",
-                "--is-ancestor",
-                resources["worktree"]["head"],
-                self.integration_ref,
-            ],
-            capture_output=True,
-            timeout=10,
-        )
-        if result.returncode != 0:
-            raise RuntimeRefused("Unmerged resource commits require preservation")
+        try:
+            release_git(
+                self.repository, "merge-base", "--is-ancestor",
+                resources["worktree"]["head"], self.integration_ref,
+            )
+        except RuntimeRefused as error:
+            raise RuntimeRefused("Unmerged resource commits require preservation") from error
 
 
 @dataclass(frozen=True)

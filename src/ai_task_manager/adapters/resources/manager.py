@@ -5,7 +5,7 @@ from pathlib import Path
 from ai_task_manager.domains.work.models import ACTIVE_ATTEMPTS
 from ai_task_manager.supervisor.models import ResourcePair, RuntimeRefused, RuntimeUncertain
 
-from .git import GitWorktrees, git
+from .git import GitWorktrees
 from .paths import confined, unchanged
 from .release import DeliveryReleasePolicy, RejectRemoval, RemovalReceipt
 from .sqlite import SQLiteFixtures
@@ -122,7 +122,7 @@ class ResourceManager:
         tree, db = Path(fact["worktree"]["path"]), Path(fact["database"]["path"])
         # Observe the current commit; a worker may have committed since resource creation.
         if tree.exists():
-            current = self.git.inspect(tree, fact["worktree"]["branch"])
+            current = self.git.inspect(tree, fact["worktree"]["branch"], release=True)
             fact = {**fact, "worktree": {**fact["worktree"], "head": current["head"]}}
         self.release_policy.authorize(core, handle, attempt, fact)
         # Revalidate confinement and both resources before the first deletion.
@@ -137,9 +137,8 @@ class ResourceManager:
                 continue
             unchanged(path, fact[kind]["physical"])
             if kind == "worktree":
-                self.git.inspect(path, fact[kind]["branch"])
-                if git(path, "status", "--porcelain", "--untracked-files=all"):
-                    raise RuntimeRefused("Uncommitted work prevents resource removal")
+                self.git.inspect(path, fact[kind]["branch"], release=True)
+                self.git.require_clean(path)
             else:
                 self.databases.inspect(path, attempt_id)
         for kind, path, provider in (

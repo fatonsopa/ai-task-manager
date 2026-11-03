@@ -29,6 +29,12 @@ Status: Component integration continues. The complete task workflow, merge workf
 
 The latest historical complete Mac backend result remains 2,490 passes on e713d864, tree ac3ad93388eb760c1532c3085b6e761f81a86713. Its wrapper took 560.80 seconds; six container cases ran and seven exact owned containers were removed. This does not establish a full-suite pass for current main. Earlier native-pane, dependency-source, startup diagnostic and relocation results retain their original source-bound scope in the preserved previous report and evidence index. Counts from overlapping batches must not be added as coverage.
 
+### Resource release follow-up
+
+On 3 November 2026, local resource and worker-commit controls exercised the restricted release calls described in the High Level Document (HLD), [high_level_document.md](high_level_document.md). The combined run passed 77 cases and failed seven; a separate ten-case boundary run passed. All 36 resource cases passed, including sixteen new controls for configured helpers, final removal, included and worktree-specific configuration, nested submodule preservation, dirty content and inherited Git routing. The 21 confined-publication and index-provenance cases and five host-containment regression cases passed. The other 25 passes belong to the legacy worker-commit module.
+
+The seven failures in `tests/worker_commits/test_commits.py` expect successful unconfined host commits. The existing descendant-containment guard refused those outcomes; the release repair does not change that guard. Earlier failing runs retain the reproduced host monitor execution and fixture corrections needed to exercise filters despite Git's stat cache and a deliberately failing process-filter handshake. Raw logs, exact source hashes and case results remain in private task evidence. These observations establish local component behavior only; no new container, provider, model or complete-suite acceptance is claimed. Independent review and lead integration remain pending for this repair.
+
 ## Coverage and deviations
 
 The maintained inventory remains 38 requirements, 248 authored scenarios and fourteen workflows. Fixed phase criteria and their versioned amendments remain authoritative; completed component deliveries are reported separately from whole-milestone percentages.
