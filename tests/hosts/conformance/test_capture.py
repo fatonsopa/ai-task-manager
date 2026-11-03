@@ -1,6 +1,8 @@
 """Authored protocol controls and real private files; never fresh native acceptance."""
 
 import hashlib
+import importlib.metadata
+import platform
 from contextlib import nullcontext
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -16,8 +18,9 @@ from ai_task_manager.adapters.hosts.bridge.conformance import (
     NormalConformance,
     ProbeContext,
     ProbeThreadGate,
+    ProfileSources,
     cases,
-    profile_digest,
+    prepare_profile,
 )
 from ai_task_manager.adapters.hosts.bridge.conformance.verification import verify_case
 from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
@@ -57,13 +60,35 @@ def rig(tmp_path):
             "executable_sha256": digest("fixture"),
         },
     )
-    pins = SimpleNamespace(fingerprint=digest("source"), check=lambda: None)
+    home = state / "home"
+    home.mkdir(mode=0o700)
+    profile_dir = home / ".claude_roni"
+    profile_dir.mkdir(mode=0o700)
+    from ai_task_manager.adapters.hosts.bridge.policy import clean_environment
+
+    manifest.environment = clean_environment(home, claude_profile=profile_dir)
+    manifest.data.update(
+        home=str(home),
+        profile=str(profile_dir),
+        executable="/usr/bin/true",
+        executable_sha256=hashlib.sha256(Path("/usr/bin/true").read_bytes()).hexdigest(),
+    )
+    source = state / "source.py"
+    source.write_text("fixed recipe source")
+    pins = ProfileSources(
+        {"product/recipe": (source, hashlib.sha256(source.read_bytes()).hexdigest())},
+        {
+            "python": platform.python_version(),
+            "claude-agent-sdk": importlib.metadata.version("claude-agent-sdk"),
+        },
+    )
+    stable = prepare_profile(manifest, pins, "2.1.301")
     scope = Scope("linear", "workspace", "principal", "project", "session")
     info = root.stat()
     context = ProbeContext(
         "authored-probe",
         manifest.digest,
-        profile_digest(manifest, pins),
+        stable.fingerprint,
         scope,
         "claude",
         manifest.data["model"],
@@ -111,6 +136,7 @@ def rig(tmp_path):
         owner=owner,
         session="native-session",
         cases=cases(context),
+        profile=stable,
     )
 
     value.ready_ref = identity_record(value)
@@ -206,7 +232,29 @@ def observed(r, case):
     }
 
 
-def certificate(r):
+class FixtureEnrollment:
+    """Authored custody control; not actual producer intake or native acceptance."""
+
+    def __init__(self, journal, ref, profile, valid_until=1200):
+        self.row = {
+            "reference": ref,
+            "capture_hash": digest(journal._read(ref, fresh=False)),
+            "profile_digest": profile.fingerprint,
+            "revoked": False,
+            "valid_until": valid_until,
+        }
+
+    def require(self, ref, profile):
+        if (ref, profile) != (self.row["reference"], self.row["profile_digest"]):
+            raise AccessDenied("Authored enrollment mismatch")
+        return dict(self.row)
+
+    def revoke(self, ref):
+        assert ref == self.row["reference"]
+        self.row["revoked"] = True
+
+
+def certificate(r, valid_until=1200):
     auth = r.journal._append(
         "trace",
         {
@@ -246,7 +294,9 @@ def certificate(r):
         "trace",
         {
             "effect": "native_conformance_capture",
-            "profile": r.context.profile_digest,
+            "version": 2,
+            "profile": asdict(r.profile),
+            "profile_digest": r.profile.fingerprint,
             "manifest_digest": r.manifest.digest,
             "source": r.pins.fingerprint,
             "context_ref": r.context.reference,
@@ -255,11 +305,16 @@ def certificate(r):
             "cases": values,
             "confirmed_stop": True,
             "stop": {"confirmed": True, "observation": {"known": True, "members": []}},
-            "not_after": 1200,
+            "provenance": {
+                "manifest_digest": r.manifest.digest,
+                "probe_deadline": r.context.deadline,
+                "context": {**asdict(r.context), "fixture_root": str(r.context.fixture_root)},
+            },
             "error_type": None,
         },
     )
-    return NormalConformance(r.manifest, r.pins, r.context, r.journal, ref)
+    enrollment = FixtureEnrollment(r.journal, ref, r.profile, valid_until)
+    return NormalConformance(r.manifest, r.pins, r.context, r.journal, ref, enrollment=enrollment)
 
 
 @pytest.mark.parametrize("index", range(11))
@@ -317,14 +372,13 @@ def test_stopped_profile_facts_survive_identity_expiry_but_not_revocation(rig):
 def test_normal_profile_changes_never_reuse_a_capture(rig, change):
     normal = certificate(rig)
     if change == "source":
-        rig.pins.fingerprint = digest("changed")
+        rig.pins.files[0][1].write_text("changed source")
     elif change == "deadline":
         rig.now[0] = 1200
     elif change == "reference":
         normal.reference = "host-record:unknown"
     else:
-        rig.context = replace(rig.context, host="codex")
-        normal.context = rig.context
+        rig.manifest.data["host"] = "codex"
     with pytest.raises(AccessDenied):
         normal.require_installation(rig.manifest)
 
@@ -360,7 +414,9 @@ def test_capture_pre_return_failure_preserves_original_and_unknown_stop(rig):
     def start(*args):
         raise original
 
-    capture = ConformanceCapture(rig.manifest, rig.pins, rig.context, rig.authority, rig.journal)
+    capture = ConformanceCapture(
+        rig.manifest, rig.pins, rig.context, rig.authority, rig.journal, profile=rig.profile
+    )
     # Use a distinct fresh canary; constructor must never overwrite an old input.
     (rig.root / "input.txt").unlink()
     with pytest.raises(AccessDenied) as raised:
@@ -419,9 +475,16 @@ def test_signed_capture_flags_cannot_waive_missing_facts(rig, change):
     elif change == "unknown_stop":
         p["stop"]["observation"]["known"] = False
     else:
-        p["not_after"] += 1
+        p["provenance"]["probe_deadline"] += 1
     ref = rig.journal._append("trace", p)
-    altered = NormalConformance(rig.manifest, rig.pins, rig.context, rig.journal, ref)
+    altered = NormalConformance(
+        rig.manifest,
+        rig.pins,
+        rig.context,
+        rig.journal,
+        ref,
+        enrollment=FixtureEnrollment(rig.journal, ref, rig.profile),
+    )
     with pytest.raises(AccessDenied):
         altered.require_installation(rig.manifest)
 
@@ -454,10 +517,8 @@ def test_normal_consumer_rechecks_actual_sdk_launch_template(rig, tmp_path, extr
         policy_digest,
     )
 
-    home = tmp_path / "home"
-    home.mkdir(mode=0o700)
-    profile = home / ".claude_roni"
-    profile.mkdir(mode=0o700)
+    home = Path(rig.manifest.data["home"])
+    profile = Path(rig.manifest.data["profile"])
     executable = Path("/usr/bin/true")
     sha = hashlib.sha256(executable.read_bytes()).hexdigest()
     environment = clean_environment(home, claude_profile=profile)
@@ -494,7 +555,14 @@ def test_normal_consumer_rechecks_actual_sdk_launch_template(rig, tmp_path, extr
             check_command(policy, changed, rig.root)
     payload["launch_fingerprint"] = digest(compiled)
     ref = rig.journal._append("trace", payload)
-    normal = NormalConformance(rig.manifest, rig.pins, rig.context, rig.journal, ref)
+    normal = NormalConformance(
+        rig.manifest,
+        rig.pins,
+        rig.context,
+        rig.journal,
+        ref,
+        enrollment=FixtureEnrollment(rig.journal, ref, rig.profile),
+    )
     if extra_tool:
         policy = replace(policy, allowed_tools=(*policy.allowed_tools, "Bash"))
         with pytest.raises(AccessDenied):

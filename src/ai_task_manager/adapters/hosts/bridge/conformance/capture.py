@@ -98,6 +98,7 @@ class ConformanceCapture:
                 and native.resources is None
                 and native.binding.scope == c.scope
                 and native.binding.deadline <= c.deadline
+                and native.policy.configuration_digest == native.binding.configuration_digest
                 and native.policy.cwd == c.fixture_root
                 and native.expected_account == c.account_hash
                 and (native.policy.host, native.policy.model, native.policy.effort)
