@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "task": "TST-151",
+  "requirements": ["R04", "R23", "R27", "R37"],
+  "module": "M2",
+  "connection": "LINK-01 prerequisite only",
+  "scope": "Authored local process/transport contracts; no genuine ngrok, provider, model or installed-lifecycle acceptance.",
+  "cases": {
+    "NG01": "Only the explicit private credential source is read; either alias and identical aliases work without modifying it or choosing an ambient account.",
+    "NG02": "Missing, empty, duplicated, malformed or conflicting configured credentials refuse.",
+    "NG03": "Actual authored child environment and argv contain only the selected token environment field; structured observation binds one URL, upstream, executable and process. No secret persists in run files.",
+    "NG04": "Wrong upstream, foreign endpoint name and malformed/non-HTTPS origins refuse for the precise expected reason.",
+    "NG05": "Duplicate endpoints, later uncertain events and agent errors refuse. Only recognized error identifiers, fixed categories, stage and exit status survive diagnostics.",
+    "NG06": "Executable, generated configuration, credential source, home, argv and upstream changes invalidate observation.",
+    "NG07": "Unknown process liveness refuses before endpoint authority.",
+    "NG08": "The finite deadline independently stops and reaps the actual owned group.",
+    "NG09": "Executable symlink, pin mismatch and occupied run directory refuse before process creation.",
+    "NG10": "Existing authoritative receiver checks also govern the ngrok observation; transport evidence issues no webhook reference.",
+    "NG11": "The complete transport-only runner preserves exact source binding, three probes, zero provider authority and owned cleanup; wrong upstream fails.",
+    "NG12": "Unknown cleanup remains unknown; malformed, oversized or closed stdout and unsafe/replaced credential files refuse. Recovery in the authored fault fixture stops only its original child."
+  },
+  "affected_existing": "tests/linear/live/test_endpoint_authority.py, unchanged EP01–EP10",
+  "live_packet": {
+    "total_seconds": 120,
+    "active_seconds": 90,
+    "origin_discovery_seconds": 30,
+    "cleanup_reserve_seconds": 30,
+    "receiver_count": 1,
+    "ngrok_process_count": 1,
+    "health_probes": 3,
+    "operating_ledger_charges": 6,
+    "reserved_cleanup_charge": 1,
+    "provider_mutations": 0,
+    "original_application_script_calls": 0,
+    "precondition": "Lead review of exact source, executable pin, private packet and command before token access or launch. A new rejection stops dependent execution."
+  },
+  "history": "The previous public-endpoint invocation was interrupted by an automated content check. Its precise cause remains unknown; this source implementation does not resolve or erase that history.",
+  "references": [
+    "https://ngrok.com/docs/gateway/agent/config",
+    "https://ngrok.com/docs/gateway/agent/config/v3",
+    "https://ngrok.com/docs/gateway/agent/cli",
+    "https://linear.app/developers/webhooks"
+  ]
+}

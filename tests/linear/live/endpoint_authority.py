@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_task_manager.adapters.linear.webhooks import WebhookReceiver
+from ai_task_manager.adapters.tunnels import ngrok
 from ai_task_manager.config.files import digest
 
 from .endpoint_probe import EndpointProbe, origin_parts, private_json
@@ -114,6 +115,7 @@ class EndpointAuthority:
                 Path(__file__).with_name("receiver.py"),
                 Path(__file__).with_name("endpoint_probe.py"),
                 Path(__file__).with_name("run_primary.py"),
+                Path(ngrok.__file__),
             )
         }
 
@@ -180,12 +182,12 @@ class EndpointAuthority:
             raise DriverRefused("scoped_product_receiver_required")
 
     def observe_transport(self):
-        before, tunnel = self._receiver(), self.tunnel.observe(self.receiver)
+        before, tunnel = self._receiver(), self._tunnel()
         observed = self.probe(self.receiver, tunnel["origin"])
         if (
             observed.get("result", {}).get("passed") is not True
             or before["identity"] != self._receiver()["identity"]
-            or tunnel["identity"] != self.tunnel.observe(self.receiver)["identity"]
+            or tunnel["identity"] != self._tunnel()["identity"]
         ):
             raise DriverRefused("owned_endpoint_observation_changed")
         evidence = {
@@ -199,6 +201,16 @@ class EndpointAuthority:
         }
         private_json(self.root / ("observation-" + str(uuid4()) + ".json"), evidence)
         return evidence
+
+    def _tunnel(self):
+        if isinstance(self.tunnel, ngrok.NgrokTunnel):
+            try:
+                return self.tunnel.observe(
+                    f"http://{self.receiver.address[0]}:{self.receiver.address[1]}"
+                )
+            except (ngrok.NgrokRefused, OSError, ValueError):
+                raise DriverRefused("owned_ngrok_observation_unavailable") from None
+        return self.tunnel.observe(self.receiver)
 
     def admit(self):
         self._product()
@@ -229,7 +241,7 @@ class EndpointAuthority:
         self._product()
         if (
             receipt.receiver_identity != self._receiver()["identity"]
-            or receipt.tunnel_identity != self.tunnel.observe(self.receiver)["identity"]
+            or receipt.tunnel_identity != self._tunnel()["identity"]
         ):
             raise DriverRefused("owned_endpoint_observation_changed")
         return receipt
