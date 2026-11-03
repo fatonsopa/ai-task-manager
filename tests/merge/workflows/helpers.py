@@ -104,13 +104,14 @@ class Flow:
         assert self.attempt.state == "done" and self.dispatch.worker.process.returncode is not None
         self.new = git(self.tree, "rev-parse", "HEAD")
         if conflict:
+            original_branch = git(self.runtime.repo, "symbolic-ref", "--short", "HEAD")
             git(self.runtime.repo, "checkout", "-q", target)
             p = self.runtime.repo / "src/a.txt"
             p.parent.mkdir()
             p.write_text("conflicting target")
             git(self.runtime.repo, "add", ".")
             git(self.runtime.repo, "commit", "-qm", "Target conflict")
-            git(self.runtime.repo, "checkout", "-q", "master")
+            git(self.runtime.repo, "checkout", "-q", original_branch)
             self.old = git(self.tree, "rev-parse", "refs/heads/" + target)
         self.evidence = MergeEvidence(clock=lambda: self.r.now)
         self.r.core.context.evidence = EvidenceRouter(

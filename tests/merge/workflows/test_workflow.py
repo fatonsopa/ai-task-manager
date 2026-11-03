@@ -329,7 +329,8 @@ def test_actual_retained_workflow_owner_accepts_code_service_and_public_client(f
     from ai_task_manager.config.claim_store import enroll_claim_store, verify_claim_store
     from ai_task_manager.config.files import write_private
 
-    root = Path(tempfile.mkdtemp(prefix="aitm-merge-owner-"))
+    root = Path(tempfile.mkdtemp(prefix="aitm-merge-owner-", dir=Path("/tmp").resolve()))
+    identity = root.stat().st_dev, root.stat().st_ino
     stop, ready = threading.Event(), threading.Event()
     failures = []
     thread = None
@@ -385,8 +386,10 @@ def test_actual_retained_workflow_owner_accepts_code_service_and_public_client(f
             "path": str(root),
         }
         (flow.root / "retained-owner-result.json").write_text(json.dumps(facts, indent=2))
+        if facts["thread_stopped"] and facts["socket_absent"]:
+            assert (root.stat().st_dev, root.stat().st_ino) == identity
+            shutil.rmtree(root)
         assert facts["thread_stopped"] and facts["socket_absent"] and not failures
-        shutil.rmtree(root)
 
 
 def test_actual_failed_check_never_permits_publication(tmp_path):
