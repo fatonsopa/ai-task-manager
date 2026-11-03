@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "extends": "driver_v2.json",
+  "cases": [
+    {
+      "id": "WD12-canonical-attempt-binding",
+      "oracle": "A persisted attempt belonging to another task is refused before runtime invocation, even within the same session."
+    },
+    {
+      "id": "WD16-persisted-context",
+      "oracle": "A changed persisted inspection task/prose/attempt or digest cannot become review authority."
+    }
+  ],
+  "previous_results": "26 passes are retained for their exact earlier source; no host/provider claims."
+}

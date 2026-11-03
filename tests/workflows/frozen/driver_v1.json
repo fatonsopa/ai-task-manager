@@ -1,0 +1,118 @@
+{
+  "format": 1,
+  "requirement": "R15",
+  "revision": 2,
+  "source": "Approved TST-106 and actual user deterministic-workflow/backup-lineage clarification.",
+  "prior_cases_retained": [
+    "C30",
+    "B09"
+  ],
+  "cases": [
+    {
+      "id": "WD01",
+      "title": "Actual non-code worker reaches genuine review wait.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD02",
+      "title": "Verified opaque review permits Core completion and confirmed Done.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD03",
+      "title": "Omitted mechanical calls are chosen by saved-state loop.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD04",
+      "title": "Wrong-order, wrong-file and foreign scope cannot grant an effect.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD05",
+      "title": "Concurrent run claim admits one owner.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD06",
+      "title": "Restart after durable result does not repeat execution.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD07",
+      "title": "Lost startup reply reconciles owner or remains uncertain.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD08",
+      "title": "Lost executor reply never repeats uncertain physical work.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD09",
+      "title": "Human hold, reassignment or scope revision fences continuation.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD10",
+      "title": "Missing port and unknown repository impact block explicitly.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD11",
+      "title": "Required semantic review cannot be replaced by a passed flag.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD12",
+      "title": "Task/attempt/branch lineage prevents cross-task reuse.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD13",
+      "title": "Same-task amendment and partial work retain provenance.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD14",
+      "title": "Superseded or integrated backups are not current work union.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD15",
+      "title": "Finite step/deadline boundary returns a durable checkpoint.",
+      "execution": "not_run"
+    },
+    {
+      "id": "WD16",
+      "title": "Store/result corruption and stale versions refuse.",
+      "execution": "not_run"
+    }
+  ],
+  "host_cases": [
+    {
+      "id": "WH01",
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "scenario": "Model omits every next mechanical step; controller still chooses the permitted required sequence.",
+      "execution": "unrun_until_separately_admitted"
+    },
+    {
+      "id": "WH02",
+      "hosts": [
+        "claude-code",
+        "codex-cli"
+      ],
+      "scenario": "Model requests a wrong file, reordered effect or invented success; trusted plan and current facts refuse it.",
+      "execution": "unrun_until_separately_admitted"
+    }
+  ],
+  "constraints": [
+    "No model-controlled passed/reviewed flag.",
+    "No private evaluator imports or expected dataset answers.",
+    "No uncertain external effect replay.",
+    "Core remains sole policy and status owner."
+  ]
+}

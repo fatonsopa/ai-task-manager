@@ -59,7 +59,8 @@
     },
     {
       "id": "R15",
-      "text": "CLI, MCP, hooks and presentation use one application API and one transition policy."
+      "text": "CLI, MCP, hooks and presentation share one guarded application API and Core transition policy. A durable deterministic workflow derives and executes required mechanical steps from saved facts and a trusted plan, including scope, files, checks, ordering, resources, delivery and recovery. Models implement work and provide required semantic judgments; they cannot skip steps or self-assert authority. Unknown facts and missing ports block explicitly.",
+      "revision": 2
     },
     {
       "id": "R16",
@@ -154,7 +155,7 @@
       "text": "Every new or updated task prose uses Technical Writer, the appropriate issue-type reference and Writing Style; exact content/version approval precedes publication; skill updates trigger scoped audits and retained evidence."
     }
   ],
-  "requirements_revision": 6,
+  "requirements_revision": 7,
   "revision_history": [
     {
       "revision": 3,
@@ -226,6 +227,22 @@
       "prior_results_reinterpreted": false,
       "implementation_status": "Binding contract correction; source-copy relocation, interface implementation and final acceptance remain incomplete.",
       "source": "Current user directions recorded in user-no-legacy-scripts-merge-entrypoint-20261102 and the complete plan audit."
+    },
+    {
+      "revision": 7,
+      "requirements": [
+        "R15"
+      ],
+      "source": "Actual user deterministic-workflow clarification and approved WORKFLOW-DRIVER TST-106.",
+      "reason": "A guarded collection of operations is insufficient: scripts and durable state must choose and enforce the next mechanical action.",
+      "previous_requirements": [
+        {
+          "id": "R15",
+          "text": "CLI, MCP, hooks and presentation use one application API and one transition policy."
+        }
+      ],
+      "prior_results_reinterpreted": false,
+      "verification": "Versioned workflow omission, ordering, scope, lineage, crash and resume cases; live host omission cells remain unrun."
     }
   ]
 }
