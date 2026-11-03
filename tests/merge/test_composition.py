@@ -38,12 +38,22 @@ def test_actual_core_check_git_and_owned_database_chain(chain):
     facts = chain.consumer.checks.last_verification
     assert len(facts["physical_origins"]) == 1 and facts["carried_origins"] == []
     assert chain.pair.database.is_file()
-    with chain.r.core.execution.work_snapshot_boundary(
-        chain.r.handle, chain.attempt.id, chain.attempt.version
+    with chain.r.core.execution.merge_snapshot_boundary(
+        chain.r.handle,
+        chain.task.id,
+        chain.attempt.id,
+        chain.task.version,
+        chain.attempt.version,
+        chain.task.decision_revision,
+        chain.grant.decision_ref,
     ) as snapshot:
-        assert snapshot == (chain.attempt, chain.task, chain.r.scope)
+        assert snapshot == (chain.task, chain.attempt, chain.r.scope)
         with pytest.raises(FrozenInstanceError):
-            snapshot[1].title = "mutated"
+            snapshot[0].title = "mutated"
+    with pytest.raises(WorkError):
+        chain.r.core.execution.validate_work_lease(
+            chain.r.handle, chain.attempt.id, chain.attempt.version
+        )
     (chain.runtime.path / "composition-result.json").write_text(
         json.dumps(
             {
@@ -127,9 +137,7 @@ def test_later_hold_at_physical_release_is_observed(chain):
 
 def test_historical_committed_replay_after_stop_does_not_reexecute(chain):
     first = chain.publish()
-    chain.runtime.supervisor.stop(
-        chain.r.handle, chain.dispatch, operation_key=chain.r.key(), reason="completed fixture"
-    )
+    assert chain.attempt.state == "done" and chain.dispatch.worker.process.returncode is not None
     before = chain.journal.events(chain.consumer.registration["ref"])
     chain.checks.source_guard.source = "0" * 64
     second = chain.publish()
@@ -236,8 +244,14 @@ def test_atomic_snapshot_port_refuses_before_body(chain, change):
         expected -= 1
     entered = False
     with pytest.raises(WorkError):
-        with chain.r.core.execution.work_snapshot_boundary(
-            chain.r.handle, chain.attempt.id, expected
+        with chain.r.core.execution.merge_snapshot_boundary(
+            chain.r.handle,
+            chain.task.id,
+            chain.attempt.id,
+            chain.task.version,
+            expected,
+            chain.task.decision_revision,
+            chain.grant.decision_ref,
         ):
             entered = True
     assert not entered and chain.target() == chain.old
@@ -272,6 +286,6 @@ def test_observed_reassignment_blocks_effect_without_releasing_owned_resources(c
     current = chain.r.core.get_task(chain.r.handle, task.id)
     retained = chain.r.core.get_attempt(chain.r.handle, chain.attempt.id)
     assert current.human_hold and current.sync_state == "uncertain"
-    assert retained == chain.attempt and retained.state == "running"
+    assert retained == chain.attempt and retained.state == "done"
     assert chain.pair.database.is_file() and chain.pair.worktree.is_dir()
     assert chain.target() == chain.old

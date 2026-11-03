@@ -47,6 +47,15 @@ class Chain:
         git(self.tree, "add", ".")
         git(self.tree, "commit", "-qm", "Authored checked fixture change")
         self.new = git(self.tree, "rev-parse", "HEAD")
+        self.runtime.supervisor.execute(
+            self.r.handle,
+            self.dispatch,
+            self.runtime.command(self.dispatch),
+            operation_key=self.r.key(),
+        )
+        self.attempt = self.r.core.get_attempt(self.r.handle, self.attempt.id)
+        self.task = self.r.core.get_task(self.r.handle, self.task.id)
+        assert self.attempt.state == "done" and self.dispatch.worker.process.returncode is not None
         self.source = sha(CHILD)  # Runner provenance, separate from candidate/unit inputs.
         self.catalogs = catalogs(root, project=self.r.scope.project)
         self.store = CheckStore(root / "checks" / "results.sqlite")
@@ -136,6 +145,7 @@ class Chain:
             self.task.version,
             self.attempt.version,
             self.task.decision_revision,
+            self.r.decision(self.task, "In Dev"),
         )
         self.journal = Journal(root / "merge" / "journal.sqlite")
         self.consumer = self.compose(self.grant)

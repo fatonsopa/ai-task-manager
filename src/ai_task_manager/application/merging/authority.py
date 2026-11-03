@@ -21,6 +21,7 @@ class LeaseGrant:
     task_version: int
     attempt_version: int
     decision_revision: int
+    decision_ref: str
 
 
 class CoreAuthority:
@@ -72,12 +73,8 @@ class CoreAuthority:
     def check_current(self, binding):
         started = time.monotonic()
         self.registration(binding)
-        attempt = self.core.execution.validate_work_lease(
-            self.handle, binding.attempt_id, self.grant.attempt_version
-        )
-        task = self.core.get_task(self.handle, binding.task_id)
-        _, scope = self.core.session_binding(self.handle)
-        self._snapshot(binding, attempt, task, scope)
+        with self._merge_snapshot(binding) as (task, attempt, scope):
+            self._snapshot(binding, attempt, task, scope)
         # Actual physical/resource and Git observations never run under a Core lock.
         self.resources.verify(self.pair)
         record = self.profile.validate(binding.worktree_id, binding.repository_id)
@@ -96,8 +93,17 @@ class CoreAuthority:
     @contextmanager
     def authority_boundary(self, binding):
         self.check_current(binding)
-        with self.core.execution.work_snapshot_boundary(
-            self.handle, binding.attempt_id, self.grant.attempt_version
-        ) as snapshot:
-            self._snapshot(binding, *snapshot)
+        with self._merge_snapshot(binding) as (task, attempt, scope):
+            self._snapshot(binding, attempt, task, scope)
             yield
+
+    def _merge_snapshot(self, binding):
+        return self.core.execution.merge_snapshot_boundary(
+            self.handle,
+            binding.task_id,
+            binding.attempt_id,
+            self.grant.task_version,
+            self.grant.attempt_version,
+            self.grant.decision_revision,
+            self.grant.decision_ref,
+        )
