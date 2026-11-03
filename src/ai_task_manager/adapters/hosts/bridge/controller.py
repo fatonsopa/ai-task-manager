@@ -3,7 +3,7 @@
 import inspect
 import json
 from contextlib import contextmanager
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from threading import Lock
 
@@ -90,6 +90,7 @@ class ManagedNativeHost:
         self._stop_lock = Lock()
         self._session_close_attempted = False
         self.authority = None
+        self.identity = self._identity_bound = None
         self._source_auditor = source_auditor
         if self.policy.codex_settings is not None:
             context = _audit_context(binding.host, pair, asdict(binding.scope))
@@ -268,6 +269,28 @@ class ManagedNativeHost:
         self.startup.admitted = True
         self.process.boundary = lambda: self._current_lease(handle, attempt)
 
+    def install_identity_observations(self, value):
+        from .identity_refresh import IdentityRefresh
+
+        if (
+            not isinstance(value, IdentityRefresh)
+            or value.observations.native is not self
+            or self.identity is not None
+        ):
+            raise AccessDenied("Only the exact trusted native identity owner may be installed")
+        self.identity = self._identity_bound = value
+        value.start()
+        return value
+
+    def start_identity_observations(self):
+        if self.identity is not self._identity_bound:
+            raise AccessDenied("The installed native identity owner changed")
+        if self.identity is not None:
+            return self.identity
+        create = getattr(self.permits, "identity_observations", None)
+        value = create(self) if callable(create) else None
+        return self.install_identity_observations(value) if value is not None else None
+
     def _current_lease(self, handle, attempt):
         with self._source_audit_boundary(before=False):
             if self.journal.clock() >= self.binding.deadline:
@@ -341,6 +364,9 @@ class ManagedNativeHost:
             if self.process is None:
                 raise AccessDenied("Native startup outcome is unresolved")
             errors = []
+            if self.identity is not self._identity_bound:
+                raise AccessDenied("The installed identity helper owner changed")
+            identity_stopped = self.identity.close() if self.identity is not None else True
             try:
                 if not self._session_close_attempted:
                     self._session_close_attempted = True
@@ -374,6 +400,13 @@ class ManagedNativeHost:
                             "error": error,
                         },
                     )
+            if not identity_stopped:
+                self.journal._append(
+                    "trace", {"effect": "identity_helper_stop_unknown",
+                              "attempt_id": self.binding.attempt_id,
+                              "native_group_stop": asdict(stopped)},
+                )
+                stopped = replace(stopped, confirmed=False, reason="identity_helper_stop_unknown")
             self.permits.record_host_stop(self.binding, stopped)
             return stopped
 

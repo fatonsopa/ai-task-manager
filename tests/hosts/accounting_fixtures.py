@@ -13,12 +13,13 @@ from tools.build_support.authorization import PinnedRecords
 
 
 class FixtureAccounting:
-    def __init__(self, root):
+    def __init__(self, root, *, maximum_seconds=60):
         root.mkdir(mode=0o700)
         self.rig = Rig(root)
         self.rig.now = datetime.now(UTC)
         self.rig.amend()
-        self.rig.batch(count=100, seconds=60, budget="0")
+        self.rig.batch(count=100, seconds=maximum_seconds, budget="0")
+        self.maximum_seconds = maximum_seconds
         self.control = BuildControl(
             self.rig.base.ledger,
             expected_policy_revision=1,
@@ -63,7 +64,7 @@ class FixtureAccounting:
 
     def initialize(self, policy, owner):
         self.owners[owner.attempt_id] = (policy, owner)
-        host = self.claim(policy, owner, "host", worker=True)
+        host = self.claim(policy, owner, "host", worker=True, maximum=self.maximum_seconds)
         relay = self.claim(
             policy,
             owner,

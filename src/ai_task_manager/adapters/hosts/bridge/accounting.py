@@ -30,6 +30,7 @@ class AccountingPlan:
     neutral_seconds: float
     assignment_seconds: float
     assignments: tuple[str, ...] = ("assignment",)
+    identity_refreshes: tuple[str, ...] = ()
 
     def __post_init__(self):
         strings = (
@@ -40,6 +41,7 @@ class AccountingPlan:
             self.effort,
             self.billing_basis_ref,
             *self.assignments,
+            *self.identity_refreshes,
         )
         bounds = (
             self.deadline,
@@ -54,6 +56,11 @@ class AccountingPlan:
             or not isinstance(self.assignments, tuple)
             or not self.assignments
             or len(set(self.assignments)) != len(self.assignments)
+            or not isinstance(self.identity_refreshes, tuple)
+            or len(set(self.identity_refreshes)) != len(self.identity_refreshes)
+            or set(self.identity_refreshes) & {
+                "host", "relay", "auth", "neutral", *self.assignments
+            }
             or any(
                 isinstance(x, bool)
                 or not isinstance(x, (int, float))
@@ -157,12 +164,18 @@ class HostInvocationAccounting:
         reference=None,
         worker=False,
         parent=None,
+        not_after=None,
     ):
         self._owner(policy, binding)
         key = reference or purpose
         if key in self._calls:
             raise AccessDenied("This invocation was already claimed; reconcile rather than retry")
-        remaining = min(binding.deadline, self.plan.deadline) - self.control.clock().timestamp()
+        cap = min(binding.deadline, self.plan.deadline)
+        if not_after is not None:
+            if type(not_after) not in {int, float} or not math.isfinite(not_after):
+                raise AccessDenied("Identity invocation needs its finite current deadline")
+            cap = min(cap, not_after)
+        remaining = cap - self.control.clock().timestamp()
         # The persisted launch deadline is established by claim_launch, slightly
         # after this observation. Reserve a bounded preparation margin, never extend.
         maximum = min(seconds, remaining) - 0.05
@@ -195,7 +208,7 @@ class HostInvocationAccounting:
         call = self.control.claim_launch(
             call_id,
             worker_identity=binding.worker_id,
-            not_after=datetime.fromtimestamp(min(binding.deadline, self.plan.deadline), UTC),
+            not_after=datetime.fromtimestamp(cap, UTC),
         )
         state = self.control.snapshot()
         observed = InvocationBinding.observed(
@@ -339,7 +352,9 @@ class HostInvocationAccounting:
     def record_auth(self, binding, completion):
         if binding != self._owner_binding:
             raise AccessDenied("Authentication belongs to another runtime owner")
-        call_id = self._calls["auth"]
+        self._record_auth_call(self._calls["auth"], completion)
+
+    def _record_auth_call(self, call_id, completion):
         confirmed = completion["group"]["confirmed_stop"]
         if type(confirmed) is not bool:
             raise AccessDenied("Authentication stop must be explicitly observed")
@@ -349,6 +364,22 @@ class HostInvocationAccounting:
             outcome=completion["outcome"],
             process_stopped=confirmed,
             evidence_ref=ref,
+        )
+
+    def identity_observations(self, native):
+        if not self.plan.identity_refreshes:
+            return None
+        from .identity import NativeIdentityObservations
+        from .identity_accounting import IdentityAuthPermits
+        from .identity_refresh import IdentityRefresh
+
+        self._owner(native.policy, native.binding)
+        source = IdentityAuthPermits(self, native)
+        observer = NativeIdentityObservations(native, source, not_after=self.plan.deadline)
+        source.bind(observer)
+        return IdentityRefresh(
+            observer, native.directory / "identity-observations", len(self.plan.identity_refreshes),
+            on_failure=lambda reason: native.stop(),
         )
 
     def authorize_neutral_start(self, policy, binding):

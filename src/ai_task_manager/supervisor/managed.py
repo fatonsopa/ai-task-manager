@@ -143,6 +143,8 @@ class ManagedWorkers:
             native = self.hosts.launch(binding, pair)
             # initialize() accepts no assigned task prompt and exposes no work lease.
             ready_ref = native.initialize()
+            start_identity = getattr(native, "start_identity_observations", None)
+            identity = start_identity() if callable(start_identity) else None
             if self.authorities is not None:
                 self._startup_freshness[attempt.id].finish()
                 from ai_task_manager.adapters.hosts.bridge.continuity import NativeContinuity
@@ -151,7 +153,9 @@ class ManagedWorkers:
                     handle,
                     attempt,
                     native,
-                    NativeContinuity(native),
+                    NativeContinuity(
+                        native, identities=identity.observations if identity is not None else None
+                    ),
                     on_failure=lambda reason: self._authority_lost(handle, attempt.id, reason),
                 )
                 self._freshness[attempt.id] = freshness

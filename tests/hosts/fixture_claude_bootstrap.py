@@ -19,7 +19,11 @@ if sys.argv[-2:] == ["auth", "status"]:
             "authMethod": "claude.ai",
             "apiProvider": "firstParty",
             "configDirectory": os.environ["CLAUDE_CONFIG_DIR"],
-            "email": "fixture@example.invalid",
+            "email": (
+                "foreign@example.invalid"
+                if MODE == "account-change" and os.path.exists("account-switch")
+                else "fixture@example.invalid"
+            ),
             "orgId": "authored-org",
             "userId": "authored-user",
         }
