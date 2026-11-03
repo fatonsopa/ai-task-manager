@@ -42,7 +42,11 @@ def normal(tmp_path):
     refresh_digest(b.installation, b.manifest, b.data)
     manifest = NativeManifest(b.manifest, b.config, b.installation)
     enrolled = enroll(
-        store, manifest, {"host": 30, "relay": 30, "auth": 5, "neutral": 8, "assignment": 8}
+        store,
+        manifest,
+        {"host": 30, "relay": 30, "auth": 5, "neutral": 8, "assignment": 8},
+        identity_refreshes=(),
+        conformance_ref="not-enrolled-authored-control",
     )
     source = NormalAuthoritySource(manifest, conformance=AuthoredRestrictions())
     permission = source.resolve(enrolled["reference"], manifest)
@@ -93,7 +97,7 @@ def test_N201_N202_real_store_restart_and_default_release_refusal(normal):
         NativeStore(store.path, store.pointer).permission(permission.reference)
         == permission.controller.permission
     )
-    with pytest.raises(Unavailable, match="conformance capture is not implemented"):
+    with pytest.raises(Unavailable, match="conformance capture is not enrolled"):
         resolve(b.config, b.installation)
     # A missing real policy is rejected before the independent conformance port.
     with pytest.raises(AccessDenied, match="policy, scope"):
@@ -312,7 +316,13 @@ def actual_accounting_graph(tmp_path):
     write_private(b.manifest, b.data, replace=True)
     refresh_digest(b.installation, b.manifest, b.data)
     manifest = NativeManifest(b.manifest, b.config, b.installation)
-    enroll(store, manifest, {"host": 30, "relay": 30, "auth": 5, "neutral": 8, "assignment": 8})
+    enroll(
+        store,
+        manifest,
+        {"host": 30, "relay": 30, "auth": 5, "neutral": 8, "assignment": 8},
+        identity_refreshes=(),
+        conformance_ref="not-enrolled-authored-control",
+    )
     source = NormalAuthoritySource(manifest, conformance=AuthoredRestrictions())
     registry = resolve(b.config, b.installation, authority_source=source)
     journal = HostJournal(root / "host.sqlite", root / "host.key")
@@ -448,9 +458,17 @@ def test_N219_unrelated_malformed_history_is_not_decoded_or_counted(normal):
     )
     with store.transaction() as db:
         db.executemany(
-            "INSERT INTO native_calls VALUES(?,?,?,?,?)",
+            "INSERT INTO native_calls VALUES(?,?,?,?,?,?,?)",
             [
-                ("foreign-" + str(i), "unrelated", "unknown", 0, "malformed foreign payload")
+                (
+                    "foreign-" + str(i),
+                    "unrelated",
+                    "foreign-attempt",
+                    "auth",
+                    "unknown",
+                    0,
+                    "malformed foreign payload",
+                )
                 for i in range(2000)
             ],
         )
@@ -579,3 +597,44 @@ def test_N223_claude_auth_child_precedes_first_startup_without_bypassing_sources
     else:
         with pytest.raises(AccessDenied):
             accounting.admissions.verify_authenticated(policy, binding, journal)
+
+
+@pytest.mark.parametrize("prior_version", [1, 2])
+def test_N324_formats1_and2_are_refused_unchanged(tmp_path, prior_version):
+    import sqlite3
+    from uuid import uuid4
+
+    tmp_path.chmod(0o700)
+    path = tmp_path / "prior.sqlite"
+    store_id = str(uuid4())
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE native_meta(version INTEGER,store_id TEXT)")
+        db.execute("INSERT INTO native_meta VALUES(?,?)", (prior_version, store_id))
+        db.execute(
+            "CREATE TABLE native_events(sequence INTEGER PRIMARY KEY,"
+            "kind TEXT,call_id TEXT,data TEXT)"
+        )
+        db.execute("INSERT INTO native_events VALUES(1,'original',NULL,'{}')")
+    path.chmod(0o600)
+    before = path.read_bytes()
+    info = path.stat()
+    with pytest.raises(AccessDenied):
+        NativeStore(path, {"device": info.st_dev, "inode": info.st_ino, "store_id": store_id})
+    assert path.read_bytes() == before and path.stat().st_ino == info.st_ino
+
+
+def test_N325_auth_count_uses_indexed_attempt_bound(normal):
+    _, store, _, _, p = normal
+    c = p.controller
+    c.reserve("auth-one", **reservation(p, "auth", "host"))
+    with pytest.raises(AccessDenied, match="Finite identity-auth"):
+        c.reserve("auth-two", **reservation(p, "auth", "host"))
+    # A different attempt has its own explicit finite plan, not an overall retry limit.
+    assert c.reserve("new-attempt", **reservation(p, "auth", "host", attempt_id="new-attempt"))
+    with store.transaction() as db:
+        plan = db.execute(
+            "EXPLAIN QUERY PLAN SELECT count(*) FROM native_calls "
+            "WHERE permission_ref=? AND attempt_id=? AND purpose='auth'",
+            (p.reference, "attempt"),
+        ).fetchall()
+    assert any("native_calls_purpose" in row[-1] for row in plan)

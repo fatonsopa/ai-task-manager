@@ -118,6 +118,22 @@ class NormalInvocationController:
             if old is not None:
                 require(old["request_digest"] == digest(request), "Invocation key changed")
                 return old
+            if purpose == "auth":
+                count = conn.execute(
+                    "SELECT count(*) FROM native_calls WHERE permission_ref=? "
+                    "AND attempt_id=? AND purpose='auth'",
+                    (self.reference, scope["attempt_id"]),
+                ).fetchone()[0]
+                require(
+                    count < 1 + len(p["identity_refreshes"]), "Finite identity-auth plan exhausted"
+                )
+            if purpose == "assignment" and p.get("kind") == "native-conformance-probe":
+                count = conn.execute(
+                    "SELECT count(*) FROM native_calls WHERE permission_ref=? "
+                    "AND attempt_id=? AND purpose='assignment'",
+                    (self.reference, scope["attempt_id"]),
+                ).fetchone()[0]
+                require(count < len(p["case_ids"]), "Finite canary submission plan exhausted")
             if uses_worker:
                 require(
                     conn.execute(

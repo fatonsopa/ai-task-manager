@@ -1,0 +1,39 @@
+{
+  "version": 4,
+  "task": "TST-117",
+  "call": "NATIVE-INSTALLATION-3",
+  "paths": [
+    "installation/native/{probe,probe_authority,probe_permits}.py",
+    "installation/native/{normal,store,controller,resolver,admissions}.py",
+    "tests/native_installation"
+  ],
+  "cases": [
+    "Actual authored CLI start/one submitted turn/owned stop with Core/resources/normal work delegate absent",
+    "Exact typed probe context, original fixture identity, account/model/source/scope/deadline",
+    "Same-context startup/submission lost replies never replay; unknown stop holds obligations",
+    "Only canonical selected probe cases and active exact CanaryGateway can execute",
+    "Probe-kind capability cannot enter normal supplier or mint conformance",
+    "Finite exact identity-auth labels use existing genuine same-native observer and immutable deadline",
+    "Current Core5 normal accounting consumer works after merge",
+    "Format3 typed indexed purpose/attempt counts and explicit old format1/2 refusal",
+    "Default normal consumer refuses absent/unverified/revoked conformance; no JSON passed or signed-looking fallback",
+    "Actual-capture enrollment and stable certificate consumers wait for HOST27 v2 contract; no v1 task-bound cache"
+  ],
+  "limits": {
+    "one_mechanical_batch_seconds": 180,
+    "actual_native_model_provider_docker": 0
+  },
+  "source_note": "Updated main f120f72 merged; d23 shared type dependency separately unaccepted; no sourceapp/buildtools/evaluation grant imports",
+  "retained_failures": [
+    "Native3 provider-capacity failure with immutable12-file snapshot",
+    "Native3 48pass/1failure+teardown error at BuildControl-only relay",
+    "Native4 61pass/2fail due missing private evidence environment; affected2 pass after environment correction"
+  ],
+  "effective_scope": "Authored installed canary and current Core5 normal worker/identity plus normal/evaluation relay mechanics. Actual completed-capture positive enrollment and live normal launch remain unproven.",
+  "default_first_blocker": "Normal conformance capture is not enrolled",
+  "shared_dependencies": [
+    "d23c9cf",
+    "a347449",
+    "8492629"
+  ]
+}

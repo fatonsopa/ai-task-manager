@@ -92,44 +92,7 @@ class NormalAdmissions:
         self._binding = binding
 
     def _claude_auth_before_startup(self, policy, binding, journal):
-        # Claude can need its fixed neutral input before emitting system.init.
-        # Its actual bounded auth child must therefore establish subscription
-        # identity first; the independent startup observer still gates readiness.
-        for call in reversed(self.controller.snapshot()["calls"]):
-            meta = call["metadata"]["invocation_binding"]
-            if (
-                meta.get("purpose") != "auth"
-                or meta.get("attempt_id") != binding.attempt_id
-                or meta.get("configuration_digest") != binding.configuration_digest
-                or call["worker_identity"] != binding.worker_id
-                or not call["process_stopped"]
-                or call["outcome"] != "succeeded"
-                or not call.get("evidence")
-            ):
-                continue
-            receipt = journal._read(call["evidence"], "trace")
-            p = receipt["payload"]
-            if (
-                p.get("effect") != "accounting_auth"
-                or p.get("call_id") != call["call_id"]
-                or not 0 <= journal.clock() - receipt["observed_at"] <= 60
-                or p.get("completion", {}).get("outcome") != "succeeded"
-                or p.get("completion", {}).get("group", {}).get("confirmed_stop") is not True
-            ):
-                continue
-            group = p["completion"]["group"]
-            for candidate in reversed(journal._history("trace")):
-                q = candidate["payload"]
-                if (
-                    q.get("auth_method") == "claude.ai"
-                    and q.get("account_hash") == self.manifest.data["account_hash"]
-                    and q.get("configuration_digest") == binding.configuration_digest
-                    and q.get("owned_group") == group
-                    and 0 <= journal.clock() - candidate["observed_at"] <= 60
-                ):
-                    journal._read(candidate["ref"], "trace")
-                    return True
-        return False
+        return claude_auth_child(self.controller, self.manifest, binding, journal)
 
     def verify_authenticated(self, policy, binding, journal):
         self.verify_policy(policy, binding, self.plan, self.controller)
@@ -208,3 +171,44 @@ class NormalAdmissions:
     def require_native_conformance(self, policy, binding, journal):
         self.verify_policy(policy, binding, self.plan, self.controller)
         return self.conformance.require_native_conformance(self.manifest, policy, binding, journal)
+
+
+def claude_auth_child(controller, manifest, binding, journal):
+    # Claude can need its fixed neutral input before emitting system.init.
+    # Its actual bounded auth child must therefore establish subscription
+    # identity first; the independent startup observer still gates readiness.
+    for call in reversed(controller.snapshot()["calls"]):
+        meta = call["metadata"]["invocation_binding"]
+        if (
+            meta.get("purpose") != "auth"
+            or meta.get("attempt_id") != binding.attempt_id
+            or meta.get("configuration_digest") != binding.configuration_digest
+            or call["worker_identity"] != binding.worker_id
+            or not call["process_stopped"]
+            or call["outcome"] != "succeeded"
+            or not call.get("evidence")
+        ):
+            continue
+        receipt = journal._read(call["evidence"], "trace")
+        p = receipt["payload"]
+        if (
+            p.get("effect") != "accounting_auth"
+            or p.get("call_id") != call["call_id"]
+            or not 0 <= journal.clock() - receipt["observed_at"] <= 60
+            or p.get("completion", {}).get("outcome") != "succeeded"
+            or p.get("completion", {}).get("group", {}).get("confirmed_stop") is not True
+        ):
+            continue
+        group = p["completion"]["group"]
+        for candidate in reversed(journal._history("trace")):
+            q = candidate["payload"]
+            if (
+                q.get("auth_method") == "claude.ai"
+                and q.get("account_hash") == manifest.data["account_hash"]
+                and q.get("configuration_digest") == binding.configuration_digest
+                and q.get("owned_group") == group
+                and 0 <= journal.clock() - candidate["observed_at"] <= 60
+            ):
+                journal._read(candidate["ref"], "trace")
+                return True
+    return False
