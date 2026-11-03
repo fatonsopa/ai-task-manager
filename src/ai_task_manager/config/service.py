@@ -48,7 +48,13 @@ def load_service(
         "session_file",
         "approval_policy",
     }
-    allowed = required | {"writer", "grant_ref", "linear", "workflow_control"}
+    allowed = required | {
+        "writer",
+        "grant_ref",
+        "linear",
+        "workflow_control",
+        "session_observations",
+    }
     if (
         not isinstance(config, dict)
         or not required <= config.keys()
@@ -76,7 +82,6 @@ def load_service(
     private_path(config["core_database"])
     journal = AuthorityJournal(config["authority_database"], config["authority_key"])
     database, claim_store = open_claim_store(config["core_database"], journal)
-    decisions = DecisionAuthority(journal, observations)
     components = linear_components
     if config.get("linear"):
         components = components or LinearComponents(config["linear"])
@@ -96,6 +101,15 @@ def load_service(
                 core, handle, decisions, config["session_file"]
             )
         )
+    if config.get("session_observations"):
+        from ai_task_manager.adapters.decisions.observations import SessionObservations
+
+        if observations is not None or components is None:
+            raise AccessDenied("Configured session observations require their real provider source")
+        observations = SessionObservations(
+            journal, components.client, config_file, config["session_observations"]
+        )
+    decisions = DecisionAuthority(journal, observations)
     renderer = renderer or ExactRenderer()
     writer = None
     if config.get("writer"):
