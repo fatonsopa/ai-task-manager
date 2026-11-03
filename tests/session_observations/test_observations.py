@@ -416,3 +416,44 @@ def test_SO12_cached_decision_revocation_checks_only_uncommitted_effect(
     if not committed:
         assert "revoked" in str(retry)
         assert before.observed_status == before.desired_status == "Backlog"
+
+
+def test_SO13_committed_core_reply_loss_replays_after_revoke(provider, monkeypatch):
+    install(provider)
+    s = service(provider)
+    s.provider = None
+    task = _confirmed_task_for_retry(s)
+    data = {
+        "task_id": task.id,
+        "action": "enqueue",
+        "expected_version": task.version,
+        "decision_revision": task.decision_revision,
+        "operation_key": "committed-lost-reply",
+    }
+    original = s.confirm
+    monkeypatch.setattr(
+        s,
+        "confirm",
+        lambda task: (_ for _ in ()).throw(
+            ConnectionError("lost after Core commit before invocation finish")
+        ),
+    )
+    assert not s.call("task_action", data)["ok"]
+    before = s.core.get_task(s.handle, task.id)
+    assert before.desired_status == "Todo"
+    with s.decisions.journal.transaction() as conn:
+        assert conn.execute("SELECT result FROM invocations").fetchone()[0] is None
+    monkeypatch.setattr(s, "confirm", original)
+    s.decisions.observations.revoke()
+    with s.core.context.db.transaction() as conn:
+        history = (
+            conn.execute("SELECT count(*) FROM events").fetchone()[0],
+            conn.execute("SELECT count(*) FROM outbox").fetchone()[0],
+        )
+    assert s.call("task_action", data)["ok"]
+    assert s.core.get_task(s.handle, task.id) == before
+    with s.core.context.db.transaction() as conn:
+        assert history == (
+            conn.execute("SELECT count(*) FROM events").fetchone()[0],
+            conn.execute("SELECT count(*) FROM outbox").fetchone()[0],
+        )
