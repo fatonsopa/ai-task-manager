@@ -16,7 +16,8 @@ def graph(composition):
     runtime, task, _, workers, factory, _, _ = value
     core, handle = runtime.rig.core, runtime.rig.handle
     clock = [core.context.clock()]
-    core.context.clock = lambda: clock[0]
+    core.context.clock = factory.journal.clock = lambda: clock[0]
+    workers.deadline = clock[0] + 55
     source = AuthoredDependencyCollection(core, handle)
     workers.bind_dependencies(source)
     attempt = start(value)

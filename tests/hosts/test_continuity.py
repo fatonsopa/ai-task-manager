@@ -93,13 +93,16 @@ def test_real_managed_composition_refreshes_before_start_and_lease_gated_edit(
     runtime, task, _, workers, factory, _, _ = value
     core, handle = runtime.rig.core, runtime.rig.handle
     clock = [journal.clock()]
-    core.context.clock = lambda: max(clock[0], journal.clock())
+    wall = journal.clock
+    core.context.clock = journal.clock = lambda: max(clock[0], wall())
+    workers.deadline = clock[0] + 55
     source = AuthoredDependencyCollection(core, handle)
     workers.bind_dependencies(source)
     attempt = start(value)
     authority = workers._freshness[attempt.id]
     refreshed = [
-        e for e in core.notifications.list_events(handle)
+        e
+        for e in core.notifications.list_events(handle)
         if e.kind == "scheduling_authority_renewed"
     ]
     assert refreshed
@@ -128,7 +131,9 @@ def test_background_freshness_loss_records_unknown_and_retains_resource_ownershi
     runtime, _, _, workers, factory, _, _ = value
     core, handle = runtime.rig.core, runtime.rig.handle
     clock = [journal.clock()]
-    core.context.clock = lambda: max(clock[0], journal.clock())
+    wall = journal.clock
+    core.context.clock = journal.clock = lambda: max(clock[0], wall())
+    workers.deadline = clock[0] + 55
     source = AuthoredDependencyCollection(core, handle)
     workers.bind_dependencies(source)
     attempt = start(value)

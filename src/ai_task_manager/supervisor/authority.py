@@ -11,6 +11,9 @@ from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.observability.failures import FailureStage, capture_failure
 
 MAX_CLOSE_SECONDS = 22.0
+# This is an acceptance limit, not a claim that provider I/O is preempted.
+MAX_COLLECTION_SECONDS = 20.0
+CHECK_INTERVAL_SECONDS = 1.0
 
 
 @dataclass(frozen=True)
@@ -88,6 +91,8 @@ class AttemptAuthority:
         self._retention_error = None
         self._current = None
         self._expires_at = None
+        self._next_refresh_at = None
+        self._preparation_latency = 0.0
         self._on_failure = on_failure
         self.failure_diagnostics = []
         self.diagnostic_retention_failed = False
@@ -152,7 +157,8 @@ class AttemptAuthority:
             if core.context.clock() >= self.deadline:
                 raise AccessDenied("The original execution deadline cannot be extended")
             task = core.get_task(self.handle, self.task_id)
-            native, continuity_ref = self.continuity.prepare()
+            collection_started = diagnostic_clock()
+            collection_clock = core.context.clock()
             key = "work-freshness:" + str(uuid4())
             preparation = self.registry.dependencies.prepare(
                 task.id,
@@ -160,8 +166,21 @@ class AttemptAuthority:
                 expected_version=task.version,
                 decision_revision=task.decision_revision,
             )
+            collection_times = (
+                diagnostic_clock() - collection_started,
+                core.context.clock() - collection_clock,
+            )
+            collection_elapsed = max(collection_times)
+            if not all(0 <= elapsed <= MAX_COLLECTION_SECONDS for elapsed in collection_times):
+                raise AccessDenied("Dependency collection exceeded its renewal acceptance window")
             # Closure can race with provider I/O. Its result is retained, but
             # closing never authorizes publishing a new work observation.
+            self._check_owner()
+            preparation_started = diagnostic_clock()
+            preparation_clock = core.context.clock()
+            # Prepare the current same-native witness after provider collection;
+            # its unchanged 30s lifetime must not be spent waiting for the read.
+            native, continuity_ref = self.continuity.prepare()
             self._check_owner()
             # The resolver is local and immutable. Provider I/O ended in prepare().
             snapshot = core.scheduling.sources.verify_snapshot(preparation.snapshot_ref)
@@ -197,6 +216,7 @@ class AttemptAuthority:
                 min(snapshot.expires_at, native.observed.expires_at, self.deadline),
                 snapshot,
             )
+            self._schedule_next_refresh(value, preparation_started, preparation_clock)
             reference = "work-renewal:" + str(uuid4())
             self.registry._prepared[reference] = _Prepared(value, self, native)
             self.check_prepared(native)
@@ -206,6 +226,11 @@ class AttemptAuthority:
             self.continuity.acknowledge(native)
             self._current = native
             self._expires_at = value.expires_at
+            # Include the actual publication/acknowledgement cost. A late local
+            # result cannot schedule an immediate loop or undo its Core event.
+            self._next_refresh_at = self._schedule_next_refresh(
+                value, preparation_started, preparation_clock
+            )
             self.native.journal._append(
                 "trace",
                 {
@@ -215,6 +240,9 @@ class AttemptAuthority:
                     "source_revision": snapshot.source_revision,
                     "expires_at": value.expires_at,
                     "execution_deadline": self.deadline,
+                    "collection_seconds": collection_elapsed,
+                    "collection_acceptance_seconds": MAX_COLLECTION_SECONDS,
+                    "next_refresh_at": self._next_refresh_at,
                     "native_continuity_ref": continuity_ref,
                 },
             )
@@ -258,8 +286,24 @@ class AttemptAuthority:
         finally:
             self._collecting.release()
 
+    def _schedule_next_refresh(self, value, started, core_started):
+        now = self.registry.core.context.clock()
+        local_times = (diagnostic_clock() - started, now - core_started)
+        if not all(elapsed >= 0 for elapsed in local_times):
+            raise AccessDenied("Local renewal preparation clock moved backwards")
+        self._preparation_latency = max(self._preparation_latency, *local_times)
+        cap = min(self.deadline, self.continuity.execution_not_after)
+        if value.expires_at >= cap:
+            return cap
+        next_at = value.expires_at - (
+            MAX_COLLECTION_SECONDS + CHECK_INTERVAL_SECONDS + self._preparation_latency
+        )
+        if next_at <= now:
+            raise AccessDenied("Renewal leaves no safe next collection window")
+        return next_at
+
     def ensure_current(self):
-        if self._current is None or self._expires_at - self.registry.core.context.clock() <= 10:
+        if self._current is None or self.registry.core.context.clock() >= self._next_refresh_at:
             self.refresh()
         return self.check_prepared()
 
@@ -267,19 +311,31 @@ class AttemptAuthority:
         if self._thread is not None:
             raise AccessDenied("The refresh supervisor was already started")
         self.ensure_current()
+        guard = self.native.startup.model_guard
+        model = guard.prepare_effect()  # Full preparation is outside Core/model locks.
 
         def run():
             while not self._stop.wait(
-                min(5, max(0.05, (self._expires_at - self.registry.core.context.clock()) / 3))
+                min(
+                    CHECK_INTERVAL_SECONDS,
+                    max(0.001, self._next_refresh_at - self.registry.core.context.clock()),
+                )
             ):
                 started = diagnostic_clock()
                 try:
-                    self.ensure_current()
+                    if self.registry.core.context.clock() >= self._next_refresh_at:
+                        self.refresh()  # Provider collection never holds the model guard.
                     if self._stop.is_set():
                         return
-                    core = self.registry.core
-                    attempt = core.get_attempt(self.handle, self.attempt_id)
-                    core.execution.validate_work_lease(self.handle, attempt.id, attempt.version)
+                    # This observer holds no Core transaction while waiting for
+                    # an ordinary short model effect. Reentrant current checks
+                    # then keep the normal model→Core order, without changing
+                    # the nonblocking reverse observation used inside Core.
+                    with guard.current_boundary(model):
+                        self.check_prepared()
+                        core = self.registry.core
+                        attempt = core.get_attempt(self.handle, self.attempt_id)
+                        core.execution.validate_work_lease(self.handle, attempt.id, attempt.version)
                 except BaseException as error:
                     if self._stop.is_set() and self._failure is None:
                         return
