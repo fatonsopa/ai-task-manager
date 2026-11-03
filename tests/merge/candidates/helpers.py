@@ -17,12 +17,12 @@ from tests.runtime.helpers import RuntimeRig
 
 
 class CandidateRig:
-    def __init__(self, root, *, target="dev", diverge=False, deny=None):
+    def __init__(self, root, *, target="dev", diverge=False, deny=None, conflict=False, code=True):
         root.mkdir(mode=0o700)
         self.root = root
         self.runtime = RuntimeRig(root)
         self.r = self.runtime.rig
-        self.dispatch = self.runtime.start()
+        self.dispatch = self.runtime.start(self.r.queued(code=code))
         self.runtime.admit(self.dispatch)
         self.old = git(self.runtime.repo, "rev-parse", "HEAD")
         self.target = target
@@ -43,10 +43,11 @@ class CandidateRig:
         self.pair = self.dispatch.resources
         self.tree = self.pair.worktree
         self.source_head = git(self.tree, "rev-parse", "HEAD")
-        if diverge:
+        if diverge or conflict:
             git(self.runtime.repo, "checkout", "-q", target)
-            (self.runtime.repo / "target.txt").write_text("target change\n")
-            git(self.runtime.repo, "add", "target.txt")
+            name = "task.txt" if conflict else "target.txt"
+            (self.runtime.repo / name).write_text("target change\n")
+            git(self.runtime.repo, "add", name)
             git(self.runtime.repo, "commit", "-qm", "Target commit")
         self.target_head = git(self.runtime.repo, "rev-parse", "refs/heads/" + target)
         hooks = self.runtime.repo / ".git/hooks"

@@ -64,6 +64,9 @@ class CandidateProfile:
 
     def refs(self, grant):
         self.validate()
+        branch = self.query(self.source["path"], "symbolic-ref", "HEAD").stdout.decode().strip()
+        if branch != grant.source_ref:
+            raise AccessDenied("Candidate source is not the owned worker branch")
         source = self.profile.reference(self.source["path"], grant.source_ref)
         target = self.profile.reference(self.source["path"], self.source["target_ref"])
         return source, target

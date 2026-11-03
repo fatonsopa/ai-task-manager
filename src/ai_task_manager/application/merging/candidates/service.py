@@ -5,7 +5,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from ai_task_manager.domains.merging.candidates import CandidateResult
-from ai_task_manager.domains.work.errors import AccessDenied
+from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired, IdempotencyConflict
 
 from .store import CandidateStore
 
@@ -34,10 +34,12 @@ class CandidateService:
     def boundary(self, ref):
         grant = self.grants[ref]
         self.store.owner(ref)
-        self.profile.validate()
-        if self.store.get(ref)["stage"] not in {"remove", "delete_ref"} and self._refs(grant):
+        if self.store.get(ref)["stage"] in {"remove", "delete_ref"}:
+            self.profile.validate()
+        elif self._refs(grant):
             raise AccessDenied("Committed source or target changed")
         self.authority.check_current(grant)
+        self.authority.check_source(grant, self.profile.source)
         self.store.owner(ref)
         with self.authority.boundary(grant):
             yield
@@ -72,8 +74,19 @@ class CandidateService:
         grant.validate()
         self.authority.registration(grant)
         self.authority.check_current(grant)
-        if grant.binding.configuration_digest != self.profile.source["configuration_digest"]:
+        self.profile.validate()
+        self.authority.check_source(grant, self.profile.source)
+        if (
+            grant.binding.worktree_id,
+            grant.binding.repository_id,
+            grant.binding.configuration_digest,
+        ) != (
+            self.profile.worktree_id,
+            self.profile.repository_id,
+            self.profile.source["configuration_digest"],
+        ):
             raise AccessDenied("Candidate binding differs from configured repository")
+        self.profile.refs(grant)
         ref, created = self.store.create(grant, self.profile)
         self.grants[ref] = grant
         data = self.store.get(ref)
@@ -218,18 +231,36 @@ class CandidateService:
         return self._result(ref, moved or "ready", commit=commit, tree=tree)
 
     def reconcile(self, ref, grant=None):
+        stored = self.store.get(ref)
+        selected = grant if grant is not None else self.grants[ref]
+        if stored["request"] != {"grant": asdict(selected), "profile": self.profile.digest}:
+            raise IdempotencyConflict("Candidate recovery context differs from durable ownership")
         if grant is not None:
             self.grants[ref] = grant
         grant = self.grants[ref]
         self.authority.registration(grant)
-        self.store.owner(ref)
-        self.runner.reconcile(ref)
         data = self.store.get(ref)
         old = data.get("result")
         if old and old["status"] == "cleaned":
             return CandidateResult(**old)
+        self.store.owner(ref)
+        self.runner.reconcile(ref)
+        if old and old["status"] in {"conflict", "refused"}:
+            return CandidateResult(**old)
         if old and old["status"] in {"ready", "target_moved", "source_moved"}:
             self._verify_resource(ref)
+            path = Path(data["path"])
+            if (
+                self.profile.query(path, "rev-parse", "HEAD").stdout.decode().strip()
+                != old["commit"]
+            ):
+                return self._result(
+                    ref, "uncertain", "candidate_ref_changed", old["commit"], old["tree"]
+                )
+            if self.profile.query(
+                path, "status", "--porcelain", "-z", "--untracked-files=all"
+            ).stdout:
+                return self._result(ref, "refused", "candidate_changed", old["commit"], old["tree"])
             moved = self._refs(grant)
             if moved:
                 return self._result(ref, moved, commit=old["commit"], tree=old["tree"])
@@ -237,37 +268,14 @@ class CandidateService:
         return self._result(ref, "uncertain", "candidate_requires_guarded_resume")
 
     def cleanup(self, ref):
+        """Cleanup awaits independent retirement/publication verification.
+
+        Confirmed delivery and its fence must be recorded independently. A ready
+        candidate alone cannot prove its unique output is retained elsewhere.
+        """
         grant = self.grants[ref]
-        self.authority.check_current(grant)
-        self.store.owner(ref)
-        data = self.store.get(ref)
-        result = data.get("result", {})
-        if result.get("status") == "cleaned":
-            return CandidateResult(**result)
-        if result.get("status") not in {"ready", "target_moved", "source_moved"} or not result.get(
-            "commit"
-        ):
-            raise AccessDenied("Incomplete/conflicting candidate resources must be retained")
-        path = Path(data["path"])
-        self._verify_resource(ref)
-        if self.profile.query(path, "status", "--porcelain", "-z", "--untracked-files=all").stdout:
-            raise AccessDenied("Dirty candidate cannot be removed")
-        if (
-            self.profile.query(path, "rev-parse", "HEAD").stdout.decode().strip()
-            != result["commit"]
-        ):
-            raise AccessDenied("Candidate reference changed before cleanup")
-        self.runner.run(
-            ref, "remove", self.profile.source["path"], ["worktree", "remove", str(path)]
+        self.authority.registration(grant)
+        raise EvidenceRequired(
+            "Confirmed publication and scoped retirement authority are not configured; "
+            "candidate resources and provenance remain retained"
         )
-        if not self._complete(ref, "remove"):
-            raise AccessDenied("Candidate removal is unresolved")
-        self.runner.run(
-            ref,
-            "delete_ref",
-            self.profile.source["path"],
-            ["update-ref", "-d", data["branch"], result["commit"]],
-        )
-        if not self._complete(ref, "delete_ref"):
-            raise AccessDenied("Candidate ref removal is unresolved")
-        return self._result(ref, "cleaned", commit=result["commit"], tree=result["tree"])

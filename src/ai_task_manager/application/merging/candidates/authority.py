@@ -56,3 +56,14 @@ class CoreCandidateAuthority:
         with self.boundary(grant):
             pass
         self.resources.verify(self.pair)
+
+    def check_source(self, grant, record):
+        fact = self.resources.verify(self.pair)["worktree"]
+        if (
+            record["path"] != str(self.pair.worktree)
+            or record["common"] != fact["common"]
+            or tuple(record["identity"]) != (fact["physical"]["device"], fact["physical"]["inode"])
+            or record["worktree_id"] != grant.binding.worktree_id
+            or record["repository_id"] != grant.binding.repository_id
+        ):
+            raise AccessDenied("Configured candidate source differs from actual Core resources")
