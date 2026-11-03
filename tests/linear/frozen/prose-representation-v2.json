@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "representation": "linear-markdown-v2",
+  "change": "Remove terminal document LF bytes before review and approval; retain the existing list rendering rules.",
+  "source_evidence": "TST-150 follows one actual TST-149 create: approved/rendered body ended in LF, while both provider observations omitted that final LF. Historical uncertainty remains failed.",
+  "preserved": [
+    "Internal newlines, spaces, fenced and indented code, literal text and list content",
+    "Exact provider title/body, ownership, delegate and status confirmation guards",
+    "Signed approval content, representation and policy; no normalization of observed provider content or rewriting of existing approvals"
+  ],
+  "legacy": {
+    "new_or_unconfirmed_v1_admission": "Refused under the current renderer; a new approved representation cannot rewrite prior uncertainty.",
+    "confirmed_v1_replay": "Return only an exact recorded submission in its current authorized session, with its original scoped signed approval and policy, while the task remains confirmed and linked. No new mutation is admitted.",
+    "changed_arguments_or_key": "Refuse rather than reuse historical approval for different work.",
+    "uncertain_v1_recovery": "Known-identity reconciliation still requires exact original approved content. A terminal-LF mismatch remains uncertain and needs separately reviewed intervention; no automatic migration or live repair is implemented."
+  },
+  "controls": "tests/application/test_linear_prose.py",
+  "evidence_limit": "Local declared HTTP and review contracts plus actual Writer execution; no new live provider or model acceptance.",
+  "remaining_gap": "Other provider Markdown transformations, including observed bare-URL normalization, are outside this terminal-LF correction and still fail exact readback when content differs.",
+  "affected_fixture_reconciliation": {
+    "tests/application/test_linear_composition.py::test_a29_external_prose_stays_staged_until_actual_writer_and_fresh_readback": "Seed the observed provider edit without its terminal document LF; retain staging, human hold, exact approval/readback and quarantine assertions.",
+    "tests/existing/test_service_writing.py": "Seed already persisted provider bodies without terminal LF. Preserve all admission/selection, purpose, scope, replay and no-mutation controls. Historical LF mismatch remains an explicit uncertainty/refusal control in test_linear_prose.py.",
+    "historical_result": "The initial affected installed batch retained 241 passes and three exact-prose refusals from these old positive fixture bodies. No original failed result is relabeled.",
+    "tests/existing/test_service_writing.py::test_ea24_actual_approval_binds_exact_prose_and_semantic_metadata[body]": "The old negative changed only terminal LF, now an equivalent source spelling of the same v2 approved body. Change the exact command literal instead so this case still proves meaningful unapproved content is refused with unchanged effects. The original failed oracle is retained (affected-v3:32 passed,1 failed)."
+  }
+}

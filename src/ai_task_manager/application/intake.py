@@ -9,6 +9,7 @@ from ai_task_manager.domains.work.errors import (
 from ai_task_manager.domains.work.models import (
     DELIVERED,
     Approval,
+    RenderedProse,
     SyncState,
     Task,
     valid_display_identifier,
@@ -71,7 +72,43 @@ class Intake:
         self, handle, prose, approval_ref, operation_key, parent_task_id=None, followup_ref=None
     ):
         """Read only an exact committed submission before refreshing external authority."""
-        self.approved(prose, approval_ref)
+        try:
+            self.approved(prose, approval_ref)
+        except ApprovalRequired:
+            # A renderer upgrade cannot reinterpret an old approval. It can only
+            # return an exact, already confirmed submission without new effects.
+            rendered = self.c.renderer.render(prose)
+            with self.c.db.transaction() as conn:
+                sid, scope = sessions.resolve(conn, handle)
+                verifier = getattr(self.c.approvals, "verify_scoped_approval", None)
+                if verifier is None:
+                    raise
+                approval = verifier(approval_ref, scope)
+                if (
+                    not isinstance(approval, Approval)
+                    or approval.policy != self.c.approval_policy
+                    or approval.representation == rendered.representation
+                ):
+                    raise
+                prior = work.replay(
+                    conn,
+                    sid,
+                    operation_key,
+                    submit_payload(prose, approval_ref, parent_task_id, followup_ref),
+                )
+                if prior is None:
+                    raise
+                original = RenderedProse(prior["title"], prior["body"], prior["representation"])
+                current = work.get(conn, sid, prior["id"])
+                if (
+                    approval.representation != original.representation
+                    or approval.digest != prior["prose_digest"]
+                    or approval.digest != prose_digest(prose, original)
+                    or current.sync_state != SyncState.CONFIRMED
+                    or current.issue_id is None
+                ):
+                    raise
+                return current
         with self.c.db.transaction() as conn:
             sid, _ = sessions.resolve(conn, handle)
             prior = work.replay(
@@ -91,7 +128,12 @@ class Intake:
         parent_task_id=None,
         followup_ref=None,
     ):
-        rendered, digest = self.approved(prose, approval_ref)
+        try:
+            rendered, digest = self.approved(prose, approval_ref)
+        except ApprovalRequired:
+            return self.recover_submit(
+                handle, prose, approval_ref, operation_key, parent_task_id, followup_ref
+            )
         payload = submit_payload(prose, approval_ref, parent_task_id, followup_ref)
 
         def action(conn, sid, scope):

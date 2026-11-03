@@ -4,7 +4,7 @@ from ai_task_manager.domains.work.models import RenderedProse
 
 
 class LinearMarkdownRenderer:
-    """Restricted observed list encoding; preserve fenced/indented code and literals."""
+    """Versioned provider body: list encoding and no terminal document LF."""
 
     def render(self, prose):
         lines, fence = [], None
@@ -28,4 +28,6 @@ class LinearMarkdownRenderer:
                 ):
                     lines.pop()
             lines.append(line)
-        return RenderedProse(prose.title, "\n".join(lines), "linear-markdown-v1")
+        # Linear drops terminal document newlines. Normalize only those LF bytes
+        # before approval; internal lines, spaces and literal contents stay exact.
+        return RenderedProse(prose.title, "\n".join(lines).rstrip("\n"), "linear-markdown-v2")

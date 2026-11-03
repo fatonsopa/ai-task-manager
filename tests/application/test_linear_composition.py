@@ -84,7 +84,8 @@ def test_a29_external_prose_stays_staged_until_actual_writer_and_fresh_readback(
     task = service.core.get_task(service.handle, response["data"]["id"])
     new_title, new_body = (
         "Verify transferred task ownership",
-        FEATURE_BODY.replace("Separate sessions", "Transferred sessions"),
+        # Persisted Linear document bytes follow the v2 terminal-LF contract.
+        FEATURE_BODY.replace("Separate sessions", "Transferred sessions").removesuffix("\n"),
     )
     provider.edit(task.issue_id, title=new_title, description=new_body)
     from ai_task_manager.adapters.linear.webhooks import WebhookReceiver

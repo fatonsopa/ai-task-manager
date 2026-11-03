@@ -7,9 +7,13 @@ import pytest
 
 from ai_task_manager.domains.work.existing import ExistingBlocked
 from ai_task_manager.domains.work.models import TaskProse
-from tests.application.helpers import FEATURE_BODY
+from tests.application.helpers import FEATURE_BODY as SOURCE_FEATURE_BODY
 
 from .service_support import approve, compose
+
+# This fixture represents a persisted provider body, not the source document.
+# Exact old terminal-LF mismatch/refusal remains in test_linear_prose.py.
+FEATURE_BODY = SOURCE_FEATURE_BODY.removesuffix("\n")
 
 
 @pytest.fixture
@@ -164,7 +168,7 @@ def test_ea24_actual_approval_binds_exact_prose_and_semantic_metadata(
         prose,
         **{
             "title": {"title": prose.title + " changed"},
-            "body": {"body": prose.body + "\n"},
+            "body": {"body": prose.body.replace("--scope=session", "--scope=foreign")},
             "metadata": {"required_work": ("different",)},
         }[change],
     )

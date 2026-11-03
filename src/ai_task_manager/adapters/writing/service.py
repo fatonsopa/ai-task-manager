@@ -69,9 +69,8 @@ class WritingService:
         rendered = self.renderer.render(prose)
         prose = TaskProse(rendered.title, rendered.body, prose.code_bearing, prose.required_work)
         document = "# " + prose.title + "\n\n" + prose.body
-        if not document.endswith("\n"):
-            document += "\n"
-        # The exact canonical document is rendered before any semantic approval.
+        # Review the exact provider body, including its terminal-byte contract.
+        # Adding a document newline here would review bytes absent from approval.
         folder = self.root / str(uuid4())
         folder.mkdir(mode=0o700)
         draft = folder / "draft.md"
