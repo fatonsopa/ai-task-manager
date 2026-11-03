@@ -43,8 +43,7 @@ def test_p21_unknown_or_foreign_schema_is_refused_without_reset(tmp_path):
         assert conn.execute("SELECT value FROM valuable_data").fetchone()[0] == "retained"
 
 
-def test_p22_directional_imports_and_no_provider_process_ui_or_legacy_dependency():
-    root = Path(__file__).parents[2] / "src" / "ai_task_manager"
+def _assert_core_imports(path, source, root):
     allowed_stdlib = {
         "collections",
         "dataclasses",
@@ -60,52 +59,59 @@ def test_p22_directional_imports_and_no_provider_process_ui_or_legacy_dependency
         "time",
         "datetime",
     }
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            imports = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                package = ["ai_task_manager", *path.relative_to(root).parts[:-1]]
+                base = package[: len(package) - node.level + 1]
+                imports = [
+                    ".".join(
+                        [
+                            *base,
+                            *(node.module.split(".") if node.module else []),
+                            *([] if node.module else [alias.name]),
+                        ]
+                    )
+                    for alias in node.names
+                ]
+            else:
+                imports = [node.module]
+        else:
+            continue
+        for name in imports:
+            assert name.split(".")[0] in allowed_stdlib | (
+                {"os"} if "storage" in path.relative_to(root).parts else set()
+            ) | {"ai_task_manager"}, (
+                path,
+                name,
+            )
+            assert not name.startswith(
+                (
+                    "ai_task_manager.adapters",
+                    "ai_task_manager.supervisor",
+                    "ai_task_manager.presentation",
+                    "ai_task_manager.legacy",
+                )
+            ), (path, name)
+            if "domains" in path.parts:
+                assert not name.startswith(
+                    ("ai_task_manager.application", "ai_task_manager.storage")
+                )
+            if "storage" in path.parts:
+                assert not name.startswith("ai_task_manager.application")
+
+
+def test_p22_directional_imports_and_no_provider_process_ui_or_legacy_dependency():
+    root = Path(__file__).parents[2] / "src" / "ai_task_manager"
     core_paths = [
         *root.joinpath("domains", "work").rglob("*.py"),
         *root.joinpath("storage").rglob("*.py"),
         *root.joinpath("application").glob("*.py"),
     ]
     for path in core_paths:
-        for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, ast.Import):
-                imports = [alias.name for alias in node.names]
-            elif isinstance(node, ast.ImportFrom):
-                if node.level:
-                    package = ["ai_task_manager", *path.relative_to(root).parts[:-1]]
-                    base = package[: len(package) - node.level + 1]
-                    imports = [
-                        ".".join(
-                            [
-                                *base,
-                                *(node.module.split(".") if node.module else []),
-                                *([] if node.module else [alias.name]),
-                            ]
-                        )
-                        for alias in node.names
-                    ]
-                else:
-                    imports = [node.module]
-            else:
-                continue
-            for name in imports:
-                assert name.split(".")[0] in allowed_stdlib | {"ai_task_manager"}, (
-                    path,
-                    name,
-                )
-                assert not name.startswith(
-                    (
-                        "ai_task_manager.adapters",
-                        "ai_task_manager.supervisor",
-                        "ai_task_manager.presentation",
-                        "ai_task_manager.legacy",
-                    )
-                ), (path, name)
-                if "domains" in path.parts:
-                    assert not name.startswith(
-                        ("ai_task_manager.application", "ai_task_manager.storage")
-                    )
-                if "storage" in path.parts:
-                    assert not name.startswith("ai_task_manager.application")
+        _assert_core_imports(path, path.read_text(), root)
 
 
 def test_frozen_precode_case_manifest_is_unchanged():
@@ -117,3 +123,30 @@ def test_frozen_precode_case_manifest_is_unchanged():
     assert {case["id"] for case in json.loads(path.read_text())["cases"]} == {
         f"P{i:02}" for i in range(1, 27)
     }
+
+
+@pytest.mark.parametrize(
+    "layer,source,allowed",
+    [
+        ("storage", "import os", True),
+        ("domains/work", "import os", False),
+        ("application", "import os", False),
+        ("storage", "import subprocess", False),
+        ("storage", "import socket", False),
+        ("storage", "import http.client", False),
+        ("storage", "import requests", False),
+        ("storage", "import ai_task_manager.adapters.linear.client", False),
+        ("storage", "import ai_task_manager.application.core", False),
+        ("domains/work", "import ai_task_manager.storage.database", False),
+        ("domains/work", "import ai_task_manager.application.core", False),
+        ("application", "import ai_task_manager.presentation.terminal", False),
+    ],
+)
+def test_p22_layer_specific_ast_controls(layer, source, allowed):
+    root = Path("/authored-core")
+    path = root / layer / "fixture.py"
+    if allowed:
+        _assert_core_imports(path, source, root)
+    else:
+        with pytest.raises(AssertionError):
+            _assert_core_imports(path, source, root)
