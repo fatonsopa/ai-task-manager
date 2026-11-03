@@ -234,10 +234,10 @@ class Chain:
                 proof,
                 "component-publication-fence",
             )
-            faults = self.consumer.service.publisher.faults
             self.grant = replace(self.grant, publication_context=context)
-            self.consumer = self.compose(self.grant)
-            self.consumer.service.publisher.faults = faults
+            self.consumer.grant = self.grant
+            self.consumer.authority.grant = self.grant
+            self.consumer.checks.grant = self.grant
         ref = self.consumer.registration["ref"]
         return self.consumer.publish(self.journal.current(ref)["version"], "publish")
 
