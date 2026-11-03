@@ -50,6 +50,8 @@ def test_public_run_actual_completed_worker_checks_publication_and_in_dev(tmp_pa
             "candidate",
             "check_plan",
             "checks",
+            "publication_intent",
+            "publication_fence",
             "publication",
             "delivery",
             "confirmation",
@@ -96,7 +98,17 @@ def test_committed_public_replay_and_resume_after_delivery_do_not_repeat_effects
 
 
 @pytest.mark.parametrize(
-    "stage", ["candidate", "check_plan", "checks", "publication", "delivery", "confirmation"]
+    "stage",
+    [
+        "candidate",
+        "check_plan",
+        "checks",
+        "publication_intent",
+        "publication_fence",
+        "publication",
+        "delivery",
+        "confirmation",
+    ],
 )
 def test_lost_stage_reply_reconciles_exact_durable_effect(flow, stage):
     flow.workflow.faults = FaultOnce("after_" + stage)
@@ -443,3 +455,280 @@ def test_actual_publication_fences_new_work_before_provider_status_advances(flow
             flow.r.decision(task, "In Progress"),
             "publication-fence-probe",
         )
+
+
+def test_pending_fence_is_committed_before_actual_gated_git_release(flow):
+    from ai_task_manager.adapters.git.publication import LocalGit
+    from ai_task_manager.storage import issue_claims, merging_fences
+
+    seen = []
+
+    def barrier():
+        task = flow.r.core.get_task(flow.r.handle, flow.task.id)
+        with flow.r.core.context.db.transaction() as conn:
+            rows = merging_fences.pending(conn, issue_claims.identity(flow.r.scope, task.issue_id))
+            assert len(rows) == 1
+        with pytest.raises(WorkError):
+            flow.r.core.execution.reserve(
+                flow.r.handle,
+                task.id,
+                "fixture",
+                task.version,
+                task.decision_revision,
+                flow.r.decision(task, "In Progress"),
+                "release-barrier-reserve",
+            )
+        seen.append(rows[0]["context"])
+
+    flow.workflow.publisher_factory = lambda j, p, b: LocalGit(
+        j, p, b, faults=FaultOnce("before_release", barrier)
+    )
+    result = flow.run()
+    assert result["data"]["state"] == "done", result
+    assert len(seen) == 1
+    (flow.root / "publication-release-barrier.json").write_text(json.dumps(seen, indent=2))
+
+
+def test_actual_publication_fact_survives_later_hold_without_advancing_status(flow):
+    from ai_task_manager.adapters.git.publication import LocalGit
+    from ai_task_manager.storage import issue_claims
+
+    flow.workflow.publisher_factory = lambda j, p, b: LocalGit(
+        j,
+        p,
+        b,
+        faults=FaultOnce("after_effect_observation", lambda: flow.runtime.hold(flow.dispatch)),
+    )
+    result = flow.run()
+    assert not result["ok"]
+    task = flow.r.core.get_task(flow.r.handle, flow.task.id)
+    assert task.human_hold and task.observed_status == "In Progress"
+    with flow.r.core.context.db.transaction() as conn:
+        assert issue_claims.known_delivered(conn, flow.r.scope, task)
+    release = flow.r.proof(
+        "human_decision", task.id, {"previous_revision": task.decision_revision, "hold": False}
+    )
+    task = flow.r.core.decisions.record(flow.r.handle, task.id, task.version, release, flow.r.key())
+    with pytest.raises(WorkError):
+        flow.r.core.execution.reserve(
+            flow.r.handle,
+            task.id,
+            "fixture",
+            task.version,
+            task.decision_revision,
+            flow.r.decision(task, "In Progress"),
+            "released-hold-cannot-reopen-merged-work",
+        )
+
+
+def test_pending_fence_survives_binding_map_change_and_foreign_context_refuses(flow):
+    from ai_task_manager.application.publication_fences import PublicationContext
+    from ai_task_manager.storage import issue_claims, merging_fences
+
+    flow.workflow.faults = FaultOnce("after_publication_fence")
+    assert not flow.run()["ok"]
+    task = flow.r.core.get_task(flow.r.handle, flow.task.id)
+    with flow.r.core.context.db.transaction() as conn:
+        key = issue_claims.identity(flow.r.scope, task.issue_id)
+        row = merging_fences.pending(conn, key)[0]
+        conn.execute("DELETE FROM issue_bindings WHERE identity_key=?", (key,))
+    context = PublicationContext(**row["context"])
+    grant = flow.grant
+    with pytest.raises(WorkError):
+        with flow.r.core.execution.merge_snapshot_boundary(
+            flow.r.handle,
+            task.id,
+            flow.attempt.id,
+            task.version,
+            flow.attempt.version,
+            task.decision_revision,
+            grant.decision_ref,
+            publication_context=replace(context, binding_digest="0" * 64),
+        ):
+            raise AssertionError("foreign publication authority entered")
+    with flow.r.core.context.db.transaction() as conn:
+        # Canonical provider/workspace/issue authority is independent of a
+        # mutable principal/session binding and of current issue_bindings rows.
+        other = replace(flow.r.scope, principal="other", logical_session="other")
+        with pytest.raises(WorkError):
+            issue_claims.require_open(conn, other, task.issue_id)
+    with pytest.raises(WorkError):
+        flow.r.core.execution.reserve(
+            flow.r.handle,
+            task.id,
+            "fixture",
+            task.version,
+            task.decision_revision,
+            flow.r.decision(task, "In Progress"),
+            "canonical-pending-probe",
+        )
+    assert git(flow.tree, "rev-parse", "refs/heads/" + flow.target) == flow.old
+
+
+def test_expired_prepared_intent_refuses_before_pending_fence_or_target_effect(flow):
+    from ai_task_manager.storage import issue_claims, merging_fences
+
+    flow.workflow.faults = FaultOnce("after_publication_intent")
+    assert not flow.run()["ok"]
+    intent_refs = [
+        reference
+        for reference, (fact, _) in flow.evidence.prepared.items()
+        if fact.kind == "publication_intent"
+    ]
+    assert len(intent_refs) == 1
+    expired = intent_refs[0]
+    before_calls = flow.guard.calls
+    flow.r.now += 6
+    ref = next(iter(flow.workflow.references))
+    grant = flow.grant
+    with pytest.raises(WorkError):
+        flow.r.core.publications.begin(
+            flow.r.handle,
+            grant.binding.task_id,
+            grant.binding.attempt_id,
+            grant.task_version,
+            grant.attempt_version,
+            grant.decision_revision,
+            grant.decision_ref,
+            expired,
+            "consume-expired-prepared-intent",
+        )
+    with flow.r.core.context.db.transaction() as conn:
+        assert not merging_fences.pending(
+            conn, issue_claims.identity(flow.r.scope, flow.task.issue_id)
+        )
+    assert git(flow.tree, "rev-parse", "refs/heads/" + flow.target) == flow.old
+    resumed = flow.resume(ref)
+    assert resumed["data"]["state"] == "done", resumed
+    assert flow.guard.calls > before_calls
+    assert flow.evidence.prepared[expired][0].expires_at > flow.r.now
+
+
+def test_committed_begin_and_confirmation_replay_after_expiry_have_no_new_effect(flow):
+    from ai_task_manager.application.publication_fences import PublicationContext
+
+    result = flow.run()
+    assert result["data"]["state"] == "done", result
+    ref = result["data"]["workflow"]
+    row = flow.workflow.store.read(ref)
+    context = PublicationContext(**row["steps"]["publication_fence"]["result"])
+    before = flow.r.core.notifications.list_events(flow.r.handle)
+    flow.r.now += 6
+    g = flow.grant
+    assert (
+        flow.r.core.publications.begin(
+            flow.r.handle,
+            g.binding.task_id,
+            g.binding.attempt_id,
+            g.task_version,
+            g.attempt_version,
+            g.decision_revision,
+            g.decision_ref,
+            row["steps"]["publication_intent"]["result"]["ref"],
+            ref + ":fence",
+        )
+        == context
+    )
+    assert (
+        flow.r.core.publications.confirm(
+            flow.r.handle,
+            g.binding.task_id,
+            context,
+            row["steps"]["delivery"]["payload"]["merge_ref"],
+            ref + ":publication-confirmed",
+        )["state"]
+        == "committed"
+    )
+    assert before == flow.r.core.notifications.list_events(flow.r.handle)
+    with pytest.raises(WorkError):
+        with flow.r.core.execution.merge_snapshot_boundary(
+            flow.r.handle,
+            g.binding.task_id,
+            g.binding.attempt_id,
+            g.task_version,
+            g.attempt_version,
+            g.decision_revision,
+            g.decision_ref,
+            publication_context=context,
+        ):
+            raise AssertionError("delivered context cannot authorize another publication")
+
+
+def test_pending_without_actual_success_cannot_be_confirmed_or_silently_released(flow):
+    from ai_task_manager.application.publication_fences import PublicationContext
+    from ai_task_manager.storage import issue_claims, merging_fences
+
+    flow.workflow.faults = FaultOnce("after_publication_fence")
+    assert not flow.run()["ok"]
+    ref = next(iter(flow.workflow.references))
+    row = flow.workflow.store.read(ref)
+    with flow.r.core.context.db.transaction() as conn:
+        pending = merging_fences.pending(
+            conn, issue_claims.identity(flow.r.scope, flow.task.issue_id)
+        )[0]
+    context = PublicationContext(**pending["context"])
+    with pytest.raises(WorkError):
+        flow.r.core.publications.confirm(
+            flow.r.handle,
+            flow.task.id,
+            context,
+            row["steps"]["publication_intent"]["result"]["ref"],
+            "intent-is-not-success",
+        )
+    assert not hasattr(flow.r.core.publications, "release")
+    with flow.r.core.context.db.transaction() as conn:
+        assert merging_fences.pending(conn, issue_claims.identity(flow.r.scope, flow.task.issue_id))
+    assert git(flow.tree, "rev-parse", "refs/heads/" + flow.target) == flow.old
+
+
+def test_permanent_publication_fact_allows_new_authorized_status_finalization(flow):
+    from ai_task_manager.adapters.git.publication import LocalGit
+    from ai_task_manager.domains.merging.candidates import CandidateResult
+    from ai_task_manager.domains.work.models import Cause, IssueStatus
+    from tests.runtime.helpers import ProviderFixture
+
+    flow.workflow.publisher_factory = lambda j, p, b: LocalGit(
+        j,
+        p,
+        b,
+        faults=FaultOnce("after_effect_observation", lambda: flow.runtime.hold(flow.dispatch)),
+    )
+    assert not flow.run()["ok"]
+    ref = next(iter(flow.workflow.references))
+    row = flow.workflow.store.read(ref)
+    candidate = CandidateResult(**row["steps"]["candidate"]["result"])
+    consumer = flow.workflow.consumers[ref]
+    task = flow.r.core.get_task(flow.r.handle, flow.task.id)
+    release = flow.r.proof(
+        "human_decision", task.id, {"previous_revision": task.decision_revision, "hold": False}
+    )
+    task = flow.r.core.decisions.record(flow.r.handle, task.id, task.version, release, flow.r.key())
+    publication = consumer.service.publisher.reconcile(consumer.registration["ref"])
+    before = flow.journal.current(consumer.registration["ref"])["facts"]["local_git"]["children"]
+    proof = flow.evidence.prepare(
+        flow.r.core,
+        flow.r.handle,
+        flow.plan,
+        candidate,
+        publication,
+        consumer,
+        row["steps"]["check_plan"]["result"]["ref"],
+    )
+    task = flow.r.core.transitions.transition(
+        flow.r.handle,
+        task.id,
+        IssueStatus.IN_DEV,
+        Cause.MERGE,
+        task.version,
+        task.decision_revision,
+        flow.r.decision(task, "In Dev"),
+        {"merge": proof},
+        "new-authorized-delivery-finalization",
+    )
+    task = ProviderFixture(flow.r).confirm_pending(flow.r.handle, task.id)
+    assert task.delivered_once and task.observed_status == "In Dev"
+    assert (
+        flow.journal.current(consumer.registration["ref"])["facts"]["local_git"]["children"]
+        == before
+    )
+    assert flow.pair.database.is_file()

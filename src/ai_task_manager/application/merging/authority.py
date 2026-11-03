@@ -22,6 +22,7 @@ class LeaseGrant:
     attempt_version: int
     decision_revision: int
     decision_ref: str
+    publication_context: object = None
 
 
 class CoreAuthority:
@@ -92,12 +93,20 @@ class CoreAuthority:
 
     @contextmanager
     def authority_boundary(self, binding):
+        if self.grant.publication_context is None:
+            raise AccessDenied("A durable pending publication fence is required before release")
         self.check_current(binding)
         with self._merge_snapshot(binding) as (task, attempt, scope):
             self._snapshot(binding, attempt, task, scope)
             yield
 
     def _merge_snapshot(self, binding):
+        context = self.grant.publication_context
+        if context is not None and (
+            context.binding_digest != binding.fingerprint
+            or context.commit != self.grant.publication.new
+        ):
+            raise AccessDenied("Publication fence belongs to another exact operation")
         return self.core.execution.merge_snapshot_boundary(
             self.handle,
             binding.task_id,
@@ -106,4 +115,5 @@ class CoreAuthority:
             self.grant.attempt_version,
             self.grant.decision_revision,
             self.grant.decision_ref,
+            publication_context=context,
         )

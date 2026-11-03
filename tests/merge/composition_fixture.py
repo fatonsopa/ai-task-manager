@@ -166,6 +166,78 @@ class Chain:
         )
 
     def publish(self):
+        if self.grant.publication_context is None:
+            from dataclasses import replace
+            from types import SimpleNamespace
+
+            from ai_task_manager.adapters.proofs.router import EvidenceRoute, EvidenceRouter
+            from ai_task_manager.adapters.proofs.store import RUNTIME_KINDS
+            from ai_task_manager.application.merging.workflows import MergeEvidence
+            from ai_task_manager.domains.merging.candidates import CandidateGrant
+
+            evidence = MergeEvidence(clock=lambda: self.r.now)
+            self.r.core.context.evidence = EvidenceRouter(
+                [
+                    EvidenceRoute("runtime-proof:", RUNTIME_KINDS, self.runtime.proofs),
+                    EvidenceRoute(
+                        "fixture:",
+                        frozenset(
+                            {
+                                "provider_status",
+                                "decision",
+                                "human_decision",
+                                "external_observation",
+                            }
+                        ),
+                        self.r.proofs,
+                    ),
+                    EvidenceRoute(
+                        "merge-publication:", frozenset({"merge", "publication_intent"}), evidence
+                    ),
+                ]
+            )
+            reference = self.consumer.registration["ref"]
+            self.consumer.service.prepare(
+                reference,
+                self.journal.current(reference)["version"],
+                "component-prepare",
+                self.request,
+                self.consumer.check_ref,
+            )
+            candidate_grant = CandidateGrant(
+                self.grant.binding,
+                self.request.source_ref,
+                self.new,
+                self.old,
+                self.grant.task_version,
+                self.grant.attempt_version,
+                self.grant.decision_revision,
+                self.grant.decision_ref,
+                "lead:component-fixture",
+            )
+            proof = evidence.prepare_intent(
+                self.r.core,
+                self.r.handle,
+                SimpleNamespace(grant=candidate_grant),
+                SimpleNamespace(commit=self.new, candidate_ref=self.request.source_ref),
+                self.consumer,
+                self.consumer.check_ref,
+            )
+            context = self.r.core.publications.begin(
+                self.r.handle,
+                self.task.id,
+                self.attempt.id,
+                self.grant.task_version,
+                self.grant.attempt_version,
+                self.grant.decision_revision,
+                self.grant.decision_ref,
+                proof,
+                "component-publication-fence",
+            )
+            faults = self.consumer.service.publisher.faults
+            self.grant = replace(self.grant, publication_context=context)
+            self.consumer = self.compose(self.grant)
+            self.consumer.service.publisher.faults = faults
         ref = self.consumer.registration["ref"]
         return self.consumer.publish(self.journal.current(ref)["version"], "publish")
 

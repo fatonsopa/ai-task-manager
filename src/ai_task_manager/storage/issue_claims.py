@@ -42,10 +42,13 @@ def known_delivered(conn, scope, task):
     return task.delivered_once or bool(row and row[0])
 
 
-def require_open(conn, scope, issue_id):
+def require_open(conn, scope, issue_id, *, publication_context=None):
     row = _facts(conn, scope, issue_id)
     if row and (row[0] or row[1]):
         raise EvidenceRequired("Delivered or terminal history requires a new authorized issue")
+    from ai_task_manager.storage.merging_fences import require_clear
+
+    require_clear(conn, identity(scope, issue_id), publication_context)
 
 
 def imported(conn, task_id):

@@ -14,6 +14,7 @@ from .existing_issues import ExistingIssues
 from .external_sync import ExternalSynchronization
 from .intake import Intake
 from .notifications import Notifications
+from .publication_fences import PublicationFences
 from .scheduling import Scheduling
 from .synchronization import Synchronization
 from .transitions import Transitions
@@ -49,6 +50,7 @@ class Core:
         self.intake = Intake(self.context)
         self.transitions = Transitions(self.context)
         self.execution = Execution(self.context)
+        self.publications = PublicationFences(self.context, self.execution)
         self.existing = ExistingIssues(self.context)
         self.decisions = Decisions(self.context)
         self.notifications = Notifications(self.context)

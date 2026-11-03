@@ -124,7 +124,9 @@ class Flow:
                     ),
                     self.r.proofs,
                 ),
-                EvidenceRoute("merge-publication:", frozenset({"merge"}), self.evidence),
+                EvidenceRoute(
+                    "merge-publication:", frozenset({"merge", "publication_intent"}), self.evidence
+                ),
             ]
         )
         if completed:

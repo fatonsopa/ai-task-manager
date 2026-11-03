@@ -46,6 +46,7 @@ def test_actual_core_check_git_and_owned_database_chain(chain):
         chain.attempt.version,
         chain.task.decision_revision,
         chain.grant.decision_ref,
+        publication_context=chain.grant.publication_context,
     ) as snapshot:
         assert snapshot == (chain.task, chain.attempt, chain.r.scope)
         with pytest.raises(FrozenInstanceError):
@@ -289,3 +290,12 @@ def test_observed_reassignment_blocks_effect_without_releasing_owned_resources(c
     assert retained == chain.attempt and retained.state == "done"
     assert chain.pair.database.is_file() and chain.pair.worktree.is_dir()
     assert chain.target() == chain.old
+
+
+def test_missing_pending_fence_refuses_physical_publication_boundary(chain):
+    entered = False
+    with pytest.raises(WorkError):
+        with chain.consumer.authority.authority_boundary(chain.binding):
+            entered = True
+    assert not entered and chain.target() == chain.old
+    assert not chain.journal.current(chain.consumer.registration["ref"])["facts"].get("local_git")

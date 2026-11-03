@@ -6,6 +6,7 @@ from dataclasses import asdict, replace
 from ai_task_manager.adapters.git.publication import LocalGit
 from ai_task_manager.application.merging.authority import CoreAuthority, LeaseGrant
 from ai_task_manager.application.merging.composition import CheckedMerge
+from ai_task_manager.application.publication_fences import PublicationContext
 from ai_task_manager.application.service.models import result
 from ai_task_manager.application.workflows.service import WorkflowService
 from ai_task_manager.domains.checks.models import Scope
@@ -117,7 +118,7 @@ class MergeWorkflowService(WorkflowService):
         self.store.finish(ref, owner, name, observed)
         return observed
 
-    def _publication(self, ref, candidate, check_ref):
+    def _publication(self, ref, candidate, check_ref, publication_context=None):
         grant = self.plan.grant
         binding = replace(grant.binding, operation_key=ref + ":publication")
         request = Publication(
@@ -134,6 +135,7 @@ class MergeWorkflowService(WorkflowService):
             grant.attempt_version,
             grant.decision_revision,
             grant.decision_ref,
+            publication_context,
         )
         authority = self.candidate.authority
         consumer = CheckedMerge(
@@ -223,65 +225,143 @@ class MergeWorkflowService(WorkflowService):
                             ref, owner, name, {"observed": "In Dev", "reconciled": True}
                         )
                 return self._envelope(ref, "done")
-            # An interrupted delivery may have committed Core's durable status
-            # intent. Reconcile that exact event/key before requiring old versions.
             delivered = steps.get("delivery")
-            if not delivered or (task.desired_status != IssueStatus.IN_DEV):
-                self._ready()
-                value = self._step(
-                    ref,
-                    owner,
-                    "candidate",
-                    {"grant": self.plan.digest},
-                    lambda: asdict(self.candidate.prepare(self.plan.grant)),
-                )
-                candidate = CandidateResult(**value)
-                if candidate.status != "ready":
-                    return self._envelope(
-                        ref,
-                        "uncertain" if candidate.status == "uncertain" else "blocked",
-                        "candidate_" + candidate.status,
+            if delivered and task.desired_status == IssueStatus.IN_DEV:
+                if not self._delivery_event(task, delivered):
+                    raise EvidenceRequired("Pending delivery has no exact owned Core transition")
+                if delivered["result"] is None:
+                    self.store.finish(
+                        ref, owner, "delivery", {"task_id": task.id, "desired": task.desired_status}
                     )
-                self.candidate.store.owner(candidate.operation_ref)
-                self.candidate.reconcile(candidate.operation_ref)
-                self._ready()
-                check_plan = self._step(
-                    ref,
-                    owner,
-                    "check_plan",
-                    {"candidate": candidate.commit},
-                    lambda: {
-                        "ref": self.check_inputs.prepare(
-                            self.candidate.profile, self.plan.grant, candidate, ref + ":checks"
-                        )
-                    },
-                )
-                check_ref = check_plan["ref"]
-                b = self.plan.grant.binding
-                check_scope = Scope(b.principal_id, b.project_id, b.session_id, b.task_id)
-
-                def run_checks():
+            else:
+                fence_step = steps.get("publication_fence")
+                if fence_step is None:
                     self._ready()
-                    snap = self.check_inputs.checks.run(check_ref, check_scope)
-                    return {
-                        "ref": check_ref,
-                        "outcome": snap["outcome"],
-                        "plan": snap["plan"].digest,
-                    }
+                    value = self._step(
+                        ref,
+                        owner,
+                        "candidate",
+                        {"grant": self.plan.digest},
+                        lambda: asdict(self.candidate.prepare(self.plan.grant)),
+                    )
+                    candidate = CandidateResult(**value)
+                    if candidate.status != "ready":
+                        return self._envelope(
+                            ref,
+                            "uncertain" if candidate.status == "uncertain" else "blocked",
+                            "candidate_" + candidate.status,
+                        )
+                    self.candidate.store.owner(candidate.operation_ref)
+                    self.candidate.reconcile(candidate.operation_ref)
+                    self._ready()
+                    check_plan = self._step(
+                        ref,
+                        owner,
+                        "check_plan",
+                        {"candidate": candidate.commit},
+                        lambda: {
+                            "ref": self.check_inputs.prepare(
+                                self.candidate.profile, self.plan.grant, candidate, ref + ":checks"
+                            )
+                        },
+                    )
+                    check_ref = check_plan["ref"]
+                    b = self.plan.grant.binding
+                    check_scope = Scope(b.principal_id, b.project_id, b.session_id, b.task_id)
 
-                checked = self._step(ref, owner, "checks", {"ref": check_ref}, run_checks)
-                if checked["outcome"] != "passed":
-                    return self._envelope(ref, "blocked", "checks_" + checked["outcome"])
-                consumer = self._publication(ref, candidate, check_ref)
-                pub_ref = consumer.registration["ref"]
-                published = self._step(
+                    def run_checks():
+                        self._ready()
+                        snap = self.check_inputs.checks.run(check_ref, check_scope)
+                        return {
+                            "ref": check_ref,
+                            "outcome": snap["outcome"],
+                            "plan": snap["plan"].digest,
+                        }
+
+                    checked = self._step(ref, owner, "checks", {"ref": check_ref}, run_checks)
+                    if checked["outcome"] != "passed":
+                        return self._envelope(ref, "blocked", "checks_" + checked["outcome"])
+                    before = self._publication(ref, candidate, check_ref)
+                    pub_ref = before.registration["ref"]
+
+                    def prepare_intent():
+                        before.service.prepare(
+                            pub_ref,
+                            self.store.journal.current(pub_ref)["version"],
+                            ref + ":prepare-publication",
+                            before.grant.publication,
+                            check_ref,
+                        )
+                        return {
+                            "ref": self.evidence.prepare_intent(
+                                self.core, self.handle, self.plan, candidate, before, check_ref
+                            )
+                        }
+
+                    intent = self._step(
+                        ref,
+                        owner,
+                        "publication_intent",
+                        {"ref": pub_ref, "checks": check_ref},
+                        prepare_intent,
+                    )
+                else:
+                    candidate = CandidateResult(**steps["candidate"]["result"])
+                    check_ref = steps["check_plan"]["result"]["ref"]
+                    intent = steps["publication_intent"]["result"]
+                g = self.plan.grant
+                context = self._step(
                     ref,
                     owner,
-                    "publication",
-                    {"ref": pub_ref, "commit": candidate.commit},
-                    lambda: consumer.publish(
-                        self.store.journal.current(pub_ref)["version"], ref + ":publish"
+                    "publication_fence",
+                    {"intent_ref": intent["ref"]},
+                    lambda: asdict(
+                        self.core.publications.begin(
+                            self.handle,
+                            g.binding.task_id,
+                            g.binding.attempt_id,
+                            g.task_version,
+                            g.attempt_version,
+                            g.decision_revision,
+                            g.decision_ref,
+                            intent["ref"],
+                            ref + ":fence",
+                        )
                     ),
+                )
+                context = PublicationContext(**context)
+                consumer = self._publication(ref, candidate, check_ref, context)
+                pub_ref = consumer.registration["ref"]
+
+                def publish():
+                    observed = consumer.publish(
+                        self.store.journal.current(pub_ref)["version"], ref + ":publish"
+                    )
+                    if (
+                        observed["publication"] == "committed"
+                        and observed["quiescent"]
+                        and not observed["repair_required"]
+                    ):
+                        proof = self.evidence.prepare(
+                            self.core,
+                            self.handle,
+                            self.plan,
+                            candidate,
+                            observed,
+                            consumer,
+                            check_ref,
+                        )
+                        self.core.publications.confirm(
+                            self.handle,
+                            g.binding.task_id,
+                            context,
+                            proof,
+                            ref + ":publication-confirmed",
+                        )
+                    return observed
+
+                published = self._step(
+                    ref, owner, "publication", {"ref": pub_ref, "commit": candidate.commit}, publish
                 )
                 if (
                     published["publication"] != "committed"
@@ -291,18 +371,18 @@ class MergeWorkflowService(WorkflowService):
                     return self._envelope(
                         ref, "uncertain", "publication_" + published["publication"]
                     )
-                self._ready()
                 merge_ref = self.evidence.prepare(
                     self.core, self.handle, self.plan, candidate, published, consumer, check_ref
                 )
                 payload = {
-                    "decision_ref": self.plan.grant.decision_ref,
+                    "decision_ref": g.decision_ref,
                     "commit": candidate.commit,
                     "merge_ref": merge_ref,
                 }
 
                 def deliver():
-                    current = self._ready()
+                    current = self._scope()
+                    self.core.context.check(current, g.task_version, g.decision_revision)
                     updated = self.core.transitions.transition(
                         self.handle,
                         current.id,
@@ -310,20 +390,13 @@ class MergeWorkflowService(WorkflowService):
                         Cause.MERGE,
                         current.version,
                         current.decision_revision,
-                        self.plan.grant.decision_ref,
+                        g.decision_ref,
                         {"merge": merge_ref},
                         ref + ":deliver",
                     )
                     return {"task_id": updated.id, "desired": updated.desired_status}
 
                 self._step(ref, owner, "delivery", payload, deliver)
-            else:
-                if not self._delivery_event(task, delivered):
-                    raise EvidenceRequired("Pending delivery has no exact owned Core transition")
-                if delivered["result"] is None:
-                    self.store.finish(
-                        ref, owner, "delivery", {"task_id": task.id, "desired": task.desired_status}
-                    )
             if self.provider is None:
                 return self._envelope(ref, "blocked", "provider_confirmation_unavailable")
             confirmed = self._step(

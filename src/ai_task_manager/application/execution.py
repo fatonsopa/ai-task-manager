@@ -29,9 +29,11 @@ class Execution:
         self.c = context
 
     @staticmethod
-    def require_open(conn, scope, task):
+    def require_open(conn, scope, task, publication_context=None):
         try:
-            issue_claims.require_open(conn, scope, task.issue_id)
+            issue_claims.require_open(
+                conn, scope, task.issue_id, publication_context=publication_context
+            )
         except EvidenceRequired as exc:
             raise InvalidTransition(
                 "Delivered or terminal work requires a new linked issue"
@@ -95,6 +97,7 @@ class Execution:
         expected_attempt_version,
         expected_decision_revision,
         decision_ref,
+        publication_context=None,
     ):
         """Authorize only a short merge effect after the task worker has stopped.
 
@@ -102,28 +105,50 @@ class Execution:
         snapshot grants neither work-command permission nor delivered merge status.
         """
         with self.c.db.transaction() as conn:
-            sid, scope = sessions.resolve(conn, handle)
-            task = work.get(conn, sid, task_id)
-            self.c.check(task, expected_task_version, expected_decision_revision)
-            attempt = attempts.get(conn, sid, attempt_id)
-            if attempt.version != expected_attempt_version:
-                raise StaleVersion("Completed worker attempt version changed")
-            if (
-                not task.code_bearing
-                or task.human_hold
-                or task.delivered_once
-                or task.observed_status != S.IN_PROGRESS
-                or task.sync_state != SyncState.CONFIRMED
-                or attempt.task_id != task.id
-                or attempt.state != A.DONE
-                or attempts.active(conn, task.id) is not None
-            ):
-                raise InvalidTransition(
-                    "Current completed code work and merge authority are required"
-                )
-            self.require_open(conn, scope, task)
-            self.c.decision(conn, task, scope, decision_ref, S.IN_DEV)
-            yield task, attempt, scope
+            yield self._merge_snapshot(
+                conn,
+                handle,
+                task_id,
+                attempt_id,
+                expected_task_version,
+                expected_attempt_version,
+                expected_decision_revision,
+                decision_ref,
+                publication_context,
+            )
+
+    def _merge_snapshot(
+        self,
+        conn,
+        handle,
+        task_id,
+        attempt_id,
+        expected_task_version,
+        expected_attempt_version,
+        expected_decision_revision,
+        decision_ref,
+        publication_context=None,
+    ):
+        sid, scope = sessions.resolve(conn, handle)
+        task = work.get(conn, sid, task_id)
+        self.c.check(task, expected_task_version, expected_decision_revision)
+        attempt = attempts.get(conn, sid, attempt_id)
+        if attempt.version != expected_attempt_version:
+            raise StaleVersion("Completed worker attempt version changed")
+        if (
+            not task.code_bearing
+            or task.human_hold
+            or task.delivered_once
+            or task.observed_status != S.IN_PROGRESS
+            or task.sync_state != SyncState.CONFIRMED
+            or attempt.task_id != task.id
+            or attempt.state != A.DONE
+            or attempts.active(conn, task.id) is not None
+        ):
+            raise InvalidTransition("Current completed code work and merge authority are required")
+        self.require_open(conn, scope, task, publication_context)
+        self.c.decision(conn, task, scope, decision_ref, S.IN_DEV)
+        return task, attempt, scope
 
     def reserve(
         self,
