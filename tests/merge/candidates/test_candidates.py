@@ -423,3 +423,78 @@ def test_unsupported_premerge_guard_is_explicitly_refused(rig):
             required_hooks=("pre-commit", "commit-msg"),
         )
     assert not list(rig.candidate_profile.root.iterdir())
+
+
+def test_two_coherent_profile_labels_share_one_physical_task_candidate_owner(rig):
+    from dataclasses import asdict
+
+    from ai_task_manager.adapters.git.candidates import CandidateProfile
+    from ai_task_manager.adapters.git.candidates.process import CandidateProcesses
+    from ai_task_manager.adapters.git.profile import GitProfile
+    from ai_task_manager.application.merging.candidates import CandidateService
+    from ai_task_manager.domains.work.errors import AccessDenied
+
+    home = rig.root / "second-profile-home"
+    home.mkdir(mode=0o700)
+    second = GitProfile(root=rig.root, executable=rig.profile.executable, home=home)
+    label = "second-configured-repository-label"
+    record = second.enroll(
+        rig.tree,
+        worktree_id=rig.binding.worktree_id,
+        repository_id=label,
+        target_ref="refs/heads/" + rig.target,
+    )
+    candidate_root = rig.root / "second-candidates"
+    candidate_root.mkdir(mode=0o700)
+    configured = CandidateProfile(
+        second,
+        rig.binding.worktree_id,
+        label,
+        candidate_root,
+        required_hooks=("pre-commit", "commit-msg"),
+    )
+    for field in ("path", "identity", "common", "common_identity"):
+        assert configured.source[field] == rig.candidate_profile.source[field]
+    assert configured.repository_id != rig.candidate_profile.repository_id
+    grant = replace(
+        rig.grant,
+        owner_ref="lead-service:second-profile",
+        binding=replace(
+            rig.binding,
+            repository_id=label,
+            configuration_digest=record["configuration_digest"],
+            operation_key="second-profile-operation",
+        ),
+    )
+    rig.authority.check_current(grant)
+    rig.authority.check_source(grant, configured.source)
+    assert configured.refs(grant) == (rig.source_head, rig.target_head)
+    service = CandidateService(
+        rig.journal, configured, rig.authority, process_factory=CandidateProcesses
+    )
+    first = rig.service.prepare(rig.grant)
+    assert first.status == "ready"
+    try:
+        with pytest.raises(AccessDenied, match="different or unresolved candidate"):
+            service.prepare(grant)
+        assert not list(candidate_root.iterdir())
+        assert not service.grants and not service.runner.live
+        original = rig.journal.current(first.operation_ref)
+        assert original["binding"]["repository_id"] == rig.binding.repository_id
+        assert original["binding"]["configuration_digest"] == rig.binding.configuration_digest
+        assert original["facts"]["candidate"]["request"]["grant"]["binding"] == asdict(rig.binding)
+        rows = rig.journal.for_attempt(rig.binding.attempt_id)
+        refused = [
+            row for row in rows if row["binding"]["operation_key"] == grant.binding.operation_key
+        ]
+        assert len(refused) == 1 and refused[0]["facts"] == {}
+        assert refused[0]["binding"] == asdict(grant.binding)
+        claims = [row for row in rows if "candidate_owner" in row["facts"]]
+        assert len(claims) == 1
+        assert claims[0]["binding"]["repository_id"].startswith("physical-repository:")
+        assert rig.service.store.owner(first.operation_ref)["operation"] == first.operation_ref
+        assert rig.service.reconcile(first.operation_ref) == first
+    finally:
+        for reference in service.grants:
+            service.runner.reconcile(reference)
+        assert not service.runner.live

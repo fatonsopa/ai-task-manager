@@ -12,6 +12,7 @@ class CandidateStore:
         self.journal = journal
 
     def create(self, grant, profile):
+        profile.validate()
         binding = grant.binding
         row = self.journal.register(asdict(binding), binding.fingerprint)
         ref = row["ref"]
@@ -22,16 +23,28 @@ class CandidateStore:
             if old["request"] != request:
                 raise IdempotencyConflict("Candidate request differs from its durable source")
             return ref, False
-        claim_key = "candidate-claim:" + digest(
-            [
-                binding.principal_id,
-                binding.project_id,
-                binding.session_id,
-                binding.task_id,
-                binding.repository_id,
-            ]
+        # Configured labels and private Git homes can differ for the same
+        # physical repository. They remain in the operation above, but cannot
+        # split the scoped task's canonical effect owner.
+        physical_repository = {
+            "device": profile.source["common_identity"][0],
+            "inode": profile.source["common_identity"][1],
+        }
+        claim_context = {
+            "version": 1,
+            "principal": binding.principal_id,
+            "project": binding.project_id,
+            "session": binding.session_id,
+            "task": binding.task_id,
+            "repository": physical_repository,
+        }
+        claim_key = "candidate-claim:" + digest(claim_context)
+        claim_binding = replace(
+            binding,
+            operation_key=claim_key,
+            repository_id="physical-repository:" + digest(physical_repository),
+            configuration_digest=digest(claim_context),
         )
-        claim_binding = replace(binding, operation_key=claim_key)
         claim = self.journal.register(asdict(claim_binding), claim_binding.fingerprint)["ref"]
         state = self.journal.current(claim)
         owner = state["facts"].get("candidate_owner")
