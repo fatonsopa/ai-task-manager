@@ -19,8 +19,13 @@ class NativeAuthorities:
     decision_preparation: object = None
     confined_commands: object = None
     command_refs: tuple[str, ...] = ()
+    worker_git: object = None
 
     def require(self):
+        from ai_task_manager.adapters.git.commits import ConfinedWorkerGit
+
+        if self.worker_git is not None and type(self.worker_git) is not ConfinedWorkerGit:
+            raise Unavailable("Worker commits require explicit actual-resource Git authority")
         if (
             type(self.command_refs) is not tuple
             or len(set(self.command_refs)) != len(self.command_refs)
@@ -45,6 +50,15 @@ class NativeAuthorities:
             not callable(v if name is None else getattr(v, name, None)) for v, name in required
         ):
             raise Unavailable("Real native launch/accounting capabilities are required")
+
+    def require_worker_git(self, journal):
+        from ai_task_manager.adapters.git.commits import ConfinedWorkerGit
+
+        if type(self.worker_git) is not ConfinedWorkerGit:
+            raise Unavailable("Code workflows require explicit contained worker Git authority")
+        if self.worker_git.journal is not journal:
+            raise AccessDenied("Worker Git authority belongs to another runtime journal")
+        return self.worker_git
 
 
 @dataclass(frozen=True)

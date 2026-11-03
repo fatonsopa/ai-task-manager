@@ -1,0 +1,12 @@
+{
+  "revision": 3,
+  "extends": "frozen-v2.json",
+  "evidence_level": "Production host adapter regressions use authored local repositories and bounded helpers. Process-group observations do not prove closure of all descendants. No container, provider or model acceptance is established.",
+  "additional_groups": [
+    "A foreign index writer at candidate-tree creation cannot enter the checked immutable tree or produce a successful worker receipt.",
+    "A foreign shared-index writer after candidate validation cannot alter the private commit index.",
+    "An enabled hook launches a bounded detached helper in a new POSIX session. Host execution retains ownership and cannot report worker_commit_ready, including resume after the helper exits.",
+    "A missing host commit result cannot be reconciled from an empty original process group into whole-family closure.",
+    "Historical workflow controls may use an explicit fixture assumption for closure. Those controls test workflow and Git attribution, not actual containment."
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "revision": 5,
+  "scope": "Original index provenance from checked snapshot through private preparation and publication",
+  "preserved_versions": ["frozen-v1.json", "frozen-v2.json", "frozen-v3.json", "frozen-v4.json"],
+  "regression_source": "Independent review of worker Git candidate 59b89d1 found a concurrent cached-only edit could be adopted after the clean snapshot and overwritten during publication.",
+  "cases": [
+    "Existing staged content before snapshot is refused and preserved",
+    "Concurrent cached-only edit during snapshot is refused and preserved",
+    "Concurrent cached-only edit between snapshot and preparation is refused before private metadata creation",
+    "An old intent without checked original index provenance cannot be adopted",
+    "Concurrent cached-only edit during private preparation prevents a successful preparation record",
+    "Concurrent cached-only edit after preparation blocks checked tree validation",
+    "An unchanged checked index identity is retained in private preparation and validates the scoped tree"
+  ],
+  "evidence_scope": "Real local Git plumbing and source tests only; no new container, installed worker, provider or complete product acceptance. Global acceptance criteria and denominators are unchanged."
+}

@@ -1,0 +1,15 @@
+{
+  "revision": 2,
+  "extends": "frozen-v1.json",
+  "evidence_level": "Independently authored project controls using local Git/Python only; installed-host/provider/model acceptance remains separate.",
+  "additional_groups": [
+    "Two workers concurrently commit distinct owned branches and databases within the same authored repository while its primary HEAD stays unchanged.",
+    "A configured effective pre-commit hook opens the original owned database and verifies its attempt owner.",
+    "A completed commit with a missing Git-result record reconciles from exact Git intent and saved process identity plus physical quiescence without repeating hooks.",
+    "Missing or unverified configured checks and changed plans refuse; checks cannot substitute staged content.",
+    "Expired deadline, human hold, missing database and changed hook source after checks prevent committing.",
+    "An operation-bound check result cannot borrow another invocation's success.",
+    "Stage output is retained in private bounded files before Git gate release, including hook failures and lost replies.",
+    "Record two-line and seven-line integer implementations with the same mandatory checks; timing boundaries and sample counts are explicit."
+  ]
+}

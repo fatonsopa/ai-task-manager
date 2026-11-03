@@ -19,12 +19,14 @@ class WorkflowDriver:
         provider=None,
         decisions=None,
         reviews=None,
+        commits=None,
         clock=None,
         faults=None,
     ):
         self.core, self.handle, self.store, self.plans = core, handle, store, plans
         self.runtime, self.repository, self.provider = runtime, repository, provider
         self.decisions, self.reviews, self.faults = decisions, reviews, faults
+        self.commits = commits
         self.clock = clock or core.context.clock
         self.session_id, self.scope = core.session_binding(handle)
 
@@ -35,11 +37,11 @@ class WorkflowDriver:
         if self.store.find(self.scope, task.id, operation_key) is not None:
             return self.store.create(self.scope, task, plan, operation_key, binding)
         if (
-            task.code_bearing
+            (task.code_bearing and self.commits is None)
             or task.observed_status != IssueStatus.TODO
             or task.sync_state != "confirmed"
         ):
-            raise EvidenceRequired("First workflow slice requires confirmed non-code Todo")
+            raise EvidenceRequired("Confirmed Todo and a configured task workflow are required")
         if plan.deadline <= self.clock():
             raise AccessDenied("Original workflow deadline expired")
         return self.store.create(self.scope, task, plan, operation_key, binding)
@@ -131,6 +133,8 @@ class WorkflowDriver:
         ):
             self.runtime.pair(attempt.id)
             return {"attempt_id": attempt.id, "state": attempt.state, "reconciled": True}
+        elif name == "worker-commit" and self.commits is not None:
+            return self.commits.reconcile(row, self.plans.get(row["plan_id"]), intent["payload"])
         elif name == "verify":
             return self.repository.inspect(task, attempt, self.plans.get(row["plan_id"]))
         elif name.startswith("unit:"):
@@ -246,6 +250,25 @@ class WorkflowDriver:
 
                     def action():
                         return self.runtime.execute(self.handle, attempt, plan, ref + ":execute")
+                elif attempt.state == "done" and task.code_bearing:
+                    if self.commits is None:
+                        raise EvidenceRequired("Worker commit port is unavailable")
+                    prior = row["steps"].get("worker-commit")
+                    if prior is not None:
+                        actual = self.commits.reconcile(row, plan, prior["payload"])
+                        return {
+                            "state": "awaiting_review",
+                            "reason": "worker_commit_ready",
+                            "workflow": ref,
+                            "task_id": task.id,
+                            "commit": actual["commit"],
+                        }
+                    lineage = self.runtime.ownership(attempt.id)
+                    self.store.lineage(task.id, attempt.id, lineage)
+                    name, payload = "worker-commit", self.commits.prepare(row, plan)
+
+                    def action():
+                        return self.commits.run(row, plan, payload)
                 elif attempt.state == "done":
                     lineage = self.runtime.ownership(attempt.id)
                     self.store.lineage(task.id, attempt.id, lineage)
@@ -341,15 +364,17 @@ class WorkflowDriver:
                         "attempt_id": attempt.id,
                         "state": self.core.get_attempt(self.handle, attempt.id).state,
                     }
-                elif name == "verify":
+                elif name in {"verify", "worker-commit"}:
                     receipt = result
                 else:
                     receipt = {"task_version": result.version}
                 self.store.finish(ref, owner, name, receipt, attempt_id=receipt.get("attempt_id"))
             return {"state": "checkpoint", "reason": "step_limit", "workflow": ref}
         except Exception as error:
+            from ai_task_manager.supervisor.models import RuntimeUncertain
+
             return {
-                "state": "blocked",
+                "state": "uncertain" if isinstance(error, RuntimeUncertain) else "blocked",
                 "reason": type(error).__name__,
                 "detail": str(error),
                 "workflow": ref,

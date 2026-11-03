@@ -6,6 +6,7 @@ from pathlib import Path
 from ai_task_manager.supervisor.models import RuntimeRefused
 
 from .paths import identity, unchanged
+from .release_git import release_git
 
 
 def git(repository, *args):
@@ -34,32 +35,43 @@ class GitWorktrees:
         git(self.repository, "worktree", "add", "-b", branch, str(path), commit)
         return self.inspect(path, branch)
 
-    def inspect(self, path: Path, branch: str):
+    def inspect(self, path: Path, branch: str, *, release=False):
+        query = release_git if release else git
         physical = identity(path)
         common = Path(
-            git(path, "rev-parse", "--path-format=absolute", "--git-common-dir")
+            query(path, "rev-parse", "--path-format=absolute", "--git-common-dir")
         ).resolve()
         expected_common = Path(
-            git(self.repository, "rev-parse", "--path-format=absolute", "--git-common-dir")
+            query(self.repository, "rev-parse", "--path-format=absolute", "--git-common-dir")
         ).resolve()
-        if common != expected_common or git(path, "symbolic-ref", "--short", "HEAD") != branch:
+        if common != expected_common or query(path, "symbolic-ref", "--short", "HEAD") != branch:
             raise RuntimeRefused("Worktree repository or branch ownership changed")
-        registered = git(self.repository, "worktree", "list", "--porcelain")
+        if release and Path(query(path, "rev-parse", "--show-toplevel")).resolve() != path:
+            raise RuntimeRefused("Worktree content path changed")
+        registered = query(self.repository, "worktree", "list", "--porcelain")
         if f"worktree {path}\n" not in registered + "\n":
             raise RuntimeRefused("Worktree is not registered in its owning repository")
         return {
             "physical": physical,
             "common": str(common),
             "branch": branch,
-            "head": git(path, "rev-parse", "HEAD"),
+            "head": query(path, "rev-parse", "HEAD"),
             "path": str(path),
         }
 
+    def require_clean(self, path: Path):
+        entries = release_git(path, "ls-files", "--stage", "-z")
+        if any(entry.startswith("160000 ") for entry in entries.split("\0")):
+            raise RuntimeRefused("Git submodules require confined resource release")
+        if release_git(
+            path, "status", "--porcelain", "--untracked-files=all", "--ignore-submodules=all"
+        ):
+            raise RuntimeRefused("Uncommitted work prevents resource removal")
+
     def remove(self, path: Path, receipt):
         unchanged(path, receipt["physical"])
-        observed = self.inspect(path, receipt["branch"])
+        observed = self.inspect(path, receipt["branch"], release=True)
         if observed["common"] != receipt["common"]:
             raise RuntimeRefused("Worktree repository identity changed")
-        if git(path, "status", "--porcelain", "--untracked-files=all"):
-            raise RuntimeRefused("Uncommitted work prevents resource removal")
-        git(self.repository, "worktree", "remove", str(path))
+        self.require_clean(path)
+        release_git(self.repository, "worktree", "remove", str(path), worktree=path)

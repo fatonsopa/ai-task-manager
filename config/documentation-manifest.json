@@ -146,7 +146,7 @@
     },
     {
       "path": "docs/high_level_document.md",
-      "sha256": "ca8b3ba3b720d3e787b7bd9723ff64de068775adf24b81bf2295da703c268628"
+      "sha256": "a56489310c56b1f607e947df5a1caf067bc4781f685c04ee0a108afd9f1375dd"
     },
     {
       "path": "docs/implementation_plan.md",
@@ -194,7 +194,7 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "6f6b19c78a04bda234e07373eb3e9bdffc08858ff6b1deae08b2b509ad5cef57"
+      "sha256": "696bb3e628e66fb5945541afb77733952e632b3d9506966dcceaf95f7fc6e24c"
     },
     {
       "path": "prototypes/terminal/session-task-management.html",

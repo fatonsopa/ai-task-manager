@@ -1,0 +1,15 @@
+{
+  "revision": 1,
+  "evidence_level": "Authored independent integer projects, actual local Git and Python; no live provider/model/native-host acceptance.",
+  "groups": [
+    "Saved workflow writes a two-line change, checks and commits its actual worker branch; lead target and task delivery stay unchanged.",
+    "Foreign files, preexisting staged files, wrong branch/head and missing owned database refuse before checking or committing.",
+    "Changed task/prose, original deadline, foreign attempt and omitted execution refuse commit admission.",
+    "Branch lineage cannot be reused by a different task.",
+    "Independent semantic check, enabled commit hook and whitespace failure leave HEAD unchanged and retain owned database.",
+    "Lost replies after actual commit and workflow receipt reconcile the same commit with one hook/check run.",
+    "Interruption after staging leaves an unresolved intent; resume never repeats staging/checks/commit blindly.",
+    "Two concurrent worker branches produce distinct commits and keep their own database and worktree.",
+    "Record Git stage, whitespace check, semantic checks and commit elapsed seconds separately, including the two-line change; no speed threshold or waived checks."
+  ]
+}

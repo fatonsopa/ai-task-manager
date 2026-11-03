@@ -1,0 +1,18 @@
+{
+  "revision": 4,
+  "scope": "Contained actual-resource worker Git, verified host publication and crash recovery",
+  "preserved_versions": ["frozen-v1.json", "frozen-v2.json", "frozen-v3.json"],
+  "groups": [
+    "Default host adapter retains ownership without descendant containment",
+    "Actual owned worktree and original owned database; private Git metadata/index/objects",
+    "Read-only base objects; shared common config and refs unavailable to hooks",
+    "Enabled hooks; post-hook parent, tree, file bytes, modes and attribution validation",
+    "Exact CID, run, task, attempt and nonce admission; external watchdog removal proof",
+    "Lost container result and host publication replies recover without another hook or check",
+    "Only owned branch CAS and expected original index replacement under Git locks",
+    "Foreign staged files, index locks, primary HEAD and foreign refs preserved",
+    "Current Core authority gates verified object imports, lock preparation and publication",
+    "Snapshot check authority cannot supply actual-resource worker Git authority"
+  ],
+  "evidence": "Actual container cases require a separately registered finite reviewed fixture batch. Local Git plumbing controls do not establish container or native-provider acceptance."
+}

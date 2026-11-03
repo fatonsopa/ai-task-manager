@@ -17,6 +17,7 @@ class WorkflowPlan:
     artifacts: tuple[str, ...]
     deadline: float
     max_steps: int = 16
+    commit_checks: tuple[str, ...] = ()
 
     def __post_init__(self):
         for value in (self.id, self.command_ref, self.host, self.base):
@@ -31,6 +32,12 @@ class WorkflowPlan:
             for name in files:
                 identifier(name)
                 repo_path(name)
+        if type(self.commit_checks) is not tuple or len(set(self.commit_checks)) != len(
+            self.commit_checks
+        ):
+            raise ValidationError("Distinct installed commit check references are required")
+        for reference in self.commit_checks:
+            identifier(reference)
         if not set(self.artifacts) <= set(self.allowed_files):
             raise ValidationError("Artifacts must belong to the trusted allowed file set")
 
