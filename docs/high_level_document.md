@@ -78,6 +78,16 @@ The source responsibility contract is [`config/repository-layout.json`](../confi
 
 The layout contract records the twelve old/new paths and before-image hashes. Deliver and recover them as one coherent relocation commit. Current consumers move together; frozen historical records keep their original path literals. Stop consumers bound to the old source before integration and adapt current private helpers at that boundary. Recovery must check destination collisions and preserve later work and run evidence. The product remains a modular application; this separation does not add network services.
 
+### Installed Linear credentials
+
+The sealed operator configuration selects exactly one credential source in its `linear` object. Both forms require `expected` with `viewer_id`, `workspace_id`, `team_id`, `team_key` and `project_id`, plus an absolute private `journal` path. The file form adds an absolute `credential_file` path and `credential_key`; it retains the existing owned private-file and supported-key checks. The environment form adds only `credential_environment`, the operator-selected variable name. Mixing the forms or adding unknown fields is refused.
+
+Environment credential name contract version 2 requires `AITM_CREDENTIAL_[A-Za-z0-9_]+`: the uppercase product prefix followed by one or more ASCII letters, digits or underscores. Operators choose the suffix, for example `AITM_CREDENTIAL_Operator_Selected_Linear_135`. The product reserves this namespace exclusively for credential lookup; transport settings and native host environments do not consume it. This excludes system and runtime names such as `HTTPS_PROXY`, `SSLKEYLOGFILE` and `PATH` without a list of reserved names. The earlier unrestricted name contract is superseded: `Operator_Selected_Linear_Credential_135` and `AITM_OPERATOR_LINEAR_PRIMARY` now refuse and must be replaced in trusted operator configuration. Frozen version 1 and 2 cases retain their historical expectations; version 3 records this change and its runtime collision checks.
+
+Environment values must contain one or more visible ASCII characters, without whitespace, and remain within the existing credential size bound. Missing or malformed values refuse without falling back to another variable or file. The selected value stays in memory; configuration, session capabilities and journals retain the source selection and identity binding rather than the value. The existing Linear client verifies all expected identity fields and rejects credential changes after binding.
+
+Credential names come from trusted operator configuration. Model-facing operations cannot choose them, and configuration changes invalidate the service seal. Native host processes use their existing exact environment whitelist, which excludes inherited provider credentials. These local controls do not establish actual provider or model acceptance.
+
 ### Product boundaries and repository layout
 
 Build one modular Python application with one local supervisor and isolated worker processes. Use a supported Python version selected after dependency checks; record it in the lock and compatibility matrix. SQLite stores local control metadata on local disk. Do not introduce network microservices to coordinate claims, attempts and resource reservations that need one transaction boundary.
