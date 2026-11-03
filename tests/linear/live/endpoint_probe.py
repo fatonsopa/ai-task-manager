@@ -15,7 +15,9 @@ from uuid import uuid4
 
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup, supervise
 
-from .ledger import DriverRefused, Limits, RunLedger, Scope
+from .installed_endpoint import InstalledReceiverProcess
+from .ledger import DriverRefused, Limits, RunLedger, Scope, uuid
+from .receiver import BoundedReceiver
 
 
 def private_json(path, value):
@@ -41,7 +43,7 @@ def origin_parts(origin):
     return parsed
 
 
-def _request(origin, route, ledger, label, run_id):
+def _request(origin, route, ledger, label, health_identity):
     parsed = urlsplit(origin)
     connection_type = (
         http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
@@ -67,7 +69,7 @@ def _request(origin, route, ledger, label, run_id):
         matched = False
         if label.endswith("health"):
             try:
-                matched = json.loads(body) == {"run_id": run_id}
+                matched = json.loads(body) == health_identity
             except ValueError:
                 pass
         return {
@@ -90,15 +92,23 @@ def worker(job_path):
     origin_parts(job["origin"])
     observations = []
     try:
+        kind = job.get("receiver_kind", "fixture")
+        if kind == "fixture":
+            health_identity, route_status = {"run_id": job["run_id"]}, 404
+        elif kind == "installed_cli":
+            health_identity = {"instance_id": uuid(job["instance_id"])}
+            route_status = 405
+        else:
+            raise DriverRefused("endpoint_receiver_kind_unknown")
         for origin, route, label in (
             (job["local_origin"], job["health_route"], "local_health"),
             (job["origin"], job["health_route"], "public_health"),
             (job["origin"], job["route"], "public_route"),
         ):
-            observations.append(_request(origin, route, ledger, label, job["run_id"]))
+            observations.append(_request(origin, route, ledger, label, health_identity))
         passed = (
             all(row["status"] == 200 and row["run_matches"] for row in observations[:2])
-            and observations[2]["status"] == 404
+            and observations[2]["status"] == route_status
             and observations[2]["body_empty"]
         )
         result = {"passed": passed, "observations": observations, "error_type": None}
@@ -128,6 +138,13 @@ class EndpointProbe:
 
     def __call__(self, receiver, origin):
         origin_parts(origin)
+        if isinstance(receiver, InstalledReceiverProcess):
+            actual = receiver.observe()
+            selected = {"receiver_kind": "installed_cli", "instance_id": actual["instance_id"]}
+        elif isinstance(receiver, BoundedReceiver):
+            selected = {"receiver_kind": "fixture"}
+        else:
+            raise DriverRefused("owned_endpoint_receiver_required")
         folder = self.root / str(uuid4())
         folder.mkdir(mode=0o700)
         (folder / "home").mkdir(mode=0o700)
@@ -137,6 +154,7 @@ class EndpointProbe:
         private_json(
             folder / "job.json",
             {
+                **selected,
                 "ledger": str(self.ledger.path),
                 "run_id": self.ledger.run_id,
                 "scope": asdict(self.ledger.scope),

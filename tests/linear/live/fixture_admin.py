@@ -7,6 +7,7 @@ from ai_task_manager.adapters.linear.models import revision
 from ai_task_manager.config.files import digest
 
 from .fixture_control import Observation
+from .installed_endpoint import installed_route
 from .ledger import DriverRefused, Limits, uuid
 from .receiver import receiver_route
 
@@ -23,6 +24,7 @@ class VerifiedEndpoint:
     team: str
     project: str
     webhook_id: str
+    receiver_kind: str = "fixture"
 
 
 class RejectEndpoint:
@@ -45,6 +47,9 @@ class FixtureAdministration:
         observed = self.endpoint_authority.verify(reference)
         if not isinstance(observed, VerifiedEndpoint):
             raise DriverRefused("actual_endpoint_admission_required")
+        routes = {"fixture": receiver_route, "installed_cli": installed_route}
+        if observed.receiver_kind not in routes:
+            raise DriverRefused("endpoint_receiver_kind_unknown")
         parsed = urlsplit(observed.url)
         s = self.ledger.scope
         if (
@@ -54,7 +59,7 @@ class FixtureAdministration:
             or parsed.password
             or parsed.query
             or parsed.fragment
-            or parsed.path != receiver_route(self.ledger.run_id)
+            or parsed.path != routes[observed.receiver_kind](self.ledger.run_id)
             or not observed.receiver_identity
             or not observed.tunnel_identity
             or not self.graphql.clock() < observed.expires_at

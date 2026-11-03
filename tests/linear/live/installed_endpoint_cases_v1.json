@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "kind": "authored_control_not_installed_acceptance",
+  "cases": {
+    "IP01": "Actual owned authored child readiness plus real scoped service and enrollment reaches existing endpoint admission and disabled-hook fixture creation; installed route and 405 are exact.",
+    "IP02": "Changed argv, runtime bytes, config, session, secret, credential, instance, enrollment, Core, process state or package inventory refuses before probe without ledger effects.",
+    "IP03": "Actual owned child with different command refuses before readiness consumption.",
+    "IP04": "Wrong health instance, refused health or harness 404 instead of installed 405 cannot issue endpoint authority.",
+    "IP05": "A receipt cannot switch the receiver protocol while retaining the installed route.",
+    "IP06": "Caller readiness data, wrong owned-process type and another run route are refused.",
+    "IP07": "Probe worker selects exact instance_id/405 for installed CLI and run_id/404 for the existing harness; unknown kind refuses."
+  },
+  "live_limits": "All provider replies, package files, receiver child behavior and public-proxy observations here are explicitly authored. No installed candidate is executed; no actual Linear delivery or public TLS result is claimed."
+}

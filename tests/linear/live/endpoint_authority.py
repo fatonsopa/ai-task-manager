@@ -15,6 +15,7 @@ from ai_task_manager.config.files import digest
 
 from .endpoint_probe import EndpointProbe, origin_parts, private_json
 from .fixture_admin import VerifiedEndpoint
+from .installed_endpoint import InstalledReceiverProcess
 from .ledger import DriverRefused, uuid
 from .receiver import BoundedReceiver, receiver_route
 from .run_primary import PrimaryRun
@@ -93,7 +94,10 @@ class OwnedTunnel:
 
 class EndpointAuthority:
     def __init__(self, receiver, tunnel, ledger, webhook_id, private_root, *, clock=time.time):
-        if not isinstance(receiver, BoundedReceiver) or receiver.ledger is not ledger:
+        if (
+            not isinstance(receiver, (BoundedReceiver, InstalledReceiverProcess))
+            or receiver.ledger is not ledger
+        ):
             raise DriverRefused("owned_endpoint_receiver_required")
         self.receiver, self.tunnel, self.ledger = receiver, tunnel, ledger
         self.webhook_id, self.clock = uuid(webhook_id), clock
@@ -114,6 +118,7 @@ class EndpointAuthority:
                 Path(__file__),
                 Path(__file__).with_name("receiver.py"),
                 Path(__file__).with_name("endpoint_probe.py"),
+                Path(__file__).with_name("installed_endpoint.py"),
                 Path(__file__).with_name("run_primary.py"),
                 Path(ngrok.__file__),
             )
@@ -121,12 +126,15 @@ class EndpointAuthority:
 
     def _receiver(self):
         receiver = self.receiver
+        if any(
+            hashlib.sha256(path.read_bytes()).hexdigest() != expected
+            for path, expected in self.source_pins.items()
+        ):
+            raise DriverRefused("owned_endpoint_receiver_not_running")
+        if isinstance(receiver, InstalledReceiverProcess):
+            return receiver.observe()
         if (
-            any(
-                hashlib.sha256(path.read_bytes()).hexdigest() != expected
-                for path, expected in self.source_pins.items()
-            )
-            or not receiver.started
+            not receiver.started
             or receiver.stopping
             or receiver.thread is None
             or not receiver.thread.is_alive()
@@ -147,10 +155,14 @@ class EndpointAuthority:
         return {**fields, "identity": digest(fields)}
 
     def _product(self):
-        adapter, scope = self.receiver.adapter, self.ledger.scope
+        scope = self.ledger.scope
         owned = self.ledger.resource(scope.project)
         if owned["kind"] != "project" or owned["state"] != "active":
             raise DriverRefused("owned_endpoint_project_required")
+        if isinstance(self.receiver, InstalledReceiverProcess):
+            self.receiver.check_product(self.webhook_id)
+            return
+        adapter = self.receiver.adapter
         if not isinstance(adapter, WebhookReceiver):
             raise DriverRefused("scoped_product_receiver_required")
         run = getattr(self.receiver, "product_run", None)
@@ -229,6 +241,7 @@ class EndpointAuthority:
             s.team,
             s.project,
             self.webhook_id,
+            "installed_cli" if isinstance(self.receiver, InstalledReceiverProcess) else "fixture",
         )
         private_json(self.root / (reference.replace(":", "-") + ".json"), asdict(receipt))
         self.receipts[reference] = receipt
