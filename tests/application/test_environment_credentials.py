@@ -27,6 +27,16 @@ NAME = "Operator_Selected_Linear_Credential_135"
 SECRET = "authored-credential-135-never-persist"
 
 
+@pytest.mark.parametrize(
+    "name",
+    ["PATH", "HOME", "USER", "LANG", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_ENTRYPOINT", "CODEX_HOME"],
+)
+def test_EC11_native_environment_names_cannot_select_credentials(monkeypatch, name):
+    monkeypatch.setenv(name, "authored-collision-credential")
+    with pytest.raises(ValidationError, match="reserved"):
+        linear.CredentialEnvironment(name)
+
+
 @pytest.fixture
 def provider(tmp_path):
     value = OwnedProvider(tmp_path / "provider")

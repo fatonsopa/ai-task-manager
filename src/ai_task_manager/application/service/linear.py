@@ -22,6 +22,7 @@ from ai_task_manager.application.linear_sync.progress import (
     ProgressApprovalContext,
     ProgressPublisher,
 )
+from ai_task_manager.config.environment import RESERVED_CREDENTIAL_ENVIRONMENT_NAMES
 from ai_task_manager.config.files import MAX_JSON_BYTES, digest, private_path
 from ai_task_manager.config.sessions import SessionControl
 from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
@@ -77,6 +78,8 @@ class CredentialEnvironment:
     def __init__(self, name):
         if not isinstance(name, str) or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) is None:
             raise ValidationError("Invalid configured Linear environment name")
+        if name in RESERVED_CREDENTIAL_ENVIRONMENT_NAMES:
+            raise ValidationError("Configured Linear environment name is reserved for native hosts")
         self.name = name
 
     def __call__(self):

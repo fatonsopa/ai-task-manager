@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 
+from ai_task_manager.config.environment import NATIVE_ENVIRONMENT_KEYS
 from ai_task_manager.config.files import FileSeal, digest
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.supervisor.models import Command
@@ -141,9 +142,7 @@ class NativePolicy:
             )
             if self.configuration_digest != expected_digest:
                 raise AccessDenied("Native configuration digest omits its protected source plan")
-        allowed = {"PATH", "HOME", "USER", "LANG", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_ENTRYPOINT"}
-        if self.host == "codex":
-            allowed = {"PATH", "HOME", "USER", "LANG", "CODEX_HOME"}
+        allowed = NATIVE_ENVIRONMENT_KEYS[self.host]
         if set(self.environment) != allowed:
             raise AccessDenied("Native provider environment is not the exact whitelist")
         if self.environment["USER"] != pwd.getpwuid(os.getuid()).pw_name:
