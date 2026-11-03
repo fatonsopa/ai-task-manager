@@ -13,10 +13,11 @@ from tests.hosts.bootstrap_helpers import bootstrap_graph as bootstrap_graph
 class ScopedAuthPermits:
     def __init__(self, item):
         self.item, self.permit, self.after = item, None, None
+        self.maximum = 10
 
     def authorize_auth(self, policy, binding):
         self.permit = self.item.accounting.claim(
-            policy, binding, "auth", maximum=10,
+            policy, binding, "auth", maximum=self.maximum,
             parent=self.item.native.process.invocation.native.reference,
         )
         return self.permit

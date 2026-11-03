@@ -42,7 +42,7 @@ from ai_task_manager.storage.database import Database
 from tests.hosts.accounting_fixtures import FixtureAccounting
 
 
-def create(root, mode):
+def create(root, mode, *, seconds=45):
     root.mkdir(mode=0o700)
     home, work = root / "home", root / "workspace"
     home.mkdir(mode=0o700)
@@ -87,9 +87,9 @@ def create(root, mode):
         "claude",
         "authored-principal-not-live",
         policy.configuration_digest,
-        time.time() + 45,
+        time.time() + seconds,
     )
-    accounting = FixtureAccounting(root / "accounting")
+    accounting = FixtureAccounting(root / "accounting", maximum_seconds=max(60, seconds))
     initialization = accounting.initialize(policy, binding)
     pins = NativeSourcePins({str(executable): sha})
     template = LaunchTemplate(policy, pins)
@@ -156,8 +156,8 @@ def create(root, mode):
 def bootstrap_graph(tmp_path):
     owned = []
 
-    def make(mode="normal"):
-        item = create(tmp_path / f"diagnostic-{len(owned)}", mode)
+    def make(mode="normal", *, seconds=45):
+        item = create(tmp_path / f"diagnostic-{len(owned)}", mode, seconds=seconds)
         owned.append(item)
         return item
 

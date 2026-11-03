@@ -7,6 +7,7 @@ permits. It changes neither the original startup nor default continuity rules.
 import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from threading import Lock
 
 from ai_task_manager.config.files import digest
 from ai_task_manager.domains.work.errors import AccessDenied
@@ -115,6 +116,7 @@ class NativeIdentityObservations:
         self._probe = ClaudeAuthProbe(self.journal, issuer)
         self._probe_binding = (self._probe, issuer)
         self._revoked = False
+        self._refresh_lock = Lock()
         self._current = IdentityObservation(
             self._original_ref, original["observed_at"],
             min(original["expires_at"], self.execution_not_after), self._original_ref,
@@ -166,8 +168,11 @@ class NativeIdentityObservations:
 
     def _check_local(self, observed, metadata):
         self._bound_current()
-        if observed is not self._current:
-            raise AccessDenied("Prepared identity is no longer the exact current observation")
+        if (
+            self._issued.get(observed.reference) is not observed
+            or self.journal.clock() >= observed.expires_at
+        ):
+            raise AccessDenied("Prepared identity is not an unexpired issued observation")
         n = self.native
         n.process.check_current_liveness()
         with n.startup.model_guard.startup_current_boundary():
@@ -187,6 +192,17 @@ class NativeIdentityObservations:
         return result
 
     def refresh(self, directory):
+        if not self._refresh_lock.acquire(blocking=False):
+            raise AccessDenied("Native identity collection is already in progress")
+        try:
+            return self._refresh(directory)
+        except BaseException:
+            self._revoked = True
+            raise
+        finally:
+            self._refresh_lock.release()
+
+    def _refresh(self, directory):
         self.prepare()
         n = self.native
         expected_account = n.expected_account
@@ -215,11 +231,12 @@ class NativeIdentityObservations:
             "execution_not_after": self.execution_not_after,
         }
         current = self.journal._append("trace", payload, sources=(reference,), expires_at=expires)
-        self._current = IdentityObservation(
+        observed = IdentityObservation(
             current, data["observed_at"], expires, self._original_ref,
             self.original_identity_not_after, self.execution_not_after,
         )
-        self._issued[current] = self._current
+        self._issued[current] = observed
+        self._current = observed
         return self.prepare()
 
     def revoke(self):

@@ -23,8 +23,17 @@ class _ContinuityLimits:
 
 
 class NativeContinuity:
-    def __init__(self, native):
+    def __init__(self, native, *, identities=None):
+        from .identity import NativeIdentityObservations
+
+        if identities is not None and (
+            not isinstance(identities, NativeIdentityObservations)
+            or identities.native is not native
+        ):
+            raise AccessDenied("V2 continuity requires its exact trusted identity observer")
         self.native = native
+        self.identities = self._identity_owner = identities
+        self._identity_prepared = identities.prepare() if identities is not None else None
         self._bound = (
             native,
             native.binding,
@@ -52,7 +61,7 @@ class NativeContinuity:
         self._limits = _ContinuityLimits(values[0], min(values[1:]), values[2])
         self._original_limits = self._limits
         self._cap_owner = (invocation, invocation.native.binding, invocation.relay.binding)
-        self.expires_at = self._limits.not_after
+        self.expires_at = self._ceiling()
         self.closed = False
 
     @property
@@ -62,6 +71,11 @@ class NativeContinuity:
     @property
     def execution_not_after(self):
         return self._original_limits.execution_not_after
+
+    def _ceiling(self):
+        if self.identities is None:
+            return self._limits.not_after
+        return min(self.execution_not_after, self._identity_prepared.observation.expires_at)
 
     def _owner_current(self):
         n = self.native
@@ -76,6 +90,7 @@ class NativeContinuity:
             )
             and self.deadline == self._bound[1].deadline
             and self._limits is self._original_limits
+            and self.identities is self._identity_owner
             and self.original["expires_at"] == self.identity_not_after
             and n.process.deadline == self._limits.process_deadline
             and n.process.invocation is self._cap_owner[0]
@@ -84,7 +99,7 @@ class NativeContinuity:
             and n.process.invocation.relay.binding is self._cap_owner[2]
             and type(self.expires_at) in {int, float}
             and math.isfinite(self.expires_at)
-            and self.expires_at <= self._limits.not_after
+            and self.expires_at <= self._ceiling()
         )
 
     def prepare(self):
@@ -97,6 +112,8 @@ class NativeContinuity:
         ):
             raise AccessDenied("Expired, stopped or replaced native continuity cannot be renewed")
         # Complete policy/process/history preparation is outside Core/effect locks.
+        if self.identities is not None:
+            self._identity_prepared = self.identities.prepare()
         identity = n.verify_active()
         data = self.original["payload"]
         if (identity.pid, identity.start_identity, n.startup.native_session) != (
@@ -105,7 +122,7 @@ class NativeContinuity:
             data["session_id"],
         ):
             raise AccessDenied("The authenticated native session owner changed")
-        expires = min(self._limits.not_after, n.journal.clock() + 30)
+        expires = min(self._ceiling(), n.journal.clock() + 30)
         observed = HostStartup(
             n.binding.scope,
             n.binding.attempt_id,
@@ -133,6 +150,7 @@ class NativeContinuity:
             n.binding,
             n.session,
             metadata,
+            self._identity_prepared,
         )
         prepared.check(observed, {n.binding.attempt_id: n}, n.process_registry, n.journal.clock)
         n._flush_source_observations()
@@ -146,6 +164,10 @@ class NativeContinuity:
                 "execution_deadline": self.deadline,
                 "identity_not_after": self.identity_not_after,
                 "execution_not_after": self.execution_not_after,
+                "identity_observation_ref": (
+                    self._identity_prepared.observation.reference
+                    if self._identity_prepared is not None else None
+                ),
             },
             expires_at=expires,
         )
@@ -153,7 +175,7 @@ class NativeContinuity:
 
     def acknowledge(self, prepared):
         self.check(prepared)
-        self.expires_at = min(prepared.observed.expires_at, self._limits.not_after)
+        self.expires_at = min(prepared.observed.expires_at, self._ceiling())
 
     def check(self, prepared):
         n = self.native
@@ -162,7 +184,11 @@ class NativeContinuity:
             or n.journal.clock() >= self.expires_at
             or not self._owner_current()
             or prepared.binding != self._bound[1]
-            or prepared.observed.expires_at > self._limits.not_after
+            or prepared.observed.expires_at > self._ceiling()
+            or (self.identities is None and prepared.identity is not None)
+            or (self.identities is not None and (
+                prepared.identity is None or prepared.identity.owner is not self.identities
+            ))
         ):
             raise AccessDenied("Native continuity no longer has its original authority")
         return prepared.check(

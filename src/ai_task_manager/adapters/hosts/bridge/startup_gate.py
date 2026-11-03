@@ -18,6 +18,7 @@ class PreparedStartup:
     binding: object
     session: object
     policy_metadata: object
+    identity: object = None
 
     def check(self, observed, owners, processes, clock):
         if (
@@ -53,6 +54,10 @@ class PreparedStartup:
         ):
             raise AccessDenied("Prepared startup no longer has its exact live owner")
         self.process.check_current_liveness()
+        if self.identity is not None:
+            if self.identity.owner.native is not self.owner:
+                raise AccessDenied("Prepared identity belongs to another native owner")
+            self.identity.check()
         with self.guard.startup_current_boundary():
             try:
                 self.policy.check_admission_metadata(self.policy_metadata)

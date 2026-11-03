@@ -25,6 +25,7 @@ class PreparedEvaluationGrant:
     native: object
     process: object
     policy_metadata: object
+    identity: object = None
 
     def check(self):
         """Only local metadata, sticky state and the existing kernel handle."""
@@ -42,6 +43,12 @@ class PreparedEvaluationGrant:
         ):
             raise AccessDenied("Prepared evaluation authority is stale, changed or revoked")
         self.process.check_current_liveness()
+        if grant.identities is not None:
+            if self.identity is None or self.identity.owner is not grant.identities:
+                raise AccessDenied("Prepared V2 grant lost its current identity owner")
+            self.identity.check()
+        elif self.identity is not None:
+            raise AccessDenied("A legacy grant cannot consume V2 identity authority")
         with self.native.startup.model_guard.startup_current_boundary():
             self.native.policy.check_admission_metadata(self.policy_metadata)
 
@@ -49,7 +56,10 @@ class PreparedEvaluationGrant:
 class EvaluationGrant:
     """An installer capability, not human acceptance or a model-callable issuer."""
 
-    def __init__(self, records, ref, run_id, observations, core, claim_store, journal, expected):
+    def __init__(
+        self, records, ref, run_id, observations, core, claim_store, journal, expected,
+        *, identities=None,
+    ):
         if not isinstance(records, EvaluationRecords):
             raise AccessDenied("A lead-installed record verifier is required")
         record = records.resolve(ref, "evaluation_grant", run_id)
@@ -65,9 +75,12 @@ class EvaluationGrant:
             journal,
         )
         self.expected, self.data = expected, record.data
+        self.identities = identities
         self._data_digest = digest(record.data)
         self._record_binding = tuple(sorted(source_binding.items()))
-        self._bound = (records, observations, core, claim_store, journal, expected, self.source)
+        self._bound = (
+            records, observations, core, claim_store, journal, expected, identities, self.source
+        )
         self._revoked = False
         self._task_id = None
         self._handle = None
@@ -95,9 +108,20 @@ class EvaluationGrant:
             "effort",
             "billing_basis_ref",
         }
+        if data.get("version") == 2:
+            from .identity import NativeIdentityObservations
+
+            fields.add("identity_mode")
+            if (
+                not isinstance(self.identities, NativeIdentityObservations)
+                or data.get("identity_mode") != "fresh-same-native-account"
+            ):
+                raise AccessDenied("V2 grant requires its real fresh native identity observer")
+        elif self.identities is not None:
+            raise AccessDenied("Legacy grants keep their original identity expiry")
         if (
             set(data) != fields
-            or data["version"] != 1
+            or type(data["version"]) is not int or data["version"] not in {1, 2}
             or data["purpose"] != "isolated-native-profile-evaluation"
             or not isinstance(data["case_id"], str)
             or not data["case_id"]
@@ -152,6 +176,7 @@ class EvaluationGrant:
                     self.claim_store,
                     self.journal,
                     self.expected,
+                    self.identities,
                     self.source,
                 ),
                 self._bound,
@@ -171,11 +196,17 @@ class EvaluationGrant:
         if record.data != self.data:
             raise AccessDenied("The original evaluation grant cannot be replaced")
         self.source.check()
-        observed = self.observations.verify(self.data["bootstrap_ref"])
+        observed = (
+            self.observations.verify_current(self.data["bootstrap_ref"], self.identities)
+            if self.identities is not None
+            else self.observations.verify(self.data["bootstrap_ref"])
+        )
+        cap = (self.identities.execution_not_after if self.identities is not None
+               else observed["expires_at"])
         payload = observed["payload"]
         if (
             self.journal.clock() >= self.data["expires_at"]
-            or self.data["expires_at"] > observed["expires_at"]
+            or self.data["expires_at"] > cap
             or self.data["bootstrap_process"] != payload["process"]
             or self.data["bootstrap_configuration_digest"]
             != payload["binding"]["configuration_digest"]
@@ -192,7 +223,8 @@ class EvaluationGrant:
         self.require_active()
         native = self.observations._observed[self.data["bootstrap_ref"]].native
         return PreparedEvaluationGrant(
-            self, self.source.metadata(), native, native.process, native.policy.prepare_admission()
+            self, self.source.metadata(), native, native.process, native.policy.prepare_admission(),
+            self.identities.prepare() if self.identities is not None else None,
         )
 
     def revoke(self):

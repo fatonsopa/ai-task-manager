@@ -123,12 +123,22 @@ class NativeStartupObservations:
         ):
             raise AccessDenied("The native observation owner changed")
 
-    def _inspect(self, native, ready_ref):
+    def _inspect(self, native, ready_ref, *, identities=None):
         from .bootstrap import BootstrapPermits
         from .controller import ManagedNativeHost
         from .startup import StartupObserver
 
         self._current()
+        if identities is not None:
+            from .identity import NativeIdentityObservations
+
+            if (
+                not isinstance(identities, NativeIdentityObservations)
+                or identities.native is not native
+                or identities._original_ref != ready_ref
+            ):
+                raise AccessDenied("V2 startup history needs its current exact identity owner")
+            current_identity = identities.prepare()
         if (
             not isinstance(native, ManagedNativeHost)
             or not isinstance(native.permits, BootstrapPermits)
@@ -145,7 +155,7 @@ class NativeStartupObservations:
         self.template.check(native.policy)
         native.permits.authorization.require_bootstrap(native.policy, native.binding)
         identity = native.verify_active()
-        record = self.journal._read(ready_ref, "startup")
+        record = self.journal._read(ready_ref, "startup", fresh=identities is None)
         data = record["payload"]
         if (
             any(data.get(k) != value for k, value in asdict(native.binding).items())
@@ -159,7 +169,7 @@ class NativeStartupObservations:
         frames = []
         auth = []
         for source in record["sources"]:
-            payload = self.journal._read(source)["payload"]
+            payload = self.journal._read(source, fresh=identities is None)["payload"]
             if payload.get("auth_method"):
                 auth.append(payload)
             frame = payload.get("frame", {})
@@ -182,6 +192,8 @@ class NativeStartupObservations:
             or frame.get("session_id") != data["session_id"]
         ):
             raise AccessDenied("Restricted authenticated native startup was not observed")
+        if identities is not None:
+            current_identity.check()
         return record, identity, frame
 
     def capture(self, native, ready_ref):
@@ -226,6 +238,21 @@ class NativeStartupObservations:
             raise AccessDenied("The original diagnostic process or observation changed")
         return stored
 
+    def verify_current(self, ref, identities):
+        self._current()
+        original = self._observed.get(ref)
+        if original is None:
+            raise AccessDenied("V2 identity cannot manufacture an original diagnostic startup")
+        stored = self.journal._read(ref, "trace", fresh=False)
+        _, identity, _ = self._inspect(original.native, original.ready_ref, identities=identities)
+        if (
+            digest(stored["payload"]) != original.payload_digest
+            or original.native.process is not original.process
+            or identity != original.identity
+        ):
+            raise AccessDenied("The immutable diagnostic history or process changed")
+        return stored  # Original observed_at/expires_at are deliberately unchanged.
+
 
 class NativeAdmissionVerifier:
     """Combine actual restricted startup with a purpose-limited evaluation grant."""
@@ -250,7 +277,7 @@ class NativeAdmissionVerifier:
             or self.grant is not self._bound[2]
         ):
             raise AccessDenied("Native admission composition changed")
-        observed = self.observations.verify(self.bootstrap_ref)
+        observed = self.grant.require_active()
         self.grant.require_worker(plan, observed)
 
     def verify_policy(self, policy, binding, plan, controller):
