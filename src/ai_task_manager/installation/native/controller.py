@@ -47,8 +47,10 @@ class NormalInvocationController:
 
         return [
             json.loads(r[0])
-            for r in conn.execute("SELECT data FROM native_calls ORDER BY rowid")
-            if json.loads(r[0])["permission_ref"] == self.reference
+            for r in conn.execute(
+                "SELECT data FROM native_calls WHERE permission_ref=? ORDER BY rowid",
+                (self.reference,),
+            )
         ]
 
     def snapshot(self):
@@ -118,7 +120,12 @@ class NormalInvocationController:
                 return old
             if uses_worker:
                 require(
-                    not any(not c["process_stopped"] for c in self._calls(conn)),
+                    conn.execute(
+                        "SELECT 1 FROM native_calls WHERE permission_ref=? "
+                        "AND process_stopped=0 LIMIT 1",
+                        (self.reference,),
+                    ).fetchone()
+                    is None,
                     "Normal host slot remains occupied",
                 )
             row = {
@@ -173,7 +180,8 @@ class NormalInvocationController:
                     and parent["permission_ref"] == self.reference
                     and parent["uses_worker"]
                     and not parent["process_stopped"]
-                    and parent["status"] in {"launching", "running"}
+                    and parent["status"]
+                    in ({"launching", "running"} if purpose in {"relay", "auth"} else {"running"})
                     and parent["worker_identity"] == worker_identity
                     and all(
                         parent["metadata"]["invocation_binding"][k]
@@ -207,6 +215,27 @@ class NormalInvocationController:
             < datetime.fromisoformat(row["invocation_bound"]["execution_deadline"]),
             "Invocation owner, state or original deadline changed",
         )
+        parent_id = row["metadata"].get("parent_call_id")
+        if parent_id is not None:
+            parent = self.store.read(conn, "native_calls", parent_id)
+            purpose = row["metadata"]["invocation_binding"]["purpose"]
+            require(
+                parent is not None
+                and parent["permission_ref"] == self.reference
+                and parent["uses_worker"]
+                and not parent["process_stopped"]
+                and parent["status"]
+                in ({"launching", "running"} if purpose in {"relay", "auth"} else {"running"})
+                and parent["worker_identity"] == worker_identity
+                and self.clock()
+                < datetime.fromisoformat(parent["invocation_bound"]["execution_deadline"])
+                and all(
+                    parent["metadata"]["invocation_binding"][k]
+                    == row["metadata"]["invocation_binding"][k]
+                    for k in ["attempt_id", "host", "configuration_digest", "model", "effort"]
+                ),
+                "Parent invocation is stopped, expired or no longer owns this child",
+            )
         return row
 
     @contextmanager

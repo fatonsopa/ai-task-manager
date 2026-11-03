@@ -436,3 +436,146 @@ def test_N203_unchanged_clock_advance_expires_admission_without_losing_history(n
     with pytest.raises(AccessDenied, match="expired"):
         claim(c, "host")
     assert c.snapshot()["calls"][0]["status"] == "reserved"
+
+
+def test_N219_unrelated_malformed_history_is_not_decoded_or_counted(normal):
+    _, store, _, _, p = normal
+    c = p.controller
+    c.reserve("old", **reservation(p))
+    row = c.snapshot()["calls"][0]
+    c._abort_unreturned_claims(
+        [row], worker_identity="worker", evidence_ref="host-record:authored-unreturned"
+    )
+    with store.transaction() as db:
+        db.executemany(
+            "INSERT INTO native_calls VALUES(?,?,?,?,?)",
+            [
+                ("foreign-" + str(i), "unrelated", "unknown", 0, "malformed foreign payload")
+                for i in range(2000)
+            ],
+        )
+        scoped = db.execute(
+            "EXPLAIN QUERY PLAN SELECT data FROM native_calls "
+            "WHERE permission_ref=? ORDER BY rowid",
+            (p.reference,),
+        ).fetchall()
+        active = db.execute(
+            "EXPLAIN QUERY PLAN SELECT 1 FROM native_calls "
+            "WHERE permission_ref=? AND process_stopped=0 LIMIT 1",
+            (p.reference,),
+        ).fetchall()
+    assert any("native_calls_permission" in row[-1] for row in scoped)
+    assert any("native_calls_active" in row[-1] for row in active)
+    assert len(c.snapshot()["calls"]) == 1
+    assert c.reserve("new", **reservation(p))["status"] == "reserved"
+
+
+@pytest.mark.parametrize("phase", ["launch", "effect"])
+def test_N220_stopped_parent_fences_child_at_actual_boundary(normal, phase):
+    _, _, _, _, p = normal
+    c = p.controller
+    c.reserve("host", **reservation(p))
+    claim(c, "host")
+    start(c, "host")
+    c.reserve("relay", **reservation(p, "relay", "host"))
+    claim(c, "relay")
+    if phase == "effect":
+        start(c, "relay")
+    c.record_outcome(
+        "host",
+        outcome="failed",
+        process_stopped=True,
+        evidence_ref="host-record:authored-parent-stop",
+    )
+    boundary = c.launch_boundary if phase == "launch" else c.effect_boundary
+    with pytest.raises(AccessDenied, match="Parent invocation"):
+        with boundary("relay", worker_identity="worker"):
+            pytest.fail("Stopped parent authorized a child effect")
+    c.record_outcome(
+        "relay",
+        outcome="failed",
+        process_stopped=True,
+        evidence_ref="host-record:authored-child-stop",
+    )
+    assert c.reserve("replacement", **reservation(p))["status"] == "reserved"
+
+
+@pytest.mark.parametrize("purpose", ["relay", "auth", "neutral", "assignment"])
+def test_N221_exact_initialization_parent_order(normal, purpose):
+    _, _, _, _, p = normal
+    c = p.controller
+    c.reserve("host", **reservation(p))
+    claim(c, "host")
+    c.reserve("child", **reservation(p, purpose, "host"))
+    if purpose in {"neutral", "assignment"}:
+        with pytest.raises(AccessDenied):
+            claim(c, "child")
+        start(c, "host")
+    assert claim(c, "child")["status"] == "launching"
+
+
+def test_N222_unaccepted_schema1_is_refused_without_mutation(tmp_path):
+    import sqlite3
+    from uuid import uuid4
+
+    tmp_path.chmod(0o700)
+    path = tmp_path / "legacy-normal.sqlite"
+    identity = str(uuid4())
+    with sqlite3.connect(path) as db:
+        db.executescript(
+            "CREATE TABLE native_meta(version INTEGER,store_id TEXT);"
+            "CREATE TABLE native_permissions(reference TEXT PRIMARY KEY,data TEXT);"
+            "CREATE TABLE native_calls(call_id TEXT PRIMARY KEY,data TEXT);"
+            "CREATE TABLE native_events(sequence INTEGER PRIMARY KEY,"
+            "kind TEXT,call_id TEXT,data TEXT);"
+        )
+        db.execute("INSERT INTO native_meta VALUES(1,?)", (identity,))
+        db.execute("INSERT INTO native_events VALUES(1,'retained',NULL,'{}')")
+    path.chmod(0o600)
+    before = path.read_bytes()
+    info = path.stat()
+    with pytest.raises(AccessDenied):
+        NativeStore(path, {"device": info.st_dev, "inode": info.st_ino, "store_id": identity})
+    assert path.read_bytes() == before and path.stat().st_ino == info.st_ino
+
+
+@pytest.mark.parametrize("fault", [None, "omitted-accounting", "group", "account", "stale"])
+def test_N223_claude_auth_child_precedes_first_startup_without_bypassing_sources(
+    actual_accounting_graph, fault
+):
+    a, policy, binding, journal, _, manifest = actual_accounting_graph
+    accounting = a.launch_permits
+    accounting.authorize_initialization(policy, binding)
+    auth = accounting.authorize_auth(policy, binding)
+    with auth.launch_boundary() as report:
+        report(process_pid=None, process_start_identity=None)
+    # This is an authored zero-process control, not a real account observation.
+    group = {"confirmed_stop": True, "observation": {"known": True, "live_pids": []}}
+    if fault != "omitted-accounting":
+        accounting.record_auth(binding, {"outcome": "succeeded", "group": group})
+    journal._append(
+        "trace",
+        {
+            "auth_method": "claude.ai",
+            "account_hash": "b" * 64 if fault == "account" else manifest.data["account_hash"],
+            "configuration_digest": binding.configuration_digest,
+            "owned_group": {**group, "foreign": True} if fault == "group" else group,
+        },
+        expires_at=journal.clock() + 30,
+    )
+    assert journal._history("startup") == []
+    if fault == "stale":
+        now = journal.clock()
+        journal.clock = lambda: now + 61
+    if fault is None:
+        accounting.admissions.verify_authenticated(policy, binding, journal)
+        # Real initialization spawns its counted host after auth and before neutral input.
+        host = accounting._initialization.native
+        with host.launch_boundary() as report:
+            report(process_pid=None, process_start_identity=None)
+        # Actual child reservation now works without manufacturing startup.
+        neutral = accounting.authorize_neutral_start(policy, binding)
+        assert neutral.binding.purpose == "neutral"
+    else:
+        with pytest.raises(AccessDenied):
+            accounting.admissions.verify_authenticated(policy, binding, journal)
