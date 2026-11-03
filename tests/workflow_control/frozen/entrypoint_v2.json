@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "extends": "entrypoint_v1.json",
+  "retained": "Original16-node15P1F run. WE08 injected OSError inside ApplicationService, which correctly serialized a signed failure; it was not a lost transport reply.",
+  "changes": [
+    {
+      "id": "WE08-transport-fault",
+      "oracle": "Raise authored OSError only after complete service.call returns, outside its error handler; request effect remains durable and socket closes without reply. Exact6 uncertainty assertion retained."
+    },
+    {
+      "id": "WE10-provider-preflight",
+      "oracle": "A composed workflow without its required provider/runtime/repository refuses before start, leaving no worker."
+    },
+    {
+      "id": "WE09-existing-task-key",
+      "oracle": "A real different scoped task cannot reuse original run operation key; a changed key for same task also conflicts without another worker."
+    }
+  ],
+  "no_external_fallback": true
+}

@@ -24,7 +24,18 @@ def main(argv=None):
     parser.add_argument("--refresh-seconds", type=float, default=1)
     parser.add_argument("--layout-context")
     parser.add_argument(
-        "group", choices=["session", "writing", "task", "worker", "event", "sync", "mcp", "view"]
+        "group",
+        choices=[
+            "session",
+            "writing",
+            "task",
+            "worker",
+            "event",
+            "sync",
+            "mcp",
+            "view",
+            "workflow",
+        ],
     )
     parser.add_argument("action", nargs="?")
     parser.add_argument("--input", help="JSON input file; use - for stdin")

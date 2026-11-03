@@ -1,0 +1,21 @@
+{
+ "format":1,"task":"TST-112","source":"Actual approved public-entrypoint issue and lead coordination on scoped historical replay.",
+ "commands":{"workflow_run":{"task_id":"reference","plan_ref":"installed reference","operation_key":"reference"},"workflow_resume":{"workflow_ref":"reference"}},
+ "owner":{"transport":"private AF_UNIX only; explicit owner startup, never client spawn","identity":"private bound config path/dev/inode/hash, source, scope, instance, PID/start and socket dev/inode","authentication":"bounded nonce HMAC request/reply; same-UID private socket/record","request_seconds":120,"frame_bytes":262144,"owner_seconds":"trusted finite original deadline","replacement":"no automatic unlink, takeover or restart"},
+ "cases":[
+  {"id":"WE01","oracle":"Actual installed CLI run reaches real Core/runtime/resource review wait; separate installed client resumes same owner without duplicate effects."},
+  {"id":"WE02","oracle":"MCP exposes exactly the same additive schemas and uses the same application operation."},
+  {"id":"WE03","oracle":"Existing command schemas/intents are unchanged; no retired merge alias is introduced."},
+  {"id":"WE04","oracle":"Unknown plan, raw command/file selection/passed/import fields refuse before effect."},
+  {"id":"WE05","oracle":"Foreign task/session/principal or copied config cannot consume owner authority."},
+  {"id":"WE06","oracle":"Stale record/socket/process/source or endpoint identity refuses; clients never launch replacement."},
+  {"id":"WE07","oracle":"Concurrent clients select one serialized owner and one actual worker."},
+  {"id":"WE08","oracle":"Lost initial run reply reuses original operation/task/plan and actual saved workflow after In Progress."},
+  {"id":"WE09","oracle":"Changed plan/prose/runtime binding or same-key other task conflicts; replay history grants no new effect after hold/terminal."},
+  {"id":"WE10","oracle":"Missing native/provider/genuine review integrations block explicitly; no authored fallback in production."},
+  {"id":"WE11","oracle":"Owner restart cannot manufacture missing child handles or replay uncertain effects; old endpoint is not replaced."},
+  {"id":"WE12","oracle":"Tampered/replayed/oversize/unknown JSON request or response is rejected; no credential in transcript."},
+  {"id":"WE13","oracle":"Finite request/lifecycle bounds; actual owner and all children reconcile stopped; durable uncertain obligations remain."}
+ ],
+ "not_claimed":["Actual Claude Code/Codex/Linear acceptance","Production review capture","Full installer or code/check/merge lifecycle"]
+}

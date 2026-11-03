@@ -35,6 +35,7 @@ def load_service(
     existing_factory=None,
     scheduling_sources=None,
     dependencies_factory=None,
+    workflow_factory=None,
 ):
     """Factories are trusted installer/host arguments, never JSON import paths."""
     seal = FileSeal(config_file)
@@ -47,7 +48,7 @@ def load_service(
         "session_file",
         "approval_policy",
     }
-    allowed = required | {"writer", "grant_ref", "linear"}
+    allowed = required | {"writer", "grant_ref", "linear", "workflow_control"}
     if (
         not isinstance(config, dict)
         or not required <= config.keys()
@@ -125,6 +126,15 @@ def load_service(
     inbound = inbound_factory(core, handle) if inbound_factory else None
     existing = existing_factory(core, handle) if existing_factory else None
     dependencies = dependencies_factory(core, handle) if dependencies_factory else None
+    workflows = None
+    if workflow_factory is not None:
+        workflows = workflow_factory(core, handle, decisions, provider, workers)
+    elif config.get("workflow_control"):
+        from dataclasses import asdict
+
+        from ai_task_manager.adapters.workflow_control.client import WorkflowClient
+
+        workflows = WorkflowClient(config_file, asdict(core.session_binding(handle)[1]))
     return ApplicationService(
         core,
         handle,
@@ -140,4 +150,5 @@ def load_service(
         existing=existing,
         claim_store=claim_store,
         dependencies=dependencies,
+        workflows=workflows,
     )

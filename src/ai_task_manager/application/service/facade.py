@@ -26,6 +26,7 @@ class ApplicationService:
         existing=None,
         claim_store=None,
         dependencies=None,
+        workflows=None,
     ):
         self.core, self.handle, self.writer, self.decisions = core, handle, writer, decisions
         self.grant_ref, self.provider, self.workers = grant_ref, provider, workers
@@ -33,6 +34,7 @@ class ApplicationService:
         self.inbound = inbound
         self.existing, self.claim_store = existing, claim_store
         self.dependencies = dependencies
+        self.workflows = workflows
         self.session_id, self.scope = core.session_binding(handle)
 
     def confirm(self, task):
@@ -59,8 +61,11 @@ class ApplicationService:
             current_id, current_scope = self.core.session_binding(self.handle)
             if (current_id, current_scope) != (self.session_id, self.scope):
                 raise ValidationError("Session binding changed")
+            forward = getattr(self.workflows, "forward", None)
+            if forward is not None:
+                return forward(operation, data)
             invocation = None
-            if "operation_key" in data:
+            if "operation_key" in data and operation not in {"workflow_run", "workflow_resume"}:
                 self._required("decisions")
                 invocation = Invocation(
                     self.decisions.journal,

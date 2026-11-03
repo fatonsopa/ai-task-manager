@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "extends": "entrypoint_v3.json",
+  "source": "Lead required concurrency correction for multiple-task coordinator; current51 source-bound controls retained.",
+  "owner_concurrency": {
+    "request_threads": 4,
+    "queue": "no unbounded request queue; reject excess connection before work",
+    "serialization": "same task only; no global lock over execution",
+    "public_forwarding": "same fixed SCHEMAS, validation and owner-bound existing application handlers; no arbitrary method names"
+  },
+  "case": {
+    "id": "WE14-responsive-owner",
+    "oracle": "With first actual owned command at a controlled barrier, another scoped task and a read complete before release; an observed authored human hold is processed, revokes first execution and yields actual stop. Same-task callers create at most one worker."
+  }
+}
