@@ -89,6 +89,23 @@ The machine-readable dependency graph is `config/work-items.json`. It contains 1
 
 Use short vertical slices: agree the relevant contract/checks, implement a working user flow, verify it and integrate it promptly. Prioritize one real task through Linear, one CLI worker and confirmed result reporting; then extend to code delivery and remaining profiles/failure paths. Run independent slices in parallel with one tracked assignment and isolated resources per worker. Phase gates define release evidence, not a waterfall delivery order. Update affected documents, reuse matching accepted evidence and retain failures. All final live, host/model and whole-candidate checks remain required.
 
+### Delivery rules
+
+The user approved these working rules on 3 November 2026 after repeated slow delivery. Apply them to assignments, execution and every 20-minute report. They govern delivery method; they do not change product requirements or acceptance criteria.
+
+| Change | Observable rule |
+| --- | --- |
+| Finish one complete task cycle first | Prioritize an existing owned TST task through queue, actual installed CLI worker, independent review, result reporting and confirmed CLI/Linear updates. Component passes cannot substitute for this complete cycle. Extend the working path to code/merge, remaining profiles and failure cases afterward. |
+| Give one worker ownership of the current blocker | Assign the exact reproduced blocker to one tracked worker, with its own worktree and disposable database. That worker runs already approved affected checks in finite batches without another permission queue. Preserve authorization boundaries and original attempt deadlines. |
+| Review complete changes independently | Review the delivered change before integration. Reuse accepted source-bound evidence; repeat review only for changed relevant source or evidence, an unresolved finding, or a required acceptance check. Do not create review steps for unchanged successful results. |
+| Keep independent work parallel | Fill available slots with eligible independent implementation or review work. Respect measured host capacity and owned file/resource boundaries. Never describe queued or completed workers as active. Finish the approved ancillary work, then admit AI Task Manager work only. |
+| Measure delivered behavior and waiting time | Report the user workflow advanced, its exact remaining blocker and owner, and observed implementation, test and waiting time. Distinguish unknown durations from measured ones. Test counts and evidence files support delivery claims; they are not delivered behavior. |
+| Change approach when work stalls | Use the existing progress guard before additional preparation, review or tests. Two unchanged failures require diagnosis, a changed implementation/integration approach or an eligible dependency; do not rename the same retry. Identify every worker waiting on the lead in the next report and resolve the wait before admitting more preparation. |
+
+Before each new assignment, review or test batch, check when the last status table was actually sent. If 20 minutes have elapsed, settle urgent owned process obligations, send the report, and record its actual delivery time before continuing. Confirm one worker's acknowledgment and task state, then send that worker START immediately; do not batch confirmations or leave an admitted worker waiting for dispatch.
+
+Every report includes P00 through P10 and the merge subrow, with Last round and Current as `X% – x/y`, Done since last report, and Next / blockers. Preserve fixed milestone denominators and show component deliveries separately. Keep actual live Linear and required host/model acceptance visible, and report ancillary completion separately from product progress. State None when no delivery finished. Include any wait on the lead, its owner and the next action; a scheduled wake or completed check alone is not progress.
+
 ### P00 — Bootstrap and verify prerequisites
 
 Read the approved product policy and maintained sources. Resolve `PRODUCT_REPO` in the separate build workspace and inspect existing content before acting. An empty-project build/install must not require the AI Index checkout or its instructions. Read-only historical analysis may separately discover `SOURCE_REPO`; that optional evidence source grants no execution or modification authority. Clone only the authorized product repository using structured arguments and preserve unrelated work.
