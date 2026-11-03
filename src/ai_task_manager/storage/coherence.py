@@ -13,6 +13,10 @@ from ai_task_manager.config.files import private_path
 from ai_task_manager.domains.work.errors import AccessDenied, ValidationError, WorkError
 
 _STATEMENTS = {
+    "native_meta": (
+        "SELECT version,store_id FROM main.native_meta",
+        "UPDATE main.native_meta SET store_id=? WHERE version=? AND store_id=?",
+    ),
     "workflow_meta": (
         "SELECT version,store_id FROM main.workflow_meta",
         "UPDATE main.workflow_meta SET store_id=? WHERE version=? AND store_id=?",

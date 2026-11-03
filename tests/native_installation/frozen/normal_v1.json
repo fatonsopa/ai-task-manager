@@ -1,0 +1,41 @@
+{
+  "format": 1,
+  "criteria": {
+    "task": "TST-117",
+    "call": "NATIVE-INSTALLATION-2",
+    "version": 1,
+    "approved_scope": [
+      "installation/native/{store,controller,normal,admissions}.py",
+      "installation/native/{manifest,resolver,__init__}.py",
+      "storage/coherence.py native_meta pair only",
+      "tests/native_installation"
+    ],
+    "cases": [
+      "normal permission creation/open/restart preserves exact manifest scope",
+      "unknown/refused/unavailable release never mints startup",
+      "current binding changed/revoked/expired refuses before effects",
+      "real source/physical same-byte replacement refuses",
+      "reserve/claim/launch/effect/outcome actual SQLite lifecycle",
+      "one active host slot; child same owner/attempt/source/deadline",
+      "idempotent reserve cannot repeat claim or launch",
+      "missing start report/exception keeps uncertain launch held",
+      "unknown stop retains occupancy; actual trusted later stop releases",
+      "producer pre-return abort cannot release started/foreign calls",
+      "normal snapshot consumed by actual InvocationPermits",
+      "normal source constructs actual existing HostInvocationAccounting",
+      "unsupported paid/account/model/effort/scope/call inputs refuse",
+      "genuine auth requires current signed startup and authentic sources; manifest flags insufficient",
+      "freshness/account/config/binding mismatch refuses",
+      "default release/conformance remains explicit implementation gap",
+      "cold built-in resolver normal-store path before provider effects",
+      "coherence guards native_meta before body and precommit"
+    ],
+    "effects": {
+      "local": "owned SQLite and authored recording boundaries only",
+      "actual_native_model_provider_docker": 0,
+      "batch_seconds": 180
+    },
+    "sources": "Existing HostInvocationAccounting, InvocationPermits, HostJournal, source manifests, shared coherence; no private run or tools imports"
+  },
+  "criteria_sha256": "154b8c7c27f27d6d1c85ec9d03baa4337cac5dd58738fe13a5f338fc0a2ddde4"
+}
