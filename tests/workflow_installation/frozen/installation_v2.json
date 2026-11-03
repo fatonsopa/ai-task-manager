@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "extends": "installation_v1.json",
+  "retained": "8/8 actual installed composition controls on first candidate",
+  "cases": [
+    {
+      "id": "WI03-path-copy-and-replacement",
+      "oracle": "Copied installation path and same-byte file replacement cannot inherit the original binding."
+    },
+    {
+      "id": "WI04-schema-and-production-imports",
+      "oracle": "Unknown JSON factory/passed/reviewer fields and boolean version refuse; product installer imports no tests/private evaluator/fixture-host fallback."
+    },
+    {
+      "id": "WI02-actual-refusal-cause",
+      "oracle": "Each negative case checks the intended precise source/prerequisite refusal, not merely any failure."
+    }
+  ],
+  "scope": "Narrow strict-format and in-memory/file coherence correction; no host/Core/source changes."
+}

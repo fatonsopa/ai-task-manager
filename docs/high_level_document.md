@@ -131,6 +131,12 @@ The public configuration loader accepts a trusted workflow factory supplied by i
 
 Owner admission has an original finite deadline. Shutdown stops accepting requests, waits for admitted bounded work and records stop obligations through the retained runtime port. It does not signal an unknown or reaped process. The descriptor is retained when the owner exits; clients never unlink it or elect a new owner. A verified installer/recovery path must resolve uncertain operations before replacement. General installation, real host composition and the complete code/merge path remain separate delivery work.
 
+### Installed workflow launch
+
+The concrete owner command is `aitm --config CONFIG workflow owner --installation INSTALLATION`. A trusted caller can supply a `NativeRegistry` through the CLI's code-only `workflow_registry` argument or call `installation.workflows.launch` directly. The default registry is empty, so a newly started CLI refuses missing native registration before provider or worker effects. Configuration selects an installed reference; it cannot import Python code, supply commands or declare successful native admission.
+
+The first composition binds one non-code task to its approved prose, original repository commit, private configuration/installation identities, model/account registration and finite deadline. It builds the existing `ManagedWorkers`, `ManagedHostFactory`, owned resource/runtime, provider/dependency and artifact-review interfaces. `NativeRegistration.prepare(NativeContext)` supplies the existing launch/accounting capabilities; it does not replace their controller or admission contracts. Full approved task prose remains part of each original work-unit criterion. Missing genuine independent review capture produces a wait, and a supplied signed-looking review source is refused. General registration discovery, genuine capture, multiple native registrations and real host/provider acceptance remain separate required work.
+
 ## Runtime and data flow
 
 Process startup, local transactions and Linear mutations are separate operations. Use reservations, acknowledgements, readback and reconciliation. A process that starts while its assignment is being confirmed remains Starting and cannot perform assigned work yet. Only a verified admitted task becomes Running. Live synchronization may be pending; expose that fact rather than implying atomic agreement across systems.

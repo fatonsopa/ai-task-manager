@@ -14,10 +14,11 @@ from ai_task_manager.config.service import load_service
 from .render import task_lines
 
 
-def main(argv=None):
+def main(argv=None, *, workflow_registry=None):
     parser = argparse.ArgumentParser(prog="aitm")
     parser.add_argument("--config", default=os.environ.get("AITM_CONFIG_FILE"))
     parser.add_argument("--session-file")
+    parser.add_argument("--installation")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--no-color", action="store_true")
     parser.add_argument("--ascii", action="store_true")
@@ -43,6 +44,16 @@ def main(argv=None):
     try:
         if not args.config:
             raise ValueError("A sealed configuration is required; cwd is not authority")
+        if args.group == "workflow" and args.action == "owner":
+            if not args.installation or args.input or args.session_file:
+                raise ValueError("Owner launch needs installation and no request/session override")
+            from ai_task_manager.installation.workflows import launch
+
+            envelope = launch(args.config, args.installation, registry=workflow_registry)
+            sys.stdout.write(json.dumps(envelope, ensure_ascii=False, allow_nan=False) + "\n")
+            return exit_code(envelope)
+        if args.installation:
+            raise ValueError("Installation input is only valid for workflow owner")
         service = load_service(args.config, args.session_file)
         if args.group == "view":
             if args.input or args.json:
