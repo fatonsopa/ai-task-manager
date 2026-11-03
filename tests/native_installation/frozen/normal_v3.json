@@ -1,0 +1,23 @@
+{
+  "task": "TST-117",
+  "version": 4,
+  "prior": "abf87b9 and first schema1 fixtures retained unaccepted",
+  "criteria": [
+    "2000 unrelated malformed call payloads cannot be decoded during scoped snapshot or occupancy; EXPLAIN confirms permission indexes",
+    "native format2 has typed permission_ref/status/process_stopped and scoped history/active queries",
+    "original format1 store is refused without data/identity/history mutation; no implicit migration",
+    "relay/auth may initialize only under launching/running host; neutral/assignment require running host",
+    "after parent stop, child launch/effect cannot enter; cleanup/outcome still records",
+    "late parent stop between claim and effect and immutable parent deadline are checked again"
+  ],
+  "paths": [
+    "installation/native/store.py",
+    "installation/native/controller.py",
+    "tests/native_installation/test_normal.py"
+  ],
+  "external_effects": 0,
+  "scope_note": "Probe dependency remains untested d23c9cf; no host path edits",
+  "auth_ordering": "Actual successful stopped auth child plus signed matching account/config/group trace may precede first Claude startup; readiness still belongs to independent startup observer.",
+  "fixture_correction": "The positive neutral-control reports counted host start after auth, matching actual initialization; original40/1 raw outcome retained.",
+  "factory_status": "ProbeFactory unimplemented; exact d23c9cf shared dependency retained separately; no shared host edits by this task."
+}

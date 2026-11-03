@@ -59,48 +59,11 @@ def resolve(
 
         pointer = d["commands_manifest"]
         commands = CommandManifest(pointer["path"], pointer["sha256"]).prepare
-    settings = (
-        CodexSettings(CodexHomeBoundary(Path(d["profile"])), d["model"], d["effort"])
-        if d["host"] == "codex"
-        else None
-    )
-    pins = NativeSourcePins({str(manifest.seal.path): manifest.seal.sha256})
+    policy = policy_builder(manifest)
 
     def prepare(context):
         manifest.check()
         permission.check(manifest, context.task.id, context.deadline)
-
-        def policy(host, pair):
-            manifest.check()
-            if host != d["host"]:
-                raise AccessDenied("Native host selection differs from installation")
-            seals = (manifest.seal, manifest.config, manifest.installation)
-            selected = (
-                {"codex_settings": settings.fingerprint}
-                if settings
-                else {str(s.path): s.sha256 for s in seals}
-            )
-            return NativePolicy(
-                host,
-                manifest.executable,
-                d["executable_sha256"],
-                manifest.environment,
-                pair.worktree,
-                policy_digest(
-                    host,
-                    d["executable_sha256"],
-                    manifest.environment,
-                    pair.worktree,
-                    selected,
-                    model=d["model"],
-                    effort=d["effort"],
-                ),
-                seals,
-                tuple(sorted(MANAGED_TOOLS)) if host == "claude" else (),
-                d["model"],
-                d["effort"],
-                settings,
-            )
 
         accounting = HostInvocationAccounting(
             permission.controller,
@@ -128,3 +91,47 @@ def resolve(
     if registration.fingerprint != installation["native_digest"]:
         raise AccessDenied("Cold native registration differs from installed reference digest")
     return NativeRegistry((registration,), service_options=service_options)
+
+
+def policy_builder(manifest):
+    """One fixed source-bound launch recipe shared by normal and canary hosts."""
+    d = manifest.data
+    settings = (
+        CodexSettings(CodexHomeBoundary(Path(d["profile"])), d["model"], d["effort"])
+        if d["host"] == "codex"
+        else None
+    )
+
+    def policy(host, pair):
+        manifest.check()
+        if host != d["host"]:
+            raise AccessDenied("Native host selection differs from installation")
+        seals = (manifest.seal, manifest.config, manifest.installation)
+        selected = (
+            {"codex_settings": settings.fingerprint}
+            if settings
+            else {str(s.path): s.sha256 for s in seals}
+        )
+        return NativePolicy(
+            host,
+            manifest.executable,
+            d["executable_sha256"],
+            manifest.environment,
+            pair.worktree,
+            policy_digest(
+                host,
+                d["executable_sha256"],
+                manifest.environment,
+                pair.worktree,
+                selected,
+                model=d["model"],
+                effort=d["effort"],
+            ),
+            seals,
+            tuple(sorted(MANAGED_TOOLS)) if host == "claude" else (),
+            d["model"],
+            d["effort"],
+            settings,
+        )
+
+    return policy

@@ -15,7 +15,7 @@ class NativeStore:
     def __init__(self, path, binding):
         self.path = Path(path).absolute()
         self.binding = StoreBinding(
-            self.path, binding["device"], binding["inode"], "native_meta", 1, binding["store_id"]
+            self.path, binding["device"], binding["inode"], "native_meta", 2, binding["store_id"]
         )
         with self.transaction():
             pass
@@ -31,12 +31,18 @@ class NativeStore:
                 conn.executescript(
                     "CREATE TABLE native_meta(version INTEGER,store_id TEXT);"
                     "CREATE TABLE native_permissions(reference TEXT PRIMARY KEY,data TEXT);"
-                    "CREATE TABLE native_calls(call_id TEXT PRIMARY KEY,data TEXT);"
+                    "CREATE TABLE native_calls(call_id TEXT PRIMARY KEY,"
+                    "permission_ref TEXT NOT NULL,"
+                    "status TEXT NOT NULL,process_stopped INTEGER NOT NULL "
+                    "CHECK(process_stopped IN(0,1)),data TEXT NOT NULL);"
+                    "CREATE INDEX native_calls_permission ON native_calls(permission_ref);"
+                    "CREATE INDEX native_calls_active ON "
+                    "native_calls(permission_ref,process_stopped);"
                     "CREATE TABLE native_events(sequence INTEGER PRIMARY KEY,kind TEXT,"
                     "call_id TEXT,data TEXT);"
                 )
                 identity = str(uuid4())
-                conn.execute("INSERT INTO native_meta VALUES(1,?)", (identity,))
+                conn.execute("INSERT INTO native_meta VALUES(2,?)", (identity,))
             info = path.stat()
             return cls(path, {"device": info.st_dev, "inode": info.st_ino, "store_id": identity})
         except BaseException:
@@ -83,11 +89,21 @@ class NativeStore:
             raise AccessDenied("Unknown normal invocation fact")
         column = "reference" if table == "native_permissions" else "call_id"
         raw = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
-        conn.execute(
-            f"INSERT INTO {table}({column},data) VALUES(?,?) "
-            f"ON CONFLICT({column}) DO UPDATE SET data=excluded.data",
-            (key, raw),
-        )
+        if table == "native_calls":
+            if type(value["process_stopped"]) is not bool:
+                raise AccessDenied("Explicit native process stop fact required")
+            conn.execute(
+                "INSERT INTO native_calls VALUES(?,?,?,?,?) ON CONFLICT(call_id) DO UPDATE SET "
+                "permission_ref=excluded.permission_ref,status=excluded.status,"
+                "process_stopped=excluded.process_stopped,data=excluded.data",
+                (key, value["permission_ref"], value["status"], int(value["process_stopped"]), raw),
+            )
+        else:
+            conn.execute(
+                f"INSERT INTO {table}({column},data) VALUES(?,?) "
+                f"ON CONFLICT({column}) DO UPDATE SET data=excluded.data",
+                (key, raw),
+            )
 
     @staticmethod
     def event(conn, kind, call_id, value):
