@@ -113,6 +113,15 @@ class EvaluationReports:
             raise AccessDenied("The report oracle changed during verification")
         prepared_grant = grant.prepare_current()
         expiry = min(oracle["expires_at"], grant.data["expires_at"], verified.expires_at)
+        bootstrap_ref = grant.data["bootstrap_ref"]
+        # V2 keeps immutable startup history separate from its freshly observed
+        # same-native authority. Historical provenance never renews that receipt.
+        original_bootstrap = grant.journal._read(bootstrap_ref, "trace", fresh=False)
+        authority_ref = bootstrap_ref
+        if grant.identities is not None:
+            current_identity = prepared_grant.identity.observation
+            authority_ref = current_identity.reference
+            expiry = min(expiry, current_identity.expires_at, current_identity.execution_not_after)
         if not grant.journal.intend(
             "evaluation-report:" + oracle_ref,
             {"task_id": task.id, "report_sha256": actual["sha256"]},
@@ -120,6 +129,7 @@ class EvaluationReports:
             raise AccessDenied("This report was already observed or requires reconciliation")
         output = {}
         for kind in sorted(REPORT_KINDS):
+            prepared_grant.check()
             ref = PREFIX + str(uuid4())
             payload = {
                 "prose_digest": task.prose_digest,
@@ -141,9 +151,12 @@ class EvaluationReports:
                     "oracle_ref": oracle_ref,
                     "report_sha256": actual["sha256"],
                     "command_trace": verified.trace_ref,
+                    "original_bootstrap_ref": bootstrap_ref,
+                    "original_bootstrap_sha256": digest(original_bootstrap),
+                    "current_authority_ref": authority_ref,
                     "payload": payload,
                 },
-                sources=(verified.trace_ref, grant.data["bootstrap_ref"]),
+                sources=(verified.trace_ref, authority_ref),
                 expires_at=expiry,
             )
             fact = Evidence(kind, grant.scope, task.id, payload, expiry)
