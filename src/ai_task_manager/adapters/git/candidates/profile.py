@@ -22,7 +22,7 @@ class CandidateProfile:
         self.hooks = Path(self.source["common"]) / "hooks"
         self.required_hooks = tuple(required_hooks)
         if any(
-            name not in {"pre-commit", "prepare-commit-msg", "commit-msg", "pre-merge-commit"}
+            name not in {"pre-commit", "prepare-commit-msg", "commit-msg"}
             for name in self.required_hooks
         ):
             raise AccessDenied("Unsupported required commit guard")
@@ -41,6 +41,9 @@ class CandidateProfile:
 
     def _manifest(self):
         physical(self.hooks)
+        premerge = self.hooks / "pre-merge-commit"
+        if premerge.exists() and os.access(premerge, os.X_OK):
+            raise AccessDenied("pre-merge-commit requires a separately supported merge workflow")
         rows = []
         for path in sorted(self.hooks.iterdir()):
             ident = physical(path, directory=False)

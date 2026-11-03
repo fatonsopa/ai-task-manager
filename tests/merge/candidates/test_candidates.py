@@ -406,3 +406,20 @@ def test_recovery_cannot_swap_registered_candidate_grant(rig):
     with pytest.raises(WorkError):
         rig.service.reconcile(result.operation_ref, replace(rig.grant, owner_ref="different-owner"))
     assert rig.service.reconcile(result.operation_ref) == result
+
+
+def test_unsupported_premerge_guard_is_explicitly_refused(rig):
+    from ai_task_manager.adapters.git.candidates import CandidateProfile
+
+    path = rig.runtime.repo / ".git/hooks/pre-merge-commit"
+    path.write_text("#!/bin/sh\nexit 0\n")
+    path.chmod(0o700)
+    with pytest.raises(WorkError):
+        CandidateProfile(
+            rig.profile,
+            rig.binding.worktree_id,
+            rig.binding.repository_id,
+            rig.candidate_profile.root,
+            required_hooks=("pre-commit", "commit-msg"),
+        )
+    assert not list(rig.candidate_profile.root.iterdir())
