@@ -3,6 +3,7 @@
 import copy
 import os
 import time
+from dataclasses import replace
 from uuid import uuid4
 
 from ai_task_manager.adapters.decisions.existing import IssueSelection, SelectionAuthority
@@ -30,7 +31,7 @@ from ai_task_manager.domains.work.models import (
 )
 from ai_task_manager.storage.database import Database
 from tests.domains.helpers import ProofFixture
-from tests.linear.helpers import EXPECTED, STATES, ProviderFixture
+from tests.linear.helpers import CONNECTION, EXPECTED, STATES, ProviderFixture
 from tests.scheduling.helpers import SnapshotSource, seed_known_queue
 
 CREATED = "2026-11-01T00:00:00Z"
@@ -215,10 +216,12 @@ class ExistingRig:
         enroll_claim_store(self.db, self.authority)
         self.claim = verify_claim_store(self.db, self.authority)
         self.journal = ProviderJournal(root / "provider.sqlite")
+        self.connection = replace(CONNECTION, logical_session=session)
         self.client = LinearClient(
             HttpTransport(_test_endpoint=provider.endpoint),
             lambda: Credentials("synthetic-fixture-only"),
             EXPECTED,
+            agent_connection=lambda: self.connection,
         )
         self.binding = self.client.verify_binding()
         self.scope = Scope(

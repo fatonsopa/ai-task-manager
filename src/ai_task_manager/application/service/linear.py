@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from ai_task_manager.adapters.linear.client import LinearClient
+from ai_task_manager.adapters.linear.connections import AgentConnection
 from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
 from ai_task_manager.adapters.linear.dependencies.source import DependencySource
 from ai_task_manager.adapters.linear.existing import ExistingReader
@@ -99,8 +100,9 @@ class CredentialEnvironment:
 
 class LinearComponents:
     def __init__(self, config, *, client_factory=None):
-        file_keys = {"expected", "credential_file", "credential_key", "journal"}
-        environment_keys = {"expected", "credential_environment", "journal"}
+        connection_keys = {"agent_connection"}
+        file_keys = {"expected", "credential_file", "credential_key", "journal"} | connection_keys
+        environment_keys = {"expected", "credential_environment", "journal"} | connection_keys
         if not isinstance(config, dict) or set(config) not in (file_keys, environment_keys):
             raise ValidationError("Unknown Linear composition configuration")
         self.configuration_hash = digest(config)
@@ -126,7 +128,20 @@ class LinearComponents:
             if client_factory
             else LinearClient(HttpTransport(), credentials, expected)
         )
-        self.binding = self.client.verify_binding()
+        selected = config["agent_connection"]
+        if not isinstance(selected, dict) or set(selected) != {
+            "connection_id",
+            "workspace_id",
+            "principal_id",
+            "logical_session",
+            "agent_id",
+        }:
+            raise ValidationError("Complete selected Linear agent connection is required")
+        connection = AgentConnection(**selected)
+        self.client.agent_connection = lambda: connection
+        self.client.verify_binding()
+        self.client.check_connection(refresh=True)
+        self.binding = self.client.binding
         private_path(config["journal"], existing=False)
         parent = Path(config["journal"]).parent
         if not parent.is_dir() or parent.is_symlink() or parent.stat().st_mode & 0o077:
@@ -149,6 +164,8 @@ class LinearComponents:
 
     def check_session(self, core, handle):
         _, scope = core.session_binding(handle)
+        connection = self.client.check_connection(scope)
+        self.journal.bind_connection(scope, connection)
         expected = self.binding.expected
         if (scope.provider, scope.workspace, scope.principal, scope.project) != (
             "linear",

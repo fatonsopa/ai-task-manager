@@ -48,6 +48,8 @@ class OutboundDrain:
                 raise LinearError("stale_outbound_authority")
             if self.client.binding is None:
                 self.client.verify_binding()
+            connection = self.client.check_connection(scope, refresh=True)
+            self.journal.bind_connection(scope, connection)
             if operation.kind not in {"create_backlog", "set_status", "update_prose"}:
                 raise LinearError("unsupported_outbound_kind")
             if operation.kind != "create_backlog":
@@ -70,6 +72,13 @@ class OutboundDrain:
                     before.status != task.observed_status
                     or before.assignee_id != scope.principal
                     or (
+                        before.delegate_id != connection.agent_id
+                        and (
+                            before.delegate_id is not None
+                            or (previous and previous.get("delegate_id") is not None)
+                        )
+                    )
+                    or (
                         operation.kind != "update_prose"
                         and (before.title != task.title or before.body != task.body)
                     )
@@ -90,7 +99,9 @@ class OutboundDrain:
                 if operation.kind == "create_backlog" and self.client.create_capability
                 else None
             )
-            send_id = self.journal.begin_send(scope, operation, candidate_id)
+            send_id = self.journal.begin_send(
+                scope, operation, candidate_id, connection_digest=connection.digest
+            )
             result = (
                 self.client.create_issue(task, candidate_id)
                 if candidate_id
@@ -101,11 +112,14 @@ class OutboundDrain:
             self.journal.finish_send(send_id, "mutation_returned", result)
             if candidate_id is not None and result.id != candidate_id:
                 raise LinearError("creation_uuid_not_honored", uncertain=True)
-            readback = self.client.read_issue(result.id)
+            self.client.check_connection(scope, refresh=True)
+            readback = self.client.require_delegate(self.client.read_issue(result.id))
             if readback != result:
                 self._observe_conflict(handle, self.core.get_task(handle, task.id), readback)
                 raise LinearError("readback_race", uncertain=True)
-            ref = self.journal.status_receipt(scope, task, operation, readback)
+            ref = self.journal.status_receipt(
+                scope, task, operation, readback, connection=connection
+            )
             self.journal.finish_send(send_id, "readback", readback)
             confirmed = self.core.intake.confirm_status(
                 handle,

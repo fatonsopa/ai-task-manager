@@ -87,6 +87,13 @@ def load_service(
         components = components or LinearComponents(config["linear"])
         if components.configuration_hash != digest(config["linear"]):
             raise AccessDenied("Linear composition does not match sealed configuration")
+        selected_connection = components.client.agent_connection
+
+        def current_connection():
+            seal.check()
+            return selected_connection()
+
+        components.client.agent_connection = current_connection
         principal_verifier = principal_verifier or components.journal
         evidence_factory = evidence_factory or components.evidence
         renderer = renderer or components.renderer

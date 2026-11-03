@@ -2,7 +2,11 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from .connections import AgentConnection
 
 from .errors import LinearError
 
@@ -55,6 +59,7 @@ class ExpectedBinding:
 class VerifiedBinding:
     expected: ExpectedBinding
     states: dict[str, str]
+    connection: "AgentConnection | None" = None
 
 
 @dataclass(frozen=True)
@@ -69,6 +74,8 @@ class IssueSnapshot:
     state_id: str
     status: str
     revision: str
+    delegate_id: str | None = None
+    delegate_is_application: bool | None = None
 
 
 @dataclass(frozen=True)

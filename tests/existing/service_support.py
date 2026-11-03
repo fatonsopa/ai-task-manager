@@ -120,6 +120,7 @@ def configuration(rig, service, path):
         },
         "linear": {
             "expected": asdict(rig.client.expected),
+            "agent_connection": asdict(rig.connection),
             "credential_file": str(credentials),
             "credential_key": "LINEAR_TEST_USER_A_TOKEN",
             "journal": rig.journal.path,

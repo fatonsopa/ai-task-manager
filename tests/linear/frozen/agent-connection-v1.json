@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "provider_evidence": "authored local HTTP only",
+  "cases": [
+    {
+      "id": "AC01",
+      "expected": "Create and update retain human assignment and confirm selected app delegation."
+    },
+    {
+      "id": "AC02",
+      "expected": "Missing, wrong workspace, wrong principal, stale session, human, absent and ambiguous selections refuse before mutations."
+    },
+    {
+      "id": "AC03",
+      "expected": "A current client refuses connection replacement."
+    },
+    {
+      "id": "AC04",
+      "expected": "The selected connection is retained in the typed verified provider binding."
+    },
+    {
+      "id": "AC05",
+      "expected": "Changed delegate readback stays uncertain without another create."
+    },
+    {
+      "id": "AC06",
+      "expected": "A lost create response recovers only the same UUID under the same connection."
+    },
+    {
+      "id": "AC07",
+      "expected": "Restart with a new connection refuses recovery of an earlier send."
+    },
+    {
+      "id": "AC08",
+      "expected": "A second human or logical session cannot reuse a selected connection."
+    },
+    {
+      "id": "AC09",
+      "expected": "Application identity is required; supportsAgentSessions is not required for issue delegation."
+    },
+    {
+      "id": "AC10",
+      "expected": "The frozen inventory retains the local evidence scope."
+    },
+    {
+      "id": "AC11",
+      "expected": "A durable session connection refuses replacement before its first provider send."
+    },
+    {
+      "id": "AC12",
+      "expected": "Schema 3 migration preserves uncertain sends and leaves their connection unknown."
+    },
+    {
+      "id": "AC13",
+      "expected": "The first authorized update of an imported issue with no prior managed delegate establishes the selected delegate."
+    },
+    {
+      "id": "AC14",
+      "expected": "Removal of a previously confirmed delegate refuses the next update."
+    }
+  ]
+}

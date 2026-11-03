@@ -456,6 +456,7 @@ def test_configured_linear_service_uses_production_dependency_sources(provider, 
     token.chmod(0o600)
     linear = {
         "expected": asdict(p.expected),
+        "agent_connection": asdict(p.connection),
         "credential_file": str(token),
         "credential_key": "LINEAR_API_KEY",
         "journal": str(root / "linear.sqlite"),

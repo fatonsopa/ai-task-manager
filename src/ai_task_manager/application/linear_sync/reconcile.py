@@ -51,8 +51,12 @@ class Reconciliation:
             if sends[-1]["snapshot"]
             else sends[-1]["candidate_id"]
         )
+        connection = self.client.check_connection(scope, refresh=True)
+        self.journal.bind_connection(scope, connection)
+        if any(row["connection_digest"] != connection.digest for row in sends):
+            raise LinearError("agent_connection_changed", uncertain=True)
         try:
-            readback = self.client.read_issue(known_id)
+            readback = self.client.require_delegate(self.client.read_issue(known_id))
         except LinearError as exc:
             raise LinearError("creation_identity_uncertain", uncertain=True) from exc
         if (
@@ -61,7 +65,7 @@ class Reconciliation:
             or task.decision_revision != operation.payload["decision_revision"]
         ):
             raise LinearError("stale_recovery_authority", uncertain=True)
-        ref = self.journal.status_receipt(scope, task, operation, readback)
+        ref = self.journal.status_receipt(scope, task, operation, readback, connection=connection)
         confirmed = self.core.intake.confirm_status(
             handle,
             task.id,

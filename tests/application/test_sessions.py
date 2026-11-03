@@ -4,8 +4,10 @@ from dataclasses import replace
 
 import pytest
 
+from ai_task_manager.adapters.linear.client import LinearClient
 from ai_task_manager.config.sessions import SessionControl, SessionFile
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
+from tests.linear.helpers import CONNECTION, uid
 
 
 def test_a33_verified_establishment_and_one_use_resume(composed, tmp_path):
@@ -18,10 +20,19 @@ def test_a33_verified_establishment_and_one_use_resume(composed, tmp_path):
         logical_session=scope.logical_session,
         actions=("resume",),
     )
+    second_connection = replace(
+        CONNECTION, connection_id=uid(30), logical_session=scope.logical_session
+    )
+    client = LinearClient(
+        components.client.transport,
+        components.client.credentials,
+        components.client.expected,
+        agent_connection=lambda: second_connection,
+    )
     destination = tmp_path / "second-session.json"
     control = SessionControl(
         service.core,
-        components.client,
+        client,
         components.journal,
         observations,
         destination,

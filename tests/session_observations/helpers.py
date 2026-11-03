@@ -21,6 +21,7 @@ class OwnedProvider:
         self.root = root
         self.expected = ExpectedBinding(*(str(uuid4()) for _ in range(3)), "TST", str(uuid4()))
         self.actual = self.expected
+        self.agent_id = str(uuid4())
         self.requests = 0
         provider = self
 
@@ -43,6 +44,14 @@ class OwnedProvider:
                     }
                 elif "ProjectTeams" in query:
                     data = {"project": {"teams": {"nodes": [{"id": e.team_id}], "pageInfo": page}}}
+                elif "query AgentUsers" in query:
+                    data = {
+                        "organization": {"id": e.workspace_id},
+                        "users": {
+                            "nodes": [{"id": provider.agent_id, "app": True}],
+                            "pageInfo": page,
+                        },
+                    }
                 elif "query States" in query:
                     data = {
                         "team": {
@@ -73,6 +82,13 @@ class OwnedProvider:
         self.config = root / "service.json"
         self.linear = {
             "expected": asdict(self.expected),
+            "agent_connection": {
+                "connection_id": str(uuid4()),
+                "workspace_id": self.expected.workspace_id,
+                "principal_id": self.expected.viewer_id,
+                "logical_session": "lead-session",
+                "agent_id": self.agent_id,
+            },
             "credential_file": str(credential),
             "credential_key": "LINEAR_API_KEY",
             "journal": str(root / "provider.sqlite"),

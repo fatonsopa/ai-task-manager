@@ -4,6 +4,7 @@ import time
 from dataclasses import asdict
 
 from ai_task_manager.adapters.decisions.authority import HostGrant
+from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import Scope, SessionHandle
 
@@ -72,6 +73,11 @@ class SessionControl:
             expected.project_id,
             grant.logical_session,
         )
+        try:
+            self.client.check_connection(scope, refresh=True)
+        except LinearError as exc:
+            raise AccessDenied("Session does not match the selected agent connection") from exc
+        binding = self.client.binding
         if grant.scope != scope:
             raise AccessDenied("Enrolled host does not match the verified provider identity")
         target = private_path(destination, existing=False)

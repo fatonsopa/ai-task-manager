@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_task_manager.adapters.linear.client import LinearClient
+from ai_task_manager.adapters.linear.connections import AgentConnection
 from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
 from ai_task_manager.adapters.linear.dependencies.source import DependencySource
 from ai_task_manager.adapters.linear.models import Credentials, ExpectedBinding, WireResponse
@@ -26,6 +27,9 @@ class ProviderFixture:
         self.expected = ExpectedBinding(ids[0], ids[1], ids[2], "TST", ids[3])
         self.scope = Scope("linear", ids[1], ids[0], ids[3], "session")
         self.rig.scope, self.rig.handle = self.scope, self.rig.session(self.scope)
+        self.connection = AgentConnection(
+            str(uuid4()), ids[1], ids[0], self.scope.logical_session, str(uuid4())
+        )
         self.states = {s.value: str(uuid4()) for s in IssueStatus}
         self.nodes, self.edges, self.calls, self.callback = {}, [], [], None
         self.page_size, self.disabled, self.depth = 50, False, 0
@@ -134,6 +138,14 @@ class ProviderFixture:
                         "pageInfo": {"hasNextPage": False, "endCursor": None},
                     }
                 }
+            }
+        elif "query AgentUsers" in query:
+            data = {
+                "organization": {"id": e.workspace_id},
+                "users": {
+                    "nodes": [{"id": self.connection.agent_id, "app": True}],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                },
             }
         elif "query States" in query:
             data = {

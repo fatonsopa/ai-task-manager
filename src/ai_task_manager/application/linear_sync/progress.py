@@ -75,6 +75,7 @@ class ProgressPublisher:
             task.id,
             operation_key,
             {
+                "connection_digest": self.client.check_connection(scope).digest,
                 "issue_id": task.issue_id,
                 "task_prose_digest": task.prose_digest,
                 "prose": asdict(progress_prose(rendered.body)),
@@ -96,7 +97,8 @@ class ProgressPublisher:
         )
         rendered, digest = self._approved(prose, payload["approval_ref"])
         if (
-            task.issue_id != payload["issue_id"]
+            payload.get("connection_digest") != self.client.check_connection(scope).digest
+            or task.issue_id != payload["issue_id"]
             or task.prose_digest != payload["task_prose_digest"]
             or rendered.body != prose.body
             or digest != payload["digest"]
@@ -126,7 +128,8 @@ class ProgressPublisher:
         try:
             if self.client.binding is None:
                 self.client.verify_binding()
-            issue = self.client.read_issue(task.issue_id)
+            self.client.check_connection(scope, refresh=True)
+            issue = self.client.require_delegate(self.client.read_issue(task.issue_id))
             if issue.assignee_id != scope.principal:
                 raise LinearError("progress_issue_not_owned")
             if issue.title != task.title or issue.body != task.body:
@@ -153,8 +156,9 @@ class ProgressPublisher:
                 scope, publication_id, "uncertain" if sent else "failed", category
             )
 
-    @staticmethod
-    def _validate_readback(scope, task, payload, readback):
+    def _validate_readback(self, scope, task, payload, readback):
+        self.client.check_connection(scope, refresh=True)
+        self.client.require_delegate(readback.issue)
         if (
             readback.issue.id != task.issue_id
             or readback.issue.assignee_id != scope.principal

@@ -1,13 +1,15 @@
 import hashlib
 import json
 import re
+from dataclasses import replace
 
 from ai_task_manager.domains.work.models import IssueStatus, valid_display_identifier
 
+from .connections import AgentConnection
 from .errors import LinearError, ScopeMismatch
 from .models import CommentSnapshot, IssueSnapshot, VerifiedBinding, canonical_id, revision
 
-ISSUE_FIELDS = """id identifier title description updatedAt assignee { id }
+ISSUE_FIELDS = """id identifier title description updatedAt assignee { id } delegate { id app }
  team { id key } project { id } state { id name }"""
 READ = "query ReadIssue($id: String!) { issue(id: $id) { " + ISSUE_FIELDS + " } }"
 CREATE = (
@@ -20,6 +22,10 @@ UPDATE = (
 )
 IDENTITY = """query VerifyBinding($team: String!, $project: String!) {
  viewer { id } organization { id } team(id: $team) { id key } project(id: $project) { id }
+}"""
+AGENT_USERS = """query AgentUsers($after: String) {
+ organization { id } users(first: 50, after: $after) {
+ nodes { id app } pageInfo { hasNextPage endCursor } }
 }"""
 STATES = """query States($team: String!, $after: String) {
  team(id: $team) { states(first: 50, after: $after) {
@@ -47,12 +53,15 @@ class LinearClient:
         max_pages=1000,
         create_capability=None,
         comment_capability=None,
+        agent_connection=None,
     ):
         self.transport, self.credentials, self.expected = transport, credentials, expected
         if type(max_pages) is not int or not 0 < max_pages <= 10000:
             raise LinearError("invalid_pagination_limit")
         self.max_pages = max_pages
         self.binding = None
+        self.agent_connection = agent_connection
+        self.connection = None
         self._authorization_digest = None
         self._preflight_digest = None
         self.create_capability = create_capability
@@ -174,6 +183,77 @@ class LinearClient:
         self.binding = VerifiedBinding(expected, mapping)
         return self.binding
 
+    def check_connection(self, scope=None, *, refresh=False):
+        if self.binding is None:
+            raise LinearError("binding_not_verified")
+        if self.agent_connection is None:
+            raise LinearError("agent_connection_missing")
+        selected = self.agent_connection()
+        if not isinstance(selected, AgentConnection):
+            raise LinearError("invalid_agent_connection")
+        if (selected.workspace_id, selected.principal_id) != (
+            self.expected.workspace_id,
+            self.expected.viewer_id,
+        ):
+            raise LinearError("agent_connection_scope_mismatch")
+        if scope is not None:
+            selected.check_scope(scope)
+            if scope.project != self.expected.project_id:
+                raise LinearError("agent_connection_scope_mismatch")
+        if self.connection is not None and selected != self.connection:
+            raise LinearError("agent_connection_changed")
+        if refresh or self.connection is None:
+            # users is scoped by the authenticated workspace. Inspect every page and
+            # reject duplicate IDs instead of choosing the first matching identity.
+            after, seen, matches, cursors = None, set(), [], set()
+            for _ in range(self.max_pages):
+                data = self.request(AGENT_USERS, {"after": after})
+                try:
+                    if data["organization"]["id"] != selected.workspace_id:
+                        raise LinearError("agent_connection_scope_mismatch")
+                    users = data["users"]
+                    page = users["pageInfo"]
+                    if (
+                        not isinstance(users["nodes"], list)
+                        or type(page["hasNextPage"]) is not bool
+                    ):
+                        raise ValueError()
+                    for item in users["nodes"]:
+                        identity = canonical_id(item["id"])
+                        if identity in seen:
+                            raise LinearError("ambiguous_agent_identity")
+                        seen.add(identity)
+                        if identity == selected.agent_id:
+                            matches.append(item)
+                    if not page["hasNextPage"]:
+                        break
+                    cursor = page["endCursor"]
+                    if not isinstance(cursor, str) or not cursor or cursor in cursors:
+                        raise ValueError()
+                    cursors.add(cursor)
+                    after = cursor
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise LinearError("incomplete_agent_identity") from exc
+            else:
+                raise LinearError("pagination_limit")
+            if len(matches) != 1 or matches[0].get("app") is not True:
+                raise LinearError("agent_identity_not_application")
+            # Detect an operator replacement during the provider lookup.
+            if self.agent_connection() != selected:
+                raise LinearError("agent_connection_changed")
+            self.connection = selected
+        self.binding = replace(self.binding, connection=selected)
+        return selected
+
+    def require_delegate(self, snapshot):
+        connection = self.check_connection()
+        if (
+            snapshot.delegate_id != connection.agent_id
+            or snapshot.delegate_is_application is not True
+        ):
+            raise LinearError("agent_delegate_mismatch", uncertain=True)
+        return snapshot
+
     def snapshot(self, data, *, allow_unknown=False):
         if self.binding is None:
             raise LinearError("binding_not_verified")
@@ -224,6 +304,8 @@ class LinearClient:
                 state_id,
                 status,
                 revision(data["updatedAt"]),
+                canonical_id(data["delegate"]["id"]) if data.get("delegate") else None,
+                data["delegate"].get("app") if data.get("delegate") else None,
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise LinearError("incomplete_issue") from exc
@@ -235,7 +317,9 @@ class LinearClient:
     def create_issue(self, task, candidate_id=None):
         if self.binding is None:
             raise LinearError("binding_not_verified")
+        connection = self.check_connection(refresh=True)
         values = {
+            "delegateId": connection.agent_id,
             "teamId": self.expected.team_id,
             "projectId": self.expected.project_id,
             "assigneeId": self.expected.viewer_id,
@@ -248,19 +332,24 @@ class LinearClient:
                 raise LinearError("creation_uuid_capability_missing")
             values["id"] = canonical_id(candidate_id)
         result = self.request(CREATE, {"input": values}, mutation=True).get("issueCreate")
-        return self.mutation_snapshot(result)
+        return self.require_delegate(self.mutation_snapshot(result))
 
     def update_issue(self, task, kind):
         canonical_id(task.issue_id)
         if self.binding is None:
             raise LinearError("binding_not_verified")
-        values = {"stateId": self.binding.states[task.desired_status]}
+        connection = self.check_connection(refresh=True)
+        values = {
+            "stateId": self.binding.states[task.desired_status],
+            "assigneeId": self.expected.viewer_id,
+            "delegateId": connection.agent_id,
+        }
         if kind == "update_prose":
             values.update(title=task.title, description=task.body)
         result = self.request(UPDATE, {"id": task.issue_id, "input": values}, mutation=True).get(
             "issueUpdate"
         )
-        return self.mutation_snapshot(result)
+        return self.require_delegate(self.mutation_snapshot(result))
 
     def mutation_snapshot(self, result):
         if not isinstance(result, dict) or result.get("success") is not True:
@@ -285,6 +374,7 @@ class LinearClient:
             raise LinearError("incomplete_comment") from exc
 
     def create_comment(self, issue_id, body, candidate_id=None):
+        self.check_connection(refresh=True)
         canonical_id(issue_id)
         values = {"issueId": issue_id, "body": body}
         if candidate_id is not None:

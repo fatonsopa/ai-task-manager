@@ -40,17 +40,19 @@ KINDS = frozenset(
 )
 SCHEMA = """
 CREATE TABLE metadata(version INTEGER NOT NULL);
-INSERT INTO metadata VALUES(3);
+INSERT INTO metadata VALUES(4);
 CREATE TABLE proofs(ref TEXT PRIMARY KEY, kind TEXT NOT NULL, scope TEXT NOT NULL,
  subject TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE TABLE principals(ref TEXT PRIMARY KEY, scope TEXT NOT NULL);
+CREATE TABLE agent_bindings(scope TEXT PRIMARY KEY, connection_digest TEXT NOT NULL);
 CREATE TABLE deliveries(id TEXT PRIMARY KEY, scope TEXT NOT NULL, delivery_id TEXT NOT NULL,
  raw_digest TEXT NOT NULL, semantic_digest TEXT NOT NULL, payload TEXT NOT NULL,
  ingress_ref TEXT NOT NULL, state TEXT NOT NULL, owner TEXT, lease_until REAL,
  checkpoint TEXT NOT NULL DEFAULT '{}', error TEXT,
  UNIQUE(scope,delivery_id), UNIQUE(scope,semantic_digest));
 CREATE TABLE sends(id TEXT PRIMARY KEY, scope TEXT NOT NULL, operation_id TEXT NOT NULL,
- attempt INTEGER NOT NULL, state TEXT NOT NULL, snapshot TEXT, error TEXT, candidate_id TEXT,
+ attempt INTEGER NOT NULL, state TEXT NOT NULL, snapshot TEXT, error TEXT,
+ candidate_id TEXT, connection_digest TEXT,
  UNIQUE(scope,operation_id,attempt));
 CREATE TABLE history(id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT NOT NULL,
  stage TEXT NOT NULL, detail TEXT NOT NULL);
@@ -81,7 +83,7 @@ class ProviderJournal:
             else:
                 try:
                     versions = conn.execute("SELECT version FROM metadata").fetchall()
-                    if len(versions) != 1 or versions[0][0] not in {1, 2, 3}:
+                    if len(versions) != 1 or versions[0][0] not in {1, 2, 3, 4}:
                         raise LinearError("unsupported_provider_schema")
                     if versions[0][0] == 1:
                         conn.execute("ALTER TABLE sends ADD COLUMN candidate_id TEXT")
@@ -94,6 +96,13 @@ class ProviderJournal:
                             "received_at REAL NOT NULL, UNIQUE(scope,raw_digest))"
                         )
                         conn.execute("UPDATE metadata SET version=3")
+                    if versions[0][0] in {1, 2, 3}:
+                        conn.execute("ALTER TABLE sends ADD COLUMN connection_digest TEXT")
+                        conn.execute(
+                            "CREATE TABLE agent_bindings(scope TEXT PRIMARY KEY, "
+                            "connection_digest TEXT NOT NULL)"
+                        )
+                        conn.execute("UPDATE metadata SET version=4")
                 except sqlite3.DatabaseError as exc:
                     raise LinearError("foreign_provider_store") from exc
 
@@ -131,7 +140,9 @@ class ProviderJournal:
                 raise EvidenceRequired("Provider proof is missing or has an invalid issuer kind")
             payload = json.loads(row["payload"])
             expiring = row["kind"] in {
-                "existing_issue_snapshot", "existing_issue_readback", "external_prose_readback"
+                "existing_issue_snapshot",
+                "existing_issue_readback",
+                "external_prose_readback",
             }
             if expiring and (
                 type(payload.get("observed_at")) not in {int, float}
@@ -174,6 +185,19 @@ class ProviderJournal:
         with self.transaction() as conn:
             return self._proof(conn, "provider_progress", scope, task.id, payload)
 
+    def bind_connection(self, scope, connection):
+        connection.check_scope(scope)
+        with self.transaction() as conn:
+            scope_text = encoded(asdict(scope))
+            old = conn.execute(
+                "SELECT connection_digest FROM agent_bindings WHERE scope=?", (scope_text,)
+            ).fetchone()
+            if old and old[0] != connection.digest:
+                raise LinearError("agent_connection_changed")
+            conn.execute(
+                "INSERT OR IGNORE INTO agent_bindings VALUES(?,?)", (scope_text, connection.digest)
+            )
+
     def bind_principal(self, verified_binding, scope):
         expected = verified_binding.expected
         if (
@@ -184,6 +208,8 @@ class ProviderJournal:
             or not scope.logical_session
         ):
             raise ScopeMismatch()
+        if verified_binding.connection is not None:
+            self.bind_connection(scope, verified_binding.connection)
         # The logical session comes from trusted host registration, never an HTTP request.
         ref = f"linear-principal:{uuid4()}"
         with self.transaction() as conn:
@@ -261,7 +287,7 @@ class ProviderJournal:
                 (subject, "wake_failed", error_kind),
             )
 
-    def status_receipt(self, scope, task, operation, snapshot):
+    def status_receipt(self, scope, task, operation, snapshot, *, connection=None):
         from ai_task_manager.domains.work.models import valid_display_identifier
 
         if not valid_display_identifier(snapshot.identifier):
@@ -274,7 +300,16 @@ class ProviderJournal:
             or (task.issue_id and task.issue_id != snapshot.id)
         ):
             raise LinearError("readback_conflict", uncertain=True)
+        if connection is not None:
+            self.bind_connection(scope, connection)
+            if (
+                snapshot.delegate_id != connection.agent_id
+                or snapshot.delegate_is_application is not True
+            ):
+                raise LinearError("agent_delegate_mismatch", uncertain=True)
         payload = {
+            "delegate_id": snapshot.delegate_id,
+            "connection_digest": connection.digest if connection else None,
             "operation_id": operation.id,
             "status": snapshot.status,
             "title": snapshot.title,
@@ -451,7 +486,7 @@ class ProviderJournal:
                 )
             ]
 
-    def begin_send(self, scope, operation, candidate_id=None):
+    def begin_send(self, scope, operation, candidate_id=None, *, connection_digest=None):
         with self.transaction() as conn:
             scope_text = encoded(asdict(scope))
             old = conn.execute(
@@ -460,9 +495,15 @@ class ProviderJournal:
             ).fetchone()
             if old:
                 raise LinearError("send_already_recorded", uncertain=True)
+            previous = conn.execute(
+                "SELECT connection_digest FROM sends WHERE scope=? AND operation_id=?",
+                (scope_text, operation.id),
+            ).fetchall()
+            if any(row[0] != connection_digest for row in previous):
+                raise LinearError("agent_connection_changed", uncertain=True)
             send_id = str(uuid4())
             conn.execute(
-                "INSERT INTO sends VALUES(?,?,?,?,?,?,?,?)",
+                "INSERT INTO sends VALUES(?,?,?,?,?,?,?,?,?)",
                 (
                     send_id,
                     scope_text,
@@ -472,6 +513,7 @@ class ProviderJournal:
                     None,
                     None,
                     candidate_id,
+                    connection_digest,
                 ),
             )
             return send_id

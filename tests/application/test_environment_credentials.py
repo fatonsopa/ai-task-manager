@@ -51,6 +51,7 @@ def provider(tmp_path):
 def select_environment(provider, monkeypatch):
     monkeypatch.setenv(NAME, SECRET)
     provider.linear = {
+        "agent_connection": provider.linear["agent_connection"],
         "expected": provider.linear["expected"],
         "credential_environment": NAME,
         "journal": provider.linear["journal"],
@@ -119,7 +120,7 @@ def test_EC02_operator_selected_environment_uses_existing_client(provider, monke
     assert components.client.credentials().value == SECRET
     assert SECRET not in repr(components.client.credentials())
     assert components.binding.expected == provider.expected
-    assert provider.requests == 3
+    assert provider.requests == 4
 
 
 @pytest.mark.parametrize(
@@ -165,6 +166,7 @@ def test_EC03_missing_or_malformed_environment_redacts(provider, monkeypatch, va
 )
 def test_EC04_malformed_names_refuse_before_provider(provider, name):
     provider.linear = {
+        "agent_connection": provider.linear["agent_connection"],
         "expected": provider.linear["expected"],
         "journal": provider.linear["journal"],
         "credential_environment": name,
@@ -222,7 +224,7 @@ def test_EC07_rotation_and_missing_selected_name_refuse(provider, monkeypatch):
     monkeypatch.setenv(NAME, "changed-authored-credential")
     with pytest.raises(LinearError, match="credential_binding_changed"):
         client.request("query NoEffect { viewer { id } }", {})
-    assert provider.requests == 3
+    assert provider.requests == 4
     monkeypatch.delenv(NAME)
     monkeypatch.setenv("LINEAR_API_KEY", SECRET)
     with pytest.raises(AccessDenied):
@@ -233,6 +235,8 @@ def test_EC08_EC09_session_setup_persistence_and_model_boundary(provider, monkey
     select_environment(provider, monkeypatch)
     monkeypatch.setattr(HttpTransport, "ENDPOINT", provider.endpoint)
     config = read_private(provider.config)
+    config["linear"]["agent_connection"]["logical_session"] = "authored-environment-session"
+    write_private(provider.config, config, replace=True)
     external = os.environ.get("ENVIRONMENT_CREDENTIAL_FIXTURE")
     if external:
         config["core_database"] = external
@@ -345,6 +349,7 @@ def test_EC13_runtime_names_refuse_before_transport(provider, tmp_path, monkeypa
     monkeypatch.chdir(tmp_path)
     lookups = guard_dns(monkeypatch)
     config = {
+        "agent_connection": provider.linear["agent_connection"],
         "expected": provider.linear["expected"],
         "credential_environment": name,
         "journal": provider.linear["journal"],

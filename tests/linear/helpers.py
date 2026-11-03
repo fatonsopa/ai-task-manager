@@ -8,6 +8,7 @@ from threading import Thread
 from uuid import UUID, uuid4
 
 from ai_task_manager.adapters.linear.client import LinearClient
+from ai_task_manager.adapters.linear.connections import AgentConnection
 from ai_task_manager.adapters.linear.models import Credentials, ExpectedBinding
 from ai_task_manager.adapters.linear.prose import LinearMarkdownRenderer
 from ai_task_manager.adapters.linear.receipts import ProviderJournal
@@ -28,6 +29,7 @@ def uid(number):
 
 
 EXPECTED = ExpectedBinding(uid(1), uid(2), uid(3), "TST", uid(4))
+CONNECTION = AgentConnection(uid(20), uid(2), uid(1), "fixture-session", uid(21))
 STATES = {status.value: uid(100 + i) for i, status in enumerate(IssueStatus)}
 WEBHOOK = uid(10)
 
@@ -36,6 +38,8 @@ class ProviderFixture:
     def __init__(self):
         self.requests, self.issues = [], {}
         self.comments = {}
+        self.viewer_id = EXPECTED.viewer_id
+        self.agent_users = [{"id": CONNECTION.agent_id, "app": True}]
         self.serial = 0
         self.hook = None
         self.fail_next = None
@@ -105,9 +109,14 @@ class ProviderFixture:
             }
             self.comments[comment_id] = comment
             return {"commentCreate": {"success": True, "comment": copy.deepcopy(comment)}}
+        if "query AgentUsers" in query:
+            return {"organization": {"id": EXPECTED.workspace_id}, "users": {
+                "nodes": copy.deepcopy(self.agent_users),
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }}
         if "query VerifyBinding" in query:
             return {
-                "viewer": {"id": EXPECTED.viewer_id},
+                "viewer": {"id": self.viewer_id},
                 "organization": {"id": EXPECTED.workspace_id},
                 "team": {"id": EXPECTED.team_id, "key": "TST"},
                 "project": {"id": EXPECTED.project_id},
@@ -144,6 +153,7 @@ class ProviderFixture:
                 "team": {"id": values["teamId"], "key": "TST"},
                 "project": {"id": values["projectId"]},
                 "assignee": {"id": values["assigneeId"]},
+                "delegate": {"id": values["delegateId"], "app": True},
                 "state": {
                     "id": values["stateId"],
                     "name": next(
@@ -163,6 +173,9 @@ class ProviderFixture:
                         key for key, value in STATES.items() if value == values["stateId"]
                     ),
                 }
+            for name in ("assignee", "delegate"):
+                if name + "Id" in values:
+                    data[name] = {"id": values[name + "Id"], "app": name == "delegate"}
             for name in ("title", "description"):
                 if name in values:
                     data[name] = values[name]
@@ -217,6 +230,7 @@ class LinearRig(Rig):
             HttpTransport(_test_endpoint=provider.endpoint),
             lambda: Credentials("fixture-api-secret"),
             EXPECTED,
+            agent_connection=lambda: CONNECTION,
         )
         binding = self.client.verify_binding()
         self.scope = Scope(
@@ -227,6 +241,7 @@ class LinearRig(Rig):
             "fixture-session",
         )
         self.handle = self.core.register_session(self.journal.bind_principal(binding, self.scope))
+        self.journal.bind_connection(self.scope, self.client.check_connection(self.scope))
         self.outbound = OutboundDrain(self.core, self.client, self.journal)
         self.inbound = InboundDrain(
             self.core,

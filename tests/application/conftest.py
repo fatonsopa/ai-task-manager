@@ -17,7 +17,7 @@ from ai_task_manager.config.files import write_private
 from ai_task_manager.config.service import load_service
 from ai_task_manager.config.sessions import SessionFile
 from tests.application.helpers import Observations
-from tests.linear.helpers import EXPECTED, LinearRig, ProviderFixture
+from tests.linear.helpers import CONNECTION, EXPECTED, LinearRig, ProviderFixture
 
 
 @pytest.fixture
@@ -52,6 +52,7 @@ def composed(tmp_path):
             },
             "linear": {
                 "expected": asdict(EXPECTED),
+                "agent_connection": asdict(CONNECTION),
                 "credential_file": str(credentials),
                 "credential_key": "LINEAR_TEST_USER_A_TOKEN",
                 "journal": str(tmp_path / "provider.sqlite"),
