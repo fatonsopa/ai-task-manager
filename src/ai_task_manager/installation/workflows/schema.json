@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "config",
+    "scope",
+    "task_id",
+    "prose_digest",
+    "native_ref",
+    "native_digest",
+    "repository",
+    "source_head",
+    "state_root",
+    "deadline",
+    "principal_ref",
+    "plan_ref",
+    "files",
+    "artifacts",
+    "installation_path"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "device",
+        "inode",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "device": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inode": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "workspace",
+        "principal",
+        "project",
+        "logical_session"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workspace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "principal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project": {
+          "type": "string",
+          "minLength": 1
+        },
+        "logical_session": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "prose_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "native_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "native_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_head": {
+      "type": "string",
+      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+    },
+    "state_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "deadline": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "principal_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "plan_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "installation_path": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
