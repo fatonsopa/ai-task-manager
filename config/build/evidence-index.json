@@ -33,27 +33,27 @@
     },
     "spec_driven_development.md": {
       "checked_delivery": "delivered",
-      "sha256": "5666fcd800301ee5ab807824cd85816ba0394288b2213fe8ff8b8ea6005b0eb4",
+      "sha256": "ab4a4dbdd01da86ff6f298d5e4b9b0fb497ea82391a091f941c759387a3d8852",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
-      "objective_sha256": "585420227b852eec2f8a4d967d4bb095c7ba4edf5b7a0f470c4ac88a8cf26a5f",
-      "message_sha256": "88b9eb1d6bf00d199465f91fc386e544d3ebd14787a89eebb73bab390bc79b63",
-      "scope": "R15revision2 deterministic workflow control; exact excerpt only, no installed/live success claimed."
+      "objective_sha256": "2c27378bd42bc4c96a1f9a3b68f75d49b2e3974ac8607355f1473ebb49cfd4c2",
+      "message_sha256": "21f79a92d5d237e249190c7e0e6cb2d2034c307b746cca66d3d9da7190972910",
+      "scope": "Public workflow operations and retained scoped local owner; reviewed exact source-bound excerpt. Genuine native/provider/capture/normal installer and codepath remain pending."
     },
     "high_level_document.md": {
       "checked_delivery": "delivered",
-      "sha256": "d69cc07593e23dd343522eb68082320c21f185bb814c999988840249d7a91511",
+      "sha256": "a38978489265e7a9b042e30f4ae1b766b9e3494e35627b16947f599967460b8f",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
-      "objective_sha256": "ededd7875cd97300ab3b8f7b00213ab2d5d4df1ab80322c2ba5737a758d462d7",
-      "message_sha256": "4230006c424a868f05aa409e7410a68eb1c59aeb76e55ef0131e0b33164e1aef",
-      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
+      "objective_sha256": "da1541eb0c2ddb3dcfeb2708f797827ab25d3b6672b627d321247f5d9265d8c2",
+      "message_sha256": "945a7ad847c9ff1d22c1ece71f576838803e4bc8038d278717c2f726dbcc4153",
+      "scope": "Public workflow operations and retained scoped local owner; reviewed exact source-bound excerpt. Genuine native/provider/capture/normal installer and codepath remain pending."
     },
     "implementation_plan.md": {
       "checked_delivery": "delivered",
@@ -1375,6 +1375,32 @@
       "message_sha256": "47dadcbd5b91e51314381742eeeefd6010c8c2ef81a9a2c2572990984165e839",
       "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed.",
       "preserved_reason": "R15revision2 current source-bound excerpt delivered and reviewed; prior meaning/results retained."
+    },
+    {
+      "path": "spec_driven_development.md",
+      "checked_delivery": "delivered",
+      "sha256": "5666fcd800301ee5ab807824cd85816ba0394288b2213fe8ff8b8ea6005b0eb4",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "585420227b852eec2f8a4d967d4bb095c7ba4edf5b7a0f470c4ac88a8cf26a5f",
+      "message_sha256": "88b9eb1d6bf00d199465f91fc386e544d3ebd14787a89eebb73bab390bc79b63",
+      "scope": "R15revision2 deterministic workflow control; exact excerpt only, no installed/live success claimed."
+    },
+    {
+      "path": "high_level_document.md",
+      "checked_delivery": "delivered",
+      "sha256": "d69cc07593e23dd343522eb68082320c21f185bb814c999988840249d7a91511",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "ededd7875cd97300ab3b8f7b00213ab2d5d4df1ab80322c2ba5737a758d462d7",
+      "message_sha256": "4230006c424a868f05aa409e7410a68eb1c59aeb76e55ef0131e0b33164e1aef",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
     }
   ],
   "requirements_revision": 7,
