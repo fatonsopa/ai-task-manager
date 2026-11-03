@@ -69,6 +69,10 @@ class ConfinedWorkerGit(WorkerGit):
     def snapshot(self, path, allowed):
         """Read bytes and built-in Git metadata without running checkout filters."""
         path = Path(path)
+        gitdir = Path(
+            self.query(path, "rev-parse", "--path-format=absolute", "--git-dir").decode().strip()
+        )
+        original_index = file_state(gitdir / "index")
         base = self.query(path, "rev-parse", "HEAD").decode().strip()
         indexed, committed = {}, {}
         for entry in self.query(path, "ls-files", "--stage", "-z").split(b"\0"):
@@ -110,12 +114,16 @@ class ConfinedWorkerGit(WorkerGit):
         )
         if not changed or not changed <= set(allowed):
             raise AccessDenied("Worker change is empty or exceeds its installed file scope")
-        return {
+        snapshot = {
             "files": sorted(changed),
             "content": self.content(path, sorted(changed)),
             "git_source": self.source(path),
             "workspace_state": materialized,
+            "original_index": original_index,
         }
+        if file_state(gitdir / "index") != original_index:
+            raise AccessDenied("Original index changed during the checked snapshot")
+        return snapshot
 
     def stage(self, attempt_id, path, files, boundary, seconds, effect_boundary):
         boundary()

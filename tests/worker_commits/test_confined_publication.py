@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_task_manager.adapters.git.commits import WorkerGit
+from ai_task_manager.adapters.git.commits import ConfinedWorkerGit, WorkerGit
 from ai_task_manager.adapters.git.commits.private import environment, file_state, prepare, query
 from ai_task_manager.adapters.git.commits.publication import Publication
 from ai_task_manager.supervisor.models import RuntimeUncertain
@@ -21,6 +21,7 @@ def prepared(tmp_path):
     pair = fixture.runtime.pair(row["attempt_id"])
     observer = WorkerGit(fixture.rr.journal)
     intent = fixture.commits.prepare(row, fixture.plan)
+    intent.update(ConfinedWorkerGit.snapshot(observer, pair.worktree, fixture.plan.allowed_files))
     root = fixture.rr.path / "private"
     root.mkdir(mode=0o700)
     record = prepare(observer, pair.attempt_id, pair.worktree, root / "git", intent)

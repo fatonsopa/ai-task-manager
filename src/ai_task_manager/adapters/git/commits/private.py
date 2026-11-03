@@ -87,6 +87,10 @@ def prepare(observer, attempt_id, path, directory, intent):
     gitdir = Path(
         observer.query(path, "rev-parse", "--path-format=absolute", "--git-dir").decode().strip()
     ).resolve()
+    if "original_index" not in intent:
+        raise AccessDenied("Checked original index provenance is required")
+    if file_state(gitdir / "index") != intent["original_index"]:
+        raise AccessDenied("Original index changed since the checked snapshot")
     objects = common / "objects"
     if observer.query(path, "rev-parse", "--show-object-format").strip() != b"sha1":
         raise AccessDenied("This confined Git adapter requires the admitted SHA-1 object format")
@@ -160,10 +164,12 @@ def prepare(observer, attempt_id, path, directory, intent):
         "git_source": intent["git_source"],
         "config_sha256": sha(config),
         "hooks": copied,
-        "original_index": file_state(gitdir / "index"),
+        "original_index": intent["original_index"],
         "original_head": sha(gitdir / "HEAD"),
     }
     query(record, "read-tree", intent["base"])
+    if file_state(gitdir / "index") != record["original_index"]:
+        raise AccessDenied("Original index changed during private metadata preparation")
     if observer.source(path) != intent["git_source"] or hooks_state(hooks) != copied:
         raise AccessDenied("Git source changed during private metadata preparation")
     write_private(directory.parent / "preparation.json", record)
