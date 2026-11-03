@@ -2,10 +2,12 @@
 
 import threading
 from dataclasses import dataclass
+from time import monotonic as diagnostic_clock
 from uuid import uuid4
 
 from ai_task_manager.domains.scheduling.models import WorkRenewal
 from ai_task_manager.domains.work.errors import AccessDenied
+from ai_task_manager.observability.failures import FailureStage, capture_failure
 
 
 @dataclass(frozen=True)
@@ -84,6 +86,32 @@ class AttemptAuthority:
         self._current = None
         self._expires_at = None
         self._on_failure = on_failure
+        self.failure_diagnostics = []
+        self.diagnostic_retention_failed = False
+        self.diagnostics_truncated = False
+
+    def _diagnose(self, error, stage, started=None):
+        if len(self.failure_diagnostics) >= 8:
+            self.diagnostics_truncated = True
+            return
+        report = capture_failure(error, stage, started=started)
+        retained = {"failure": report, "retained": False}
+        self.failure_diagnostics.append(retained)
+        try:
+            retained["reference"] = self.native.journal._append(
+                "trace",
+                {
+                    "effect": "work_authority_failure_cause",
+                    "attempt_id": self.attempt_id,
+                    "failure": report,
+                },
+            )
+            retained["retained"] = True
+        except BaseException as retention_error:
+            self.diagnostic_retention_failed = True
+            retained["retention_failure"] = capture_failure(
+                retention_error, FailureStage.DIAGNOSTIC_RETENTION
+            )
 
     def _check_owner(self):
         self.registry.check()
@@ -110,6 +138,7 @@ class AttemptAuthority:
         return self.continuity.check(value)
 
     def refresh(self):
+        started = diagnostic_clock()
         if not self._collecting.acquire(blocking=False):
             return self.check_prepared()
         try:
@@ -182,6 +211,7 @@ class AttemptAuthority:
             return view
         except BaseException as error:
             self._failure = type(error).__name__
+            self._diagnose(error, FailureStage.AUTHORITY_REFRESH, started)
             raise
         finally:
             self._collecting.release()
@@ -200,18 +230,21 @@ class AttemptAuthority:
             while not self._stop.wait(
                 min(5, max(0.05, (self._expires_at - self.registry.core.context.clock()) / 3))
             ):
+                started = diagnostic_clock()
                 try:
                     self.ensure_current()
                     core = self.registry.core
                     attempt = core.get_attempt(self.handle, self.attempt_id)
                     core.execution.validate_work_lease(self.handle, attempt.id, attempt.version)
                 except BaseException as error:
+                    self._diagnose(error, FailureStage.AUTHORITY_MONITOR, started)
                     # Retain Core ownership. The caller settles only after complete
                     # native/refresh/command stop; a model message cannot release it.
                     stop_error = None
                     try:
                         stopped = self.native.stop()
                     except BaseException as failed_stop:
+                        self._diagnose(failed_stop, FailureStage.AUTHORITY_STOP)
                         stopped, stop_error = None, type(failed_stop).__name__
                     try:
                         self.native.journal._append(
@@ -232,6 +265,7 @@ class AttemptAuthority:
                         if self._on_failure is not None:
                             self._on_failure(self._failure)
                     except BaseException as settlement_error:
+                        self._diagnose(settlement_error, FailureStage.AUTHORITY_CALLBACK)
                         self._retention_error = type(settlement_error).__name__
                     return
 
