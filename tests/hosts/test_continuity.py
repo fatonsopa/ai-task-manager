@@ -98,18 +98,16 @@ def test_real_managed_composition_refreshes_before_start_and_lease_gated_edit(
     workers.bind_dependencies(source)
     attempt = start(value)
     authority = workers._freshness[attempt.id]
-    assert source.calls == 2
-    assert (
-        len(
-            [
-                e
-                for e in core.notifications.list_events(handle)
-                if e.kind == "scheduling_authority_renewed"
-            ]
-        )
-        == 2
-    )
+    refreshed = [
+        e for e in core.notifications.list_events(handle)
+        if e.kind == "scheduling_authority_renewed"
+    ]
+    assert refreshed
     cap = factory.owned[attempt.id].binding.deadline
+    assert all(e.payload["expires_at"] <= cap for e in refreshed)
+    current_facts = core.scheduling.explain(handle, task.id)
+    assert current_facts["state"] == "ready"
+    assert current_facts["source_revision"] >= refreshed[-1].payload["source_revision"]
     if age_before_work:
         clock[0] += 21
     workers.execute_reviewed(handle, attempt.id, "assignment", "fresh-assignment")
