@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, replace
 from pathlib import Path
 from threading import Lock
+from time import monotonic as diagnostic_clock
 
 import anyio
 from anyio.from_thread import start_blocking_portal
@@ -20,6 +21,7 @@ from ai_task_manager.adapters.hosts.transports.codex import CodexSession
 from ai_task_manager.adapters.hosts.transports.native_exit import require_exit_monitoring
 from ai_task_manager.adapters.hosts.transports.process import HostProcess
 from ai_task_manager.domains.work.errors import AccessDenied
+from ai_task_manager.observability.failures import FailureStage, capture_failure
 
 from .auth_probe import ClaudeAuthProbe
 from .codex_auth import CodexAuthProbe
@@ -89,6 +91,8 @@ class ManagedNativeHost:
         self._turn_lock = Lock()
         self._stop_lock = Lock()
         self._session_close_attempted = False
+        self.failure_diagnostics = []
+        self.diagnostics_truncated = False
         self.authority = None
         self.identity = self._identity_bound = None
         self._source_auditor = source_auditor
@@ -327,6 +331,7 @@ class ManagedNativeHost:
                 yield
 
     def execute_model_turn(self, text, *, invocation=None):
+        started = diagnostic_clock()
         with self._source_audit_boundary(before=True):
             if not self._turn_lock.acquire(blocking=False):
                 raise AccessDenied("An owned native model turn is already active")
@@ -343,8 +348,32 @@ class ManagedNativeHost:
                     if self.binding.host == "claude":
                         return self.portal.call(self.session.turn, text)
                     return self.session.turn(text)
+            except BaseException as error:
+                self._diagnose(error, FailureStage.NATIVE_TURN, started)
+                raise
             finally:
                 self._turn_lock.release()
+
+    def _diagnose(self, error, stage, started=None):
+        if len(self.failure_diagnostics) >= 16:
+            self.diagnostics_truncated = True
+            return
+        item = {"failure": capture_failure(error, stage, started=started), "retained": False}
+        self.failure_diagnostics.append(item)
+        try:
+            item["reference"] = self.journal._append(
+                "trace",
+                {
+                    "effect": "native_failure_cause",
+                    "attempt_id": self.binding.attempt_id,
+                    "failure": item["failure"],
+                },
+            )
+            item["retained"] = True
+        except BaseException as retention_error:
+            item["retention_failure"] = capture_failure(
+                retention_error, FailureStage.DIAGNOSTIC_RETENTION
+            )
 
     def invocation_completed(self, permit):
         # Trusted accounting must have recorded completion before the watchdog
@@ -356,6 +385,9 @@ class ManagedNativeHost:
             raise AccessDenied("Owned native stopping is already in progress")
         try:
             return self._stop_owned()
+        except BaseException as error:
+            self._diagnose(error, FailureStage.NATIVE_STOP)
+            raise
         finally:
             self._stop_lock.release()
 
@@ -378,12 +410,14 @@ class ManagedNativeHost:
                         else:
                             self.session.close()
             except BaseException as error:
+                self._diagnose(error, FailureStage.NATIVE_DISCONNECT)
                 errors.append(("session_close", type(error).__name__))
             finally:
                 try:
                     if self._portal_context is not None:
                         self._portal_context.__exit__(None, None, None)
                 except BaseException as error:
+                    self._diagnose(error, FailureStage.NATIVE_DISCONNECT)
                     errors.append(("portal_close", type(error).__name__))
                 finally:
                     self._portal_context = self.portal = None
@@ -402,9 +436,12 @@ class ManagedNativeHost:
                     )
             if not identity_stopped:
                 self.journal._append(
-                    "trace", {"effect": "identity_helper_stop_unknown",
-                              "attempt_id": self.binding.attempt_id,
-                              "native_group_stop": asdict(stopped)},
+                    "trace",
+                    {
+                        "effect": "identity_helper_stop_unknown",
+                        "attempt_id": self.binding.attempt_id,
+                        "native_group_stop": asdict(stopped),
+                    },
                 )
                 stopped = replace(stopped, confirmed=False, reason="identity_helper_stop_unknown")
             self.permits.record_host_stop(self.binding, stopped)

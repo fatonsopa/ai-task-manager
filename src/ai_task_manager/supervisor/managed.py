@@ -3,11 +3,13 @@
 import math
 from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass
+from time import monotonic as diagnostic_clock
 
 from ai_task_manager.adapters.hosts.bridge.records import HostBinding
 from ai_task_manager.adapters.resources.paths import unchanged
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import ACTIVE_ATTEMPTS
+from ai_task_manager.observability.failures import FailureStage, capture_failure
 
 from .models import RuntimeUncertain
 
@@ -60,6 +62,8 @@ class ManagedWorkers:
         self.authorities = None
         self._freshness = {}
         self._startup_freshness = {}
+        self.failure_diagnostics = []
+        self.diagnostics_truncated = False
         self.decision_preparation = self._decision_preparation = decision_preparation
         if dependencies is not None:
             self.bind_dependencies(dependencies)
@@ -215,6 +219,7 @@ class ManagedWorkers:
                 self._freshness[attempt.id].start()
             return running
         except BaseException as error:
+            self._diagnose(attempt.id, error, FailureStage.MANAGED_START)
             self._abort(handle, attempt.id, waiting, native, operation_key, type(error).__name__)
             raise
 
@@ -240,6 +245,7 @@ class ManagedWorkers:
         return self.execute_reviewed(handle, attempt_id, command_ref, operation_key)
 
     def execute_reviewed(self, handle, attempt_id, command_ref, operation_key):
+        started = diagnostic_clock()
         dispatch = self.dispatches.get(attempt_id)
         if dispatch is None:
             raise RuntimeUncertain(
@@ -263,6 +269,7 @@ class ManagedWorkers:
                 merge_authority=lambda: self._merge_authority(handle, dispatch, attempt.version),
             )
         except BaseException as error:
+            self._diagnose(attempt_id, error, FailureStage.MANAGED_EXECUTION, started)
             if kind == "model":
                 try:
                     self._finish(
@@ -275,6 +282,7 @@ class ManagedWorkers:
                         "failed",
                     )
                 except BaseException as settlement_error:
+                    self._diagnose(attempt_id, settlement_error, FailureStage.MANAGED_SETTLEMENT)
                     self.journal.observe(
                         attempt_id,
                         "settlement_pending",
@@ -299,6 +307,22 @@ class ManagedWorkers:
                     "Assigned model ended but complete owned stop is unconfirmed"
                 )
         return result
+
+    def _diagnose(self, attempt_id, error, stage, started=None):
+        if len(self.failure_diagnostics) >= 16:
+            self.diagnostics_truncated = True
+            return
+        item = {"failure": capture_failure(error, stage, started=started), "retained": False}
+        self.failure_diagnostics.append(item)
+        try:
+            item["reference"] = self.journal.observe(
+                attempt_id, "managed_failure_cause", {"failure": item["failure"]}
+            )
+            item["retained"] = True
+        except BaseException as retention_error:
+            item["retention_failure"] = capture_failure(
+                retention_error, FailureStage.DIAGNOSTIC_RETENTION
+            )
 
     def _boundary(self, handle, dispatch, version):
         if self.journal.clock() >= self.deadline:
@@ -378,6 +402,7 @@ class ManagedWorkers:
         try:
             self._finish(handle, attempt_id, waiting, native, key + ":abort", reason, "failed")
         except BaseException as error:
+            self._diagnose(attempt_id, error, FailureStage.MANAGED_SETTLEMENT)
             self.journal.observe(attempt_id, "settlement_pending", {"reason": type(error).__name__})
 
     def _finish(self, handle, attempt_id, waiting, native, key, reason, state):
@@ -388,18 +413,21 @@ class ManagedWorkers:
             outcomes.append(self._freshness[attempt_id].close())
         try:
             outcomes.append(self.executions.reconcile_stopped(attempt_id) is True)
-        except BaseException:
+        except BaseException as error:
+            self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
             outcomes.append(False)
         if native is not None:
             try:
                 outcomes.append(native.stop().confirmed)
-            except BaseException:
+            except BaseException as error:
+                self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
                 outcomes.append(False)
         elif self.journal.effect(attempt_id, "native_launch") is not None:
             # launch() may have failed after creating a CLI. Only its trusted owner can reconcile.
             try:
                 outcomes.append(self.hosts.reconcile_stopped(attempt_id))
-            except BaseException:
+            except BaseException as error:
+                self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
                 outcomes.append(False)
         if waiting is not None:
             try:
@@ -409,7 +437,8 @@ class ManagedWorkers:
                     if stopped.quiescent:
                         self._waiting_stops[attempt_id] = stopped
                 outcomes.append(stopped.quiescent)
-            except BaseException:
+            except BaseException as error:
+                self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
                 outcomes.append(False)
         elif self.journal.effect(attempt_id, "launch") is not None:
             outcomes.append(False)

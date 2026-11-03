@@ -6,11 +6,13 @@ outside Core transactions; an expired or invalidated attempt cannot be revived.
 
 import threading
 import time
+from time import monotonic as diagnostic_clock
 from uuid import uuid4
 
 from ai_task_manager.domains.scheduling.models import SchedulingBlocked
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import AttemptState
+from ai_task_manager.observability.failures import FailureStage, capture_failure
 
 
 class StartupAuthority:
@@ -28,6 +30,7 @@ class StartupAuthority:
         self._failure = None
         self._handover = False
         self._latency = 0.0
+        self.failure_diagnostic = None
         self.check()
 
     def check(self):
@@ -68,7 +71,9 @@ class StartupAuthority:
         started = time.monotonic()
         # Actual HTTP and complete source observations occur outside Core.
         value = self.registry.dependencies.prepare(
-            task.id, key, expected_version=task.version,
+            task.id,
+            key,
+            expected_version=task.version,
             decision_revision=task.decision_revision,
         )
         self._latency = max(self._latency, time.monotonic() - started)
@@ -78,8 +83,12 @@ class StartupAuthority:
         self.check()
         core = self.registry.core
         core.scheduling.observe(
-            self.handle, task.id, task.version, task.decision_revision,
-            value.snapshot_ref, key + ":commit",
+            self.handle,
+            task.id,
+            task.version,
+            task.decision_revision,
+            value.snapshot_ref,
+            key + ":commit",
         )
         self.check()
 
@@ -91,6 +100,7 @@ class StartupAuthority:
         def run():
             next_at = self.registry.core.context.clock()
             while not self._stop.is_set():
+                started = diagnostic_clock()
                 try:
                     self.check()
                     if self.registry.core.context.clock() >= next_at:
@@ -107,12 +117,27 @@ class StartupAuthority:
                 except BaseException as error:
                     if not self._stop.is_set():
                         self._failure = error
+                        failure = capture_failure(
+                            error, FailureStage.STARTUP_MONITOR, started=started
+                        )
+                        self.failure_diagnostic = {"failure": failure, "retained": False}
+                        try:
+                            reference = self.runtime.observe(
+                                self.attempt_id, "startup_failure_cause", {"failure": failure}
+                            )
+                            self.failure_diagnostic.update(retained=True, reference=reference)
+                        except BaseException as retention_error:
+                            self.failure_diagnostic["retention_failure"] = capture_failure(
+                                retention_error, FailureStage.DIAGNOSTIC_RETENTION
+                            )
                     return
                 if self._stop.wait(1):
                     return
 
         self._thread = threading.Thread(
-            target=run, name="managed-startup-dependencies", daemon=True,
+            target=run,
+            name="managed-startup-dependencies",
+            daemon=True,
         )
         self._thread.start()
 
