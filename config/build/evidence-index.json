@@ -105,15 +105,15 @@
     },
     "test_status_report.md": {
       "checked_delivery": "delivered",
-      "sha256": "32a175b21ef9ee67abc1912a9eaddff2077737ab8f58c47945ce2b752b628f58",
+      "sha256": "6f6b19c78a04bda234e07373eb3e9bdffc08858ff6b1deae08b2b509ad5cef57",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
-      "objective_sha256": "7e3043f52a56fac1011efc061a5584d6ac1cf2e7af4209bad0d2e4a0c797548d",
+      "objective_sha256": "46ee11e56e2d720241524812e36d2377c8c280d32f2826442e4adf0d51dc2de3",
       "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
-      "scope": "Reporting period02:00\u201304:17UTC: version-bound controller/review/installedconsumer/diagnostics components; retained failed native cases and verified CASE9 terminal/artifact before failed shutdown; no complete live/profile/normal installation claim."
+      "scope": "Reporting period04:17\u201306:18UTC: accepted shutdown/renewal/installer/coldresolver layers and actual CASE11 component pass; preserved eleven failed entries/unknown obligations and unintegrated merge candidate within this period. Full installed/live/profile acceptance incomplete."
     },
     "merge/decision_record.md": {
       "checked_delivery": "delivered",
@@ -1115,6 +1115,21 @@
         "objective_sha256": "828892067c2bab0b3c598a9b76d5cb72c500b68bc8d6ad1786eec3825cc91ba1",
         "message_sha256": "e018338cb89faa277124fe92d235bdc95c456e10bbbe824738c65e204cc0bbc8",
         "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
+      }
+    },
+    {
+      "reporting_period": "2026-11-03 02:00\u201304:17 UTC",
+      "document_check": {
+        "checked_delivery": "delivered",
+        "sha256": "32a175b21ef9ee67abc1912a9eaddff2077737ab8f58c47945ce2b752b628f58",
+        "review_kind": "current_host_self_review",
+        "model": null,
+        "meaning_and_style_review": true,
+        "independent_review": false,
+        "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+        "objective_sha256": "7e3043f52a56fac1011efc061a5584d6ac1cf2e7af4209bad0d2e4a0c797548d",
+        "message_sha256": "126b5b752e8282dcb16b4fab95741de23d98d7ac74fedd309173096c88b4b1dc",
+        "scope": "Reporting period02:00\u201304:17UTC: version-bound controller/review/installedconsumer/diagnostics components; retained failed native cases and verified CASE9 terminal/artifact before failed shutdown; no complete live/profile/normal installation claim."
       }
     }
   ],

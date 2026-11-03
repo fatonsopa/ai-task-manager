@@ -254,20 +254,36 @@ def legacy_database_type(version=3):
     return namespace["Database"]
 
 
+# Exact positive canonical-fence dependency from own-product 95d758f18abfe3682f1382c09e06770fad97b9ab.
+LEGACY_CANONICAL_SOURCE = 'def identity(scope, issue_id):\n    raw = json.dumps(\n        {"provider": scope.provider, "workspace": scope.workspace, "issue_id": issue_id},\n        sort_keys=True,\n        separators=(",", ":"),\n        ensure_ascii=False,\n    )\n    return hashlib.sha256(raw.encode()).hexdigest()\n\ndef _facts(conn, scope, issue_id):\n    row = conn.execute(\n        "SELECT delivered,terminal FROM issue_lifecycle WHERE identity_key=?",\n        (identity(scope, issue_id),),\n    ).fetchone()\n    if row and any(type(value) is not int or value not in {0, 1} for value in row):\n        raise SchemaError("Canonical lifecycle facts are invalid")\n    return row\n\ndef require_open(conn, scope, issue_id):\n    row = _facts(conn, scope, issue_id)\n    if row and (row[0] or row[1]):\n        raise EvidenceRequired("Delivered or terminal history requires a new authorized issue")'
+LEGACY_EXECUTION_OPEN_SOURCE = 'def require_open(conn, scope, task):\n        try:\n            issue_claims.require_open(conn, scope, task.issue_id)\n        except EvidenceRequired as exc:\n            raise InvalidTransition(\n                "Delivered or terminal work requires a new linked issue"\n            ) from exc'
+LEGACY_CANONICAL_SHA256 = '08789889f3c9f91d5b3a9a33cc685c70246f58f9774a5dfbb957b10cf2cda2d7'
+LEGACY_EXECUTION_OPEN_SHA256 = 'e9e613d7e30f0e16c8edec3df05e7d0a527ae0ee1a38ee5a4f8545f145cc54e1'
+
+
 def legacy_execution(context):
-    from ai_task_manager.application.execution import Execution
+    import hashlib
+    import json
+    from types import SimpleNamespace
     from contextlib import contextmanager
-    from ai_task_manager.domains.work.errors import InvalidTransition, StaleVersion
+    from ai_task_manager.domains.work.errors import EvidenceRequired, InvalidTransition, SchemaError, StaleVersion
     from ai_task_manager.domains.work.models import AttemptState, IssueStatus, SyncState
     from ai_task_manager.storage import attempts, sessions, work
+    assert hashlib.sha256(LEGACY_CANONICAL_SOURCE.encode()).hexdigest() == LEGACY_CANONICAL_SHA256
+    assert hashlib.sha256(LEGACY_EXECUTION_OPEN_SOURCE.encode()).hexdigest() == LEGACY_EXECUTION_OPEN_SHA256
+    canonical = dict(hashlib=hashlib, json=json, EvidenceRequired=EvidenceRequired, SchemaError=SchemaError)
+    exec(compile(LEGACY_CANONICAL_SOURCE, "frozen_schema3_canonical", "exec"), canonical)
     namespace = dict(A=AttemptState, S=IssueStatus, SyncState=SyncState,
                      InvalidTransition=InvalidTransition, StaleVersion=StaleVersion,
+                     EvidenceRequired=EvidenceRequired,
+                     issue_claims=SimpleNamespace(require_open=canonical["require_open"]),
                      attempts=attempts, sessions=sessions, work=work)
+    exec(compile(LEGACY_EXECUTION_OPEN_SOURCE, "frozen_schema3_open", "exec"), namespace)
     exec(compile(LEGACY_LEASE_SOURCE, "frozen_schema3_lease", "exec"), namespace)
     fixture = type("CachedSchema3Execution", (), {
         "_work_lease": namespace["_work_lease"],
         "validate_work_lease": namespace["validate_work_lease"],
-        "require_open": staticmethod(Execution.require_open),
+        "require_open": staticmethod(namespace["require_open"]),
         "work_boundary": contextmanager(namespace["work_boundary"]),
     })()
     fixture.c = context

@@ -43,7 +43,7 @@ def rows(database):
     try:
         names = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
         return {name: conn.execute('SELECT * FROM "' + name + '" ORDER BY rowid').fetchall()
-                for name in names if not name.startswith("scheduling_") and name != "metadata"}
+                for name in names if not name.startswith("scheduling_") and name not in {"metadata", "publication_fences"}}
     finally:
         conn.close()
 
@@ -88,8 +88,9 @@ def test_preserve_enrolled_schema3_store(variant, tmp_path):
     assert rows(new) == before
     assert rows(new)["store_identity"] == identity
     with new.transaction() as conn:
-        assert conn.execute("SELECT version FROM metadata").fetchone()[0] == 4
+        assert conn.execute("SELECT version FROM metadata").fetchone()[0] == 5
         assert conn.execute("SELECT count(*) FROM scheduling_snapshots").fetchone()[0] == 0
+        assert conn.execute("SELECT count(*) FROM publication_fences").fetchone()[0] == 0
         # Missing old metadata is never silently converted to an empty declaration.
         assert conn.execute("SELECT count(*) FROM scheduling_history").fetchone()[0] == 0
 
