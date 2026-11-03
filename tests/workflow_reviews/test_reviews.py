@@ -265,3 +265,24 @@ def test_actual_core_rejects_wrong_unit_and_revised_prose(rig):
     revised = rig.r.confirm(revised)
     with pytest.raises(WorkError):
         rig.complete(refs["units"]["complete"], task=revised)
+
+
+def test_configured_criteria_own_their_immutable_input_snapshot(rig):
+    from ai_task_manager.adapters.workflow_reviews import CurrentArtifacts
+
+    mutable = [list(pair) for pair in rig.artifacts.criteria[rig.task.id]]
+    expected = tuple(tuple(pair) for pair in mutable)
+    observer = CurrentArtifacts(
+        rig.r.core,
+        rig.r.handle,
+        rig.store,
+        rig.inspector,
+        rig.view,
+        {rig.task.id: rig.plan},
+        {rig.task.id: mutable},
+    )
+    mutable[0][1] = "Caller replacement must not edit installed criteria"
+    assert observer.criteria[rig.task.id] == expected
+    prepared = observer.prepare(rig.scope, rig.task, rig.saved["digest"])
+    assert prepared.digest == rig.inspection.digest
+    assert rig.source.resolve(prepared).context_digest == prepared.digest

@@ -19,17 +19,23 @@ class CurrentArtifacts:
         self.core, self.handle, self.store = core, handle, store
         self.inspector, self.runtime = inspector, runtime
         self.plans = MappingProxyType(dict(plans))
-        self.criteria = MappingProxyType({key: tuple(value) for key, value in criteria.items()})
-        self._bound = (core, handle, store, inspector, runtime, self.plans, self.criteria)
         if any(
-            not value
-            or len({c[0] for c in value}) != len(value)
+            type(value) not in {tuple, list}
+            or not value
             or any(
-                len(c) != 2 or not all(isinstance(x, str) and x.strip() for x in c) for c in value
+                type(c) not in {tuple, list}
+                or len(c) != 2
+                or not all(isinstance(x, str) and x.strip() for x in c)
+                for c in value
             )
-            for value in self.criteria.values()
+            or len({c[0] for c in value}) != len(value)
+            for value in criteria.values()
         ):
             raise EvidenceRequired("Trusted distinct criteria and descriptions are required")
+        self.criteria = MappingProxyType(
+            {key: tuple(tuple(c) for c in value) for key, value in criteria.items()}
+        )
+        self._bound = (core, handle, store, inspector, runtime, self.plans, self.criteria)
 
     def check_binding(self):
         current = (
