@@ -407,21 +407,32 @@ class ManagedWorkers:
 
     def _finish(self, handle, attempt_id, waiting, native, key, reason, state):
         outcomes = []
+        collectors = []
+        components = {}
         if attempt_id in self._startup_freshness:
-            outcomes.append(self._startup_freshness[attempt_id].close())
+            collectors.append(("startup_collector", self._startup_freshness[attempt_id]))
         if attempt_id in self._freshness:
-            outcomes.append(self._freshness[attempt_id].close())
+            collectors.append(("active_collector", self._freshness[attempt_id]))
+        for name, collector in collectors:
+            try:
+                collector.request_close()
+                components[name] = True
+            except BaseException as error:
+                self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
+                components[name] = False
         try:
             outcomes.append(self.executions.reconcile_stopped(attempt_id) is True)
         except BaseException as error:
             self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
             outcomes.append(False)
+        components["commands"] = outcomes[-1]
         if native is not None:
             try:
                 outcomes.append(native.stop().confirmed)
             except BaseException as error:
                 self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
                 outcomes.append(False)
+            components["native"] = outcomes[-1]
         elif self.journal.effect(attempt_id, "native_launch") is not None:
             # launch() may have failed after creating a CLI. Only its trusted owner can reconcile.
             try:
@@ -429,6 +440,22 @@ class ManagedWorkers:
             except BaseException as error:
                 self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
                 outcomes.append(False)
+            components["native"] = outcomes[-1]
+        # Model/tool authority is already fenced and the native owner is stopped
+        # promptly. Only then drain already-owned provider collection off-Core.
+        collector_outcomes = []
+        for name, collector in collectors:
+            try:
+                closed = collector.close()
+            except BaseException as error:
+                self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
+                closed = False
+            components[name] = components[name] and closed
+            collector_outcomes.append(components[name])
+        outcomes = collector_outcomes + outcomes
+        authority_failed = any(collector._failure is not None for _, collector in collectors)
+        if state == "done" and authority_failed:
+            state = "failed"
         if waiting is not None:
             try:
                 stopped = self._waiting_stops.get(attempt_id)
@@ -440,8 +467,10 @@ class ManagedWorkers:
             except BaseException as error:
                 self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
                 outcomes.append(False)
+            components["harness"] = outcomes[-1]
         elif self.journal.effect(attempt_id, "launch") is not None:
             outcomes.append(False)
+            components["harness"] = False
         quiescent = all(value is True for value in outcomes)
         attempt = self.core.get_attempt(handle, attempt_id)
         observation = self.journal.observe(
@@ -456,6 +485,8 @@ class ManagedWorkers:
                 "reason": reason,
                 "model_success": "not_established",
                 "native_and_harness_stop": outcomes,
+                "stop_components": components,
+                "authority_failed_before_close": authority_failed,
             },
         )
         return self._settle_observation(handle, attempt_id, observation, key)

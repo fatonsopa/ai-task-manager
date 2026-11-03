@@ -142,8 +142,12 @@ class StartupAuthority:
         self._thread.start()
 
     def close(self):
-        self._handover = False
+        self.request_close()
         return self._stop_and_join()
+
+    def request_close(self):
+        self._handover = False
+        self._stop.set()
 
     def _stop_and_join(self):
         self._stop.set()
