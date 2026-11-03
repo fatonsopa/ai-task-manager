@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import os
+import sqlite3
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
@@ -44,9 +45,13 @@ def history(journal, reference):
     """Verify an immutable historical record; deliberately do not consume it."""
     with journal.transaction() as conn:
         row = conn.execute("SELECT data,mac FROM records WHERE ref=?", (reference,)).fetchone()
+    return _verified_history(row, journal._key, reference)
+
+
+def _verified_history(row, key, reference):
     if row is None:
         return None
-    expected = hmac.new(journal._key, row[0].encode(), hashlib.sha256).hexdigest()
+    expected = hmac.new(key, row[0].encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, row[1]):
         raise AccessDenied("Session setup history changed")
     value = json.loads(row[0])
@@ -71,6 +76,23 @@ def installed_authority(config):
 def provider_history(journal, config, reference):
     """Missing continuity evidence requires reconciliation, never a new journal."""
     origin = history(journal, "session-setup-origin:" + digest(reference))
+    return _provider_history(origin, config)
+
+
+def installed_provider_history(config):
+    """Read published continuity before constructors can initialize or migrate stores."""
+    reference = "session-setup-origin:" + digest(config.get("grant_ref"))
+    path = Path(config["authority_database"]).absolute()
+    conn = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
+    try:
+        row = conn.execute("SELECT data,mac FROM records WHERE ref=?", (reference,)).fetchone()
+    finally:
+        conn.close()
+    origin = _verified_history(row, Path(config["authority_key"]).read_bytes(), reference)
+    return _provider_history(origin, config)
+
+
+def _provider_history(origin, config):
     if origin is None or origin.get("provider_journal") is None:
         raise EvidenceRequired(
             "Original provider journal evidence requires explicit reconciliation"
@@ -98,9 +120,9 @@ def setup_origin(journal, reference, scope, destination, config, renew_from, wor
         return origin_ref, origin
     existing = history(journal, reference)
     if existing is not None:
-        completed = history(journal, "session-setup-result:" + digest(reference))
-        if completed is None or config.get("grant_ref") != reference:
-            raise EvidenceRequired("Unfinished legacy enrollment requires explicit recovery")
+        raise EvidenceRequired(
+            "Existing legacy enrollment requires explicit recovery and reconciliation"
+        )
     if destination.exists() and existing is None and renew_from is None:
         raise AccessDenied("New enrollment cannot adopt an existing capability")
     return origin_ref, {

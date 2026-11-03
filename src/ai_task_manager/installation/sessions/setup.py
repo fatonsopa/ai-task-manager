@@ -25,6 +25,7 @@ from ai_task_manager.storage.database import Database
 from .recovery import (
     history,
     installed_authority,
+    installed_provider_history,
     provider_history,
     renewal,
     setup_lock,
@@ -121,6 +122,7 @@ def _setup(
     reference = PREFIX + digest({"config": str(config_file), "key": operation_key})
     if renew_from is not None or config.get("grant_ref") is not None:
         installed_authority(config)
+        installed_provider_history(config)
     journal = AuthorityJournal(config["authority_database"], config["authority_key"])
     if renew_from is not None:
         provider_history(journal, config, config.get("grant_ref"))
