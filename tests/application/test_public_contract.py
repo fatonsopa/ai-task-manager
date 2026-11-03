@@ -6,6 +6,8 @@ from ai_task_manager.application.service.models import SCHEMAS
 
 def test_public_contract_has_required_operations_and_no_authority_issuer():
     required = {
+        "workflow_run",
+        "workflow_resume",
         "session_show",
         "session_resume",
         "writing_prepare",

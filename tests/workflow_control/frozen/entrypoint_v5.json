@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "extends": "entrypoint_v4.json",
+  "production_source_changed": false,
+  "WE12_named_variants": [
+    "signed_request_nonce_replay",
+    "tampered_response_cannot_claim_done",
+    "oversize_frame_keeps_owner_healthy"
+  ],
+  "WE06_named_variants": [
+    "forged_pid",
+    "changed_source_digest",
+    "wrong_socket_inode"
+  ],
+  "retained": "26/26 latest owner/lifetime/concurrency controls; execute only these additive variants."
+}

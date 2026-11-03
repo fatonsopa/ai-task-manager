@@ -123,6 +123,14 @@ Bind each host session to a trusted local session capability, principal and proj
 
 Skill Builder is for authoring and evaluating focused reusable skills, such as lead coordination and setup/recovery/removal guidance. Its current contract requires one independently installable repository per skill. Produce those skill repositories in the build workspace outside the product checkout, then assemble pinned, hashed releases into the product package. Include reproducible source snapshots and license attribution. Do not modify Builder merely to make the product repository pass its skill layout checks. The product must run without Builder installed.
 
+### Retained local workflow owner
+
+The public configuration loader accepts a trusted workflow factory supplied by installer code, or connects clients to the installed private owner described by `workflow_control`. Configuration cannot name a Python import or arbitrary command. The factory composes `WorkflowDriver`, `WorkflowStore`, existing runtime/resources, provider confirmation and artifact-bound review interfaces. Required missing ports remain explicit; authored provider/review fixtures are not production defaults.
+
+`WorkflowOwner` retains actual runtime handles across CLI and MCP client exits. Its Unix socket and private descriptor bind the configured file identity/content, installation source, scoped session, owner instance, PID/start identity and socket identity. Nonce-bound authenticated requests and replies carry only fixed public application operations. Four bounded request threads allow other tasks and reads to proceed; per-task locks and durable workflow claims serialize a task's effects. No Core transaction is held during transport, worker execution or semantic review.
+
+Owner admission has an original finite deadline. Shutdown stops accepting requests, waits for admitted bounded work and records stop obligations through the retained runtime port. It does not signal an unknown or reaped process. The descriptor is retained when the owner exits; clients never unlink it or elect a new owner. A verified installer/recovery path must resolve uncertain operations before replacement. General installation, real host composition and the complete code/merge path remain separate delivery work.
+
 ## Runtime and data flow
 
 Process startup, local transactions and Linear mutations are separate operations. Use reservations, acknowledgements, readback and reconciliation. A process that starts while its assignment is being confirmed remains Starting and cannot perform assigned work yet. Only a verified admitted task becomes Running. Live synchronization may be pending; expose that fact rather than implying atomic agreement across systems.

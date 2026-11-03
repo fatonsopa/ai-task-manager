@@ -1,0 +1,563 @@
+{
+  "session_show": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "session_resume": {
+    "type": "object",
+    "properties": {
+      "enrollment_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "resume_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "enrollment_ref",
+      "resume_ref"
+    ],
+    "additionalProperties": false
+  },
+  "writing_prepare": {
+    "type": "object",
+    "properties": {
+      "kind": {
+        "enum": [
+          "issue_bug",
+          "issue_chore",
+          "issue_decision",
+          "issue_feature",
+          "issue_improvement",
+          "issue_release"
+        ]
+      },
+      "purpose": {
+        "enum": [
+          "task",
+          "progress"
+        ]
+      },
+      "title": {
+        "type": "string",
+        "maxLength": 300
+      },
+      "body": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100000
+      },
+      "code_bearing": {
+        "type": "boolean"
+      },
+      "required_work": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      },
+      "task_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "kind",
+      "purpose",
+      "title",
+      "body",
+      "code_bearing",
+      "required_work"
+    ],
+    "additionalProperties": false
+  },
+  "writing_review": {
+    "type": "object",
+    "properties": {
+      "writing_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "review": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "writing_id",
+      "review"
+    ],
+    "additionalProperties": false
+  },
+  "writing_finalize": {
+    "type": "object",
+    "properties": {
+      "writing_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "writing_id"
+    ],
+    "additionalProperties": false
+  },
+  "task_submit": {
+    "type": "object",
+    "properties": {
+      "writing_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "operation_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "parent_task_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "followup_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "writing_ref",
+      "operation_key"
+    ],
+    "additionalProperties": false
+  },
+  "task_find": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50,
+        "default": 20
+      },
+      "cursor": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "additionalProperties": false
+  },
+  "task_inspect": {
+    "type": "object",
+    "properties": {
+      "issue": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "required": [
+      "issue"
+    ],
+    "additionalProperties": false
+  },
+  "task_admit": {
+    "type": "object",
+    "properties": {
+      "discovery_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "writing_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "selection_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "operation_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "discovery_ref",
+      "writing_ref",
+      "selection_ref",
+      "operation_key"
+    ],
+    "additionalProperties": false
+  },
+  "task_list": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "task_show": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "task_id"
+    ],
+    "additionalProperties": false
+  },
+  "task_external_changes": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "task_id"
+    ],
+    "additionalProperties": false
+  },
+  "task_accept_external_prose": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "writing_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "operation_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "expected_version": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "decision_revision": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "observation_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "task_id",
+      "writing_ref",
+      "observation_id",
+      "expected_version",
+      "decision_revision",
+      "operation_key"
+    ],
+    "additionalProperties": false
+  },
+  "task_action": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "expected_version": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "decision_revision": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "operation_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "action": {
+        "enum": [
+          "enqueue",
+          "dequeue",
+          "hold",
+          "request_review",
+          "review_decision",
+          "cancel",
+          "duplicate",
+          "merge",
+          "stage",
+          "release",
+          "non_code_complete"
+        ]
+      },
+      "human_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "evidence_refs": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "review_target": {
+        "enum": [
+          "Backlog",
+          "Todo",
+          "In Progress",
+          "On Hold",
+          "In Review",
+          "In Dev",
+          "In Staging",
+          "Done",
+          "Canceled",
+          "Duplicate"
+        ]
+      },
+      "reason_writing_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "task_id",
+      "action",
+      "expected_version",
+      "decision_revision",
+      "operation_key"
+    ],
+    "additionalProperties": false
+  },
+  "task_revise": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "writing_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "operation_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "expected_version": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "decision_revision": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "human_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "task_id",
+      "writing_ref",
+      "human_ref",
+      "expected_version",
+      "decision_revision",
+      "operation_key"
+    ],
+    "additionalProperties": false
+  },
+  "task_progress": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "writing_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "operation_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "task_id",
+      "writing_ref",
+      "operation_key"
+    ],
+    "additionalProperties": false
+  },
+  "worker_start": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "expected_version": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "decision_revision": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "operation_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "host": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "human_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "task_id",
+      "host",
+      "expected_version",
+      "decision_revision",
+      "operation_key"
+    ],
+    "additionalProperties": false
+  },
+  "worker_execute": {
+    "type": "object",
+    "properties": {
+      "attempt_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "command_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "operation_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "attempt_id",
+      "command_ref",
+      "operation_key"
+    ],
+    "additionalProperties": false
+  },
+  "event_list": {
+    "type": "object",
+    "properties": {
+      "after": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "timeout_seconds": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 60
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "event_acknowledge": {
+    "type": "object",
+    "properties": {
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "stage": {
+        "enum": [
+          "delivered",
+          "ai_acknowledged",
+          "user_reported"
+        ]
+      },
+      "observation_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "operation_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "event_id",
+      "stage",
+      "observation_ref",
+      "operation_key"
+    ],
+    "additionalProperties": false
+  },
+  "sync_now": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  }
+}

@@ -112,6 +112,23 @@ class WorkflowStore:
             )
             return ref
 
+    def find(self, scope, task_id, operation_key):
+        """Find exact historical admission without granting another effect."""
+        with self.transaction() as conn:
+            rows = conn.execute(
+                "SELECT id,task_id,operation_key FROM runs "
+                "WHERE scope=? AND (task_id=? OR operation_key=?)",
+                (canonical(asdict(scope)), task_id, operation_key),
+            ).fetchall()
+            if not rows:
+                return None
+            if len(rows) != 1 or (rows[0]["task_id"], rows[0]["operation_key"]) != (
+                task_id,
+                operation_key,
+            ):
+                raise IdempotencyConflict("Workflow task or original operation key changed")
+            return rows[0]["id"]
+
     def read(self, reference, scope):
         with self.transaction() as conn:
             row = conn.execute(

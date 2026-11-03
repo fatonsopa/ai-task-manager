@@ -31,6 +31,9 @@ class WorkflowDriver:
     def begin(self, task_id, plan_ref, operation_key):
         task = self.core.get_task(self.handle, task_id)
         plan = self.plans.get(plan_ref)
+        binding = self.runtime.binding(task, plan) if self.runtime else None
+        if self.store.find(self.scope, task.id, operation_key) is not None:
+            return self.store.create(self.scope, task, plan, operation_key, binding)
         if (
             task.code_bearing
             or task.observed_status != IssueStatus.TODO
@@ -39,7 +42,6 @@ class WorkflowDriver:
             raise EvidenceRequired("First workflow slice requires confirmed non-code Todo")
         if plan.deadline <= self.clock():
             raise AccessDenied("Original workflow deadline expired")
-        binding = self.runtime.binding(task, plan) if self.runtime else None
         return self.store.create(self.scope, task, plan, operation_key, binding)
 
     def _context(self, ref):

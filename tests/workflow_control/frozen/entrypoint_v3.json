@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "extends": "entrypoint_v2.json",
+  "retained": "51/51 installed/public/component result for prior source retained.",
+  "cases": [
+    {
+      "id": "WE13-orderly-owner-close",
+      "oracle": "Orderly owner exit writes a durable stop intent for each known active non-code attempt, calls only actual guarded runtime.stop, settles Core only from real stop evidence, and retains uncertainty on missing handles. Completed attempts are not stopped/reexecuted."
+    },
+    {
+      "id": "WE11-crashed-owner",
+      "oracle": "Actual owner SIGKILL bypasses orderly close; its waiting child receives EOF and is independently observed absent without signaling/adopting a lost child handle. Old Core Running obligation stays unresolved; old client cannot restart or mint stop evidence."
+    }
+  ],
+  "boundary": "No general signal manager, native takeover, protected merge cancellation or Core policy change."
+}
