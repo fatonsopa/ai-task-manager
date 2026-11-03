@@ -2,12 +2,15 @@
 
 import threading
 from dataclasses import dataclass
+from time import monotonic
 from time import monotonic as diagnostic_clock
 from uuid import uuid4
 
 from ai_task_manager.domains.scheduling.models import WorkRenewal
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.observability.failures import FailureStage, capture_failure
+
+MAX_CLOSE_SECONDS = 22.0
 
 
 @dataclass(frozen=True)
@@ -89,6 +92,7 @@ class AttemptAuthority:
         self.failure_diagnostics = []
         self.diagnostic_retention_failed = False
         self.diagnostics_truncated = False
+        self.collection_close_observations = []
 
     def _diagnose(self, error, stage, started=None):
         if len(self.failure_diagnostics) >= 8:
@@ -141,6 +145,7 @@ class AttemptAuthority:
         started = diagnostic_clock()
         if not self._collecting.acquire(blocking=False):
             return self.check_prepared()
+        publication_attempted = publication_confirmed = False
         try:
             self._check_owner()
             core = self.registry.core
@@ -155,6 +160,9 @@ class AttemptAuthority:
                 expected_version=task.version,
                 decision_revision=task.decision_revision,
             )
+            # Closure can race with provider I/O. Its result is retained, but
+            # closing never authorizes publishing a new work observation.
+            self._check_owner()
             # The resolver is local and immutable. Provider I/O ended in prepare().
             snapshot = core.scheduling.sources.verify_snapshot(preparation.snapshot_ref)
             attempt = core.get_attempt(self.handle, self.attempt_id)
@@ -192,7 +200,9 @@ class AttemptAuthority:
             reference = "work-renewal:" + str(uuid4())
             self.registry._prepared[reference] = _Prepared(value, self, native)
             self.check_prepared(native)
+            publication_attempted = True
             view = core.scheduling.renew(self.handle, reference, key + ":commit")
+            publication_confirmed = True
             self.continuity.acknowledge(native)
             self._current = native
             self._expires_at = value.expires_at
@@ -210,6 +220,38 @@ class AttemptAuthority:
             )
             return view
         except BaseException as error:
+            if self._stop.is_set() and self._failure is None:
+                item = {
+                    "failure": capture_failure(
+                        error, FailureStage.AUTHORITY_REFRESH, started=started
+                    ),
+                    "retained": False,
+                }
+                if len(self.collection_close_observations) < 8:
+                    self.collection_close_observations.append(item)
+                    try:
+                        item["reference"] = self.native.journal._append(
+                            "trace",
+                            {
+                                "effect": "work_authority_collection_closed",
+                                "attempt_id": self.attempt_id,
+                                "observation": item["failure"],
+                                "publication_attempted": publication_attempted,
+                                "renewal_published": (
+                                    True
+                                    if publication_confirmed
+                                    else None
+                                    if publication_attempted
+                                    else False
+                                ),
+                            },
+                        )
+                        item["retained"] = True
+                    except BaseException as retention_error:
+                        item["retention_failure"] = capture_failure(
+                            retention_error, FailureStage.DIAGNOSTIC_RETENTION
+                        )
+                raise
             self._failure = type(error).__name__
             self._diagnose(error, FailureStage.AUTHORITY_REFRESH, started)
             raise
@@ -233,10 +275,16 @@ class AttemptAuthority:
                 started = diagnostic_clock()
                 try:
                     self.ensure_current()
+                    if self._stop.is_set():
+                        return
                     core = self.registry.core
                     attempt = core.get_attempt(self.handle, self.attempt_id)
                     core.execution.validate_work_lease(self.handle, attempt.id, attempt.version)
                 except BaseException as error:
+                    if self._stop.is_set() and self._failure is None:
+                        return
+                    if self._failure is None:
+                        self._failure = type(error).__name__
                     self._diagnose(error, FailureStage.AUTHORITY_MONITOR, started)
                     # Retain Core ownership. The caller settles only after complete
                     # native/refresh/command stop; a model message cannot release it.
@@ -272,10 +320,25 @@ class AttemptAuthority:
         self._thread = threading.Thread(target=run, name="managed-authority-refresh", daemon=True)
         self._thread.start()
 
-    def close(self):
+    def request_close(self):
+        """Fence new work immediately; joining/cleanup is a separate step."""
         self._stop.set()
-        self.continuity.close()
+
+    def close(self):
+        self.request_close()
+        # Wait for the actual collection owner, which may be a tool/controller
+        # thread rather than the background monitor. No work authority is live.
+        remaining = max(0, self.deadline - self.registry.core.context.clock())
+        end = monotonic() + min(MAX_CLOSE_SECONDS, remaining)
+        collected = self._collecting.acquire(timeout=max(0, end - monotonic()))
+        if collected:
+            self._collecting.release()
         thread = self._thread
         if thread is not None and thread is not threading.current_thread():
-            thread.join(timeout=0.5)
-        return (thread is None or not thread.is_alive()) and self._retention_error is None
+            thread.join(timeout=max(0, end - monotonic()))
+        self.continuity.close()
+        return (
+            collected
+            and (thread is None or not thread.is_alive())
+            and self._retention_error is None
+        )
