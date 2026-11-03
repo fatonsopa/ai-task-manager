@@ -111,6 +111,16 @@ class ManagedWorkers:
             else None
         )
         self._prepare_decision(decision_ref, handle, task_id, expected_version, decision_revision)
+        if self.authorities is not None:
+            self.authorities.refresh_for_start(
+                handle,
+                task_id,
+                operation_key,
+                expected_version=expected_version,
+                decision_revision=decision_revision,
+            )
+        if self.journal.clock() >= self.deadline:
+            raise AccessDenied("Original managed deadline expired during start preparation")
         attempt = self.core.execution.reserve(
             handle,
             task_id,

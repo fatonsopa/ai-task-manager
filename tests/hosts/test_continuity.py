@@ -2,6 +2,7 @@
 
 from threading import Event
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
@@ -83,6 +84,22 @@ class AuthoredDependencyCollection:
         self.calls += 1
         current = snapshot(self.core, self.handle, task, self.core.context.clock())
         return SimpleNamespace(snapshot_ref=self.core.scheduling.sources.issue(current))
+
+    def refresh_for_start(self, task_id, operation_key, *, expected_version, decision_revision):
+        value = self.prepare(
+            task_id,
+            operation_key,
+            expected_version=expected_version,
+            decision_revision=decision_revision,
+        )
+        return self.core.scheduling.observe(
+            self.handle,
+            task_id,
+            expected_version,
+            decision_revision,
+            value.snapshot_ref,
+            "authored-start-dependencies:" + str(uuid4()),
+        )
 
 
 @pytest.mark.parametrize("age_before_work", [False, True])

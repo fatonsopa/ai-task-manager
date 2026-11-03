@@ -62,6 +62,21 @@ class WorkAuthorities:
             raise AccessDenied("The dependency source belongs to another enrolled session")
         return AttemptAuthority(self, handle, attempt, native, continuity, on_failure)
 
+    def refresh_for_start(
+        self, handle, task_id, operation_key, *, expected_version, decision_revision
+    ):
+        self.check()
+        if self.core.session_binding(handle) != self.dependencies.binding:
+            raise AccessDenied("The dependency source belongs to another enrolled session")
+        result = self.dependencies.refresh_for_start(
+            task_id,
+            operation_key,
+            expected_version=expected_version,
+            decision_revision=decision_revision,
+        )
+        self.check()
+        return result
+
     def starting(self, handle, attempt, runtime, deadline):
         from .startup_authority import StartupAuthority
 

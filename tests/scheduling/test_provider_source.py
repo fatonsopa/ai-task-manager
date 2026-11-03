@@ -265,11 +265,22 @@ def test_exact_priority_mapping(provider, priority, expected):
 
 
 def service_fixture(p, root, *, fail_first=False):
+    from ai_task_manager.supervisor.authority import WorkAuthorities
+
     r = p.rig
     journal = AuthorityJournal(root / "service.sqlite", root / "service.key")
     calls = []
+    authorities = WorkAuthorities(r.core, p.source)
+    r.core.scheduling.renewals = authorities
 
     def start(handle, task_id, host, **values):
+        authorities.refresh_for_start(
+            handle,
+            task_id,
+            values["operation_key"],
+            expected_version=values["expected_version"],
+            decision_revision=values["decision_revision"],
+        )
         calls.append(r.core.scheduling.explain(handle, task_id))
         assert calls[-1]["state"] == "ready"
         if fail_first and len(calls) == 1:
