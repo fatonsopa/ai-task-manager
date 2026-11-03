@@ -4,7 +4,11 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from ai_task_manager.adapters.hosts.bridge.controller import ManagedHostFactory
-from ai_task_manager.adapters.hosts.bridge.executions import ModelWork, ReviewedExecutions
+from ai_task_manager.adapters.hosts.bridge.executions import (
+    ConfinedWork,
+    ModelWork,
+    ReviewedExecutions,
+)
 from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
 from ai_task_manager.adapters.hosts.bridge.policy import NativePolicy
 from ai_task_manager.adapters.process.runtime import ProcessRuntime
@@ -182,9 +186,14 @@ class InstalledWorkflow:
         )
         executions = ReviewedExecutions(
             self.host_journal,
-            {"assignment": ModelWork(task.id, self.native.host, prompt, authority.accounting_ref)},
+            {
+                "assignment": ModelWork(
+                    task.id, self.native.host, prompt, authority.accounting_ref
+                ),
+                **{ref: ConfinedWork(task.id, ref) for ref in authority.command_refs},
+            },
             authority.model_accounting,
-            NoCommands(),
+            authority.confined_commands or NoCommands(),
         )
         self.workers = ManagedWorkers(
             core,

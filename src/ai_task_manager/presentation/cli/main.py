@@ -49,6 +49,10 @@ def main(argv=None, *, workflow_registry=None):
                 raise ValueError("Owner launch needs installation and no request/session override")
             from ai_task_manager.installation.workflows import launch
 
+            if workflow_registry is None:
+                from ai_task_manager.installation.native import resolve
+
+                workflow_registry = resolve(args.config, args.installation)
             envelope = launch(args.config, args.installation, registry=workflow_registry)
             sys.stdout.write(json.dumps(envelope, ensure_ascii=False, allow_nan=False) + "\n")
             return exit_code(envelope)
