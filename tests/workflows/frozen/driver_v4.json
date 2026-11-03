@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "extends": "driver_v3.json",
+  "fixture_correction": "WD12 previously failed during invalid setup: scheduler correctly refused reserving later Todo ahead of eligible earlier Todo. Explicitly reserve the first task through real Core before reserving the second. Original canonical-mismatch/no-runtime assertions remain unchanged.",
+  "production_bytes_changed": false,
+  "prior_run_retained": "52 passed,1 failed"
+}

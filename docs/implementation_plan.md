@@ -133,6 +133,12 @@ Launch and supervise actual worker processes, recording PID plus process-start i
 
 Prove one real task through registration, an observed worker, isolated owned resources, a committed fixture change, the new product merge engine and checked cleanup. Reconcile final Git and Linear facts. Add refusal and crash cases at every effect boundary. Gate: the complete standalone one-worker path and recovery work before increasing concurrency.
 
+#### Deterministic run and resume controller
+
+Implement R15 revision 2 as a script-owned loop over saved Core, provider, runtime and operation facts. Keep workflow intent/claim history separate from Core task status. Start with a bounded non-code path using existing guarded worker, resource, verification and synchronization ports. Missing integration or genuine semantic acceptance produces a named wait; it cannot produce success.
+
+Freeze omission, wrong-order/file/scope, concurrent-claim, human-change, lost-reply and lineage cases before implementation. Verify a real owned local worker and resources, durable restart without duplicate effects, and preserved partial work. Do not import the private report evaluator or its answers. Then connect public CLI/host invocation and code delivery through their owners, and run the actual-host omission cells. Component tests do not satisfy those later gates.
+
 ### P04 — Implement Linear policy and live integration
 
 Implement typed intake/queue/hold/resume/accept/cancel/duplicate/delivery operations. Apply the transition table, immutable delivered-issue start guard, human authority and verified non-code completion. Derive workflow-state IDs from the bound team; do not reuse state IDs between TST and the application team.

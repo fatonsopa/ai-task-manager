@@ -1,6 +1,9 @@
 """Scoped evaluation decisions retain the existing sole decision issuer and Core policy."""
 
+from dataclasses import asdict
+
 from ai_task_manager.adapters.decisions.authority import DecisionAuthority
+from ai_task_manager.config.files import digest
 from ai_task_manager.domains.work.errors import AccessDenied
 
 from .evaluation_enrollment import EvaluationGrant
@@ -13,6 +16,7 @@ class EvaluationDecisions:
         self.grant = self._original_grant = grant
         self.authority = self._original_authority = DecisionAuthority(authority_journal, grant)
         self._prepared = {}
+        self._issued = {}
 
     def _current(self):
         if self.grant is not self._original_grant or self.authority is not self._original_authority:
@@ -34,7 +38,50 @@ class EvaluationDecisions:
             scope, task, target, action, grant_ref=grant_ref, reason=reason
         )
         self._prepared[ref] = prepared
+        self._issued[ref] = (
+            task.id,
+            task.issue_id,
+            task.prose_digest,
+            task.decision_revision,
+            digest(asdict(self.authority.journal.verify_evidence(ref))),
+        )
         return ref
+
+    def prepare_consumption(
+        self,
+        ref,
+        *,
+        handle,
+        task_id,
+        expected_version,
+        decision_revision,
+    ):
+        """Refresh only the local witness, outside Core, for this original decision."""
+        self._current()
+        original = self._issued.get(ref)
+        if original is None or handle != self.grant._handle or task_id != self.grant._task_id:
+            raise AccessDenied("Decision preparation belongs to another task or session")
+        task = self.grant.core.get_task(handle, task_id)
+        evidence = self.authority.journal.verify_evidence(ref)
+        current = (
+            task.id,
+            task.issue_id,
+            task.prose_digest,
+            task.decision_revision,
+            digest(asdict(evidence)),
+        )
+        if (
+            current != original
+            or task.version != expected_version
+            or task.decision_revision != decision_revision
+            or evidence.scope != self.grant.scope
+            or evidence.subject != task.id
+            or evidence.payload.get("revision") != decision_revision
+            or evidence.payload.get("actor") != "agent"
+        ):
+            raise AccessDenied("The original decision or current task context changed")
+        self.grant.require_task(task)
+        self._prepared[ref] = self.grant.prepare_current()
 
     def verify_evidence(self, ref):
         """Core consumption checks only prepared local metadata/sticky/kernel state.

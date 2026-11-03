@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "extends": "driver_v1.json",
+  "prior_failed_run_retained": "21 passed, 2 failed; foreign scope fixture used nonexistent field and positive probe compared SQLite header bytes instead of logical state",
+  "changes": [
+    {
+      "id": "WD04-scope-fixture-v2",
+      "oracle": "Change actual logical_session; foreign scope must raise AccessDenied, no worker."
+    },
+    {
+      "id": "WD16-probe-positive-v2",
+      "oracle": "Probe and store transaction preserve exact logical rows/store UUID/version/physical enrollment; no byte-equality claim for successful commit with SQLite change counter."
+    },
+    {
+      "id": "WD16-corrupt-driver-v2",
+      "oracle": "Controller refuses corrupt persisted inspection before accepting review refs."
+    },
+    {
+      "id": "WD11-wrong-artifact-v2",
+      "oracle": "Opaque valid-kind proof for another artifact cannot complete work."
+    },
+    {
+      "id": "WD09-execution-binding-v2",
+      "oracle": "Reconfigured trusted command registry with same reference cannot resume prior workflow."
+    },
+    {
+      "id": "WD02-confirm-resume-v2",
+      "oracle": "After accepted Core delivery, provider confirmation derives from saved accepted transition even if semantic lookup later unavailable."
+    }
+  ],
+  "no_policy_or_existing_assertion_weakening": true
+}
