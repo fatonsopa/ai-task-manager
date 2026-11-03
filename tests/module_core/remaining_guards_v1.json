@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "module": "M1",
+  "task": "TST-147",
+  "purpose": "Bounded mapping of the four remaining verification obligations; not a replacement case inventory or module acceptance.",
+  "source_checkpoint": "1cfbad991b608e6d7e77d1b1a257c3c034be8c4b",
+  "runtime_manifest_sha256": "c8cf26ff756b9d9d9c4e1bace820c1bf4c5b48ddbef78d1ed59a1935277685fc",
+  "runtime_file_count": 303,
+  "requirements": [
+    "R03",
+    "R04",
+    "R06",
+    "R07",
+    "R09",
+    "R11",
+    "R13",
+    "R14",
+    "R15",
+    "R20",
+    "R27",
+    "R30",
+    "R38"
+  ],
+  "criteria_sha256": {
+    "tests/domains/frozen/core-cases-v3.json": "24fd526e6dd80e71e06c0b2b7cdd5eb12b8d3e337e4f6e9a7f3ed593079a9b75",
+    "tests/existing/frozen/admission-cases-v1.json": "334e0b6d778b341a874fbc9b87854ac671189660ac4e5ec829f1673775bab01a",
+    "tests/existing/frozen/admission-freshness-v3.json": "b1433930abfe349c193cf38eaa9b2be47847cf44cf7e63c82b1224eadda22115",
+    "tests/existing/frozen/admission-prose-v5.json": "1b07bbf881f3b9086a724c28ef2b12c1204cdbb9323e94194cee28ffaa10b29b",
+    "tests/application/frozen/application-cases-v7.json": "76975b2be0d1fe1955698abd528cc44538a5f0eb73719ad09dab3319660eab49",
+    "tests/writing/frozen/writer-handoff-v2.json": "40843e606d6ea8be9b8aba3e77fe4893b88f87f3f2fdd2a73456425bc945c50c",
+    "tests/existing/frozen/admission-integration-v4.json": "83b2ab6dd603d6983f6f024f176c01ee8550deb0d281bcd495b66f970996b4cf"
+  },
+  "groups": [
+    {
+      "obligation": "Canonical issue ownership across sessions",
+      "requirements": [
+        "R03",
+        "R04",
+        "R11",
+        "R27"
+      ],
+      "cases": [
+        "EA31",
+        "EA42",
+        "EA43",
+        "EA44",
+        "EA47"
+      ],
+      "selectors": [
+        "tests/existing/test_store_races.py::test_ea42_ea43_processes_share_one_canonical_transactional_claim",
+        "tests/existing/test_store_races.py::test_ea42_two_threads_with_different_sessions_have_one_owner",
+        "tests/existing/test_core.py::test_ea44_same_owner_concurrent_admission_returns_one_task",
+        "tests/existing/test_core.py::test_ea31_ea47_reassigned_issue_retains_canonical_owner_without_prose_leak",
+        "tests/existing/test_store_races.py::test_ea47_reassignment_and_hidden_task_never_release_unresolved_leases"
+      ],
+      "oracle": "Different sessions/processes share one canonical claim; same-owner retries return that task. Reassignment/hidden scope cannot release unresolved attempts or resources or disclose foreign prose."
+    },
+    {
+      "obligation": "Delivered-task and linked-follow-up fences",
+      "requirements": [
+        "R07",
+        "R09",
+        "R11",
+        "R13",
+        "R30",
+        "R38"
+      ],
+      "cases": [
+        "P04",
+        "EA41",
+        "EA81",
+        "EA82"
+      ],
+      "selectors": [
+        "tests/domains/test_execution.py::test_p04_delivered_status_requires_separate_linked_backlog_issue",
+        "tests/existing/test_delivery_migration.py::test_ea41_remote_delivery_then_newer_todo_cannot_restore_work_lease",
+        "tests/existing/test_readback_freshness.py::test_ea81_canonical_delivery_fence_blocks_lease_and_atomic_short_publication",
+        "tests/existing/test_delivery_prose.py"
+      ],
+      "oracle": "In Dev/In Staging/Done forbid new attempts. Canonical delivery survives remote resets and blocks work, local/staged new prose authority and atomic short effects. A separate Backlog follow-up requires exact new approval and an independently scoped parent/prose-bound proof; missing/wrong proof has no effect. Genuine observations and committed replay remain possible."
+    },
+    {
+      "obligation": "Exact approval, tampering and version guards",
+      "requirements": [
+        "R04",
+        "R15",
+        "R27",
+        "R38"
+      ],
+      "cases": [
+        "P11",
+        "A05",
+        "A06",
+        "A09",
+        "WH08",
+        "WH09",
+        "WH10",
+        "WH13"
+      ],
+      "selectors": [
+        "tests/domains/test_intake_scope.py::test_p11_exact_content_and_frozen_approval_versions",
+        "tests/domains/test_intake_scope.py::test_p11_no_reviewed_boolean_or_default_self_approval",
+        "tests/writing/test_writer.py::test_a05_actual_skill_commands_approve_exact_content_then_intake",
+        "tests/writing/test_writer.py::test_a06_progress_cannot_become_task_or_other_issue_approval",
+        "tests/writing/test_writer.py::test_a06_cross_session_and_unknown_approval_refuse",
+        "tests/writing/test_writer.py::test_a09_changed_pins_block_new_writes_without_relabeling_old_receipts",
+        "tests/writing/test_writer.py::test_exact_approved_metadata_cannot_be_reused_for_different_work",
+        "tests/writing/test_handoff.py::test_wh08_stale_package_refuses_finalize_before_delivery",
+        "tests/writing/test_handoff.py::test_wh09_changed_signed_writing_record_refuses_without_effect",
+        "tests/writing/test_handoff.py::test_wh10_changed_artifacts_refuse_approval_consumption_and_do_not_overwrite",
+        "tests/writing/test_handoff.py::test_wh13_committed_retry_stays_historical_but_new_effect_requires_current_approval"
+      ],
+      "oracle": "Require exact text, metadata, purpose, scope and current writer/reference/style pins. Reject signed-record/artifact changes without publication or overwrite. Current approval is required for new effects; committed same-key replay remains historical."
+    },
+    {
+      "obligation": "Interruption and retained ownership",
+      "requirements": [
+        "R03",
+        "R14",
+        "R15",
+        "R20",
+        "R27",
+        "R30"
+      ],
+      "cases": [
+        "P14",
+        "P15",
+        "P21",
+        "EA48",
+        "EA49",
+        "EA50",
+        "A31"
+      ],
+      "selectors": [
+        "tests/domains/test_execution.py::test_p14_unknown_outcome_survives_restart_and_retains_capacity",
+        "tests/domains/test_execution.py::test_p14_unconfirmed_stop_cannot_release_attempt_ownership",
+        "tests/domains/test_execution.py::test_p15_checkpoint_records_report_without_fabricating_success",
+        "tests/storage/test_restart_architecture.py::test_p21_unknown_or_foreign_schema_is_refused_without_reset",
+        "tests/existing/test_core.py::test_ea48_crash_before_commit_rolls_back_every_claim_effect",
+        "tests/existing/test_core.py::test_ea49_ea50_committed_recovery_and_changed_key_conflict",
+        "tests/existing/test_installed_protocol.py::test_ea49_actual_process_crash_then_restart_recovers_committed_admission",
+        "tests/application/test_retry_human_workflows.py::test_a31_retry_and_new_service_keep_one_effect_and_current_facts",
+        "tests/application/test_retry_human_workflows.py::test_a31_lost_public_reply_reuses_exact_core_proof_reference"
+      ],
+      "oracle": "Preserve unknown attempts/capacity until observed settlement; checkpoints cannot invent success. Refuse unknown/foreign stores without reset. Precommit interruption rolls back claims. A real postcommit process exit and fresh installed retry return one task with no second effect despite removed approval artifacts; changed-key inputs conflict."
+    }
+  ],
+  "reuse": [
+    {
+      "record": "integrated M1 demonstration v2",
+      "source": "733ce0cec69764bd4b3f0335e1f3495ccea7f07f",
+      "baseline_passed": 1365,
+      "direct_checks_passed": 10,
+      "demonstration_checks_passed": 12,
+      "scope": "Existing lifecycle/cause matrix, guarded review destinations, scoped reads, dependency/capacity, hold/stale revision and pending-intent restart; matching runtime and test sources. No rerun in this batch."
+    },
+    {
+      "record": "TST-146 reviewed capacity correction",
+      "source": "a19dc9272eac54f22971097f8855bca598c57f3f",
+      "path": "tests/storage/test_atomicity.py",
+      "sha256": "2c7a17598a23e2763b460bb6bcef139b4d656b38da5eb6e068bb32547c4a8ee2",
+      "scope": "Reuse author 21 and reviewer 5 overlapping controls, retaining the original same-session FIFO failure; do not sum these counts."
+    },
+    {
+      "record": "M1 integrated recovery v1",
+      "source": "7a7f564bc537338a10cea368a4daf672fadd5e5a",
+      "passed": 126,
+      "scope": "Trusted zero-effect successor and schema-one migration/rollback controls; unchanged runtime. No public recovery authority or legacy reconciliation claim."
+    },
+    {
+      "record": "historical Core and application evidence",
+      "source": [
+        "c9ab1e4",
+        "ccb712a29b53da4944f18c72d980f344441b98ca"
+      ],
+      "historical_passes": [
+        1397,
+        1790
+      ],
+      "scope": "Retain original review/results; current intake/execution/database/writing changed, so these counts alone do not prove the four current obligations. Fresh selectors above cover those changed boundaries."
+    }
+  ],
+  "fixtures": [
+    "Per-case owned SQLite stores and loopback HTTP provider with authored issue/history data; no live Linear.",
+    "Explicit synthetic selection, human, runtime and delivered_followup observations exercise Core contracts; they do not prove actual host or authority production.",
+    "Actual pinned Technical Writer commands with authored semantic review controls; no model review claim.",
+    "Actual local processes for canonical claims and installed admission crash/retry; no native coding worker."
+  ],
+  "limits": [
+    "No new runtime or helper implementation. Existing tests already provide the selected guard oracles.",
+    "The installed task_submit parent_task_id/followup_ref path has no production delivered_followup issuer. Core proof consumption can be verified in M1; actual authority production and provider linkage remain connection work.",
+    "Actual human instruction, host selection, model execution, provider synchronization, delivery and user reporting require their receiving modules and real connections.",
+    "Only the lead can close the six common M1 conditions after independent review, integration and supported demonstration."
+  ]
+}
