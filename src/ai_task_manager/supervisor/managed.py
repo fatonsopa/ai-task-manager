@@ -58,6 +58,7 @@ class ManagedWorkers:
         self._waiting_stops = {}
         self.authorities = None
         self._freshness = {}
+        self._startup_freshness = {}
         if dependencies is not None:
             self.bind_dependencies(dependencies)
 
@@ -118,6 +119,10 @@ class ManagedWorkers:
         owner = self.journal.claim(attempt, asdict(scope), deadline=self.deadline)
         waiting = native = pair = None
         try:
+            if self.authorities is not None:
+                starting = self.authorities.starting(handle, attempt, self.journal, self.deadline)
+                self._startup_freshness[attempt.id] = starting
+                starting.start()
             pair = self.resources.prepare(attempt.id, base=self.base)
             waiting = self.runtime.launch_waiting(attempt.id)
             self.journal.intend(
@@ -139,6 +144,7 @@ class ManagedWorkers:
             # initialize() accepts no assigned task prompt and exposes no work lease.
             ready_ref = native.initialize()
             if self.authorities is not None:
+                self._startup_freshness[attempt.id].finish()
                 from ai_task_manager.adapters.hosts.bridge.continuity import NativeContinuity
 
                 freshness = self.authorities.attach(
@@ -193,7 +199,7 @@ class ManagedWorkers:
             dispatch = ManagedDispatch(attempt.id, pair, waiting, native)
             self.dispatches[attempt.id] = dispatch
             if attempt.id in self._freshness:
-                self._freshness[attempt.id].refresh()
+                self._freshness[attempt.id].ensure_current()
             native.admit(handle, dispatch, running)
             if attempt.id in self._freshness:
                 self._freshness[attempt.id].start()
@@ -354,6 +360,8 @@ class ManagedWorkers:
 
     def _finish(self, handle, attempt_id, waiting, native, key, reason, state):
         outcomes = []
+        if attempt_id in self._startup_freshness:
+            outcomes.append(self._startup_freshness[attempt_id].close())
         if attempt_id in self._freshness:
             outcomes.append(self._freshness[attempt_id].close())
         try:

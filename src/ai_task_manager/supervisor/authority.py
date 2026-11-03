@@ -54,6 +54,12 @@ class WorkAuthorities:
             raise AccessDenied("The dependency source belongs to another enrolled session")
         return AttemptAuthority(self, handle, attempt, native, continuity, on_failure)
 
+    def starting(self, handle, attempt, runtime, deadline):
+        from .startup_authority import StartupAuthority
+
+        self.check()
+        return StartupAuthority(self, handle, attempt, runtime, deadline)
+
     def verify_renewal(self, reference):
         self.check()
         prepared = self._prepared.get(reference)
