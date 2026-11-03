@@ -24,21 +24,16 @@ def register(conn):
 
 def trigger_sql(table, operation):
     name = "aitm_schedule_" + table + "_" + operation.lower()
-    return (
-        f"CREATE TRIGGER {name} BEFORE {operation} ON {table} "
-        f"BEGIN SELECT CASE WHEN {FUNCTION}() != {PROTOCOL} "
-        "THEN RAISE(ABORT,'Unsupported scheduling writer protocol') END; END"
-    )
+    return (f"CREATE TRIGGER {name} BEFORE {operation} ON {table} "
+            f"BEGIN SELECT CASE WHEN {FUNCTION}() != {PROTOCOL} "
+            "THEN RAISE(ABORT,'Unsupported scheduling writer protocol') END; END")
 
 
 def operational_tables(conn):
-    return [
-        row[0]
-        for row in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
-            "AND name NOT IN ('metadata','store_identity') ORDER BY name"
-        )
-    ]
+    return [row[0] for row in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+        "AND name NOT IN ('metadata','store_identity') ORDER BY name"
+    )]
 
 
 def require_quiescent(conn):
@@ -46,10 +41,9 @@ def require_quiescent(conn):
         try:
             data = json.loads(row[5])
             state = AttemptState(data["state"])
-            if any(
-                data[key] != row[index]
-                for index, key in enumerate(("id", "task_id", "session_id", "host"))
-            ):
+            if any(data[key] != row[index] for index, key in enumerate(
+                ("id", "task_id", "session_id", "host")
+            )):
                 raise ValueError("Attempt index and record differ")
         except (ValueError, KeyError, TypeError) as exc:
             raise SchemaError("Attempt ownership is unavailable for migration") from exc
@@ -79,25 +73,18 @@ def migrate(conn):
 
 def validate(conn):
     for table, columns in TABLES.items():
-        definition = conn.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,)
-        ).fetchone()
+        definition = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone()
         if definition is None or definition[0] != f"CREATE TABLE {table}({columns})":
             raise SchemaError("Scheduling table definition is missing or changed")
         actual = conn.execute(f"PRAGMA table_info({table})").fetchall()
-        expected = [
-            part.strip().split()[0]
-            for part in columns.split(", ")
-            if not part.startswith("PRIMARY KEY")
-        ]
+        expected = [part.strip().split()[0] for part in columns.split(", ")
+                    if not part.startswith("PRIMARY KEY")]
         if [row[1] for row in actual] != expected:
             raise SchemaError("Incomplete scheduling schema")
     for table in operational_tables(conn):
         for operation in ("INSERT", "UPDATE", "DELETE"):
             expected = trigger_sql(table, operation)
             name = "aitm_schedule_" + table + "_" + operation.lower()
-            row = conn.execute(
-                "SELECT sql FROM sqlite_master WHERE type='trigger' AND name=?", (name,)
-            ).fetchone()
+            row = conn.execute("SELECT sql FROM sqlite_master WHERE type='trigger' AND name=?", (name,)).fetchone()
             if row is None or row[0].rstrip(";") != expected.rstrip(";"):
                 raise SchemaError("Scheduling writer protocol fence is missing or changed")
