@@ -191,6 +191,10 @@ class WorkerCommits:
         if untracked:
             raise AccessDenied("New untracked files appeared during worker commit checks")
         tree = self.git.tree(pair.worktree)
+        self.git.validate_tree(pair.worktree, tree, intent)
+        index = self.git.prepare_index(
+            attempt.id, pair.worktree, tree, boundary, seconds(), effect_boundary
+        )
         message = (
             "Worker change for "
             + task.id
@@ -203,9 +207,11 @@ class WorkerCommits:
             + "\nWorker-Intent: "
             + fingerprint(intent)
         )
-        effect = {**intent, "tree": tree, "message": message}
+        effect = {**intent, "tree": tree, "message": message, "index": index}
         self.journal.intend(attempt.id, "worker-commit-candidate", effect)
-        self.git.commit(attempt.id, pair.worktree, message, boundary, seconds(), effect_boundary)
+        self.git.commit(
+            attempt.id, pair.worktree, message, boundary, seconds(), effect_boundary, index=index
+        )
         return self.reconcile(row, plan, intent)
 
     def reconcile(self, row, plan, intent):
