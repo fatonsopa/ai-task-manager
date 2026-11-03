@@ -421,3 +421,25 @@ def test_fresh_controller_recovers_committed_publication_without_new_git_child(f
     assert resumed["data"]["state"] == "done", resumed
     assert flow.journal.current(pub_ref)["facts"]["local_git"]["children"] == before
     assert len(flow.executor.records) == 1
+
+
+def test_actual_publication_fences_new_work_before_provider_status_advances(flow):
+    flow.workflow.faults = FaultOnce("after_publication")
+    assert not flow.run()["ok"]
+    ref = next(iter(flow.workflow.references))
+    candidate = flow.workflow.store.read(ref)["steps"]["candidate"]["result"]
+    assert git(flow.tree, "rev-parse", "refs/heads/" + flow.target) == candidate["commit"]
+    task = flow.r.core.get_task(flow.r.handle, flow.task.id)
+    assert task.observed_status == "In Progress" and not task.delivered_once
+    before = flow.r.core.get_attempt(flow.r.handle, flow.attempt.id)
+    assert before.state == "done"
+    with pytest.raises(WorkError):
+        flow.r.core.execution.reserve(
+            flow.r.handle,
+            task.id,
+            "fixture",
+            task.version,
+            task.decision_revision,
+            flow.r.decision(task, "In Progress"),
+            "publication-fence-probe",
+        )
