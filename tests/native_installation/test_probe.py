@@ -253,3 +253,34 @@ def test_P307_permission_read_reuses_only_own_thread_transaction_and_clears(prob
             raise RuntimeError("rollback")
     assert getattr(store._active, "connection", None) is None
     assert store.permission(authority.reference)["reference"] == authority.reference
+
+
+@pytest.mark.parametrize("refresh", [True, False])
+def test_P308_repeated_init_uses_only_successful_owned_refresh(probe, refresh):
+    _, authority, context, journal, factory = probe
+    gateway = CanaryGateway(context, authority, journal)
+    # Shorten the first observation's virtual window without changing any
+    # retained record, original native deadline or production receipt lifetime.
+    journal.clock = lambda: time.time() - 40
+    native = factory.start(context, gateway)
+    journal.clock = time.time
+    original_auth = native.startup.claude_auth_ref
+    original_startup = journal._read(native.startup.ready_ref, fresh=False)
+    expiry = journal._read(original_auth)["expires_at"]
+    if refresh:
+        native.identity.observations.refresh(native.directory / "repeat-init-auth")
+    gateway.bind(native)
+    native.gateway.delegate = gateway
+    case = next(c for c in cases(context) if c.case_id == "native_shell_absent")
+    gateway.begin(case)
+    journal.clock = lambda: expiry + 0.1
+    if refresh:
+        turn = factory.execute(context, native, case)
+        assert journal._read(turn.terminal_ref)["payload"]["frame"]["is_error"] is False
+        assert native.startup.claude_auth_ref != original_auth
+        assert journal._read(native.startup.ready_ref, fresh=False) == original_startup
+    else:
+        with pytest.raises(AccessDenied, match="stale|expired"):
+            factory.execute(context, native, case)
+    gateway.end()
+    journal.clock = time.time
