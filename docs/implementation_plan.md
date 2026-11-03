@@ -81,7 +81,7 @@ The enrolled-store guard validates a bounded identity write on the same SQLite c
 
 The table describes checks to perform, not current availability. `config/research-sources.json` retains preparation-time versions and observations; consult the Test Status Report (TSR) for later evidence. Inspect installed help/current official contracts before executing version-sensitive commands. Authentication alone does not prove model execution, and a local fixture does not prove live acceptance.
 
-Use the approved `claude_roni` profile: resolve its configuration under `$HOME` and pass `CLAUDE_CONFIG_DIR` explicitly to the unmodified `claude` executable. The original `claude` account is unavailable; refuse fallback. The Test Plan (TP) owns credential handling, fixture scope and required distinct-user checks.
+Use the default `claude` account authorized on 3 November 2026. Launch the unmodified executable without injecting the former `claude_roni` configuration; refuse account fallback. The Test Plan (TP) owns credential handling, fixture scope and required distinct-user checks.
 
 ## Work sequence
 
@@ -120,7 +120,7 @@ The bootstrap may use the existing host's task/delegation tools and a determinis
 
 Prove authentication, file access, model access, network, Docker, disk/memory headroom, worktree creation and a tiny disposable database operation. Run dependency probes in the same environment and permissions as the eventual cases. Resolve host approvals and hook trust once in the intended configuration; do not suppress host safeguards to make tests pass. Missing capabilities block only dependent work and remain explicit in the final result.
 
-P00 uses the claude_roni profile for Claude authentication and authorized model-access probes. Resolve its configuration path under the user home and pass CLAUDE_CONFIG_DIR explicitly to the unmodified claude executable in automated processes; shell functions need not exist there. The original default account is disabled. Both-host acceptance still requires actual tool-enabled evidence.
+P00 uses the default `claude` account for authentication and authorized model-access probes. Verify the actual account before new effects. Retain previous account proofs as historical; do not rebind them to the newly selected account. Both-host acceptance still requires actual tool-enabled evidence.
 
 Gate: trustworthy environment inventory, nonempty authorization/limit record, working policy, cost and capacity admission with per-invocation deadlines and a durable checkpoint. Verify the primary test identity before live TST writes. A missing secondary Linear identity blocks two-user cases only; missing Claude access blocks Claude execution tests only. Keep independent core/mechanical and available Codex work eligible. Do not start an unmetered paid batch.
 
@@ -178,7 +178,7 @@ In strict managed sessions, block native task-state mutation and unmanaged subag
 
 Gate: both real CLIs complete a scoped installed smoke workflow and refuse unsupported state/agent actions. Neither host silently falls back to an unguarded mode.
 
-Use claude_roni for Claude host tests and Codex for its own host tests. Verify the profile on every worker launch and refuse fallback to the unavailable default account. Authentication preflight is not model-performance evidence. Every selected host/model/effort profile requires its own actual traces and complete required coverage.
+Use `claude` for Claude host tests and Codex for its own host tests. Verify the approved account on every worker launch and refuse account fallback. Authentication preflight is not model-performance evidence. Every selected host/model/effort profile requires its own actual traces and complete required coverage.
 
 ### P06 — Complete scheduling and recovery
 

@@ -2,7 +2,7 @@
   "schema_version": 3,
   "scope": "Documentation and declared supporting inputs; not whole-product or runtime attestation.",
   "path_base": "repository_root",
-  "previous_manifest_sha256": "e391554eb7dc0d4c660427055352a14acd126cd690b39a38c97865aa8d4752d4",
+  "previous_manifest_sha256": "0f5cd3af0fd42cd32826d0f5f246eb444d47e33bbf3c77ef8441ba72eb6b1b65",
   "files": [
     {
       "path": ".gitignore",
@@ -10,7 +10,7 @@
     },
     {
       "path": "AGENTS.md",
-      "sha256": "9d70f01fd8870718c1ad42661993a69ec8956e76e3b11b8701a81f761c537fc2"
+      "sha256": "4645f32eadd06b87d78bc407d489efd161a71e11764d0402da247125df421967"
     },
     {
       "path": "CLAUDE.md",
@@ -26,7 +26,7 @@
     },
     {
       "path": "config/execution-policy.json",
-      "sha256": "f054db4d103bf20b87ff41aea969d27f9ae0159fe132c10102a014c0650f63e9"
+      "sha256": "cdd47b32b3dffc750f7d8593c84cdfe3c15d207b396d2f0f8702a927098628b8"
     },
     {
       "path": "config/migration/legacy-inventory.json",
@@ -150,7 +150,7 @@
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "83c7524cceb43eb51740bb5b27807305bbbd5c51a80f5b28af5dd1fb07da1865"
+      "sha256": "bee0b3c0a349ce0006ceb38b511c8740318b10ae8d657ab0eb20dc629cf7011c"
     },
     {
       "path": "docs/merge/decision_record.md",
@@ -178,7 +178,7 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "8370ad05e133b54e36f19112babb9c18f53a4a5021bae596062c749114961ddf"
+      "sha256": "e7944e8a2ebd86861ba4444983e0ab2eaafd1b669ef41795d04a0b189fa68cb2"
     },
     {
       "path": "docs/spec_driven_development.md",
@@ -194,7 +194,7 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "696bb3e628e66fb5945541afb77733952e632b3d9506966dcceaf95f7fc6e24c"
+      "sha256": "fce25d1f41ff9fa2e86542b8e127e761171fa52edc28d33cdeb6791564befcd0"
     },
     {
       "path": "prototypes/terminal/session-task-management.html",
@@ -214,7 +214,7 @@
     },
     {
       "path": "tools/check_handoff.py",
-      "sha256": "66ec04082726275651acc1f12a72826e68d6ab4fc666dc546989113c91befcf8"
+      "sha256": "498dd226647641e51748741f5976fc65b19804ded405b7222637e7e8d6727c38"
     },
     {
       "path": "tools/repository_layout.py",

@@ -1,14 +1,19 @@
 # AI task manager development and testing status
 
-Reporting period: 3 November 2026, 04:17–06:18 UTC.
-Build: Main 5678139; each test result belongs to the exact source recorded below.
+Reporting period: 3 November 2026, 04:17–18:50 UTC. Earlier results below retain their original candidate and scope.
+Build: Main 65e907c; each test result belongs to the exact source recorded below.
 Environment: macOS arm64, Python 3.13.13, SQLite 3.50.4, isolated Git repositories and owned disposable databases/processes. No new Linux acceptance is claimed.
-Status: Component integration continues. The complete task workflow, merge workflow and required live acceptance remain incomplete.
+Status: Implementation resumed after a native-worker account-limit interruption. The complete task workflow, merge workflow and required live acceptance remain incomplete.
 
 ## Progress and results
 
 | Scope | Observed result | Meaning and limits |
 | --- | --- | --- |
+| Integrated session and worker fixes | Main 65e907c includes independently reviewed session renewal, protected worker commits, index preservation and cleanup. The rebuilt installed package matches all 300 tracked runtime files. | The first combined batch used a stale cached wheel and was interrupted; its results are not current-source acceptance. No complete task cycle is claimed. |
+| Actual installed Claude execution | The fresh Sonnet 5.5/high conformance attempt completed eight cases, failed the ninth and left two unrun. All 15 actual native calls were stopped; the attempt made no new Linear fixture writes. | A post-execution identity refresh was used to verify an earlier terminal event. The timestamp correction is in progress; the failed attempt remains preserved. |
+| Expired-workflow recovery candidate | Candidate afd2f21 is committed for independent review. Its latest focused workflow batch passed 137 cases; a separate installed case passed. | Installed WI01 still fails. The baseline also fails, but at a different boundary, so non-regression is not established. The code smoke refuses unavailable descendant containment on both versions. The candidate is not integrated. |
+| Commit-fixture alignment | The combined local batch completed in 474.54 seconds: 312 passed and two failed. | The failures are task-priority ordering in the commit fixture and installed WI01. Test changes remain uncommitted and are under correction; this is not a full-suite pass. |
+| Account and execution resumption | Three previous native assignments ended at a reported account usage limit. Their attempts and partial work are retained. The user requested resumption and switched Claude testing to the default `claude` account; its authentication preflight succeeds. | New implementation and review assignments have separate finite bounds. Authentication is not successful model execution, and prior account-bound evidence is not transferable. |
 | Standalone Git publication | Candidate b0981a4 passed 131 distinct component cases, built a wheel matching its 190 runtime modules and exercised two unrelated repositories with different configured target refs. Integrated into main. | Trusted target configuration, durable intent, exact ref reconciliation and connection-coherence controls passed. The former application-specific runtime namespace is removed. Actual Core/check composition has separate component evidence below. Complete merge concurrency/recovery and public merge commands remain pending. |
 | Merge check selection and persistence | Candidate cc78bee has 101 distinct passing cases across source-bound batches, with an explicit reuse proof and a separately passing concurrency follow-up. Integrated into main. | Project-neutral catalogs, input/provenance-bound reuse, durable outcomes and bounded read-only contention handling have component evidence. The old immediate-read oracle and its failure remain preserved under an explicit versioned change. No full current suite is claimed. |
 | Shared database coherence | The shared connection probe and its self-contained 25-case controls are integrated. Both publication and check stores consume it. | This supports enrolled DELETE-journal stores. It is not descriptor attestation or support for hostile/live file replacement. No automatic physical-effect replay is permitted. These controls overlap later component counts. |
@@ -54,7 +59,7 @@ The retained merge-history review covers 143 project descriptions and 700 commen
 
 ## Next work
 
-Three registered workers have separate tracked tasks, worktrees and disposable fixtures. They are implementing normal native accounting/admission, normal host-tool conformance capture and checked merge integration. Review and integrate their focused deliveries; then verify the public installed path with genuine independent review and actual provider/host behavior.
+The current assignments correct the conformance timestamp defect, finish commit-fixture alignment and independently review expired-workflow recovery. Each has its own tracked task, worktree, disposable fixture and finite deadline. Review complete changes before integration, then verify the installed task cycle using fresh default-account evidence. Keep failed installed checks and unavailable host observations explicit; a component result cannot replace confirmed CLI, Linear and lead reporting.
 
 The product owns its new merge API/CLI contract; concrete public command names remain pending. The retired shell entrypoint, wrappers and aliases must not ship. Workers own their commits; one authority validates and publishes to the trusted configured target. Keep provider calls and Git waits outside Core transactions and measure waiting, checks, database setup, commit and publication separately.
 

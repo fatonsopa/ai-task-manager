@@ -283,24 +283,28 @@
     {
       "id": "D-MODELS-1",
       "decision": "Use at least two models on each CLI and exclude Fable; the selected required profiles are recorded under acceptance.required_profiles, each with separate actual evidence."
+    },
+    {
+      "id": "D-CLAUDE-ACCOUNT-2",
+      "supersedes": "D12",
+      "decision": "Actual user now requires default claude instead of claude_roni. Verify current identity for new effects; preserve historical evidence and refuse silent account fallback."
     }
   ],
   "active_host_profiles": {
     "claude-code": {
-      "label": "claude_roni",
+      "label": "claude",
       "executable": "claude",
-      "config_dir_relative_to_home": ".claude_roni",
-      "default_account_allowed": false,
-      "authentication_preflight": "signed in via claude.ai; Max; no model invocation yet"
+      "config_dir_relative_to_home": ".claude",
+      "default_account_allowed": true,
+      "fallback_allowed": false,
+      "authentication_preflight": "2026-11-03: loggedIn true, claude.ai, firstParty, Max; no model invocation in this preflight"
     },
     "codex-cli": {
       "executable": "codex",
       "authentication": "existing ChatGPT CLI login; checked"
     }
   },
-  "unavailable_accounts": {
-    "claude": "Do not use until the user explicitly says this original account is available."
-  },
+  "unavailable_accounts": {},
   "historical_test_deferral": {
     "claude-code": {
       "not_before": "2026-11-02T00:00:00+01:00",
@@ -432,5 +436,18 @@
     "old_writer_schema_refusal_required": true,
     "unresolved_launch_intents_block_migration": true,
     "postcommit_restore_of_stale_backup_forbidden": true
-  }
+  },
+  "host_profile_history": [
+    {
+      "superseded_at": "2026-11-03T18:48:47.942631+00:00",
+      "profile": {
+        "label": "claude_roni",
+        "executable": "claude",
+        "config_dir_relative_to_home": ".claude_roni",
+        "default_account_allowed": false,
+        "authentication_preflight": "signed in via claude.ai; Max; no model invocation yet"
+      },
+      "reason": "Actual user explicitly switched from claude_roni to claude."
+    }
+  ]
 }

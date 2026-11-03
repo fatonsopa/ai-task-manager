@@ -300,8 +300,12 @@ def verify(root):
     )
     active = policy.get("active_host_profiles", {}).get("claude-code", {})
     require(
-        active.get("label") == "claude_roni" and active.get("default_account_allowed") is False,
-        "Claude launches must select the approved profile and forbid default-account fallback.",
+        active.get("label") == "claude"
+        and active.get("executable") == "claude"
+        and active.get("config_dir_relative_to_home") == ".claude"
+        and active.get("default_account_allowed") is True
+        and active.get("fallback_allowed") is False,
+        "Claude launches must select the explicitly approved default account and forbid fallback.",
     )
     statuses = set(policy.get("linear", {}).get("workflow_statuses", []))
     review_rule = policy.get("linear", {}).get("review_exit", {})
