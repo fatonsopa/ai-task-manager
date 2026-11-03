@@ -89,6 +89,14 @@ The machine-readable dependency graph is `config/work-items.json`. It contains 1
 
 Use short vertical slices: agree the relevant contract/checks, implement a working user flow, verify it and integrate it promptly. Prioritize one real task through Linear, one CLI worker and confirmed result reporting; then extend to code delivery and remaining profiles/failure paths. Run independent slices in parallel with one tracked assignment and isolated resources per worker. Phase gates define release evidence, not a waterfall delivery order. Update affected documents, reuse matching accepted evidence and retain failures. All final live, host/model and whole-candidate checks remain required.
 
+### Working increments
+
+The active delivery unit is a usable installed workflow. Increment 1 completes one real non-code task: create or select the scoped Linear issue, queue it, run an actual CLI worker, independently review the result, confirm completion in Linear and the CLI, and deliver the lead's report. Acceptance requires a reproducible installed command sequence and actual evidence for that complete cycle. Until it passes, report “No working increment delivered yet.” Component commits and local tests remain supporting evidence.
+
+Admit new implementation and review assignments only when they close a demonstrated dependency of the active increment. Preserve completed unrelated candidates on their branches; do not make their integration a prerequisite. The private startup guard checks the current increment's allowed task IDs before marking a worker In Progress. Changing that list requires a recorded concrete blocker of the same user workflow; renaming unrelated work is not a valid dependency.
+
+After Increment 1 passes, extend that working installation to code changes, owned worktrees/databases and merge delivery. Subsequent increments extend the same product to remaining synchronization/failure cases, host/model profiles and distribution. Preserve every original requirement and release gate. Each report leads with the working increment delivered, its runnable entry point and remaining user-visible limitation, followed by the existing phase table.
+
 ### Delivery rules
 
 The user approved these working rules on 3 November 2026 after repeated slow delivery. Apply them to assignments, execution and every 20-minute report. They govern delivery method; they do not change product requirements or acceptance criteria.
