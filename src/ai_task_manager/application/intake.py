@@ -14,7 +14,7 @@ from ai_task_manager.domains.work.models import (
     valid_display_identifier,
 )
 from ai_task_manager.domains.work.models import IssueStatus as S
-from ai_task_manager.storage import attempts, issue_claims, outbox, work
+from ai_task_manager.storage import attempts, issue_claims, outbox, sessions, work
 
 from .context import valid_prose
 
@@ -29,6 +29,16 @@ def prose_digest(prose, rendered):
             "required_work": list(prose.required_work),
         }
     )
+
+
+def submit_payload(prose, approval_ref, parent_task_id, followup_ref):
+    return {
+        "command": "submit",
+        "prose": asdict(prose),
+        "approval_ref": approval_ref,
+        "parent_task_id": parent_task_id,
+        "followup_ref": followup_ref,
+    }
 
 
 class Intake:
@@ -57,6 +67,21 @@ class Intake:
             raise ApprovalRequired("Prose or frozen approval references do not match")
         return rendered, digest
 
+    def recover_submit(
+        self, handle, prose, approval_ref, operation_key, parent_task_id=None, followup_ref=None
+    ):
+        """Read only an exact committed submission before refreshing external authority."""
+        self.approved(prose, approval_ref)
+        with self.c.db.transaction() as conn:
+            sid, _ = sessions.resolve(conn, handle)
+            prior = work.replay(
+                conn,
+                sid,
+                operation_key,
+                submit_payload(prose, approval_ref, parent_task_id, followup_ref),
+            )
+            return work.get(conn, sid, prior["id"]) if prior is not None else None
+
     def submit(
         self,
         handle,
@@ -67,13 +92,7 @@ class Intake:
         followup_ref=None,
     ):
         rendered, digest = self.approved(prose, approval_ref)
-        payload = {
-            "command": "submit",
-            "prose": asdict(prose),
-            "approval_ref": approval_ref,
-            "parent_task_id": parent_task_id,
-            "followup_ref": followup_ref,
-        }
+        payload = submit_payload(prose, approval_ref, parent_task_id, followup_ref)
 
         def action(conn, sid, scope):
             if parent_task_id:

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -358,3 +359,123 @@ def test_interrupted_followup_revalidates_uncommitted_proof_after_revocation(
     else:
         assert "revoked" in str(retry)
         assert rig.effects() == before
+
+
+@pytest.mark.parametrize("supplied", [False, True])
+@pytest.mark.parametrize("committed", [False, True])
+@pytest.mark.parametrize("drift", ["credential_path", "configuration_path"])
+def test_cold_followup_source_continuity_preserves_only_committed_replay(
+    rig, monkeypatch, supplied, committed, drift
+):
+    rig.observe_delivery()
+    service = rig.service
+    original_submit = service.core.intake.submit
+
+    def interrupt(*args, **kwargs):
+        raise ConnectionError("authored interruption before the next submission boundary")
+
+    monkeypatch.setattr(service.core.intake, "submit", interrupt)
+    assert not service.call("task_submit", rig.arguments())["ok"]
+    reference = rig.proof()
+    monkeypatch.setattr(service.core.intake, "submit", original_submit)
+    data = (
+        rig.arguments(operation_key="supplied", followup_ref=reference)
+        if supplied
+        else rig.arguments()
+    )
+    if committed:
+        original_confirm = service.confirm
+        monkeypatch.setattr(service, "confirm", interrupt)
+        assert not service.call("task_submit", data)["ok"]
+        monkeypatch.setattr(service, "confirm", original_confirm)
+        assert len(rig.effects()[0]["tasks"]) == 2
+    before = rig.effects()
+    config = json.loads(rig.config.read_text())
+    if drift == "credential_path":
+        replacement = rig.root / "same-account-new-source.env"
+        replacement.write_bytes(Path(rig.linear["credential_file"]).read_bytes())
+        replacement.chmod(0o600)
+        config["linear"]["credential_file"] = str(replacement)
+        write_private(rig.config, config, replace=True)
+        rig.linear = config["linear"]
+    else:
+        rig.config = rig.root / "copied-config.json"
+        write_private(rig.config, config)
+    response = rig.cli(data)
+    if committed:
+        assert response.returncode == 0, response.stderr
+        child = json.loads(response.stdout)["data"]
+        assert child["parent_task_id"] == rig.parent.id
+        assert child["observed_status"] == "Backlog" and not child["queued_once"]
+        assert len(rig.effects()[0]["tasks"]) == len(before[0]["tasks"]) == 2
+        assert len(rig.provider.issues) == 2
+        settled = rig.effects()
+        replay = rig.cli(data)
+        assert replay.returncode == 0
+        assert json.loads(replay.stdout)["data"]["id"] == child["id"]
+        assert rig.effects() == settled
+        conflict = rig.cli({**data, "writing_ref": rig.parent.approval_ref})
+        assert conflict.returncode == 2
+        assert json.loads(conflict.stderr)["outcome"] == "invalid_request"
+        assert rig.effects() == settled
+    else:
+        assert response.returncode == 3, response.stdout + response.stderr
+        error = json.loads(response.stderr)
+        assert error["outcome"] == "denied"
+        assert "enrollment configuration or source changed" in error["error"]["message"]
+        assert rig.effects() == before
+    assert rig.service.core.get_task(rig.service.handle, rig.parent.id) == rig.parent
+    assert not rig.effects()[0]["attempts"]
+
+
+def test_followup_provider_verification_runs_outside_core_transaction(rig, monkeypatch):
+    rig.observe_delivery()
+    observations = rig.service.decisions.observations
+    original = observations.verify_enrollment
+    verified = []
+
+    def check(reference):
+        # A separate writer can acquire the Core lock while the actual provider
+        # verification runs; this control does not write or fabricate Core data.
+        with sqlite3.connect(rig.root / "core.sqlite", timeout=0) as probe:
+            probe.execute("BEGIN IMMEDIATE")
+            probe.rollback()
+        verified.append(reference)
+        return original(reference)
+
+    monkeypatch.setattr(observations, "verify_enrollment", check)
+    result = rig.service.call("task_submit", rig.arguments())
+    assert result["ok"], result
+    assert verified and set(verified) == {rig.service.grant_ref}
+
+
+def test_committed_submit_recovery_retains_exact_fingerprint_and_approval(rig):
+    from ai_task_manager.domains.work.errors import ApprovalRequired, IdempotencyConflict
+
+    rig.observe_delivery()
+    result = rig.service.call("task_submit", rig.arguments())
+    assert result["ok"], result
+    service = rig.service
+    view = service.writer.approvals_for_tasks(service.scope)
+    prose = view.prose(rig.writing_ref)
+    args = dict(
+        handle=service.handle,
+        prose=prose,
+        approval_ref=rig.writing_ref,
+        operation_key="followup",
+        parent_task_id=rig.parent.id,
+        followup_ref=rig.proof(),
+    )
+    service.decisions.observations.revoke()
+    before = rig.effects()
+    assert service.core.intake.recover_submit(**args).id == result["data"]["id"]
+    for changes in (
+        {"followup_ref": "decision-proof:changed"},
+        {"parent_task_id": str(uuid4())},
+        {"approval_ref": rig.parent.approval_ref, "prose": view.prose(rig.parent.approval_ref)},
+    ):
+        with pytest.raises(IdempotencyConflict):
+            service.core.intake.recover_submit(**{**args, **changes})
+    with pytest.raises(ApprovalRequired):
+        service.core.intake.recover_submit(**{**args, "prose": view.prose(rig.parent.approval_ref)})
+    assert rig.effects() == before

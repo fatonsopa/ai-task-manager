@@ -58,6 +58,19 @@ def task_submit(service, data, invocation):
                 )
 
             followup_ref = invocation.reference("delivered_followup", issue_followup)
+        committed = service.core.intake.recover_submit(
+            service.handle,
+            prose,
+            data["writing_ref"],
+            data["operation_key"],
+            parent.id,
+            followup_ref,
+        )
+        if committed is not None:
+            return service.confirm(committed)
+        service._required("decisions").validate_followup_source(
+            followup_ref, service.scope, parent.id
+        )
     task = service.core.intake.submit(
         service.handle,
         prose,

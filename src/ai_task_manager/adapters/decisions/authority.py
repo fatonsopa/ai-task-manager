@@ -95,8 +95,7 @@ class DecisionAuthority:
             expires_at,
         )
 
-    def delivered_followup(self, scope, parent, prose_digest, *, grant_ref):
-        """Issue exact new-work authority after scoped intake verifies parent and prose."""
+    def _followup_grant(self, scope, grant_ref):
         from .observations import PREFIX
 
         grant = self.observations.verify_enrollment(grant_ref)
@@ -111,6 +110,11 @@ class DecisionAuthority:
             or not grant_ref.startswith(PREFIX)
         ):
             raise AccessDenied("Delivered follow-up is outside the enrolled host grant")
+        return grant
+
+    def delivered_followup(self, scope, parent, prose_digest, *, grant_ref):
+        """Issue exact new-work authority after scoped intake verifies parent and prose."""
+        grant = self._followup_grant(scope, grant_ref)
         return self.journal._evidence(
             "delivered_followup",
             scope,
@@ -119,6 +123,14 @@ class DecisionAuthority:
             grant.source_ref,
             min(grant.expires_at, self.journal.clock() + 300),
         )
+
+    def validate_followup_source(self, reference, scope, parent_id):
+        """Refresh enrolled source continuity outside Core before an uncommitted effect."""
+        proof = self.journal.verify_evidence(reference)
+        if (proof.kind, proof.scope, proof.subject) != ("delivered_followup", scope, parent_id):
+            raise EvidenceRequired("Evidence does not match delivered follow-up, scope and parent")
+        record = self.journal._get(reference, "decision-proof:")
+        self._followup_grant(scope, record["source_ref"])
 
     def human_plan(self, scope, task, target, action, human_ref, proposed_prose_digest=None):
         if human_ref.startswith("decision-proof:"):
