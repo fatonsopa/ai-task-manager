@@ -98,6 +98,29 @@ def identity_at(journal, reference, owner, session, at):
         )
 
 
+def terminal_identity(journal, before, records, terminal_ref, owner, session, startup_ref, account):
+    """Select recorded effect provenance; this does not establish current authority."""
+    terminal, _ = frame(journal, terminal_ref, owner)
+    at = terminal["observed_at"]
+    reference = before
+    for record in records:
+        p = record["payload"]
+        if (
+            record["kind"] == "trace"
+            and p.get("effect") == "native_identity_refreshed"
+            and p.get("binding") == owner["binding"]
+            and p.get("process") == owner["process"]
+            and p.get("session_id") == session
+            and p.get("original_startup_ref") == startup_ref
+            and p.get("account_hash") == account
+            and record["expires_at"] is not None
+            and record["observed_at"] <= at < record["expires_at"]
+        ):
+            reference = record["ref"]
+    identity_at(journal, reference, owner, session, at)
+    return reference
+
+
 def verify_case(journal, case, value, owner, context_ref, session, model):
     request = journal._read(value["request_ref"], "trace", fresh=False)
     q = request["payload"]

@@ -586,6 +586,101 @@
       "independently_observed_incremental_charge": null,
       "full_required_profiles_accepted": 0,
       "failed_original_pilot_preserved": true
+    },
+    "conformance_identity_timing_20261103": {
+      "task": "TST-139",
+      "call_id": "ACTUAL-INSTALLED-WORKFLOW-13",
+      "base_commit": "65e907cba32ea24dc7cddaf733edfa6bc4947045",
+      "scope": "Conformance terminal identity provenance; authored local controls and owned fixture subprocesses, not actual model/provider acceptance.",
+      "source_sha256": {
+        "src/ai_task_manager/adapters/hosts/bridge/conformance/capture.py": "dba7bfedba867a6e64414f55120e8e85a5780c9ea1deb26edaecf82ed54f54c1",
+        "src/ai_task_manager/adapters/hosts/bridge/conformance/verification.py": "44f08911e3ada6b1481709bf27411533335221f80f16c230503e97abd195a284",
+        "tests/hosts/conformance/test_identity_timing.py": "6f5b19a9571f9c79835c080b0166945b1ed559a76cf918074c449ee1737bc15f",
+        "tests/hosts/conformance/test_profile.py": "6ba6b86a1cb2cdb8029070af9b06042522f11b2478c081a3598f98e8e5f5fab7"
+      },
+      "original_failure": {
+        "call_id": "ACTUAL-INSTALLED-WORKFLOW-11",
+        "case": "native_shell_absent",
+        "source_blocker_sha256": "e54a755994d49623560672a89aa8ea79ce8eb62aefdd25d4c8f32c48aac23c66",
+        "previous_observed_at": 1793727104.586483,
+        "previous_expires_at": 1793727164.563405,
+        "terminal_observed_at": 1793727150.937757,
+        "post_terminal_observed_at": 1793727151.194037,
+        "post_terminal_expires_at": 1793727211.155103,
+        "historical_capture_unchanged": true
+      },
+      "attempts": [
+        {
+          "kind": "test_fixture_setup_error",
+          "passed": 0,
+          "failed": 10,
+          "reason": "Create-only write_private used for an existing authored configuration; corrected the test setup.",
+          "log_sha256": "48267a0159e5e461bcb381b2bbd93a847dd3cee7e474477d98a69dcf4dabdd24"
+        },
+        {
+          "kind": "pre_fix_regression",
+          "passed": 8,
+          "failed": 2,
+          "reason": "Both covering-identity cases reproduce the existing terminal freshness refusal.",
+          "log_sha256": "c6f2e77a923b83c8edbe6a5eb2c0b33b33e577971bc10781365811f7ef9d2c4b"
+        },
+        {
+          "kind": "initial_fixed_regression",
+          "passed": 10,
+          "failed": 0,
+          "log_sha256": "740663dd5246c8aed227c3d560e58ca80ef4ea0632b414418bab5a976d86885e"
+        },
+        {
+          "kind": "affected_final",
+          "passed": 91,
+          "failed": 0,
+          "duration_seconds": 53.65,
+          "log_sha256": "7a480c5ffa78409f44b768bbca1072346c526ef92d36f5d60fe9df413ef0b589",
+          "junit_sha256": "3f78498212ae05fe5567cc9b5bb364be24edfb6e452f6201355380fb4ef6b4f8"
+        }
+      ],
+      "command": "python -m pytest tests/hosts/conformance tests/hosts/test_identity_observations.py tests/hosts/test_identity_consumers.py tests/hosts/test_identity_managed.py tests/hosts/test_report_identity_source.py -q",
+      "new_regressions": 12,
+      "negative_controls": [
+        "terminal expiry",
+        "future post-check receipt",
+        "foreign process",
+        "foreign session",
+        "foreign account",
+        "foreign startup",
+        "changed runtime source",
+        "changed current account",
+        "replaced identity observer",
+        "tampered signed source",
+        "expired current identity"
+      ],
+      "current_authority_checks_preserved": true,
+      "freshness_rule": "observed_at <= effect_time < expires_at",
+      "historical_observations_grant_current_authority": false,
+      "environment": {
+        "platform": "Darwin",
+        "machine": "arm64",
+        "python": "3.13.13"
+      },
+      "writing_sources": {
+        "SKILL.md": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+        "references/writing_style.md": "d18a0c7540e0d286fc5b07fc55bc5898e6ac73d0dead89f1df485b31bd2709e6",
+        "references/high_level_document.md": "79308b522940db12aa46b6543c9c777b5b02e5222fc42e032a223d5ad50bb9b0",
+        "scripts/writing_style_contract.py": "7e87c4ede56208f20e19e21eee4a30942830a03e354f5cccc3c12a3d6d2e40c4",
+        "scripts/document_contracts.py": "bee9dab6a3c3b43dfc0fcec58ad2d01d397a600aaeef76189ae56615d04d9052"
+      },
+      "documentation": {
+        "path": "docs/high_level_document.md",
+        "sha256": "eacf726be5f32d0518389d3a6da05fc78a1998cbc272e529c04bc2e705829322",
+        "scope": "One paragraph explaining separate current checks and terminal provenance.",
+        "meaning_and_style_review": true,
+        "independent_review": false
+      },
+      "real_model_calls": 0,
+      "real_provider_calls": 0,
+      "full_suite_run": false,
+      "independent_review": "pending",
+      "integration": "not performed"
     }
   },
   "product_acceptance_cases_executed": 0,

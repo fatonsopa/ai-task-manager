@@ -13,7 +13,7 @@ from .canary import CanaryGateway
 from .completion import CompletedCapture
 from .models import CASE_IDS, ProbeTurn, cases
 from .profile import StableProfile, prepare_profile
-from .verification import require, startup, verify_capture, verify_case
+from .verification import require, startup, terminal_identity, verify_capture, verify_case
 
 
 def check_command(policy, command, root):
@@ -177,17 +177,26 @@ class ConformanceCapture:
                 turn = factory.execute(c, native, case)
                 require(isinstance(turn, ProbeTurn), "Actual accounted probe turn is missing")
                 self.check(native)
-                rows = [
-                    r
-                    for r in self.journal._history("trace")
-                    if r["ref"] not in prior and r["payload"].get("frame_kind") == "native_frame"
-                ]
+                observations = [r for r in self.journal._history("trace") if r["ref"] not in prior]
+                # The current check can refresh identity after the terminal.
+                # Keep its current-authority check separate from effect provenance.
+                identity_after = terminal_identity(
+                    self.journal,
+                    identity_before,
+                    observations,
+                    turn.terminal_ref,
+                    owner,
+                    session,
+                    native.startup.ready_ref,
+                    c.account_hash,
+                )
+                rows = [r for r in observations if r["payload"].get("frame_kind") == "native_frame"]
                 require(len(rows) <= 256, "Native probe trace exceeds its frozen bound")
                 value = {
                     **asdict(turn),
                     "frame_refs": [r["ref"] for r in rows],
                     "identity_before": identity_before,
-                    "identity_after": self._identity_ref,
+                    "identity_after": identity_after,
                     "gateway_refs": list(gateway.end()),
                     "before": before,
                     "after": gateway.snapshot(),

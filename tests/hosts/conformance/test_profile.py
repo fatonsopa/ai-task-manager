@@ -164,7 +164,7 @@ class AuthoredFactory:
             "claude",
             "probe",
             policy.configuration_digest,
-            1100,
+            context.deadline,
         )
         identity = ProcessIdentity(123, "fixture-generation", 120)
         r.owner = {"binding": asdict(binding), "process": asdict(identity)}
@@ -217,7 +217,7 @@ class AuthoredFactory:
                 "requested_effort": "high",
             },
             sources=(auth, init),
-            expires_at=1060,
+            expires_at=r.journal.clock() + 60,
         )
         host.startup = SimpleNamespace(ready_ref=ready)
         return host

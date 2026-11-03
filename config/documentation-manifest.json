@@ -22,7 +22,7 @@
     },
     {
       "path": "config/build/evidence-index.json",
-      "sha256": "c84913ee93d477928c5332a87035af085b322189ba3222f1d871f2dbd0c77608"
+      "sha256": "529a1ce9a59d4b7d7dd684e962339f48f5e87d9e241ccb8c5f97c60737a2a9de"
     },
     {
       "path": "config/execution-policy.json",
@@ -146,7 +146,7 @@
     },
     {
       "path": "docs/high_level_document.md",
-      "sha256": "a56489310c56b1f607e947df5a1caf067bc4781f685c04ee0a108afd9f1375dd"
+      "sha256": "eacf726be5f32d0518389d3a6da05fc78a1998cbc272e529c04bc2e705829322"
     },
     {
       "path": "docs/implementation_plan.md",
