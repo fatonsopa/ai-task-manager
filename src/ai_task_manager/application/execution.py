@@ -85,6 +85,46 @@ class Execution:
             task = work.get(conn, attempt.session_id, attempt.task_id)
             yield attempt, task, scope
 
+    @contextmanager
+    def merge_snapshot_boundary(
+        self,
+        handle,
+        task_id,
+        attempt_id,
+        expected_task_version,
+        expected_attempt_version,
+        expected_decision_revision,
+        decision_ref,
+    ):
+        """Authorize only a short merge effect after the task worker has stopped.
+
+        The candidate owner is separately registered by trusted composition. This
+        snapshot grants neither work-command permission nor delivered merge status.
+        """
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            task = work.get(conn, sid, task_id)
+            self.c.check(task, expected_task_version, expected_decision_revision)
+            attempt = attempts.get(conn, sid, attempt_id)
+            if attempt.version != expected_attempt_version:
+                raise StaleVersion("Completed worker attempt version changed")
+            if (
+                not task.code_bearing
+                or task.human_hold
+                or task.delivered_once
+                or task.observed_status != S.IN_PROGRESS
+                or task.sync_state != SyncState.CONFIRMED
+                or attempt.task_id != task.id
+                or attempt.state != A.DONE
+                or attempts.active(conn, task.id) is not None
+            ):
+                raise InvalidTransition(
+                    "Current completed code work and merge authority are required"
+                )
+            self.require_open(conn, scope, task)
+            self.c.decision(conn, task, scope, decision_ref, S.IN_DEV)
+            yield task, attempt, scope
+
     def reserve(
         self,
         handle,
