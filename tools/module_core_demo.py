@@ -125,22 +125,45 @@ def main():
             result["baseline_exit_code"] = pytest.main(command)
             if result["baseline_exit_code"]:
                 raise RuntimeError("A required baseline case failed; retained XML is authoritative")
-        result["status"] = "local_demonstration_passed_connections_pending"
     except BaseException as error:
         result["status"] = "failed"
         result["failure"] = {"type": type(error).__name__, "message": str(error)}
         raise
     finally:
-        after = database.stat()
-        result["database"] = {
+        prior_failure = result["status"] == "failed"
+        identity_error = None
+        observation = result["database"] = {
             "path": str(database),
-            "device": after.st_dev,
-            "inode": after.st_ino,
+            "device": None,
+            "inode": None,
+            "original_device": info.st_dev,
             "original_inode": info.st_ino,
-            "same_physical_file": (after.st_dev, after.st_ino) == (info.st_dev, info.st_ino),
+            "same_physical_file": None,
         }
+        try:
+            after = database.lstat()
+            observation.update(
+                device=after.st_dev,
+                inode=after.st_ino,
+                same_physical_file=(after.st_dev, after.st_ino) == (info.st_dev, info.st_ino),
+            )
+            if not observation["same_physical_file"]:
+                identity_error = RuntimeError("Final database physical identity changed")
+        except OSError as error:
+            observation["observation_error"] = {"type": type(error).__name__, "message": str(error)}
+            identity_error = RuntimeError("Final database physical identity could not be observed")
+        if identity_error is not None:
+            result["status"] = "failed"
+            observation["failure"] = str(identity_error)
+            result.setdefault(
+                "failure", {"type": type(identity_error).__name__, "message": str(identity_error)}
+            )
+        elif not prior_failure:
+            result["status"] = "local_demonstration_passed_connections_pending"
         result["elapsed_seconds"] = time.monotonic() - started
         save(output / "result.json", result)
+        if identity_error is not None and not prior_failure:
+            raise identity_error
     print(
         json.dumps({"status": result["status"], "evidence": str(output), "module_accepted": False})
     )
