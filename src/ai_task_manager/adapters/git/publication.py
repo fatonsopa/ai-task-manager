@@ -295,6 +295,10 @@ class LocalGit:
     def _spawn(self, ref, kind, args, *, interactive=False):
         data = self.journal.current(ref)["facts"]["local_git"]
         repo = Path(data["repository"]["path"])
+        # Known holds refuse even preparatory children. Later changes are checked
+        # again at release; no staging or separate-store work runs in this yield.
+        with self.operations.authority_boundary(ref):
+            pass
         generation = str(uuid4())
         intents = data.get("spawn_intents", []) + [{"generation": generation, "kind": kind}]
         data = dict(data, spawn_intents=intents, stage="spawn_intent")
