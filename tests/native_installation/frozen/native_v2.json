@@ -1,0 +1,12 @@
+{
+  "case_version": 2,
+  "old_criteria_sha256": "c62282eec8f7845cd992f5ca542c1cc4dd2562bf0751e0de584a5243b4a26058",
+  "additive": [
+    "NI03 same bytes config/installation/manifest/executable physical replacement refusals"
+  ],
+  "unchanged_current_consumer": "WI01 same current installed product v2 with short TMPDIR after baseline3139e3e passes",
+  "product_bytes": "Unchanged from installed-v2",
+  "runner_sha256": "aaeb78c5a53b872df4c542a6161b0c675c93c7f94e9c17b7531e5c999eaca64d",
+  "test_source_sha256": "ff6d56c8dea487a619b54b70e8784eea5dd9d714335d35d35b611dab0df9ea91",
+  "effects": "5 authored mechanical cases; no actual model/provider/Docker"
+}

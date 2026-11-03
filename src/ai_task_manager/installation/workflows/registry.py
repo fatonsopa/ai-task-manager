@@ -17,8 +17,23 @@ class NativeAuthorities:
     model_accounting: object
     accounting_ref: str
     decision_preparation: object = None
+    confined_commands: object = None
+    command_refs: tuple[str, ...] = ()
 
     def require(self):
+        if (
+            type(self.command_refs) is not tuple
+            or len(set(self.command_refs)) != len(self.command_refs)
+            or "assignment" in self.command_refs
+            or any(type(ref) is not str or not ref for ref in self.command_refs)
+            or bool(self.command_refs) != (self.confined_commands is not None)
+        ):
+            raise Unavailable("Exact confined command registration is incomplete")
+        if self.confined_commands is not None and any(
+            not callable(getattr(self.confined_commands, name, None))
+            for name in ("execute_registered", "reconcile_stopped")
+        ):
+            raise Unavailable("Actual confined command capability is required")
         required = (
             (self.policy_builder, None),
             (self.launch_permits, "check_admission"),
