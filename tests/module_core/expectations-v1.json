@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "scope": "M1 independent installed-interface demonstration using declared local contract fixtures; not module acceptance or live connections.",
+  "checks": {
+    "create_read": "Exact WritingService approval creates one scoped Backlog record; a separate installed CLI reads it.",
+    "explicit_queue": "An explicit delegated enqueue changes Backlog to Todo; creation alone never queues work.",
+    "illegal_transition": "Absent destination-specific delivery evidence cannot complete work.",
+    "missing_human": "A caller reference cannot invent human authority; installed missing human observation refuses.",
+    "wrong_scope": "Foreign user/session task reads and session-file substitution refuse without mutation.",
+    "stale_decision": "Old version or decision revision refuses without changing task state.",
+    "idempotency": "Same-operation retry after a lost response produces one task/effect; changed arguments conflict.",
+    "missing_evidence": "Missing writing approval, dependency observations and worker integration remain refused/blocked.",
+    "restart": "Fresh installed interpreters retain tasks, intents and idempotent operation identity.",
+    "cli_mcp": "Actual CLI and stdio MCP reach the same scoped application API and data.",
+    "dependency_capacity": "Reuse existing explicitly authored Core API controls; do not label them installed worker execution.",
+    "human_hold": "Reuse existing explicit human-observation API controls; missing installed producer stays pending."
+  },
+  "limits": [
+    "No real Linear/account/model/Docker evidence",
+    "No new offline mode",
+    "No runtime changes",
+    "No fabricated worker/start/stop/delivery receipts"
+  ]
+}

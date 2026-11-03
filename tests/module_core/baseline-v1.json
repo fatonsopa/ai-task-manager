@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "module": "M1",
+  "requirements": [
+    "R03",
+    "R04",
+    "R06",
+    "R07",
+    "R09",
+    "R11",
+    "R13",
+    "R14",
+    "R15",
+    "R20",
+    "R27",
+    "R30",
+    "R38"
+  ],
+  "responsibilities": [
+    {
+      "name": "Lifecycle and guarded review destinations",
+      "requirements": [
+        "R03",
+        "R09",
+        "R13",
+        "R30"
+      ],
+      "existing_cases": [
+        "tests/domains/test_policy.py",
+        "tests/domains/test_review_delivery.py::test_p02_every_review_exit_is_usable_through_guarded_application_api",
+        "tests/domains/test_review_delivery.py::test_p02_review_exit_requires_explicit_human_authority"
+      ],
+      "interpretation": "Reuse the complete maintained ordered status/cause matrix and separate missing-guard expectations. Local policy controls only."
+    },
+    {
+      "name": "Scoped application reads and authority",
+      "requirements": [
+        "R04",
+        "R15",
+        "R20",
+        "R27"
+      ],
+      "existing_cases": [
+        "tests/application/test_service.py::test_a04_service_scopes_all_reads_and_pending_intake_is_readable"
+      ],
+      "interpretation": "Existing authored principal/session fixture; complemented by installed CLI and MCP calls in the demonstration."
+    },
+    {
+      "name": "One claim and atomic capacity",
+      "requirements": [
+        "R06",
+        "R07",
+        "R38"
+      ],
+      "existing_cases": [
+        "tests/storage/test_atomicity.py::test_p08_two_connections_cannot_reserve_the_same_task",
+        "tests/storage/test_atomicity.py::test_p08_racing_distinct_tasks_obey_global_and_project_capacity",
+        "tests/storage/test_atomicity.py::test_p08_project_capacity_covers_multiple_hosts"
+      ],
+      "interpretation": "Existing Core reservation controls; no actual worker process or account is represented."
+    },
+    {
+      "name": "Dependency blocking and cycles",
+      "requirements": [
+        "R11",
+        "R14"
+      ],
+      "existing_cases": [
+        "tests/scheduling/test_policy.py",
+        "tests/scheduling/test_graph.py::test_cycles_and_self_edges"
+      ],
+      "interpretation": "Existing authored dependency declarations; unknown metadata remains blocked in the installed demonstration."
+    },
+    {
+      "name": "Human hold and stale decisions",
+      "requirements": [
+        "R09",
+        "R14",
+        "R27"
+      ],
+      "existing_cases": [
+        "tests/application/test_retry_human_workflows.py::test_a30_human_hold_release_records_new_authority_not_agent_label",
+        "tests/application/test_retry_human_workflows.py::test_a30_stale_human_revision_and_changed_scope_refuse_before_action"
+      ],
+      "interpretation": "Existing code-only host observation fixture; successful installed human-instruction production is not established."
+    },
+    {
+      "name": "Persistence and interruption",
+      "requirements": [
+        "R14",
+        "R20",
+        "R38"
+      ],
+      "existing_cases": [
+        "tests/storage/test_restart_architecture.py::test_p21_p23_reopen_preserves_pending_intent_and_attempt_history"
+      ],
+      "interpretation": "Existing authored Core attempt history plus new actual cold-client/lost-reply control. Recovery source has separate lead-owned evidence."
+    }
+  ],
+  "prior_evidence": {
+    "index": "config/build/evidence-index.json",
+    "report": "docs/test_status_report.md",
+    "policy": "Preserve original source bindings and limits. Historical passes are not silently promoted to this package. The small reused selection above is rerun against the installed candidate; unrelated suites are not selected."
+  },
+  "acceptance_limits": [
+    "This is a verification baseline, not all six module acceptance conditions.",
+    "Integration, independent review and required connection results remain separate.",
+    "Actual provider, model, delivery and host/platform evidence is not supplied by contract fixtures.",
+    "Writing approval is exercised through WritingService with a labelled authored review, not fresh semantic review."
+  ]
+}
