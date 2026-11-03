@@ -2,7 +2,7 @@
   "schema_version": 3,
   "scope": "Documentation and declared supporting inputs; not whole-product or runtime attestation.",
   "path_base": "repository_root",
-  "previous_manifest_sha256": "df57cc035a23e83eeedbcac73faadde61a1c91b58806947f85ece9054ffd671a",
+  "previous_manifest_sha256": "319a4b4b0ea815106409375dccb6595dd339108b60b4860c3b43ad5d54ac5d35",
   "files": [
     {
       "path": ".gitignore",
@@ -22,7 +22,7 @@
     },
     {
       "path": "config/build/evidence-index.json",
-      "sha256": "4e6267f0718ad10025706d109b29d8a9022e958446ae2ed462fdf83084576ba0"
+      "sha256": "d520b5e7e09f156dde8474da5e722d6caf0d25b5d5fbc29630ea879deda228d0"
     },
     {
       "path": "config/execution-policy.json",
@@ -38,7 +38,7 @@
     },
     {
       "path": "config/requirements.json",
-      "sha256": "a4ba1bd7282663ce6e21e6412c5a320aaff067e5c3c3de52ae1b5a2675e63a8c"
+      "sha256": "9456e12fd606cfcba0618583efd1e451d769264c534c49cf14b0413689d0ae39"
     },
     {
       "path": "config/research-sources.json",
@@ -150,7 +150,7 @@
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "c7d22668b54e68c052257bb56caa63002519c6a74c6b8deb391c6c1613b21231"
+      "sha256": "dcb1f639d2634e957fe45075035b5e7531ce81ce5e0b9211e867993ca9030555"
     },
     {
       "path": "docs/merge/decision_record.md",
@@ -174,7 +174,7 @@
     },
     {
       "path": "docs/policy.md",
-      "sha256": "3d0a3d92449316fd66c7c2e15cdf41f7657b75be6873a2138c82bdea340c014d"
+      "sha256": "7a623b4bd83984667e9f6923733edb3b88b8586e86224b44298c0e7dada0e36f"
     },
     {
       "path": "docs/readme.md",
@@ -182,7 +182,7 @@
     },
     {
       "path": "docs/spec_driven_development.md",
-      "sha256": "5f5ac8410bf7b8b60fa3caf580ce500def5bc895191881e24449a6afe7e635ab"
+      "sha256": "5666fcd800301ee5ab807824cd85816ba0394288b2213fe8ff8b8ea6005b0eb4"
     },
     {
       "path": "docs/terminal/spec_driven_development.md",

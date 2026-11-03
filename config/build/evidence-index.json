@@ -21,27 +21,27 @@
   "documents": {
     "policy.md": {
       "checked_delivery": "delivered",
-      "sha256": "241335ccaa26906841cd7f0fbae61e019771976d2c2bf1f4d9b800ae07f918f5",
+      "sha256": "7a623b4bd83984667e9f6923733edb3b88b8586e86224b44298c0e7dada0e36f",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
-      "objective_sha256": "945afa227f4b0c3690511735a025effaf288adfb9de07e238ca91e5f8df19c8e",
-      "message_sha256": "356d20c1ca461cc2e905bd861f2556a53f26e4aeb567a9370e4ad70dcc0de52a",
-      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
+      "objective_sha256": "01212b137723e1bcde36757a8b70bea5278e9005b28a9131bbb8efc76b533e99",
+      "message_sha256": "dff56eb4d92864e38dc44714702bc94457c09fd6385942a84145910c2d808f04",
+      "scope": "R15revision2 deterministic workflow control; exact excerpt only, no installed/live success claimed."
     },
     "spec_driven_development.md": {
       "checked_delivery": "delivered",
-      "sha256": "7021302f22765bf4c508403ab3fc4b464fec8bc0aea5a8207a73ad0a1ad159cc",
+      "sha256": "5666fcd800301ee5ab807824cd85816ba0394288b2213fe8ff8b8ea6005b0eb4",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
-      "objective_sha256": "ef54377a96ae3faa32fe2f58b139c5e65b610108e6ce7f26a14c0829aecfcc19",
-      "message_sha256": "c85eb0f92a64faa418362c64aeb092bc8653b0fa62ab833c0cc67600adf90151",
-      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
+      "objective_sha256": "585420227b852eec2f8a4d967d4bb095c7ba4edf5b7a0f470c4ac88a8cf26a5f",
+      "message_sha256": "88b9eb1d6bf00d199465f91fc386e544d3ebd14787a89eebb73bab390bc79b63",
+      "scope": "R15revision2 deterministic workflow control; exact excerpt only, no installed/live success claimed."
     },
     "high_level_document.md": {
       "checked_delivery": "delivered",
@@ -57,15 +57,15 @@
     },
     "implementation_plan.md": {
       "checked_delivery": "delivered",
-      "sha256": "cecd133a7b537228b5b326d58774ee94e461f5316fe5fc859a0c16f8f11f2e10",
+      "sha256": "dcb1f639d2634e957fe45075035b5e7531ce81ce5e0b9211e867993ca9030555",
       "review_kind": "current_host_self_review",
       "model": null,
       "meaning_and_style_review": true,
       "independent_review": false,
       "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
-      "objective_sha256": "c20a4bb5ab1dc8758bd43b35e9b70312164f716efaa925ea653fb56cf58f7a93",
-      "message_sha256": "47dadcbd5b91e51314381742eeeefd6010c8c2ef81a9a2c2572990984165e839",
-      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed."
+      "objective_sha256": "74a908433bf57f5c9d5d5f66c346c3266156089c35d325730188184f53a1f94a",
+      "message_sha256": "dc2b964a4549bb5e0dbc12c2417b52585cb6f1948be903ccbbcff4ebc62d2a03",
+      "scope": "R15revision2 deterministic workflow control; exact excerpt only, no installed/live success claimed."
     },
     "test_plan.md": {
       "checked_delivery": "delivered",
@@ -1333,9 +1333,51 @@
       "scope": "New reporting period; exact actual startup distinguished from full task/profile acceptance; integrated components retain source-bound results.",
       "reporting_period": "2026-11-02 15:12\u201319:05 UTC",
       "preserved_reason": "Replaced current index entry by source-bound00:30-02:00UTC period; original historical periods and Git evidence retained."
+    },
+    {
+      "path": "policy.md",
+      "checked_delivery": "delivered",
+      "sha256": "241335ccaa26906841cd7f0fbae61e019771976d2c2bf1f4d9b800ae07f918f5",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "945afa227f4b0c3690511735a025effaf288adfb9de07e238ca91e5f8df19c8e",
+      "message_sha256": "356d20c1ca461cc2e905bd861f2556a53f26e4aeb567a9370e4ad70dcc0de52a",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed.",
+      "preserved_reason": "R15revision2 current source-bound excerpt delivered and reviewed; prior meaning/results retained."
+    },
+    {
+      "path": "spec_driven_development.md",
+      "checked_delivery": "delivered",
+      "sha256": "7021302f22765bf4c508403ab3fc4b464fec8bc0aea5a8207a73ad0a1ad159cc",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "ef54377a96ae3faa32fe2f58b139c5e65b610108e6ce7f26a14c0829aecfcc19",
+      "message_sha256": "c85eb0f92a64faa418362c64aeb092bc8653b0fa62ab833c0cc67600adf90151",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed.",
+      "preserved_reason": "R15revision2 current source-bound excerpt delivered and reviewed; prior meaning/results retained."
+    },
+    {
+      "path": "implementation_plan.md",
+      "checked_delivery": "delivered",
+      "sha256": "cecd133a7b537228b5b326d58774ee94e461f5316fe5fc859a0c16f8f11f2e10",
+      "review_kind": "current_host_self_review",
+      "model": null,
+      "meaning_and_style_review": true,
+      "independent_review": false,
+      "technical_writer_skill_sha256": "55d80bf5660c0d8aee340b77b204e438bb14c32b5e208504bb96dea2a988e665",
+      "objective_sha256": "c20a4bb5ab1dc8758bd43b35e9b70312164f716efaa925ea653fb56cf58f7a93",
+      "message_sha256": "47dadcbd5b91e51314381742eeeefd6010c8c2ef81a9a2c2572990984165e839",
+      "scope": "T34 narrow ownership/path explanation or current-link update; no policy, visual source or observed acceptance result changed.",
+      "preserved_reason": "R15revision2 current source-bound excerpt delivered and reviewed; prior meaning/results retained."
     }
   ],
-  "requirements_revision": 5,
+  "requirements_revision": 7,
   "document_base": "docs",
   "repository_layout_migration": {
     "previous_index_sha256": "9408364705949bb394d1a939e25423e982bba4c3f806bca2d916815d1a191088",
