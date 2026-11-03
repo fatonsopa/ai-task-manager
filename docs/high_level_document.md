@@ -78,6 +78,14 @@ The source responsibility contract is [`config/repository-layout.json`](../confi
 
 The layout contract records the twelve old/new paths and before-image hashes. Deliver and recover them as one coherent relocation commit. Current consumers move together; frozen historical records keep their original path literals. Stop consumers bound to the old source before integration and adapt current private helpers at that boundary. Recovery must check destination collisions and preserve later work and run evidence. The product remains a modular application; this separation does not add network services.
 
+### Installed Linear credentials
+
+The sealed operator configuration selects exactly one credential source in its `linear` object. Both forms require `expected` with `viewer_id`, `workspace_id`, `team_id`, `team_key` and `project_id`, plus an absolute private `journal` path. The file form adds an absolute `credential_file` path and `credential_key`; it retains the existing owned private-file and supported-key checks. The environment form adds only `credential_environment`, the operator-selected variable name. Mixing the forms or adding unknown fields is refused.
+
+Environment names follow `[A-Za-z_][A-Za-z0-9_]*`. Their values must contain one or more visible ASCII characters, without whitespace, and remain within the existing credential size bound. Missing or malformed values refuse without falling back to another variable or file. The selected value stays in memory; configuration, session capabilities and journals retain the source selection and identity binding rather than the value. The existing Linear client verifies all expected identity fields and rejects credential changes after binding.
+
+Credential names come from trusted operator configuration. Model-facing operations cannot choose them, and configuration changes invalidate the service seal. Native host processes use their existing exact environment whitelist, which excludes inherited provider credentials. These local controls do not establish actual provider or model acceptance.
+
 ### Product boundaries and repository layout
 
 Build one modular Python application with one local supervisor and isolated worker processes. Use a supported Python version selected after dependency checks; record it in the lock and compatibility matrix. SQLite stores local control metadata on local disk. Do not introduce network microservices to coordinate claims, attempts and resource reservations that need one transaction boundary.

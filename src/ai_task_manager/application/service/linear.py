@@ -1,5 +1,6 @@
 """Built-in Linear composition from sealed operator configuration."""
 
+import os
 import re
 import shlex
 import time
@@ -50,14 +51,18 @@ class CredentialFile:
             raw = stream.read(MAX_JSON_BYTES + 1)
         if len(raw) > MAX_JSON_BYTES:
             raise AccessDenied("Credential source exceeds the configured bound")
+        try:
+            lines = raw.decode("utf-8").splitlines()
+        except UnicodeError:
+            raise AccessDenied("Configured credential cannot be parsed") from None
         matches = []
-        for line in raw.decode("utf-8").splitlines():
+        for line in lines:
             match = re.match(r"^\s*(?:export\s+)?([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$", line)
             if match and match[1] == self.key:
                 try:
                     values = shlex.split(match[2], comments=True)
-                except ValueError as exc:
-                    raise AccessDenied("Configured credential cannot be parsed") from exc
+                except ValueError:
+                    raise AccessDenied("Configured credential cannot be parsed") from None
                 if len(values) != 1 or not values[0]:
                     raise AccessDenied("Configured credential is absent or ambiguous")
                 matches.append(values[0])
@@ -66,14 +71,31 @@ class CredentialFile:
         return Credentials(matches[0])
 
 
+class CredentialEnvironment:
+    """Read only the name selected in trusted operator configuration."""
+
+    def __init__(self, name):
+        if not isinstance(name, str) or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) is None:
+            raise ValidationError("Invalid configured Linear environment name")
+        self.name = name
+
+    def __call__(self):
+        value = os.environ.get(self.name)
+        if (
+            not isinstance(value, str)
+            or not value
+            or len(value) > MAX_JSON_BYTES
+            or any(not 0x21 <= ord(c) <= 0x7E for c in value)
+        ):
+            raise AccessDenied("Configured environment credential is absent or malformed")
+        return Credentials(value)
+
+
 class LinearComponents:
     def __init__(self, config, *, client_factory=None):
-        if not isinstance(config, dict) or set(config) != {
-            "expected",
-            "credential_file",
-            "credential_key",
-            "journal",
-        }:
+        file_keys = {"expected", "credential_file", "credential_key", "journal"}
+        environment_keys = {"expected", "credential_environment", "journal"}
+        if not isinstance(config, dict) or set(config) not in (file_keys, environment_keys):
             raise ValidationError("Unknown Linear composition configuration")
         self.configuration_hash = digest(config)
         if not isinstance(config["expected"], dict) or set(config["expected"]) != {
@@ -84,12 +106,14 @@ class LinearComponents:
             "project_id",
         }:
             raise ValidationError("Complete expected Linear identity is required")
-        if any(
-            not isinstance(config[k], str) or not Path(config[k]).is_absolute()
-            for k in ("credential_file", "journal")
-        ):
+        paths = ("credential_file", "journal") if set(config) == file_keys else ("journal",)
+        if any(not isinstance(config[k], str) or not Path(config[k]).is_absolute() for k in paths):
             raise ValidationError("Linear credential and journal paths must be explicitly bound")
-        credentials = CredentialFile(config["credential_file"], config["credential_key"])
+        credentials = (
+            CredentialFile(config["credential_file"], config["credential_key"])
+            if set(config) == file_keys
+            else CredentialEnvironment(config["credential_environment"])
+        )
         expected = ExpectedBinding(**config["expected"])
         self.client = (
             client_factory(credentials, expected)
