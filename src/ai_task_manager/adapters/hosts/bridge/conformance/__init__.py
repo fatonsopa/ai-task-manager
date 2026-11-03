@@ -30,3 +30,8 @@ from .capture import ConformanceCapture
 from .normal import NormalConformance
 
 __all__ += ["ConformanceCapture", "NormalConformance"]
+
+from .completion import CompletedCapture
+from .profile import ProfileSources, StableProfile, prepare_profile
+
+__all__ += ["ProfileSources", "StableProfile", "prepare_profile", "CompletedCapture"]
