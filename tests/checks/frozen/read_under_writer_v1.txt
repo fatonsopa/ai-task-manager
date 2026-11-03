@@ -1,0 +1,9 @@
+def test_read_does_not_change_history(tmp_path):
+    db, p = store(tmp_path), plan()
+    ref = db.create(p, "key")
+    before = db.read(ref, SCOPE)
+    with db._transaction() as connection:
+        connection.execute("UPDATE check_meta SET version=version")
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            assert pool.submit(db.read, ref, SCOPE).result(timeout=2) == before
+    assert db.read(ref, SCOPE) == before

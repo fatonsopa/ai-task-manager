@@ -169,7 +169,15 @@
       "before_sha256": "1981388731f19141088da3ac63d9fb3e8bc7b40041f828addce43bb7361a10c8",
       "owner": "machine_configuration",
       "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
-      "byte_preserved": true
+      "byte_preserved": false,
+      "byte_preserved_during_relocation": true,
+      "post_relocation_revision": {
+        "authority": "Explicit actual user standalone/no-script-copy direction and approved TST-101 metadata correction",
+        "source_commit": "96c116fb73b48b2e4fb6ba0b2306d32820390a11",
+        "previous_sha256": "1981388731f19141088da3ac63d9fb3e8bc7b40041f828addce43bb7361a10c8",
+        "current_sha256": "f2649bba14cfd3d2f9cd531a1bb55f1249b96cb4e730d7ea9f33a685a9b66cf1",
+        "reason": "Original full source baseline retained in historical_baselines; current overlay retires compatibility authority and references hash-bound external evidence. Source scripts remain absent. Current content integrity remains checked by documentation-manifest."
+      }
     },
     {
       "old": "docs/config/acceptance-cases.json",

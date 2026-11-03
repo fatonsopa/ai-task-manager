@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "case": "test_concurrent_result_writes",
+  "contract": "read_contract_v2.json",
+  "previous_source": "f621fa14865acc5ab4e11ab0f4a349880482e9bc",
+  "previous_function_sha256": "8486117078c88d944a3e1a6e02fb118654a63e787b1d6fba0cf0cf80f04f260f",
+  "change": "Only route zeroeffect reads/proofreads through configured finite RetryingReads;original writes,parallelism,versions,unique refs,outcomes andproof-count assertions unchanged",
+  "reason": "Direct reads may report boundedbusy while another independentthreadwrites;do not assume immediate-read guarantee retired byversion2",
+  "new_runtime": "50attempts,1selapsed,5msdelay,5sparent pertrustedtestsetup;outside transactions"
+}

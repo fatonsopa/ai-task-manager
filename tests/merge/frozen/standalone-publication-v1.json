@@ -1,0 +1,454 @@
+{
+  "schema_version": 1,
+  "task": "TST-90",
+  "baseline_commit": "2f754eb",
+  "requirements_revision": 6,
+  "scope": "Generic internal Git publication component, not complete merge/Core/check/resource/host acceptance",
+  "original_source_hashes": [
+    {
+      "path": "src/ai_task_manager/adapters/projects/ai_index/__init__.py",
+      "sha256": "e4879fc8c7110a9c918e2df4bfa944e04a10ea352cc43e16b0b2ac53e6d7338e",
+      "lines": 5
+    },
+    {
+      "path": "src/ai_task_manager/adapters/projects/ai_index/callbacks.py",
+      "sha256": "64b7d7e6d9b4eea0672aa2ddb998704652f73f4c4513918ff427c8fd15936865",
+      "lines": 113
+    },
+    {
+      "path": "src/ai_task_manager/adapters/projects/ai_index/contracts.py",
+      "sha256": "18b79614bb4c83f67223f41c7134829409801c186899d9052286bfed8a30a54c",
+      "lines": 184
+    },
+    {
+      "path": "src/ai_task_manager/adapters/projects/ai_index/git_profile.py",
+      "sha256": "a18c9ef86ff34b462a347c89b33694fb965100363b6aabc4dcba19b3265d42cd",
+      "lines": 401
+    },
+    {
+      "path": "src/ai_task_manager/adapters/projects/ai_index/journal.py",
+      "sha256": "48c8d0d4af4ad70129fc3a00d97efddf5452a6471ae59056f9dee3e6fec41d1d",
+      "lines": 288
+    },
+    {
+      "path": "src/ai_task_manager/adapters/projects/ai_index/local_git.py",
+      "sha256": "29e8786a0d1bfe3abc8b89021d3d1d4ebd4f23f37129baee6d1f8eb32656e023",
+      "lines": 614
+    },
+    {
+      "path": "src/ai_task_manager/adapters/projects/ai_index/operations.py",
+      "sha256": "e5a817d38f9c362a9819c0bf9247eb17e7e5e61271b2cade7122490a282cba10",
+      "lines": 257
+    },
+    {
+      "path": "src/ai_task_manager/adapters/projects/ai_index/registrations.py",
+      "sha256": "ba82165100d24429e5d569a0bd93c0af5325b91d19456668b6cb33b4a2b17cf5",
+      "lines": 28
+    },
+    {
+      "path": "tests/merge/conftest.py",
+      "sha256": "5062c267d905ceaf71a1284513f9181739c17b5d642dc24a9c4caf1db0c2ed92",
+      "lines": 241
+    },
+    {
+      "path": "tests/merge/f1_fixtures.py",
+      "sha256": "0953600790d502eb2a8c8d5dfd9bc43ad2c8396c09598d599e4710ae33ea7700",
+      "lines": 246
+    },
+    {
+      "path": "tests/merge/test_ai_index_architecture.py",
+      "sha256": "1d6c4ec5fd9fc6f0a3203b44eb60d5b4c9f1b12479e2a3a7056ec6e8fadd5879",
+      "lines": 141
+    },
+    {
+      "path": "tests/merge/test_ai_index_callbacks.py",
+      "sha256": "d5e2903e3e7c6b7cd556aabef043ee5d054d9f178590fe984862127ec9f5d502",
+      "lines": 186
+    },
+    {
+      "path": "tests/merge/test_ai_index_journal.py",
+      "sha256": "a898ca734fa957fe71fa4e6d568228e743638bf6911448d6c54fd223d26dbeae",
+      "lines": 228
+    },
+    {
+      "path": "tests/merge/test_ai_index_lifetime.py",
+      "sha256": "7844287d9590e208ed5bab30642b348b2e71dcb907a3287e8eda8f54738cd26b",
+      "lines": 112
+    },
+    {
+      "path": "tests/merge/test_ai_index_registration.py",
+      "sha256": "7ce12caf06cf20e0e229253b2bf36b1f98167bfd22bea60c802dfc932def243d",
+      "lines": 70
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "sha256": "f191bcef89b49afebec8f324e83572dbc4eb9efc6472c8ba8206cb38cfe1306c",
+      "lines": 776
+    }
+  ],
+  "original_function_hashes": [
+    {
+      "path": "tests/merge/test_ai_index_callbacks.py",
+      "name": "test_callback_scope_and_sequence",
+      "ast_sha256": "ad687b592d0690428c3abe754c2bd8806c162e6f17595c6b74733ddf64fa1ca1",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_callbacks.py",
+      "name": "test_partial_work_never_implies_whole_issue_delivery",
+      "ast_sha256": "133a48dfab911ff47bbfe04bbef872f57a88eb5431299d916f9c32ebc0edbd6a",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_callbacks.py",
+      "name": "test_prose_and_evidence_are_not_minted",
+      "ast_sha256": "cc21a1f48abd6eaf349cc41c83e603b91cfd947d62a31f8e4907f7ae56e4bf9c",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_callbacks.py",
+      "name": "test_delivered_followup_and_rollback_are_separate_facts",
+      "ast_sha256": "20a23f5d23f8b89f3726c1d82577f80647f267c366e91b880b327e816e3aa781",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_callbacks.py",
+      "name": "test_result_classes_and_cleanup_warnings",
+      "ast_sha256": "f8548a9a95893cbeaf27e4ccd672c8119164d805230ebe4283eb2231f47199fa",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_lifetime.py",
+      "name": "test_model_end_is_not_protected_operation_stop",
+      "ast_sha256": "3087032fbe193ab139620747e7dae1a185019a44d303d6c0d81191bb0c83ff61",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_lifetime.py",
+      "name": "test_expected_application_database_absence",
+      "ast_sha256": "fa8f35bf7474dba83cc8eeb8db119e5b9ae2bc6fa51c5a567bfe186fd60fd9a6",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_lifetime.py",
+      "name": "test_observe_stop_is_not_stop_instruction",
+      "ast_sha256": "d492bf6676782a0209eed5d7316f2f3adf4bec7f4b4ca9c57ce164228b38bd6d",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_lifetime.py",
+      "name": "test_single_authority_boundary_and_pending_bound",
+      "ast_sha256": "afebd53d5ee7fe9242233a62e5bfb4e7d336098dbf08f17602cf15be3b021e66",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_registration.py",
+      "name": "test_exact_registered_binding",
+      "ast_sha256": "a20e7119980b7b6ba8e8ae3a1396ceef95275b1a0df676190f987752e8d679c8",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_registration.py",
+      "name": "test_replay_and_racing_registration",
+      "ast_sha256": "fac5fa62b15c474a537991f1aabfb7342559f19b7f29956e5ec6908a80fbc754",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_architecture.py",
+      "name": "test_no_external_effect_or_duplicate_policy",
+      "ast_sha256": "592b9f11d59c7cfc2f20e4e602a8204168377186486c1b804ec66bfe4917765d",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_actual_cas_and_journal_order",
+      "ast_sha256": "3ce9c13454e0173e0e4dcf817549fa9369967171d25d978cefb9b9aeb88a0137",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_actual_fast_forward",
+      "ast_sha256": "0180db126080d027476f679b6157196f08ac089d30a790c11558e3b4c28037b3",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_fast_forward_dirty_safeguards",
+      "ast_sha256": "c76a7cfef99a11ab70ab5fc6d11b9cc7f3c3b3b8d28e32e058d231f3b3a9a0a9",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_unsupported_configuration_refuses_before_effect",
+      "ast_sha256": "077c3e08bcfc093a7dcd47843def865f3ef5639345d3ebf3c3b15d90d97497ca",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_changed_or_unsupported_inputs",
+      "ast_sha256": "d0d5abea08ad2d3cca1ee6a695e4ac2869f933f9459ad86268b375e44e43527c",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_reference_hook_is_actually_excluded",
+      "ast_sha256": "2e443cf3af4c89fd2fc70ecd42b4235a9578ffe33da0ae9a63c461f306887f52",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_lost_reply_then_recovery_and_no_duplicate",
+      "ast_sha256": "b4b622c104f8670eb36ac1bc42870e557a04c7dfe35b367b8ff0a13af96f7ef4",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_later_target_advance_preserves_exact_effect",
+      "ast_sha256": "b9b61450816416b8be583410993e9bc7997b1a62322ccbadf0a901a8c12d5299",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_gate_closed_before_effect_on_controller_exception",
+      "ast_sha256": "0a2606998e0d86d297880ca8fb6a0b8de1e30186d6d5ba147e7e5d30b616d1ee",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_target_move_at_final_validation",
+      "ast_sha256": "9c632e537188506d49ef097864d4c7e7f6d0cb328c256009af0691185843ec07",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_missing_boundary_is_rejected",
+      "ast_sha256": "9fc7fab5419309e0e9947d9b456362ba7edc56ed2898177d53373f29461afd54",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_conflicting_request_and_foreign_evidence",
+      "ast_sha256": "d1c65fc2613b88b1f0b196e1878e08953d0d2c7d8ef501319539495f5f5ae490",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_profile_rejects_foreign_repository_and_changed_binary",
+      "ast_sha256": "4f5f42078bd6bf28ad75decebea1addb3db5f7894d53da48ff5c4194c046db42",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_actual_contending_cas_writers",
+      "ast_sha256": "41d2a782eb995caf67e5bb4446957b741facd645154ebbe7795440798c11645b",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_interrupted_intent_does_not_relaunch",
+      "ast_sha256": "ee810fd6d3a55529d98a6cae9f9cfbc491726cc47aaa7c99a89372e0ae0f614c",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_numeric_hash_format_and_missing_object",
+      "ast_sha256": "192ca5046b9a46c383ea3c1f633dcdfd38bea987e08f8dd4e72f950151e9dd6d",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_current_linked_worktree_routing_is_rebound",
+      "ast_sha256": "1e401bfea39cfeb43b988bc5eb6b6ebe7eb2728dc45dab57eb9204cdb6c48e2e",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_routing_rewrite_after_spawn_cannot_redirect_effect",
+      "ast_sha256": "5dd0993cb4b47469d92a801951a9e03a6388e0c7d01b2f15c6ad7ceade197fd3",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_checked_out_second_writer_before_prepare_cannot_publish",
+      "ast_sha256": "69ee86a975d9c399f5833ed44bbddf62829b5f062499ad377cde6fed5e2516f8",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_prepared_transaction_holds_actual_ref_lock",
+      "ast_sha256": "32819ea3d40b12acabbb95ebdee58acf6d0d4f282cadfcd06eaafe2566630c5d",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_interrupted_checkout_keeps_repair_obligation",
+      "ast_sha256": "9ae6d39f05cb4cb567467852b2ef67368ef83caf7829d34d1274c06beb506d58",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_real_large_checkout_error_drains_while_running",
+      "ast_sha256": "1326170288aec3aaa4c32e691ddaa9d74a1794ac86b99df3956fe58216668612",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_bounded_capture_counts_discarded_bytes",
+      "ast_sha256": "3af07984f1c52fbc4d3f804565f41bdb61f88b9f9144f4555f74f5cfa3e4379f",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_head_switch_before_prepare_prevents_checkout",
+      "ast_sha256": "8c104b221d028d6d9fdb7d1e963aa3dc96a921a273ae97e5c49ef74f739c7ba6",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_prepared_head_lock_refuses_real_head_switch",
+      "ast_sha256": "04a9086c00f770b404b7238b5470271352da225c4b4a170c3c030593185d3eec",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_fast_forward_preserves_orig_head_undo_value",
+      "ast_sha256": "444c7786f53d716e338c54eca78b1c4626d83aa30cd85c655bc6a9fe1cec2dc7",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_orig_head_second_writer_before_prepare_prevents_checkout",
+      "ast_sha256": "cd5a8cdec6737ad6e1834e8d904e502fdcceb935b685ff42ebb8b9729d98412e",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_existing_outside_include_is_refused_before_repository_reads",
+      "ast_sha256": "edfe2e8843efd847b5242a4168553ed72107801b97a34a84021c586e8f328916",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_symbolic_config_is_refused_before_git_consumption",
+      "ast_sha256": "63c0863c71115ee46ce26f15389abe649e99bfb6ddd5211ee930e8f00a84ce6d",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_worktree_config_is_refused_before_repository_queries",
+      "ast_sha256": "153cddab92758fa658d7e78b922ef3bbe8c1b826f57084b5a31e15c7ecf4c61c",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_symbolic_head_is_refused_before_repository_discovery",
+      "ast_sha256": "edf7db18de8905e3398ae3d51ff511ceddb5b717c820e9732b3b2456234bd3eb",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_invalid_repository_discovery_stops_at_confined_root",
+      "ast_sha256": "6b96a8c0d949306dd2d668b52fc762dcf79555aae9446ed91dd0228aca184cbf",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_f1_git.py",
+      "name": "test_root_with_discovery_list_separator_is_refused_before_git",
+      "ast_sha256": "46cd8a5f614a4fce907179fbbd70f4af507b25ae53b18bc0a368792b4e2b2298",
+      "disposition": "retain_safety_oracle_with_versioned_generic_API_adaptation"
+    },
+    {
+      "path": "tests/merge/test_ai_index_journal.py",
+      "name": "test_intent_event_outbox_atomicity",
+      "ast_sha256": "2d4349825cc98a63ff8f1050e6c8a991ae058488cc4ee1b143f425ebca7a19b6",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_journal.py",
+      "name": "test_pending_failed_and_uncertain_settlement",
+      "ast_sha256": "1df5d9487693103dcc7fd9358389e3f3a1a0c43e68e5315fe19f32c6a29caf56",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_journal.py",
+      "name": "test_committed_publication_lost_reply_recovery",
+      "ast_sha256": "cce67d43a9d6fb3556d50c4a951d2e12303001d90ea660e0ecbf24f8e68e64da",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    },
+    {
+      "path": "tests/merge/test_ai_index_journal.py",
+      "name": "test_required_fact_omission_and_order",
+      "ast_sha256": "234e3b9ecfed5d67b903a086903d4fe23c322ee1a96f933d2e561ca0a73391db",
+      "disposition": "reassess_by_responsibility; callback/host/legacy-policy ownership retired, transaction/scope invariants retained"
+    }
+  ],
+  "responsibility_dispositions": {
+    "contracts.py": {
+      "decision": "retain generic values; remove Linear team/issue fields, legacy command ID, Answer/callback/AI receipt translation",
+      "reason": "Repository configuration and exact task/input bindings are distinct; no competing provider or notification authority.",
+      "replacement_path": "domains/merging/contracts.py"
+    },
+    "git_profile.py": {
+      "decision": "retain confinement; add immutable trusted target/repository/profile enrollment",
+      "reason": "Generic transport must not default to one project branch or accept a target from request data.",
+      "replacement_path": "adapters/git/profile.py"
+    },
+    "local_git.py": {
+      "decision": "retain actual CAS/fast-forward, expected-old transaction, reflog observation, process gate and output draining",
+      "reason": "These are project-neutral publication safeguards, independently exercised in authored repositories.",
+      "replacement_path": "adapters/git/publication.py"
+    },
+    "journal.py": {
+      "decision": "retain transaction/version/idempotency history; remove callback writer and retire old schema without conversion",
+      "reason": "Publication persistence owns no task/provider/AI state; historical stores remain preserved and explicitly refused.",
+      "replacement_path": "storage/merging/journal.py"
+    },
+    "registrations.py": {
+      "decision": "combine registration with the single publication consumer",
+      "reason": "Trusted scope checks belong before intent/effects and historical readback; no duplicate adapter registration authority.",
+      "replacement_path": "application/merging/service.py"
+    },
+    "operations.py": {
+      "decision": "replace script-stage emulation with exact candidate/check-ref preparation and publisher delegation",
+      "reason": "No placeholder script runner, model lifetime controller, test selector or database state translator belongs to Git publication.",
+      "replacement_path": "application/merging/service.py"
+    },
+    "callbacks.py": {
+      "decision": "retire; do not move or alias legacy landed/branch_note/local_db/pipeline/release stages",
+      "reason": "Provider, human acceptance and AI/public receipts keep their existing owners; removing duplicate component tests is not acceptance of pending integration.",
+      "replacement_path": "existing application notification/provider services; integration pending"
+    },
+    "__init__.py": {
+      "decision": "retire old namespace; no re-export bridge",
+      "reason": "Actual wheel/import checks must fail discovery of the removed namespace.",
+      "replacement_path": "generic package entry files"
+    }
+  },
+  "boundaries": [
+    "trusted target comes only from enrolled profile; request target field rejected",
+    "two unrelated authored repositories, refs/heads/trunk and refs/heads/release/next, same consumer",
+    "both compare-and-swap and checked-out fast-forward for both targets",
+    "wrong repository/worktree/configuration digest rejected before effect",
+    "changed/re-enrolled target cannot borrow a durable intent",
+    "invalid target refs and cross-repository request refused",
+    "no old namespace import or alias in built wheel",
+    "domain imports no adapter/application/storage; transport no task/provider policy",
+    "actual include guard before repository-aware query remains",
+    "exact expected-old CAS, checked commit and source ref binding",
+    "durable intent before physical Git child release",
+    "committed replay after current profile drift returns historical fact without new effect",
+    "lost reply remains uncertain/reconciled, never duplicate launch",
+    "active/unknown process ownership and large output retained",
+    "atomic persistence, idempotency/version conflicts and foreign/old journal refusal",
+    "retired callback translators cannot be imported; no arbitrary command execution API"
+  ],
+  "test_dispositions": {
+    "57 prior F1 node IDs": "retained; every ID remains in current collected inventory; request/configuration setup adapted to the new generic contract",
+    "legacy callbacks/AI receipt tests": "retired from publication ownership; existing provider/notification integration still requires its own evidence",
+    "old outer-model/database lifetime tests": "duplicate emulation retired; actual supervisor/resource lifecycle remains required and pending elsewhere",
+    "old ai_-schema expectations": "new merge-only store; historical/foreign store refusal verified without mutation",
+    "failed large-output fixture": "original failed run retained; only supply a genuine check receipt for the altered candidate, with every original assertion unchanged"
+  },
+  "public_merge_command": null,
+  "legacy_namespace_bridge": false
+}

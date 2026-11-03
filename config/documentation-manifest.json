@@ -2,7 +2,7 @@
   "schema_version": 3,
   "scope": "Documentation and declared supporting inputs; not whole-product or runtime attestation.",
   "path_base": "repository_root",
-  "previous_manifest_sha256": "34bf689442fb874e699f0510e261e2ace9be38b3acaf7004bd2f853160f12f86",
+  "previous_manifest_sha256": "407ac07c4637d8066593ec5b9a4efff7546bd4a59a79d476beca9093c7cf260a",
   "files": [
     {
       "path": ".gitignore",
@@ -34,7 +34,7 @@
     },
     {
       "path": "config/repository-layout.json",
-      "sha256": "c2a454ef0b120abd7dec1c77a8fea18e4ea29b362346dbc7ffc116f5e8129716"
+      "sha256": "e344b86784248f9604501956a234eaaea069ecb5ae6b5151f60ae802b2ec7f2c"
     },
     {
       "path": "config/requirements.json",
@@ -46,11 +46,11 @@
     },
     {
       "path": "config/source-baseline.json",
-      "sha256": "1981388731f19141088da3ac63d9fb3e8bc7b40041f828addce43bb7361a10c8"
+      "sha256": "f2649bba14cfd3d2f9cd531a1bb55f1249b96cb4e730d7ea9f33a685a9b66cf1"
     },
     {
       "path": "config/work-items.json",
-      "sha256": "b77f87854c0983892b8919951e1896dbd2fc85759278cda9598903a21f983152"
+      "sha256": "9feafb813655ced5f16cb4d1057fe646b173573bf6d858706d407c9e3aa1226f"
     },
     {
       "path": "docs/assets/diagrams/architecture.mmd",
@@ -134,11 +134,11 @@
     },
     {
       "path": "docs/assets/diagrams/worker-merge.mmd",
-      "sha256": "bc49bf87031518a4d038adfc36136e3de9b2ad7c69bd8fd121be4a69ddd51663"
+      "sha256": "90493cf6f0c6ca8ff0456bf93adafbb9f5595d03a1a9df84ce1e98901db9bd0d"
     },
     {
       "path": "docs/assets/diagrams/worker-merge.svg",
-      "sha256": "54727a007d109898a2075568a176a465e873217518720e470ee31c41468ecb7f"
+      "sha256": "3d7d978019f5aa4b9f629edba9fe22886fb67dd0d82c3f2c267027471dd9c504"
     },
     {
       "path": "docs/audits/coordination-policy-audit.md",
@@ -146,7 +146,7 @@
     },
     {
       "path": "docs/high_level_document.md",
-      "sha256": "d69cc07593e23dd343522eb68082320c21f185bb814c999988840249d7a91511"
+      "sha256": "e10eb7433ef2258136b1423b04a9cf8d6e970b0f289a76b7b0b7267d498b8491"
     },
     {
       "path": "docs/implementation_plan.md",
@@ -162,7 +162,7 @@
     },
     {
       "path": "docs/migration/current-contracts.md",
-      "sha256": "6659e86581860f3ca87d0f34a15a09e8eda50cfca2b970420c03e424493e99f4"
+      "sha256": "6db92111dc77172789b361708a185a7acd4be724c0dd2f785dbc61cd9f220d3f"
     },
     {
       "path": "docs/mockups/sidebar-activities.png",
@@ -174,15 +174,15 @@
     },
     {
       "path": "docs/policy.md",
-      "sha256": "241335ccaa26906841cd7f0fbae61e019771976d2c2bf1f4d9b800ae07f918f5"
+      "sha256": "3d0a3d92449316fd66c7c2e15cdf41f7657b75be6873a2138c82bdea340c014d"
     },
     {
       "path": "docs/readme.md",
-      "sha256": "e6b1d5e3778c190e3d28582053de15cb30e3beb6c7d0aa66a1c43680f190bdc6"
+      "sha256": "8370ad05e133b54e36f19112babb9c18f53a4a5021bae596062c749114961ddf"
     },
     {
       "path": "docs/spec_driven_development.md",
-      "sha256": "7021302f22765bf4c508403ab3fc4b464fec8bc0aea5a8207a73ad0a1ad159cc"
+      "sha256": "5f5ac8410bf7b8b60fa3caf580ce500def5bc895191881e24449a6afe7e635ab"
     },
     {
       "path": "docs/terminal/spec_driven_development.md",
@@ -190,7 +190,7 @@
     },
     {
       "path": "docs/test_plan.md",
-      "sha256": "457059e85bd337695cd51de89ea7c65522fe1ebf2eaccf1a712cba08b8b199b7"
+      "sha256": "2736e6e697ec2e052f87acba2dc2e6bba02bf1164b4630c4948de021d340216e"
     },
     {
       "path": "docs/test_status_report.md",

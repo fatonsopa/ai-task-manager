@@ -1,6 +1,6 @@
-# Current task and delivery contracts
+# Historical task and delivery contract lessons
 
-Source baseline: `c05f40200703e7b8f379a8477502dabd594ba79c` on `origin/dev-mirror`. This inventory reads pinned Git objects and leaves the application checkout unchanged. It is a migration input; it does not prove the new product or the legacy suites passed.
+Source baseline: `c05f40200703e7b8f379a8477502dabd594ba79c` on `origin/dev-mirror`. This inventory reads pinned Git objects and leaves the application checkout unchanged. These are dated source observations from 2 November 2026, not current product instructions or proof that either suite passed. The current Policy (POL) and R08/R33 revision 6 supersede earlier preservation obligations.
 
 ## Inventory coverage
 
@@ -8,15 +8,21 @@ The machine-readable inventory maps 298 rows: 54 interpreted contracts, 23 issue
 
 Each row in [the inventory](../../config/migration/legacy-inventory.json) names its source/hash, responsibility, new owner, disposition, imported state, fencing action and proposed checks. [Compatibility fixtures](../../tests/fixtures/legacy-contracts.json) retain the complete command, hook and rule identifiers with targeted oracles. Runtime settings outside Git, active processes and installed timer overrides remain explicit cutover prerequisites.
 
-## Preserved command and resource boundaries
+## Current disposition
 
-- Keep `bash scripts/merge-to-dev.sh --checks`, the foreground merge call, its optional worktree argument, and `--probe` unchanged. Preserve result and exit meanings, including `NOTHING TO MERGE` and warning-only cleanup/runtime/mirror conditions.
+The product must install and work in an empty project. No AI Index script may be copied into any product cache, worktree, example or fixture. Required immutable historical evidence is external and hash-bound; the private relocation record is metadata, not a runtime or import path. Do not execute or link archived source into product behavior.
+
+Use these lessons to design independent cases for intended outcomes, faults and recovery. They do not freeze old algorithms or its check catalog. After product completion, a separately requested audit of the then-current target determines complete file/section retirement, necessary product-owned guidance and single-authority migration. No old task-management filename is required to survive.
+
+## Historical command and resource observations
+
+- The inspected source exposed `bash scripts/merge-to-dev.sh --checks`, a foreground merge call, an optional worktree argument and `--probe`, with results including `NOTHING TO MERGE` and warning-only cleanup/runtime/mirror conditions. Those names and arguments are historical; the shell entry point and its wrappers/aliases are retired in the standalone product.
 - The latest precheck warns when the branch is behind dev because it does not rebase. A stale unnamed-test finding cannot be treated as this branch failure before the normal rebase/check path is evaluated.
-- Preserve `#push`, `#release`, `#hotfix` and `/sync-with-dev` invocation flow. Keep pipeline, rollback and test-record logic in project adapters; route their task-state side effects through the new sole writer.
-- `worktree-setup.sh` creates independent files and dependencies but does not itself provide a separate database. The managed resource provider must call `worktree-db.sh up` before granting execution. The existing merge script owns its database stop/removal timing.
+- The source used `#push`, `#release`, `#hotfix` and `/sync-with-dev` for application workflows. This inventory does not impose those interfaces on the product. A later target migration must account for their responsibilities and fence superseded task writers while preserving unrelated behavior.
+- `worktree-setup.sh` creates independent files and dependencies but does not itself provide a separate database. The old workflow needed `worktree-db.sh up` for a separate database and assigned stop/removal to its merge script. This is a source-specific failure lesson; the product must author and verify its own resource lifecycle without invoking that script.
 - Retain native issue identity, team-specific state IDs, typed fields, acceptance, queue checkpoints and human decisions. Product execution state, issue delivery stage and human review are distinct.
 
-## Approved changes to legacy behavior
+## Earlier proposed changes and retained lessons
 
 | Source contract | Required replacement |
 | --- | --- |
@@ -25,13 +31,13 @@ Each row in [the inventory](../../config/migration/legacy-inventory.json) names 
 | NEW-PLACEMENT, POLICY-A9a | Approved override: new issues always begin in Backlog; explicit enqueue confirms Todo before initial work. |
 | POLICY-A10, POLICY-A12a | Approved override: active work uses a checkpointed On Hold path before de-queue/requeue, except explicit human review destinations. |
 | TEST-CLEANUP, POLICY-A14c | Restrict cleanup to the owned fixture run/project; never sweep all open TST work or label unfinished development tracking Done. |
-| WORKTREE-SETUP, WORKTREE-DB | The replacement provider must explicitly create the owned database before worker execution. Setup alone leaves shared-stack access. |
+| WORKTREE-SETUP, WORKTREE-DB | The old setup alone left shared-stack access. Verify each product provider’s declared isolation before work; do not reuse the source setup/database scripts. |
 | RULE-COPY, SCAN-WATCH, SYSTEMD | One clean cutover fences materialized Git rules, stale worktree script copies, hooks, drains, watchers and installed timers before enabling the new writer. |
 | HOST-HOME | Bind the selected Claude configuration and logical session explicitly. No /proc or cwd inference grants session/principal authority. |
 | CAP-EXEMPTION | All admitted workers require bounded capacity; model-tool isolation choices or merge waiting cannot bypass the new host/project admission budget. |
 | TASK-START, OUTBOX | Strict managed mode refuses uncertain missing enforcement and retains failed sync obligations; legacy fail-open or dropped-write behavior is not a valid replacement guarantee. |
 
-The old `reopen` command remains a compatibility surface with its arguments. For further work on a delivered issue, it creates a new linked Backlog issue under explicit authorization; it does not mutate the delivered issue to In Progress. In Review can reach every configured destination with the approved target-specific guards.
+The inspected source included a `reopen` command. Its public compatibility obligation is superseded; the standalone product contract owns any replacement interface. For further work on a delivered issue, it creates a new linked Backlog issue under explicit authorization; it does not mutate the delivered issue to In Progress. In Review can reach every configured destination with the approved target-specific guards.
 
 ## Complete request and result lifecycle
 
@@ -79,7 +85,7 @@ The ledger records the source fix commit, test symbol/lines/hash, responsible ne
 
 The cutover must retire the entire writer graph before enabling admission: native hook handlers, detached journals/drains, scanner/watch loops, installed user timers, materialized dev-rule Git trees, stale worktree script copies, pipeline delivery callbacks and direct connector writes. Import pending obligations and identity mappings first, reconcile actual resources and Git/Linear facts, then activate one authority epoch. Rollback preserves post-cutover facts and never enables both writer sets.
 
-Existing feedback consumers include monitor issue filing and told/acknowledged findings, detector incidents, failed-write alerts, stranded-helper recovery and post-merge fix-forward evidence. Reuse their proven measurements and deduplication boundaries. They do not establish a complete automatic repair/release/update service. The new maintenance process must add bounded repair, regression/host verification, release evidence, update/rollback and recurrence tracking without bypassing the same task and resource rules.
+The source contained monitor issue filing and told/acknowledged findings, detector incidents, failed-write alerts, stranded-helper recovery and post-merge fix-forward evidence. Treat measured outcomes and deduplication boundaries as scenario evidence; implement the product independently. They do not establish a complete automatic repair/release/update service. The new maintenance process must add bounded repair, regression/host verification, release evidence, update/rollback and recurrence tracking without bypassing the same task and resource rules.
 
 ## Remaining verification
 
@@ -87,7 +93,7 @@ Existing feedback consumers include monitor issue filing and told/acknowledged f
 - RUNTIME-02: Reconcile active native task/session stores, worktrees, databases, journals, in-flight merges and human decisions at the cutover checkpoint. This inventory does not copy or mutate live state.
 - RUNTIME-03: Actual current Claude/Codex hook trust, native task APIs and guarded shell/SDK surfaces require installed-host execution; source matchers alone cannot establish strict-mode enforcement.
 - RUNTIME-04: The source still contains lexical title/word guard rules. Preserve typed issue fields and clear acceptance requirements; reconcile the earlier user-approved word-list removal before carrying lexical refusal into the new controller.
-- RUNTIME-05: Static caller and option discovery do not prove branch behavior. Run every retained command/path in isolated fixtures and resolve any unparsed dynamic entry before cutover.
-- RUNTIME-06: The second real Linear identity remains unavailable; no source fixture or app actor substitutes for the required live two-user test.
+- RUNTIME-05: At capture, static caller and option discovery did not prove branch behavior. Preserve that coverage gap and author independent product cases. The later fresh target audit must resolve any dynamic entry that affects its cutover.
+- RUNTIME-06: At this inventory’s capture, a second real Linear identity was unavailable. Current access and acceptance are tracked in the Test Status Report (TSR), [test_status_report.md](../test_status_report.md); a source fixture or app actor cannot substitute for a live two-user test.
 
-Technical Writer and Skill Builder remain held by the user. This inventory was produced through source inspection and local data checks without invoking, reading or modifying either skill.
+At capture, the user’s skill hold applied to this inventory, which used source inspection and local data checks. That historical restriction is not current policy: the present build uses the approved current Technical Writer and Skill Builder. This document claims no fresh skill behavior evaluation.

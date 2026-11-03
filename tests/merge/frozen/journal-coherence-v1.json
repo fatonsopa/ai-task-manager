@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "task": "TST-90",
+  "original_contract_sha256": "41be16df7db193a8cb060d87caf3a466b6f7c64014112c8a2417117adbb3376e",
+  "baseline_before_repair": "203e30c",
+  "red_regression_commit": "2ae7484",
+  "shared_source_commits": [
+    "19192caafe6e0a8eaacf7c5300c475824686f4b5",
+    "6230dd64505e47e0a3d57c8ee853024e88ea5d25"
+  ],
+  "shared_production_sha256": "83fc06e5d0c73cd356327a78cf1beda2bcdff818455f99e851670881659aafdf",
+  "consumer_commit": "2e26c48",
+  "cases": [
+    "Actual copied image open, original path restored: refuse public read before sentinel effect",
+    "Replace file after transaction body writes: refuse before commit and roll back actual outer update",
+    "Normal entry/precommit probe restores UUID while preserving outer domain writes",
+    "WAL explicitly refused without silently converting store mode",
+    "Actual BEGIN IMMEDIATE contention maps to typed retryable ConnectionBusy; no retry policy added"
+  ],
+  "mechanism": "Active DELETE-journal transaction; same-connection conditional temporary UUID update and savepoint rollback before body and before commit. A new initialized schema must pass before its first commit.",
+  "constraints": [
+    "Writable enrolled store required; no silent journal-mode conversion.",
+    "Busy or locked SQLite is typed retryable contention; caller owns retries and transaction lifetime.",
+    "No descriptor attestation, same-user hostile replacement guarantee or support for concurrent live file replacement.",
+    "Root-reviewed shared helper owns the probe; Journal only owns its transaction and consumer boundaries."
+  ]
+}
