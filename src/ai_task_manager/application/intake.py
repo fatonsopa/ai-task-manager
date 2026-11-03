@@ -5,6 +5,7 @@ from ai_task_manager.domains.work.errors import (
     ApprovalRequired,
     EvidenceRequired,
     InvalidTransition,
+    ValidationError,
 )
 from ai_task_manager.domains.work.models import (
     DELIVERED,
@@ -74,10 +75,9 @@ class Intake:
         """Read only an exact committed submission before refreshing external authority."""
         try:
             self.approved(prose, approval_ref)
-        except ApprovalRequired:
+        except (ApprovalRequired, ValidationError):
             # A renderer upgrade cannot reinterpret an old approval. It can only
             # return an exact, already confirmed submission without new effects.
-            rendered = self.c.renderer.render(prose)
             with self.c.db.transaction() as conn:
                 sid, scope = sessions.resolve(conn, handle)
                 verifier = getattr(self.c.approvals, "verify_scoped_approval", None)
@@ -87,7 +87,8 @@ class Intake:
                 if (
                     not isinstance(approval, Approval)
                     or approval.policy != self.c.approval_policy
-                    or approval.representation == rendered.representation
+                    or approval.representation
+                    not in getattr(self.c.renderer, "historical_representations", ())
                 ):
                     raise
                 prior = work.replay(
@@ -130,7 +131,7 @@ class Intake:
     ):
         try:
             rendered, digest = self.approved(prose, approval_ref)
-        except ApprovalRequired:
+        except (ApprovalRequired, ValidationError):
             return self.recover_submit(
                 handle, prose, approval_ref, operation_key, parent_task_id, followup_ref
             )

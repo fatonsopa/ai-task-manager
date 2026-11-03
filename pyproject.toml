@@ -8,6 +8,7 @@ license = "MIT"
 authors = [{ name = "Manaferra Inc." }]
 dependencies = [
     "claude-agent-sdk==0.2.176",
+    "markdown-it-py==4.2.0",
     "mcp==2.3.0",
     "PyYAML==6.0.3",
     "rich==15.0.0",

@@ -1,0 +1,15 @@
+{
+  "task": "TST-153",
+  "finding": "M2-LINKS-P2-1",
+  "extends": "prose-representation-v3.json LR04/LR06/LR10",
+  "requirements": ["R38", "R04", "R14", "R30"],
+  "contract": "Use CommonMark block structure to preserve original fenced and indented code bytes inside blockquotes and lists. Only existing v2 container list-marker normalization may change the opening line outside literal content. Never round-trip through a Markdown serializer.",
+  "cases": {
+    "LC01": "Top-level, quoted, list-contained and mixed/nested tilde/backtick fences preserve code URLs and list-like literal lines.",
+    "LC02": "Ordinary sibling prose links still convert before/after nested blocks and after a container ends; list-marker normalization outside literals stays unchanged.",
+    "LC03": "Fence delimiter lengths, trailing closing text, unclosed blocks, quote depth, ordered-list indentation, tabs and CRLF retain their actual block boundaries.",
+    "LC04": "Container-indented code stays literal while list continuation paragraphs are recognized as prose. Ambiguous parser nesting overflow refuses before approval.",
+    "LC05": "Actual Writer approval and local HTTP receive the exact nested-literal representation; changed provider bytes still leave uncertainty and historical replay remains unchanged."
+  },
+  "limits": "Original failed review and interrupted LP03 remain retained. No new provider/model/credential/tunnel effects or live acceptance."
+}

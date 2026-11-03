@@ -1,0 +1,36 @@
+{
+  "version": 3,
+  "task": "TST-153",
+  "representation": "linear-markdown-v3",
+  "requirements": ["R38", "R04", "R14", "R30"],
+  "module": "M2",
+  "connection": "LINK-01; LP03/LP04 representation prerequisite",
+  "evidence": "One retained TST-151 development-task creation converted two bare HTTPS prose links to [URL](<URL>). A separately approved explicit-link update used the same issue. This is not a passed product live fixture or a general serialization promise.",
+  "supported": [
+    "Bare absolute ASCII HTTPS URLs in ordinary prose become [URL](<URL>) before approval.",
+    "HTTPS autolinks become the same explicit form; existing explicit Markdown links, images and reference destinations remain byte-exact.",
+    "Sentence-final period, comma, semicolon, colon, exclamation and question marks stay outside a bare link. Unmatched trailing closing parentheses stay outside; balanced URL parentheses and query strings remain in the URL.",
+    "Inline backtick spans, backtick/tilde fenced blocks and indented code remain literal. Internal whitespace and existing v2 list/terminal-LF rules remain unchanged."
+  ],
+  "unsupported": "Ambiguous embedded/escaped URL starts, unbalanced URL parentheses, raw URL brackets/backslashes/Markdown emphasis delimiters, unterminated inline/link/autolink syntax containing URLs, and HTML URL attributes refuse before approval. Percent-encoded URL characters and explicit links can express literal delimiters. Intraword underscores are supported; delimiter-position underscores require an explicit link.",
+  "legacy": {
+    "known_versions": ["linear-markdown-v1", "linear-markdown-v2"],
+    "confirmed": "Only the exact saved submission and original scoped approval under current policy may replay while its task remains confirmed and linked. New syntax validation must not rewrite or reject that historical read-only replay.",
+    "unsubmitted_or_uncertain": "Old approvals cannot acquire v3 meaning or authorize another mutation; original uncertainty and reconciliation comparisons stay exact.",
+    "unknown_version": "No historical replay authority is inferred for an undeclared representation."
+  },
+  "cases": {
+    "LR01": "Reproduce the captured bare-link mismatch using the original renderer and match its observed explicit output with v3.",
+    "LR02": "Ordinary HTTPS links, punctuation, balanced parentheses and query strings render deterministically and idempotently.",
+    "LR03": "Explicit links, autolinks, images/reference destinations and whitespace retain their declared meanings.",
+    "LR04": "Inline, fenced and indented code URLs remain literal, including different delimiter lengths.",
+    "LR05": "Unsupported ambiguous forms refuse before writing artifacts, task/outbox creation or provider mutation.",
+    "LR06": "Actual Writer review/approval binds exactly the v3 body sent through local HTTP; exact readback confirms once.",
+    "LR07": "Changed provider content and stale/foreign/unknown approvals remain refusals or uncertainty without extra effects.",
+    "LR08": "Known historical confirmed v1/v2 submissions replay unchanged even when v3 rejects their source syntax; changed arguments, keys, scope or policy refuse.",
+    "LR09": "Historical uncertain or unsubmitted v1/v2 operations and approvals remain unchanged after upgrade.",
+    "LR10": "Retain affected terminal-LF, approval, intake, progress and existing-issue writing controls."
+  },
+  "controls": "tests/application/test_linear_links.py; affected tests/application/test_linear_prose.py and writing/intake consumers",
+  "limits": "Authored HTTP/review controls and actual local Writer execution only. No live credentials, provider, model, tunnel or original-application effects. A separately reviewed live link fixture remains required."
+}
