@@ -328,3 +328,91 @@ def test_SO11_unfinished_intent_cannot_be_selected_by_edited_configuration(provi
     source = SessionObservations(journal, provider.components().client, provider.config, pointer)
     with pytest.raises(AccessDenied, match="missing"):
         source.verify_enrollment(reference)
+
+
+def _confirmed_task_for_retry(s):
+    from uuid import uuid4
+
+    from ai_task_manager.application.intake import prose_digest
+    from ai_task_manager.domains.work.models import Approval, TaskProse
+    from tests.domains.helpers import ProofFixture
+
+    proofs = ProofFixture()
+    s.core.context.approvals = proofs
+    prose = TaskProse("Verify revocation", "Retain the original operation result.", False)
+    rendered = s.core.context.renderer.render(prose)
+    proofs.approvals["approved"] = Approval(
+        prose_digest(prose, rendered), s.core.context.approval_policy, rendered.representation
+    )
+    task = s.core.intake.submit(s.handle, prose, "approved", "revocation-submit")
+    operation = s.core.sync.list_operations(s.handle)[0]
+    journal = s.core.context.principals
+    with journal.transaction() as conn:
+        proof = journal._proof(
+            conn,
+            "provider_status",
+            s.scope,
+            task.id,
+            {
+                "operation_id": operation.id,
+                "status": "Backlog",
+                "prose_digest": task.prose_digest,
+                "title": task.title,
+                "body": task.body,
+                "representation": task.representation,
+                "issue_id": str(uuid4()),
+            },
+        )
+    return s.core.intake.confirm_status(
+        s.handle, task.id, task.version, task.decision_revision, proof, "revocation-confirm"
+    )
+
+
+@pytest.mark.parametrize("committed", [False, True])
+def test_SO12_cached_decision_revocation_checks_only_uncommitted_effect(
+    provider, monkeypatch, committed
+):
+    install(provider)
+    s = service(provider)
+    s.provider = None  # This consumer selection admits no issue mutations.
+    task = _confirmed_task_for_retry(s)
+    data = {
+        "task_id": task.id,
+        "action": "enqueue",
+        "expected_version": task.version,
+        "decision_revision": task.decision_revision,
+        "operation_key": "same-original-action",
+    }
+    original = s.core.transitions.transition
+    if not committed:
+        monkeypatch.setattr(
+            s.core.transitions,
+            "transition",
+            lambda *a, **k: (_ for _ in ()).throw(
+                ConnectionError("stopped after durable decision before Core")
+            ),
+        )
+    first = s.call("task_action", data)
+    assert first["ok"] is committed
+    with s.decisions.journal.transaction() as conn:
+        contexts = [json.loads(row[0]) for row in conn.execute("SELECT context FROM invocations")]
+    assert any("decision" in context for context in contexts)
+    monkeypatch.setattr(s.core.transitions, "transition", original)
+    s.decisions.observations.revoke()
+    before = s.core.get_task(s.handle, task.id)
+    with s.core.context.db.transaction() as conn:
+        history = (
+            conn.execute("SELECT count(*) FROM events").fetchone()[0],
+            conn.execute("SELECT count(*) FROM outbox").fetchone()[0],
+        )
+    retry = s.call("task_action", data)
+    assert retry["ok"] is committed
+    assert s.core.get_task(s.handle, task.id) == before
+    with s.core.context.db.transaction() as conn:
+        assert history == (
+            conn.execute("SELECT count(*) FROM events").fetchone()[0],
+            conn.execute("SELECT count(*) FROM outbox").fetchone()[0],
+        )
+    if not committed:
+        assert "revoked" in str(retry)
+        assert before.observed_status == before.desired_status == "Backlog"

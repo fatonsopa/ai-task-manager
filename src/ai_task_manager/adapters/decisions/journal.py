@@ -105,6 +105,18 @@ class AuthorityJournal:
 
     def verify_evidence(self, ref):
         data = self._get(ref, "decision-proof:")
+        # A durable uncommitted invocation may reuse its saved decision ref.
+        # Revalidate its actual delegation at consumption, not only issuance.
+        from .observations import PREFIX, current_enrollment
+
+        origin = data.get("source_ref")
+        if (
+            data["kind"] == "decision"
+            and data["payload"].get("actor") == "agent"
+            and isinstance(origin, str)
+            and origin.startswith(PREFIX)
+        ):
+            current_enrollment(self, origin, data["scope"])
         return Evidence(
             data["kind"],
             Scope(**data["scope"]),

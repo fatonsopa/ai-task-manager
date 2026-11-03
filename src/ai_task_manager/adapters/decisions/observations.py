@@ -51,6 +51,20 @@ def bind_record(journal, reference, value):
     return True
 
 
+def current_enrollment(journal, reference, scope=None):
+    """Local consumption check; never perform provider I/O inside Core."""
+    data = journal._get(reference, PREFIX)
+    if scope is not None and data["scope"] != scope:
+        raise AccessDenied("Delegated decision enrollment scope changed")
+    revocation = "session-revoked:" + digest(reference)
+    with journal.transaction() as conn:
+        revoked = conn.execute("SELECT 1 FROM records WHERE ref=?", (revocation,)).fetchone()
+    if revoked:
+        journal._get(revocation, "session-revoked:")
+        raise AccessDenied("Session enrollment was revoked")
+    return data
+
+
 class SessionObservations:
     def __init__(self, journal, client, config_file, pointer):
         if type(pointer) is not dict or set(pointer) != {"reference", "journal", "key"}:
@@ -96,13 +110,7 @@ class SessionObservations:
         self._check()
         if reference != self.pointer["reference"]:
             raise AccessDenied("Session enrollment belongs to another installation")
-        data = self.journal._get(reference, PREFIX)
-        revocation = "session-revoked:" + digest(reference)
-        with self.journal.transaction() as conn:
-            revoked = conn.execute("SELECT 1 FROM records WHERE ref=?", (revocation,)).fetchone()
-        if revoked:
-            self.journal._get(revocation, "session-revoked:")
-            raise AccessDenied("Session enrollment was revoked")
+        data = current_enrollment(self.journal, reference)
         config = read_private(self.config_file)
         if data["config_path"] != str(self.config_file) or data["config_intent"] != intent(config):
             raise AccessDenied("Session enrollment configuration or source changed")
