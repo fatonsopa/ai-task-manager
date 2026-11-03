@@ -408,6 +408,14 @@ Freeze independently authored scenarios for concurrent contenders, an advancing 
 
 Measure committing, checks/tests, queue/resource waits, rebases, repairs and cleanup with defined start/end points. Compare equivalent workloads and clocks before setting performance targets or removing repeated work. This specification introduces no numerical target or permission to change the original application.
 
+## Mechanical workflow control
+
+R15 revision 2 requires one bounded run/resume operation to derive the next eligible action from actual Core task, attempt, synchronization and runtime facts plus its trusted plan. The controller records intent before effects and owns the ordering of resource preparation, worker admission, execution, verification and delivery. It rechecks current authority and repository facts at effect boundaries. It cannot treat a model-requested file, next step or success flag as evidence.
+
+A non-code run begins from confirmed Todo and proceeds through an actual owned worker and resource observations. It stops explicitly for a required semantic judgment or missing production integration. Verified completion still requires Core-accepted work-unit and non-code evidence, an authorized transition and provider confirmation. Code delivery and installed public host composition remain separate required paths.
+
+An interrupted run reconciles its recorded operation and physical owner before continuing. It never starts a second worker or replays an uncertain effect. Human holds, reassignment, revised scope and terminal delivery take precedence. Active task/attempt lineage protects current undelivered work without treating every historical backup as a present requirement. Tests must omit or reorder steps, request a wrong file, reuse a branch for another task and interrupt replies after effects; actual-host omission cases remain required even when local controls pass.
+
 ## Quality and interface constraints
 
 Every stage retains a durable identity, owner, input/output and failure state (R36). CLI, MCP, hooks and presentation call one application API and one transition policy (R15). Task, issue, attempt, delivery evidence and synchronization records remain distinct. Current independent tasks own separate worktrees and application databases; future parent/resource ownership is representable but does not enable shared databases today (R05/R19). Database-free project providers must be explicit and cannot silently replace the task’s declared isolation contract.
