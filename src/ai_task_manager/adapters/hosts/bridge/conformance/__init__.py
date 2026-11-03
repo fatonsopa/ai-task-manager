@@ -25,3 +25,8 @@ __all__ = [
     "cases",
     "profile_digest",
 ]
+
+from .capture import ConformanceCapture
+from .normal import NormalConformance
+
+__all__ += ["ConformanceCapture", "NormalConformance"]
