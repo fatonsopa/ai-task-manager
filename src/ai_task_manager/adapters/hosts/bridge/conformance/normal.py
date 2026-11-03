@@ -1,119 +1,82 @@
-"""Normal admission consumes complete historical capability facts, never identity renewal."""
+"""Reuse exact historical capability facts; current work authority remains separate."""
 
-from ai_task_manager.config.files import digest, read_private
+import math
+from typing import Protocol
 
-from ..admission import MANAGED_TOOLS, launch_template
-from .models import CASE_IDS, ProbeContext, cases, profile_digest
-from .verification import require, startup, verify_case
+from ai_task_manager.config.files import digest
+
+from .profile import prepare_profile
+from .verification import require, verify_capture
+
+
+class CaptureEnrollment(Protocol):
+    def require(self, reference: str, profile_digest: str) -> dict: ...
 
 
 class NormalConformance:
-    def __init__(self, manifest, pins, context, journal, reference):
-        self.manifest, self.pins, self.context, self.journal, self.reference = (
-            manifest,
+    def __init__(self, manifest, pins, context, journal, reference, *, enrollment):
+        # These are original capture provenance, not cached current-task authority.
+        self.manifest, self.context = manifest, context
+        self.pins, self.journal, self.reference, self.enrollment = (
             pins,
-            context,
             journal,
             reference,
+            enrollment,
         )
-        self._bound = (manifest, pins, context, journal, reference)
+        self._bound = (pins, journal, reference, enrollment)
 
     def require_installation(self, manifest):
         require(
-            all(
-                a is b
-                for a, b in zip(
-                    self._bound[:4],
-                    (self.manifest, self.pins, self.context, self.journal),
-                    strict=True,
-                )
-            )
-            and self.reference == self._bound[4]
-            and manifest is self.manifest,
-            "Normal conformance belongs to another installed owner",
+            self.pins is self._bound[0]
+            and self.journal is self._bound[1]
+            and self.reference == self._bound[2]
+            and self.enrollment is self._bound[3],
+            "The original capability consumer changed",
         )
         manifest.check()
         self.pins.check()
-        c = self.context
+        record, profile, _ = verify_capture(self.journal, self.reference)
+        row = self.enrollment.require(self.reference, profile.fingerprint)
         require(
-            isinstance(c, ProbeContext) and c.profile_digest == profile_digest(manifest, self.pins),
-            "Native conformance source/profile changed",
+            type(row) is dict
+            and set(row)
+            == {"reference", "capture_hash", "profile_digest", "revoked", "valid_until"}
+            and row["reference"] == self.reference
+            and row["capture_hash"] == digest(record)
+            and row["profile_digest"] == profile.fingerprint
+            and row["revoked"] is False,
+            "Actual completed capture is not durably enrolled or was revoked",
         )
-        p = self.journal._read(self.reference, "trace", fresh=False)["payload"]
+        until = row["valid_until"]
         require(
-            p.get("effect") == "native_conformance_capture"
-            and not p.get("error_type")
-            and p.get("profile") == c.profile_digest
-            and p.get("context_ref") == c.reference
-            and p.get("manifest_digest") == manifest.digest
-            and p.get("source") == self.pins.fingerprint
-            and self.journal.clock() < p["not_after"]
-            and p.get("confirmed_stop") is True,
-            "Complete unrevoked native capability capture is unavailable",
-        )
-        require(
-            p["not_after"] == read_private(manifest.installation.path)["deadline"],
-            "The original installation lifetime changed",
-        )
-        require(
-            not any(
-                row["payload"].get("effect") == "native_conformance_revoked"
-                and row["payload"].get("capture") == self.reference
-                for row in self.journal._history("trace")
+            until is None
+            or (
+                type(until) in {int, float}
+                and math.isfinite(until)
+                and self.journal.clock() < until
             ),
-            "Native conformance was revoked",
-        )
-        stop = p.get("stop", {})
-        require(
-            stop.get("confirmed") is True
-            and stop.get("observation", {}).get("known") is True
-            and all(
-                row.get("state", "").startswith("Z")
-                for row in stop["observation"].get("members", [])
-            ),
-            "Native probe group stop was not proved",
+            "Operator capability validity expired",
         )
         require(
-            [v.get("case_id") for v in p.get("cases", [])] == list(CASE_IDS),
-            "Native capability matrix is incomplete",
+            profile == prepare_profile(manifest, self.pins, profile.cli_version),
+            "Current installed source/account/role recipe differs from captured capability",
         )
-        profile = {k: getattr(c, k) for k in ("host", "model", "effort", "account_hash")}
-        session = startup(self.journal, p["startup_ref"], p["owner"], profile)
-        for case, value in zip(cases(c), p["cases"], strict=True):
-            verify_case(self.journal, case, value, p["owner"], c.reference, session, c.model)
         return self.reference
 
     def require_native_conformance(self, manifest, policy, binding, journal):
         self.require_installation(manifest)
-        d = manifest.data
+        _, profile, _ = verify_capture(self.journal, self.reference)
         require(
-            (policy.host, policy.model, policy.effort, policy.executable_sha256)
-            == (d["host"], d["model"], d["effort"], d["executable_sha256"])
-            and binding.host == d["host"]
-            and binding.scope == self.context.scope,
-            "Current native launch differs from the observed profile",
-        )
-        require(
-            set(policy.allowed_tools) == MANAGED_TOOLS
-            and policy.environment == manifest.environment,
-            "Current native tool/environment surface differs",
-        )
-        p = self.journal._read(self.reference, "trace", fresh=False)["payload"]
-        require(
-            p.get("launch_fingerprint") == digest(launch_template(policy)),
-            "Current native launch differs from actual captured configuration",
+            binding.host == profile.host
+            and prepare_profile(manifest, self.pins, profile.cli_version, policy=policy) == profile,
+            "Actual runtime policy differs from captured capability",
         )
         policy.check()
-        # This is only a historical source/profile fact. NormalAdmissions still
-        # requires the new worker's fresh actual account/configuration/startup.
+        # This is not a scope/permission/authentication grant. NormalAdmissions
+        # separately checks this new task's permission and fresh actual startup.
         return self.reference
 
     def revoke(self):
-        """Trusted installer operation; this is never a model tool."""
-        return self.journal._append(
-            "trace",
-            {
-                "effect": "native_conformance_revoked",
-                "capture": self.reference,
-            },
-        )
+        revoke = getattr(self.enrollment, "revoke", None)
+        require(callable(revoke), "Trusted durable capability revocation is unavailable")
+        return revoke(self.reference)

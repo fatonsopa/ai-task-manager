@@ -63,7 +63,7 @@ def startup(journal, ref, owner, profile):
     )
     require(
         f.get("apiKeySource") == "none"
-        and f.get("claude_code_version") == "2.1.301"
+        and f.get("claude_code_version") == profile.get("cli_version", "2.1.301")
         and f.get("model") == profile["model"]
         and f.get("session_id") == p["session_id"]
         and set(f.get("tools", [])) == MANAGED_TOOLS
@@ -186,3 +186,57 @@ def verify_case(journal, case, value, owner, context_ref, session, model):
         if case.tool == "write_file":
             expected_after["output.txt"] = read["sha256"]
         require(value["after"] == expected_after, "An undeclared canary artifact changed")
+
+
+def verify_capture(journal, reference):
+    """Historical capability facts are not fresh identity or work permission."""
+    from pathlib import Path
+
+    from ai_task_manager.domains.work.models import Scope
+
+    from .models import CASE_IDS, ProbeContext, cases
+    from .profile import StableProfile
+
+    record = journal._read(reference, "trace", fresh=False)
+    p = record["payload"]
+    require(
+        p.get("version") == 2
+        and p.get("effect") == "native_conformance_capture"
+        and p.get("error_type") is None,
+        "A completed version2 native capture is required",
+    )
+    profile = StableProfile.decode(p["profile"])
+    require(p["profile_digest"] == profile.fingerprint, "Historical capability profile changed")
+    data = dict(p["provenance"]["context"])
+    data["scope"] = Scope(**data["scope"])
+    data["fixture_root"] = Path(data["fixture_root"])
+    data["fixture_identity"] = tuple(data["fixture_identity"])
+    data["case_ids"] = tuple(data["case_ids"])
+    context = ProbeContext(**data)
+    require(
+        context.profile_digest == profile.fingerprint
+        and context.installation_digest == p["provenance"]["manifest_digest"]
+        and context.deadline == p["provenance"]["probe_deadline"]
+        and (context.host, context.model, context.effort, context.account_hash)
+        == (profile.host, profile.model, profile.effort, profile.account_hash),
+        "The original immutable capture provenance changed",
+    )
+    stop = p.get("stop", {})
+    require(
+        p.get("confirmed_stop") is True
+        and stop.get("confirmed") is True
+        and stop.get("observation", {}).get("known") is True
+        and all(
+            row.get("state", "").startswith("Z") for row in stop["observation"].get("members", [])
+        ),
+        "Native probe stop remains unknown",
+    )
+    require(
+        context.case_ids == CASE_IDS
+        and [v.get("case_id") for v in p.get("cases", [])] == list(CASE_IDS),
+        "The frozen capability matrix is incomplete",
+    )
+    session = startup(journal, p["startup_ref"], p["owner"], vars(profile))
+    for case, value in zip(cases(context), p["cases"], strict=True):
+        verify_case(journal, case, value, p["owner"], context.reference, session, profile.model)
+    return record, profile, context

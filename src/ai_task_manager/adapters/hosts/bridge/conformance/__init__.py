@@ -1,6 +1,8 @@
 """Normal native capability capture, separate from evaluation grants."""
 
 from .canary import CanaryGateway
+from .capture import ConformanceCapture
+from .completion import CompletedCapture
 from .models import (
     CASE_IDS,
     ProbeAuthority,
@@ -11,6 +13,8 @@ from .models import (
     cases,
     profile_digest,
 )
+from .normal import NormalConformance
+from .profile import ProfileSources, StableProfile, prepare_profile
 from .thread import ProbeThreadGate
 
 __all__ = [
@@ -26,12 +30,8 @@ __all__ = [
     "profile_digest",
 ]
 
-from .capture import ConformanceCapture
-from .normal import NormalConformance
 
 __all__ += ["ConformanceCapture", "NormalConformance"]
 
-from .completion import CompletedCapture
-from .profile import ProfileSources, StableProfile, prepare_profile
 
 __all__ += ["ProfileSources", "StableProfile", "prepare_profile", "CompletedCapture"]

@@ -92,17 +92,10 @@ CASE_IDS = (
 )
 
 
-def profile_digest(manifest, pins):
-    manifest.check()
-    pins.check()
-    return digest(
-        {
-            "manifest": manifest.digest,
-            "source": pins.fingerprint,
-            "matrix_version": 1,
-            "case_ids": CASE_IDS,
-        }
-    )
+def profile_digest(manifest, sources, *, cli_version, policy=None):
+    from .profile import prepare_profile
+
+    return prepare_profile(manifest, sources, cli_version, policy=policy).fingerprint
 
 
 def cases(context):

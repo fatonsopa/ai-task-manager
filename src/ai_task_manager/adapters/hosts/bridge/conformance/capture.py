@@ -3,15 +3,17 @@
 from dataclasses import asdict
 
 from ai_task_manager.adapters.process.groups import GroupStop
-from ai_task_manager.config.files import digest, read_private
+from ai_task_manager.config.files import digest
 from ai_task_manager.supervisor.models import Command
 
 from ..admission import launch_template
 from ..controller import ManagedNativeHost
 from ..identity_refresh import IdentityRefresh
 from .canary import CanaryGateway
-from .models import CASE_IDS, ProbeTurn, cases, profile_digest
-from .verification import require, startup, verify_case
+from .completion import CompletedCapture
+from .models import CASE_IDS, ProbeTurn, cases
+from .profile import StableProfile, prepare_profile
+from .verification import require, startup, verify_capture, verify_case
 
 
 def check_command(policy, command, root):
@@ -28,17 +30,22 @@ def check_command(policy, command, root):
 
 
 class ConformanceCapture:
-    def __init__(self, manifest, pins, context, authority, journal):
+    def __init__(self, manifest, pins, context, authority, journal, *, profile):
         self.manifest, self.pins, self.context = manifest, pins, context
         self.authority, self.journal = authority, journal
-        self._bound = (manifest, pins, context, authority, journal)
+        require(isinstance(profile, StableProfile), "An explicit stable profile is required")
+        self.profile = profile
+        self._bound = (manifest, pins, context, authority, journal, profile)
         self.used = False
         self.report_ref = None
         self._native_bound = None
         self._identity = None
         self._identity_ref = None
         self._launch = None
-        self._not_after = read_private(manifest.installation.path)["deadline"]
+        self._completion_token = object()
+        self._completion = None
+        self._complete_hash = None
+        self._native_owner = None
 
     def check(self, native=None):
         require(
@@ -46,7 +53,14 @@ class ConformanceCapture:
                 a is b
                 for a, b in zip(
                     self._bound,
-                    (self.manifest, self.pins, self.context, self.authority, self.journal),
+                    (
+                        self.manifest,
+                        self.pins,
+                        self.context,
+                        self.authority,
+                        self.journal,
+                        self.profile,
+                    ),
                     strict=True,
                 )
             ),
@@ -56,7 +70,14 @@ class ConformanceCapture:
         self.pins.check()
         c, d = self.context, self.manifest.data
         require(
-            c.profile_digest == profile_digest(self.manifest, self.pins)
+            c.profile_digest == self.profile.fingerprint
+            and self.profile
+            == prepare_profile(
+                self.manifest,
+                self.pins,
+                self.profile.cli_version,
+                policy=native.policy if native else None,
+            )
             and c.installation_digest == self.manifest.digest
             and (c.host, c.model, c.effort, c.account_hash)
             == (d["host"], d["model"], d["effort"], d["account_hash"])
@@ -130,6 +151,7 @@ class ConformanceCapture:
             native = factory.start(c, gateway)
             self.check(native)
             require(native.gateway.delegate is None, "Probe startup cannot delegate Core work")
+            self._native_owner = native
             self._native_bound = (
                 native,
                 native.process,
@@ -141,7 +163,7 @@ class ConformanceCapture:
             self._identity = native.process.identity
             owner = {"binding": asdict(native.binding), "process": asdict(native.process.identity)}
             self._launch = check_command(native.policy, native.process.command, c.fixture_root)
-            profile = {k: getattr(c, k) for k in ("host", "model", "effort", "account_hash")}
+            profile = vars(self.profile)
             session = startup(self.journal, native.startup.ready_ref, owner, profile)
             gateway.bind(native)
             native.gateway.delegate = gateway
@@ -191,7 +213,9 @@ class ConformanceCapture:
         )
         payload = {
             "effect": "native_conformance_capture",
-            "profile": c.profile_digest,
+            "version": 2,
+            "profile": asdict(self.profile),
+            "profile_digest": self.profile.fingerprint,
             "launch_fingerprint": self._launch,
             "manifest_digest": self.manifest.digest,
             "source": self.pins.fingerprint,
@@ -202,10 +226,47 @@ class ConformanceCapture:
             "stop": asdict(stop) if isinstance(stop, GroupStop) else None,
             "confirmed_stop": bool(confirmed),
             "error_type": type(error).__name__ if error else None,
-            "not_after": self._not_after,
+            "provenance": {
+                "manifest_digest": self.manifest.digest,
+                "probe_deadline": c.deadline,
+                "context": {**asdict(c), "fixture_root": str(c.fixture_root)},
+            },
         }
         self.report_ref = self.journal._append("trace", payload)
         if error is not None:
             raise error
         require(confirmed, "Unknown native probe stop retains ownership")
+        record, _, _ = verify_capture(self.journal, self.report_ref)
+        self._complete_hash = digest(record)
+        self._completion = CompletedCapture(self, self._completion_token)
         return self.report_ref
+
+    def completed(self):
+        require(self._completion is not None, "No actual completed capture is available")
+        self._completion.export()
+        return self._completion
+
+    def _export_completion(self, completed, token):
+        require(
+            completed is self._completion
+            and token is self._completion_token
+            and self._native_owner is not None
+            and self._native_owner is self._native_bound[0]
+            and self._native_owner.process is self._native_bound[1]
+            and self._native_owner.process._closed,
+            "Unissued or unresolved capture cannot enter durable enrollment",
+        )
+        self.pins.check()
+        record, profile, context = verify_capture(self.journal, self.report_ref)
+        require(
+            digest(record) == self._complete_hash and profile == self.profile,
+            "The original completed capture changed",
+        )
+        return {
+            "version": 2,
+            "reference": self.report_ref,
+            "capture_hash": self._complete_hash,
+            "profile": asdict(profile),
+            "profile_digest": profile.fingerprint,
+            "provenance": record["payload"]["provenance"],
+        }
