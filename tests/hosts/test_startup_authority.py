@@ -2,6 +2,7 @@
 
 from dataclasses import asdict
 from threading import Event, Thread
+from types import SimpleNamespace
 
 import pytest
 
@@ -159,4 +160,20 @@ def test_sa03_collection_that_finishes_after_prior_expiry_is_rejected(tmp_path):
     with pytest.raises(SchedulingBlocked):
         startup.refresh()
     assert reached == [True]
+    no_started_worker(provider, attempt)
+
+
+def test_sa09_collection_cost_cannot_cause_immediate_repeated_refresh(tmp_path, monkeypatch):
+    from ai_task_manager.supervisor import startup_authority
+
+    provider, startup, attempt = owned(tmp_path)
+    ticks = iter((0.0, 16.0))
+    monkeypatch.setattr(startup_authority, "time", SimpleNamespace(monotonic=lambda: next(ticks)))
+    startup.start()
+    startup._thread.join(timeout=2)
+    assert startup.close()
+    assert isinstance(startup._failure, SchedulingBlocked)
+    assert "no safe next freshness window" in str(startup._failure)
+    view = provider.rig.core.scheduling.explain(provider.rig.handle, attempt.task_id)
+    assert view["source_revision"] == 2
     no_started_worker(provider, attempt)

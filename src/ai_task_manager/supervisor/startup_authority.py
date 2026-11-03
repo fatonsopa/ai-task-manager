@@ -99,6 +99,10 @@ class StartupAuthority:
                         # Start before the measured collection cost can consume
                         # the remaining receipt window. Never relax freshness.
                         margin = max(5, 2 * self._latency + 1)
+                        if view["expires_at"] - self.registry.core.context.clock() <= margin:
+                            raise SchedulingBlocked(
+                                "Startup collection leaves no safe next freshness window"
+                            )
                         next_at = view["expires_at"] - margin
                 except BaseException as error:
                     if not self._stop.is_set():
