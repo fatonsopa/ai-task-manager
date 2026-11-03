@@ -89,7 +89,7 @@ class Database:
                     rows = conn.execute("SELECT version FROM metadata").fetchall()
                 except sqlite3.DatabaseError as exc:
                     raise SchemaError("Database is not an owned task store") from exc
-                if len(rows) != 1 or rows[0][0] not in {1, 2, 3, 4}:
+                if len(rows) != 1 or rows[0][0] not in {1, 2, 3, 4, 5}:
                     raise SchemaError("Unsupported task store schema")
                 if rows[0][0] < 4:
                     from ai_task_manager.storage.scheduling_schema import require_quiescent
@@ -131,6 +131,9 @@ class Database:
             from ai_task_manager.storage.scheduling_schema import migrate
 
             migrate(conn)
+            from ai_task_manager.storage.publication_schema import migrate as migrate_publication
+
+            migrate_publication(conn)
             if self.guard:
                 self.guard(conn)
             conn.commit()
@@ -160,6 +163,9 @@ class Database:
         from ai_task_manager.storage.scheduling_schema import register
 
         register(conn)
+        from ai_task_manager.storage.publication_schema import register as register_publication
+
+        register_publication(conn)
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA busy_timeout=10000")
         return conn
@@ -172,12 +178,18 @@ class Database:
             if self.guard:
                 self.guard(conn)
             versions = conn.execute("SELECT version FROM metadata").fetchall()
-            if len(versions) != 1 or versions[0][0] not in {1, 2, 3, 4}:
+            if len(versions) != 1 or versions[0][0] not in {1, 2, 3, 4, 5}:
                 raise SchemaError("Unsupported task store schema")
-            if versions[0][0] == 4:
+            if versions[0][0] >= 4:
                 from ai_task_manager.storage.scheduling_schema import validate
 
                 validate(conn)
+            if versions[0][0] == 5:
+                from ai_task_manager.storage.publication_schema import (
+                    validate as validate_publication,
+                )
+
+                validate_publication(conn)
             yield conn
             if self.guard:
                 self.guard(conn)

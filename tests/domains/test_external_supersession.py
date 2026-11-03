@@ -165,7 +165,7 @@ def test_l25_additive_core_schema_upgrade_preserves_existing_intents(tmp_path):
     task = rig.task(confirmed=False)
     upgraded = Database(rig.db.path)
     with upgraded.transaction() as conn:
-        assert conn.execute("SELECT version FROM metadata").fetchone()[0] == 4
+        assert conn.execute("SELECT version FROM metadata").fetchone()[0] == 5
         assert conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0] == 1
     assert rig.current(task) == task

@@ -6,7 +6,10 @@ from dataclasses import asdict, replace
 from ai_task_manager.adapters.git.publication import LocalGit
 from ai_task_manager.application.merging.authority import CoreAuthority, LeaseGrant
 from ai_task_manager.application.merging.composition import CheckedMerge
-from ai_task_manager.application.publication_fences import PublicationContext
+from ai_task_manager.application.publication_fences import (
+    PublicationContext,
+    PublicationIntentUnavailable,
+)
 from ai_task_manager.application.service.models import result
 from ai_task_manager.application.workflows.service import WorkflowService
 from ai_task_manager.domains.checks.models import Scope
@@ -310,24 +313,37 @@ class MergeWorkflowService(WorkflowService):
                     check_ref = steps["check_plan"]["result"]["ref"]
                     intent = steps["publication_intent"]["result"]
                 g = self.plan.grant
-                context = self._step(
-                    ref,
-                    owner,
-                    "publication_fence",
-                    {"intent_ref": intent["ref"]},
-                    lambda: asdict(
-                        self.core.publications.begin(
-                            self.handle,
-                            g.binding.task_id,
-                            g.binding.attempt_id,
-                            g.task_version,
-                            g.attempt_version,
-                            g.decision_revision,
-                            g.decision_ref,
-                            intent["ref"],
-                            ref + ":fence",
+
+                def begin_context():
+                    args = (
+                        self.handle,
+                        g.binding.task_id,
+                        g.binding.attempt_id,
+                        g.task_version,
+                        g.attempt_version,
+                        g.decision_revision,
+                        g.decision_ref,
+                        intent["ref"],
+                        ref + ":fence",
+                    )
+                    try:
+                        return asdict(self.core.publications.begin(*args))
+                    except PublicationIntentUnavailable:
+                        # Core has already ruled out a committed same-key effect
+                        # and rolled back this unavailable-proof attempt. Refresh
+                        # exactly this intent once, outside every Core transaction.
+                        before = self._publication(ref, candidate, check_ref)
+                        refreshed = self.evidence.prepare_intent(
+                            self.core, self.handle, self.plan, candidate, before, check_ref
                         )
-                    ),
+                        if refreshed != intent["ref"]:
+                            raise AccessDenied(
+                                "Refreshed publication differs from the saved immutable intent"
+                            )
+                        return asdict(self.core.publications.begin(*args))
+
+                context = self._step(
+                    ref, owner, "publication_fence", {"intent_ref": intent["ref"]}, begin_context
                 )
                 context = PublicationContext(**context)
                 consumer = self._publication(ref, candidate, check_ref, context)

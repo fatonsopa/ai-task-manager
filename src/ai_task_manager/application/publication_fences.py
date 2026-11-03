@@ -14,6 +14,10 @@ class PublicationContext:
     commit: str
 
 
+class PublicationIntentUnavailable(EvidenceRequired):
+    """No Core effect committed; the precommit prepared receipt is unavailable."""
+
+
 class PublicationFences:
     def __init__(self, context, execution):
         self.c, self.execution = context, execution
@@ -52,7 +56,12 @@ class PublicationFences:
                 decision_revision,
                 decision_ref,
             )
-            proof = self.c.proof(prepared_intent_ref, "publication_intent", scope, task_id)
+            try:
+                proof = self.c.proof(prepared_intent_ref, "publication_intent", scope, task_id)
+            except EvidenceRequired as error:
+                raise PublicationIntentUnavailable(
+                    "Current prepared publication intent is unavailable"
+                ) from error
             intent = proof.payload
             expected = {
                 "task_id": task.id,
@@ -84,17 +93,14 @@ class PublicationFences:
             context = PublicationContext(
                 "publication-fence:" + str(uuid4()), intent["binding_digest"], intent["commit"]
             )
-            self.c.changed(
-                conn,
-                task,
-                "publication_fence_updated",
-                {
-                    "issue_key": issue_claims.identity(scope, task.issue_id),
-                    "context": asdict(context),
-                    "intent": intent,
-                    "state": "pending",
-                },
-            )
+            fact = {
+                "issue_key": issue_claims.identity(scope, task.issue_id),
+                "context": asdict(context),
+                "intent": intent,
+                "state": "pending",
+            }
+            merging_fences.insert(conn, fact)
+            self.c.changed(conn, task, "publication_fence_updated", fact)
             return asdict(context)
 
         return PublicationContext(**self.c.mutation(handle, operation_key, payload, action))
@@ -126,12 +132,9 @@ class PublicationFences:
                     "Actual publication differs from its original immutable intent"
                 )
             issue_claims.fence(conn, scope, task.issue_id, delivered=True, source=actual_merge_ref)
-            self.c.changed(
-                conn,
-                task,
-                "publication_fence_updated",
-                dict(rows[0], state="committed", actual_merge_ref=actual_merge_ref),
-            )
+            fact = dict(rows[0], state="committed", actual_merge_ref=actual_merge_ref)
+            merging_fences.commit(conn, fact)
+            self.c.changed(conn, task, "publication_fence_updated", fact)
             return {"state": "committed", "context": asdict(context)}
 
         return self.c.mutation(handle, operation_key, payload, action)
