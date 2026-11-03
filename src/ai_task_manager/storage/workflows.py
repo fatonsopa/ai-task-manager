@@ -11,6 +11,14 @@ from ai_task_manager.config.files import private_path
 from ai_task_manager.domains.checks.models import canonical, fingerprint
 from ai_task_manager.domains.work.errors import AccessDenied, IdempotencyConflict, SchemaError
 from ai_task_manager.storage.coherence import StoreBinding, probe_connection
+from ai_task_manager.storage.workflow_migration import (
+    CURRENT_TABLES,
+    LEGACY_TABLES,
+    MARKER,
+    preserve_schema1,
+    rollback_schema1,
+    seal_migration,
+)
 
 
 class WorkflowStore:
@@ -33,11 +41,11 @@ class WorkflowStore:
             }
             if not tables:
                 conn.execute("CREATE TABLE workflow_meta(version INTEGER,store_id TEXT)")
-                conn.execute("INSERT INTO workflow_meta VALUES(1,?)", (str(uuid4()),))
+                conn.execute("INSERT INTO workflow_meta VALUES(2,?)", (str(uuid4()),))
                 conn.execute(
                     "CREATE TABLE runs(id TEXT PRIMARY KEY,scope TEXT,task_id TEXT,"
                     "operation_key TEXT,"
-                    "body TEXT,owner TEXT,UNIQUE(scope,task_id),UNIQUE(scope,operation_key))"
+                    "body TEXT,owner TEXT,UNIQUE(scope,operation_key))"
                 )
                 conn.execute(
                     "CREATE TABLE steps(run_id TEXT,name TEXT,payload TEXT,result TEXT,"
@@ -47,9 +55,18 @@ class WorkflowStore:
                     "CREATE TABLE lineage(resource TEXT PRIMARY KEY,task_id TEXT,"
                     "attempt_id TEXT,body TEXT)"
                 )
+                conn.execute(
+                    "CREATE TABLE workflow_heads(scope TEXT,task_id TEXT,run_id TEXT UNIQUE,"
+                    "PRIMARY KEY(scope,task_id))"
+                )
+                conn.execute(
+                    "CREATE TABLE recoveries(predecessor TEXT PRIMARY KEY,successor TEXT UNIQUE,"
+                    "scope TEXT,operation_key TEXT,request TEXT,UNIQUE(scope,operation_key))"
+                )
             elif tables not in (
-                {"workflow_meta", "runs", "steps", "lineage"},
-                {"workflow_meta", "runs", "steps", "lineage", "workflow_heads", "recoveries"},
+                LEGACY_TABLES,
+                CURRENT_TABLES,
+                CURRENT_TABLES | {MARKER},
             ):
                 raise SchemaError("Not an owned workflow store")
             rows = conn.execute("SELECT version,store_id FROM workflow_meta").fetchall()
@@ -58,20 +75,13 @@ class WorkflowStore:
             if (
                 tables
                 and tables
-                != {
-                    1: {"workflow_meta", "runs", "steps", "lineage"},
-                    2: {
-                        "workflow_meta",
-                        "runs",
-                        "steps",
-                        "lineage",
-                        "workflow_heads",
-                        "recoveries",
-                    },
-                }[rows[0][0]]
+                not in {1: (LEGACY_TABLES,), 2: (CURRENT_TABLES, CURRENT_TABLES | {MARKER})}[
+                    rows[0][0]
+                ]
             ):
                 raise SchemaError("Workflow schema does not match its recorded version")
             if rows[0][0] == 1:
+                origin = preserve_schema1(conn, self.path, self.identity, rows[0][1])
                 # Copy every byte of the old records; only the per-task uniqueness
                 # moves to a current-run pointer. SQLite rolls back partial migration.
                 conn.execute(
@@ -91,7 +101,10 @@ class WorkflowStore:
                     "scope TEXT,operation_key TEXT,request TEXT,UNIQUE(scope,operation_key))"
                 )
                 conn.execute("UPDATE workflow_meta SET version=2")
+                seal_migration(conn, origin)
             self.store_id = rows[0][1]
+
+    rollback_schema1 = staticmethod(rollback_schema1)
 
     @contextmanager
     def transaction(self):
