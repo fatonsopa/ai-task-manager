@@ -42,7 +42,7 @@ def main():
         raise RuntimeError("Use a clean installed interpreter, not the source checkout")
     files = []
     for path in sorted(source.rglob("*")):
-        if path.is_file() and "__pycache__" not in path.parts:
+        if path.is_file() and "__pycache__" not in path.parts and path.name != ".DS_Store":
             relative = path.relative_to(source)
             target = installed / relative
             files.append(
