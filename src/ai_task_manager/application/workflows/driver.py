@@ -69,20 +69,61 @@ class WorkflowDriver:
             raise EvidenceRequired("Decision authority is not configured")
         return self.decisions(self.scope, task, target, action)
 
+    def _reconcile_start(self, row, task, intent):
+        cursor = intent["payload"]["cursor"]
+        events = self.core.notifications.list_events(self.handle)
+        if (
+            type(cursor) is not int
+            or cursor < 0
+            or cursor > max((event.sequence for event in events), default=0)
+        ):
+            return None
+        reservations = [
+            event
+            for event in events
+            if event.task_id == task.id and event.kind == "attempt_reserved"
+        ]
+        ids = {event.payload["attempt_id"] for event in reservations if event.sequence > cursor}
+        if len(ids) == 1:
+            attempt = self.core.get_attempt(self.handle, next(iter(ids)))
+            if attempt.state == "running":
+                self.runtime.pair(attempt.id)
+                return {"attempt_id": attempt.id, "reconciled": True}
+        original = next(
+            (
+                event
+                for event in reversed(events)
+                if event.task_id == task.id and event.sequence <= cursor
+            ),
+            None,
+        )
+        if (
+            reservations
+            or row["attempt_id"] is not None
+            or self.runtime is None
+            or task.execution_state != "idle"
+            or task.observed_status != IssueStatus.TODO
+            or task.sync_state != "confirmed"
+            or original is None
+            or original.payload.get("task_version") != task.version
+            or original.payload.get("decision_revision") != task.decision_revision
+        ):
+            return None
+        # Core writes reservation and its event atomically. With no reservation
+        # and the original task version, retry the unchanged intent and operation.
+        attempt = self.runtime.start(
+            self.handle,
+            task,
+            self.plans.get(row["plan_id"]),
+            intent["payload"]["decision_ref"],
+            row["id"] + ":start",
+        )
+        return {"attempt_id": attempt.id, "reconciled": True}
+
     def _reconcile(self, row, task, name, intent):
         attempt = self._attempt(row)
         if name == "start":
-            events = self.core.notifications.list_events(self.handle, intent["payload"]["cursor"])
-            ids = {
-                e.payload["attempt_id"]
-                for e in events
-                if e.task_id == task.id and e.kind == "attempt_reserved"
-            }
-            if len(ids) == 1:
-                attempt = self.core.get_attempt(self.handle, next(iter(ids)))
-                if attempt.state == "running":
-                    self.runtime.pair(attempt.id)
-                    return {"attempt_id": attempt.id, "reconciled": True}
+            return self._reconcile_start(row, task, intent)
         elif (
             name == "execute"
             and attempt
