@@ -88,10 +88,13 @@ class NativeRegistration:
 
 
 class NativeRegistry:
-    def __init__(self, registrations=(), *, service_options=None):
+    def __init__(self, registrations=(), *, service_options=None, reviewer_factory=None):
         values = {r.reference: r for r in registrations if type(r) is NativeRegistration}
         if len(values) != len(registrations):
             raise AccessDenied("Distinct typed native registrations are required")
+        if reviewer_factory is not None and not callable(reviewer_factory):
+            raise AccessDenied("Trusted reviewer factory must be code-bound")
+        self.reviewer_factory = reviewer_factory
         self.values = MappingProxyType(values)
         self.service_options = MappingProxyType(dict(service_options or {}))
 

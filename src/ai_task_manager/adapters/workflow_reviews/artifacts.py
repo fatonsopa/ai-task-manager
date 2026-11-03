@@ -158,6 +158,11 @@ class CurrentArtifacts:
             witness.check()
         context = {
             "scope": asdict(scope),
+            "author": {
+                "attempt_id": attempt.id,
+                "worker_id": attempt.worker_id,
+                "host": attempt.host,
+            },
             "task_id": task.id,
             "prose_digest": task.prose_digest,
             "required_work": list(task.required_work),
