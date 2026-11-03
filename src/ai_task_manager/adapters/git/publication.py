@@ -83,8 +83,9 @@ class _Child:
     process: object
     initial: object
     kind: str
-    stdout: _Drain
-    stderr: _Drain
+    stdout: _Drain | None
+    stderr: _Drain | None
+    generation: str | None = None
 
 
 class LocalGit:
@@ -294,52 +295,62 @@ class LocalGit:
     def _spawn(self, ref, kind, args, *, interactive=False):
         data = self.journal.current(ref)["facts"]["local_git"]
         repo = Path(data["repository"]["path"])
+        generation = str(uuid4())
+        intents = data.get("spawn_intents", []) + [{"generation": generation, "kind": kind}]
+        data = dict(data, spawn_intents=intents, stage="spawn_intent")
+        self._write(ref, data, "spawn_intent")
         readfd, writefd = os.pipe()
         try:
+            self._fault("before_child_spawn")
+            env = dict(self.profile.environment_for(repo), GIT_REFLOG_ACTION=data["marker"])
+            argv = self.profile.argv(repo, *args)
+            process = subprocess.Popen(
+                [self.python, "-I", "-S", "-c", _GATE, str(readfd), *argv],
+                env=env,
+                stdin=subprocess.PIPE if interactive else subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=0,
+                pass_fds=(readfd,),
+                start_new_session=True,
+            )
+            # Retain the waitable handle before any observer/thread/journal can fail.
+            child = _Child(process, None, kind, None, None, generation)
+            self._live.setdefault(ref, []).append(child)
+            os.close(readfd)
+            readfd = -1
+            self._fault("after_child_spawn")
+            child.stdout = _Drain(process.stdout)
+            child.stderr = _Drain(process.stderr)
+            initial = child.initial = self._inventory(process.pid)
+            owned = {
+                "pid": process.pid,
+                "group": process.pid,
+                "initial": initial,
+                "kind": kind,
+                "generation": generation,
+            }
+            data = dict(
+                data,
+                stage="gated",
+                children=data.get("children", []) + [owned],
+                process=data.get("process", owned),
+                started_monotonic=data.get("started_monotonic", time.monotonic()),
+            )
+            self._write(ref, data, "process")
+            self._fault("after_child_owned")
+            if not initial or not initial["anchor"] or initial["anchor"]["group"] != process.pid:
+                raise AccessDenied("Initial process identity is unavailable")
+            self._fault("before_release" if kind != "checkout" else "before_checkout_release")
+            if kind == "checkout":
+                data = dict(data, checkout_state="begun", repair_required=True)
+                self._write(ref, data, "checkout_intent")
+            self._write(ref, dict(data, stage="release_intent"), "release_intent")
             with self.operations.authority_boundary(ref):
-                env = dict(self.profile.environment_for(repo), GIT_REFLOG_ACTION=data["marker"])
-                argv = self.profile.argv(repo, *args)
-                process = subprocess.Popen(
-                    [self.python, "-I", "-S", "-c", _GATE, str(readfd), *argv],
-                    env=env,
-                    stdin=subprocess.PIPE if interactive else subprocess.DEVNULL,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    bufsize=0,
-                    pass_fds=(readfd,),
-                    start_new_session=True,
-                )
-                os.close(readfd)
-                readfd = -1
-                initial = self._inventory(process.pid)
-                child = _Child(
-                    process, initial, kind, _Drain(process.stdout), _Drain(process.stderr)
-                )
-                self._live.setdefault(ref, []).append(child)
-                owned = {"pid": process.pid, "group": process.pid, "initial": initial, "kind": kind}
-                children = list(data.get("children", [])) + [owned]
-                data = dict(
-                    data,
-                    stage="gated",
-                    children=children,
-                    process=data.get("process", owned),
-                    started_monotonic=data.get("started_monotonic", time.monotonic()),
-                )
-                self._write(ref, data, "process")
-                if (
-                    not initial
-                    or not initial["anchor"]
-                    or initial["anchor"]["group"] != process.pid
-                ):
-                    raise AccessDenied("Initial process identity is unavailable")
-                self._fault("before_release" if kind != "checkout" else "before_checkout_release")
-                if kind == "checkout":
-                    data = dict(data, checkout_state="begun", repair_required=True)
-                    self._write(ref, data, "checkout_intent")
                 os.write(writefd, b"G")
-                os.close(writefd)
-                writefd = -1
-                self._write(ref, dict(data, stage="released"), "released")
+            os.close(writefd)
+            writefd = -1
+            self._write(ref, dict(data, stage="released"), "released")
             return child
         finally:
             if readfd >= 0:
@@ -353,6 +364,41 @@ class LocalGit:
         child.process.stdin.flush()
 
     def _settle(self, ref, child, deadline):
+        if child.initial is None:
+            # Only the original unreaped child handle can recover first observation.
+            try:
+                os.waitid(os.P_PID, child.process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+            except (ChildProcessError, OSError):
+                return {"known": False, "reason": "original_waitable_process_unavailable"}
+            initial = self._inventory(child.process.pid)
+            if (
+                not initial
+                or not initial["anchor"]
+                or initial["anchor"]["group"] != child.process.pid
+            ):
+                return {"known": False, "reason": "process_identity_unavailable"}
+            child.initial = initial
+        for name in ("stdout", "stderr"):
+            if getattr(child, name) is None:
+                setattr(child, name, _Drain(getattr(child.process, name)))
+        data = self.journal.current(ref)["facts"]["local_git"]
+        row = next((r for r in data.get("children", []) if r["pid"] == child.process.pid), None)
+        if row is None or row.get("initial") != child.initial:
+            owned = {
+                "pid": child.process.pid,
+                "group": child.process.pid,
+                "initial": child.initial,
+                "kind": child.kind,
+                "generation": child.generation,
+            }
+            rows = [owned if r["pid"] == child.process.pid else r for r in data.get("children", [])]
+            if row is None:
+                rows.append(owned)
+            self._write(
+                ref,
+                dict(data, children=rows, process=data.get("process", owned)),
+                "child_recovered",
+            )
         while True:
             observation = self._quiescence(child.process, child.initial)
             if (
@@ -506,7 +552,13 @@ class LocalGit:
             self._settle(ref, child, deadline)
         data = self.journal.current(ref)["facts"]["local_git"]
         rows = data.get("children", [])
-        quiet = bool(rows) and all(row.get("quiescence", {}).get("quiescent") for row in rows)
+        generations = {row.get("generation") for row in rows}
+        accounted = all(i["generation"] in generations for i in data.get("spawn_intents", []))
+        quiet = (
+            accounted
+            and bool(rows)
+            and all(row.get("quiescence", {}).get("quiescent") for row in rows)
+        )
         observations = [row.get("quiescence", {"known": False}) for row in rows]
         observation = (
             observations[0]
@@ -524,6 +576,12 @@ class LocalGit:
         )
         if not rows:
             observation = {"known": False, "reason": "original_waitable_process_unavailable"}
+        elif not accounted:
+            observation = {
+                "known": False,
+                "reason": "unobserved_spawn_intent",
+                "children": observations,
+            }
         output = (
             {
                 "stdout_bytes": sum(row.get("output", {}).get("stdout_bytes", 0) for row in rows),
