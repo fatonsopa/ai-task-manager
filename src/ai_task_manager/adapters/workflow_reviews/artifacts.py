@@ -134,8 +134,13 @@ class CurrentArtifacts:
             raise EvidenceRequired("Worktree metadata escaped its trusted repository")
         branch_ref = confined(common, "refs/heads/" + fresh["worktree"]["branch"])
         branch_witness = FileWitness.capture(branch_ref)
-        if branch_ref.read_text().strip() != fresh["source_head"]:
-            raise EvidenceRequired("Current source head differs from the inspected head")
+        packed_witness = FileWitness.capture(common / "packed-refs")
+        # Git owns loose/packed precedence. Seal both representations before the
+        # configured outside-Core reader resolves the exact current source again.
+        if self.runtime.ownership(attempt.id) != fresh["worktree"]:
+            raise EvidenceRequired("Current source differs from the inspected worktree and head")
+        branch_witness.check()
+        packed_witness.check()
         head = gitdir / "HEAD"
         head_witness = FileWitness.capture(head)
         if head.read_text().strip() != "ref: refs/heads/" + fresh["worktree"]["branch"]:
@@ -146,7 +151,7 @@ class CurrentArtifacts:
             branch_witness,
             head_witness,
             FileWitness.capture(gitdir / "commondir"),
-            FileWitness.capture(common / "packed-refs"),
+            packed_witness,
             FileWitness.capture(common / "config"),
         ]
         for witness in witnesses:

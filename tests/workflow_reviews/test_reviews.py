@@ -286,3 +286,48 @@ def test_configured_criteria_own_their_immutable_input_snapshot(rig):
     prepared = observer.prepare(rig.scope, rig.task, rig.saved["digest"])
     assert prepared.digest == rig.inspection.digest
     assert rig.source.resolve(prepared).context_digest == prepared.digest
+
+
+def pack_managed_source(rig):
+    from ai_task_manager.adapters.resources.git import git
+
+    tree = rig.dispatch.resources.worktree
+    git(tree, "pack-refs", "--all", "--prune")
+    fact = rig.saved["worktree"]
+    from pathlib import Path
+
+    loose = Path(fact["common"]) / "refs/heads" / fact["branch"]
+    assert not loose.exists() and (Path(fact["common"]) / "packed-refs").is_file()
+
+
+def change_packed_source(rig):
+    from ai_task_manager.adapters.resources.git import git
+
+    tree = rig.dispatch.resources.worktree
+    old = rig.saved["source_head"]
+    tree_id = git(tree, "rev-parse", old + "^{tree}")
+    changed = git(tree, "commit-tree", tree_id, "-p", old, "-m", "Changed owned packed source")
+    git(tree, "update-ref", "refs/heads/" + rig.saved["worktree"]["branch"], changed, old)
+    pack_managed_source(rig)
+    assert git(tree, "rev-parse", "HEAD") == changed != old
+
+
+def test_valid_packed_managed_source_is_reviewed_and_consumed_by_core(rig):
+    pack_managed_source(rig)
+    references = rig.lookup()
+    completed = rig.complete(references["units"]["complete"])
+    assert completed.completed_work == ("complete",)
+
+
+@pytest.mark.parametrize("when", ["before_prepare", "after_prepare"])
+def test_changed_packed_source_refuses_new_completion(rig, when):
+    pack_managed_source(rig)
+    references = rig.lookup() if when == "after_prepare" else None
+    change_packed_source(rig)
+    if when == "before_prepare":
+        with pytest.raises(WorkError):
+            rig.lookup()
+    else:
+        with pytest.raises(WorkError):
+            rig.complete(references["units"]["complete"])
+    assert rig.r.core.get_task(rig.r.handle, rig.task.id).completed_work == ()
