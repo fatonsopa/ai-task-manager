@@ -244,6 +244,7 @@ class InstalledWorkflow:
                 core, handle, self.store, inspector, runtime, {task.id: plan}, criteria
             ),
             key,
+            self._review_source(root),
         )
         core.context.evidence = EvidenceRouter(
             [
@@ -269,6 +270,16 @@ class InstalledWorkflow:
             ),
         )
         return WorkflowService(driver, {task.id: plan.id})
+
+    def _review_source(self, root):
+        from ai_task_manager.adapters.workflow_reviews.capture_store import (
+            CaptureStore,
+            NativeReviewSource,
+        )
+
+        # Only trusted native registration supplies a producer. A model request
+        # cannot choose an implementation or manufacture a verdict.
+        return NativeReviewSource(CaptureStore(root / "reviews"), self.registry.reviewer_factory)
 
     def serve(self, stop=None, ready=None):
         return self.owner.serve(stop, ready)
