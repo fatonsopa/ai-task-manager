@@ -386,3 +386,74 @@ def test_RC17_serializer_matches_actual_writer_and_reader_limit(tmp_path, text):
     assert InstalledReviews._read(path)[0] == bounded
     with pytest.raises(EvidenceRequired, match="reader bound"):
         CaptureStore._serialized({"text": exact["text"] + "x"})
+
+
+@pytest.mark.parametrize("change", ["valid", "revoked", "deleted"])
+def test_RC18_native_prepared_consumption_has_no_source_content_io(graph, monkeypatch, change):
+    import time
+    from contextlib import contextmanager
+    from pathlib import Path
+
+    from ai_task_manager.adapters.proofs.router import EvidenceRoute, EvidenceRouter
+    from ai_task_manager.adapters.workflow_reviews import (
+        KINDS,
+        PREFIX,
+        WorkflowReviews,
+        capture_store,
+    )
+    from ai_task_manager.config.files import write_private
+
+    author, inspection, producer, store = graph
+    captured = producer.capture(inspection, store)
+    issuer = WorkflowReviews(
+        author.artifacts, author.issuer_key, NativeReviewSource(store), clock=time.time
+    )
+    refs = issuer.lookup(author.scope, author.task, author.saved["digest"])
+    core = author.r.core
+    core.context.evidence = EvidenceRouter(
+        [*core.context.evidence.routes, EvidenceRoute(PREFIX, KINDS, issuer)]
+    )
+    before = core.get_task(author.r.handle, author.task.id)
+    if change == "revoked":
+        write_private(store.revoked, {"revoked": [captured.reference]}, replace=True)
+    elif change == "deleted":
+        store.revoked.unlink()
+    transaction, active, content_reads = core.context.db.transaction, [], []
+
+    @contextmanager
+    def observed_transaction():
+        with transaction() as conn:
+            assert conn.in_transaction
+            active.append(conn)
+            try:
+                yield conn
+            finally:
+                active.pop()
+
+    def forbid(*args, **kwargs):
+        assert active and active[-1].in_transaction
+        content_reads.append(True)
+        raise AssertionError("No source content or preparation I/O inside Core")
+
+    with monkeypatch.context() as guard:
+        guard.setattr(core.context.db, "transaction", observed_transaction)
+        for obj, name in [
+            (capture_store, "read_private"),
+            (Path, "open"),
+            (Path, "read_bytes"),
+            (Path, "read_text"),
+            (author.artifacts.core, "get_task"),
+            (author.artifacts.core, "session_binding"),
+            (author.store, "verified"),
+            (author.inspector, "inspect"),
+        ]:
+            guard.setattr(obj, name, forbid)
+        if change == "valid":
+            updated = author.complete(refs["units"]["complete"], key="metadata-consumption")
+            assert updated.completed_work == ("complete",)
+        else:
+            with pytest.raises(EvidenceRequired, match="source changed"):
+                author.complete(refs["units"]["complete"], key="metadata-consumption")
+    assert not content_reads
+    if change != "valid":
+        assert core.get_task(author.r.handle, author.task.id) == before

@@ -77,7 +77,8 @@ class CaptureStore:
         if self.root.resolve() != self.root or self._identity() != self._root_identity:
             raise EvidenceRequired("Original review capture directory changed")
         self.key_witness.check()
-        self._check_revocations()
+        # Core consumption checks the revocation witness prepared by resolve,
+        # through WorkflowReviews; it must not reopen source content here.
 
     def directory(self, inspection):
         self.check_binding()
@@ -153,6 +154,7 @@ class CaptureStore:
     def resolve(self, inspection):
         inspection.check()
         self.check_binding()
+        self._check_revocations()
         path = self.directory(inspection) / "binding.json"
         if not path.exists():
             return None
