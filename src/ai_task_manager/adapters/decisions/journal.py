@@ -110,6 +110,19 @@ class AuthorityJournal:
         from .observations import PREFIX, current_enrollment
 
         origin = data.get("source_ref")
+        if isinstance(origin, str) and origin.startswith("session-host-receipt:"):
+            from .host_observations import verify_receipt
+
+            observed = verify_receipt(self, origin)
+            if (data["kind"], data["scope"], data["subject"]) != (
+                "notification_" + observed.stage,
+                asdict(observed.scope),
+                observed.event_id,
+            ) or data["payload"] != {
+                "target_session_id": observed.session_id,
+                "trace_hash": observed.trace_hash,
+            }:
+                raise AccessDenied("Notification proof differs from its original native source")
         if (
             data["kind"] == "decision"
             and data["payload"].get("actor") == "agent"

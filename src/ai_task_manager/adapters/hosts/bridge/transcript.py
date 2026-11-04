@@ -42,6 +42,10 @@ class OwnedTranscript:
     def listen(self, listener):
         self._listeners.append(listener)
 
+    def unlisten(self, listener):
+        if listener in self._listeners:
+            self._listeners.remove(listener)
+
     def read(self, timeout=0.2):
         self.process.verify_identity()
         frame = self.process.read(timeout)

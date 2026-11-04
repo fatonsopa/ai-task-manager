@@ -47,6 +47,8 @@ def _model_event(frame, host, requested, observed):
     if frame.get("type") == "system" and frame.get("subtype") == "model_refusal_fallback":
         return observed, "native_model_refusal_fallback"
     if frame.get("type") == "system" and frame.get("subtype") == "init":
+        if frame.get("apiKeySource") != "none":
+            return observed, "native_authentication_changed"
         model = frame.get("model")
     elif frame.get("type") == "assistant":
         message = frame.get("message")

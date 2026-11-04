@@ -1,6 +1,6 @@
 from ai_task_manager.domains.work.errors import EvidenceRequired, ValidationError
 from ai_task_manager.domains.work.models import ReceiptStage
-from ai_task_manager.storage import events, sessions
+from ai_task_manager.storage import events, sessions, work
 
 
 class Notifications:
@@ -11,6 +11,19 @@ class Notifications:
         with self.c.db.transaction() as conn:
             sid, _ = sessions.resolve(conn, handle)
             return events.list_events(conn, sid, after)
+
+    def recover_acknowledge(self, handle, event_id, stage, proof_ref, operation_key):
+        """Return only an exact completed receipt; this cannot admit a new effect."""
+        payload = {
+            "command": "receipt",
+            "event_id": event_id,
+            "stage": ReceiptStage(stage),
+            "proof_ref": proof_ref,
+        }
+        with self.c.db.transaction() as conn:
+            sid, _ = sessions.resolve(conn, handle)
+            prior = work.replay(conn, sid, operation_key, payload)
+            return prior["stage"] if prior is not None else None
 
     def acknowledge(self, handle, event_id, stage, proof_ref, operation_key):
         try:

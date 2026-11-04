@@ -35,11 +35,72 @@ class ManagedServiceSlot:
         )
 
     @classmethod
-    def configured(cls, config_file, journal, observations, **trusted_factories):
+    def configured(cls, config_file, journal, observations=None, **trusted_factories):
         return cls(
             lambda: load_service(config_file, observations=observations, **trusted_factories),
             journal,
         )
+
+    def bind_notifications(self, notifications, lead_enrollment_ref):
+        """The trusted native gateway supplies its producer, never a model reference."""
+        from ai_task_manager.adapters.hosts.bridge.observations import NotificationObserver
+
+        with self._lock:
+            if (
+                self._fenced
+                or type(notifications) is not NotificationObserver
+                or notifications.journal is not self.journal
+            ):
+                raise AccessDenied("Native notification owner differs from the managed slot")
+            observations = self._service.decisions.observations
+            from ai_task_manager.adapters.decisions.observations import SessionObservations
+
+            if not isinstance(observations, SessionObservations):
+                raise AccessDenied("Native notifications require the enrolled provider session")
+            with self._service.core.context.db.transaction() as conn:
+                if conn.execute(
+                    "SELECT 1 FROM attempts WHERE id=?", (notifications.binding.attempt_id,)
+                ).fetchone():
+                    raise AccessDenied("A Core worker startup cannot become lead authority")
+            observations.bind_host_notifications(
+                notifications, self.session_id, lead_enrollment_ref
+            )
+            self._notifications = notifications
+
+    def publish_notification(self, generation, notifications, event_id):
+        """Refresh authority before new output; completed output remains historical.
+
+        The slot lock excludes local rotation. External authority observations do
+        not promise atomic exclusion of a later independent revocation.
+        """
+        with self._lock:
+            if (
+                self._fenced
+                or generation != self.generation
+                or notifications is not getattr(self, "_notifications", None)
+            ):
+                raise AccessDenied("Public notification owner is no longer current")
+            if (event_id, "user_reported") not in notifications.receipts:
+                service = self._service
+                if service.seal is not None:
+                    service.seal.check()
+                sid, scope = service.core.session_binding(service.handle)
+                receipts = service.core.notifications.receipts(service.handle, event_id)
+                if not {"delivered", "ai_acknowledged"} <= receipts.keys():
+                    raise AccessDenied("Core has not accepted this event's prior receipt stages")
+                observed = service.decisions.observations.verify_host_observation(
+                    notifications.reference(event_id, "ai_acknowledged")
+                )
+                if (sid, scope) != (self.session_id, self.scope) or (
+                    observed.scope,
+                    observed.session_id,
+                    observed.event_id,
+                    observed.stage,
+                ) != (scope, sid, event_id, "ai_acknowledged"):
+                    raise AccessDenied("Public report differs from the current scoped event")
+                notifications.startup.policy.check()
+                notifications.startup.assert_stable()
+            return notifications.publish(event_id)
 
     def call(self, generation, operation, data):
         with self._lock:

@@ -133,7 +133,16 @@ class SessionObservations:
         raise EvidenceRequired("Actual human instruction observation is unavailable")
 
     def verify_host_observation(self, reference):
-        raise EvidenceRequired("Actual host transcript observation is unavailable")
+        from .host_observations import observe
+
+        grant = self.verify_enrollment(self.pointer["reference"])
+        return observe(self, grant, reference)
+
+    def bind_host_notifications(self, observer, session_id, lead_enrollment_ref):
+        from .host_observations import bind
+
+        grant = self.verify_enrollment(self.pointer["reference"])
+        return bind(self, grant, observer, session_id, lead_enrollment_ref)
 
     def revoke(self):
         self._check()

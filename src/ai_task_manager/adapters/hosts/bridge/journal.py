@@ -35,6 +35,20 @@ def canonical(value):
 
 
 class HostJournal:
+    @classmethod
+    def open_existing(cls, path, key_path, *, clock=time.time):
+        """Read an enrolled producer store without creating or migrating its files."""
+        value = cls.__new__(cls)
+        value.path, value.key_path = private_path(path), private_path(key_path)
+        for parent in {value.path.parent, value.key_path.parent}:
+            if parent.is_symlink() or parent.stat().st_mode & 0o077:
+                raise AccessDenied("Host storage needs a private owned directory")
+        value.clock = clock
+        value._key = value.key_path.read_bytes()
+        if len(value._key) != 32:
+            raise AccessDenied("Invalid host journal key")
+        return value
+
     def __init__(self, path, key_path, *, clock=time.time):
         self.path, self.key_path, self.clock = (
             Path(path).absolute(),

@@ -9,11 +9,12 @@ from .gateway import tool_schema
 
 
 class LeadToolGateway:
-    def __init__(self, slot, notifications, *, allowed_operations):
+    def __init__(self, slot, notifications, *, allowed_operations, lead_enrollment_ref=None):
         if not set(allowed_operations) <= set(SERVICE_SCHEMAS):
             raise AccessDenied("Unknown lead service operation")
         if set(allowed_operations) & {"event_acknowledge", "session_resume"}:
             raise AccessDenied("Observation and session rotation use trusted controller routes")
+        slot.bind_notifications(notifications, lead_enrollment_ref)
         self.slot, self.notifications = slot, notifications
         self.generation = slot.generation
         self.schemas = {name: SERVICE_SCHEMAS[name] for name in allowed_operations}
@@ -51,5 +52,5 @@ class LeadToolGateway:
 
     def publish(self, event_id):
         """Controller-owned public sink path; no model-callable report issuer exists."""
-        self.notifications.publish(event_id)
+        self.slot.publish_notification(self.generation, self.notifications, event_id)
         return self._acknowledge(event_id, ("user_reported",))

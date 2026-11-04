@@ -35,6 +35,8 @@ class HostObservation:
     session_id: str
     stage: str
     trace_hash: str
+    source_ref: str | None = None
+    expires_at: float | None = None
 
 
 class RejectObservations:
@@ -243,5 +245,19 @@ class DecisionAuthority:
                 "target_session_id": session_id,
                 "trace_hash": observed.trace_hash,
             },
-            observed.trace_hash,
+            observed.source_ref or observed.trace_hash,
+            observed.expires_at,
         )
+
+    def validate_notification_source(self, scope, event_id, session_id, stage, reference, proof):
+        """Refresh external source continuity before an uncommitted receipt effect."""
+        observed = self.observations.verify_host_observation(reference)
+        saved = self.journal.verify_evidence(proof)
+        if (
+            (observed.scope, observed.event_id, observed.session_id, observed.stage)
+            != (scope, event_id, session_id, stage)
+            or (saved.kind, saved.scope, saved.subject)
+            != ("notification_" + stage, scope, event_id)
+            or saved.payload != {"target_session_id": session_id, "trace_hash": observed.trace_hash}
+        ):
+            raise EvidenceRequired("Notification recovery source differs from the original proof")

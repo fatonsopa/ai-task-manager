@@ -46,6 +46,19 @@ def event_acknowledge(service, data, invocation):
             data["observation_ref"],
         ),
     )
+    committed = service.core.notifications.recover_acknowledge(
+        service.handle, data["event_id"], data["stage"], proof, data["operation_key"]
+    )
+    if committed is not None:
+        return result({"stage": committed})
+    service._required("decisions").validate_notification_source(
+        service.scope,
+        data["event_id"],
+        service.session_id,
+        data["stage"],
+        data["observation_ref"],
+        proof,
+    )
     stage = service.core.notifications.acknowledge(
         service.handle, data["event_id"], data["stage"], proof, data["operation_key"]
     )
