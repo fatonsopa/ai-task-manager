@@ -3,7 +3,10 @@
 import hashlib
 import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
 
 from ai_task_manager.adapters.hosts.bridge.accounting import (
     AccountingPlan,
@@ -11,6 +14,7 @@ from ai_task_manager.adapters.hosts.bridge.accounting import (
 )
 from ai_task_manager.adapters.hosts.bridge.auth_probe import claude_account_hash
 from ai_task_manager.adapters.hosts.bridge.controller import ManagedHostFactory
+from ai_task_manager.adapters.hosts.bridge.executions import ModelWork, ReviewedExecutions
 from ai_task_manager.adapters.hosts.bridge.policy import (
     NativePolicy,
     NativeProfile,
@@ -23,6 +27,7 @@ from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import CapacityPolicy
 from ai_task_manager.supervisor.managed import ManagedWorkers
 from tests.hosts.accounting_fixtures import FixtureAccounting
+from tests.hosts.test_composition import UnusedCommands
 from tests.hosts.test_continuity import AuthoredDependencyCollection
 from tests.runtime.helpers import ProviderFixture, RuntimeRig
 
@@ -52,20 +57,27 @@ class FixtureAdmission:
         raise AccessDenied("No actual authored account-status observation")
 
 
-def test_v209_real_managed_consumer_uses_accounted_identity_and_joins_it(tmp_path, journal):
+@pytest.mark.parametrize("boundary", ["original", "headroom", "expired", "account"])
+def test_v209_real_managed_consumer_uses_accounted_identity_and_joins_it(
+    tmp_path, journal, monkeypatch, boundary
+):
     root = tmp_path / "graph"
     root.mkdir(mode=0o700)
     runtime = RuntimeRig(root / "runtime")
     r = runtime.rig
     r.now = time.time()
+    if boundary != "original":
+        journal.clock = lambda: r.now
     r.capacity = CapacityPolicy("claude", 2, 2)
     r.core = r.new_core()
     home = root / "home"
     home.mkdir(mode=0o700)
     (home / ".claude_roni").mkdir(mode=0o700)
     executable = root / "authored-claude"
-    executable.write_text(f"#!{sys.executable}\n" + Path(__file__).with_name(
-        "fixture_claude_bootstrap.py").read_text())
+    program = Path(__file__).with_name("fixture_claude_bootstrap.py").read_text()
+    if boundary == "account":
+        program = program.replace('MODE = "normal"', 'MODE = "account-change"')
+    executable.write_text(f"#!{sys.executable}\n" + program)
     executable.chmod(0o700)
     sha = hashlib.sha256(executable.read_bytes()).hexdigest()
     account = claude_account_hash(
@@ -83,12 +95,17 @@ def test_v209_real_managed_consumer_uses_accounted_identity_and_joins_it(tmp_pat
             "fixture-requested-model", "high",
         )
 
-    budget = FixtureAccounting(root / "accounting")
+    budget = FixtureAccounting(
+        root / "accounting", maximum_seconds=60 if boundary == "original" else 180
+    )
+    if boundary != "original":
+        budget.control.clock = lambda: datetime.fromtimestamp(r.now, UTC)
     task = r.queued(code=False)
-    deadline = r.now + 40
+    deadline = r.now + (40 if boundary == "original" else 180)
     plan = AccountingPlan(
         "batch", "managed-v2", task.id, "claude", "fixture-requested-model", "high",
-        "authored-included-account-control", deadline, 35, 5, 8, 15,
+        "authored-included-account-control", deadline,
+        35 if boundary == "original" else 150, 5, 8, 15,
         identity_refreshes=("identity-1",),
     )
     accounting = HostInvocationAccounting(
@@ -114,7 +131,48 @@ def test_v209_real_managed_consumer_uses_accounted_identity_and_joins_it(tmp_pat
         dependencies=AuthoredDependencyCollection(r.core, r.handle),
     )
     factory.commands = workers
+    if boundary != "original":
+        launch = factory.launch
+
+        def aged_startup(binding, pair):
+            native = launch(binding, pair)
+            initialize = native.initialize
+
+            def initialized():
+                result = initialize()
+                # Reproduce the normal path with 18s of original identity
+                # remaining: valid to the old 15s helper, short of work's21s.
+                age = 61 if boundary == "expired" else 42
+                while age:
+                    step = min(10, age)
+                    r.now += step
+                    # Preserve ordinary startup dependency refresh while the
+                    # unchanged account observation ages across its boundary.
+                    workers._startup_freshness[binding.attempt_id].refresh()
+                    age -= step
+                if boundary == "account":
+                    (pair.worktree / "account-switch").write_text("authored switch")
+                return result
+
+            native.initialize = initialized
+            return native
+
+        monkeypatch.setattr(factory, "launch", aged_startup)
     try:
+        if boundary in {"expired", "account"}:
+            with pytest.raises(AccessDenied):
+                workers.start(
+                    r.handle, task.id, "claude", expected_version=task.version,
+                    decision_revision=task.decision_revision,
+                    decision_ref=r.decision(task, "In Progress"),
+                    operation_key="managed-v2-start",
+                )
+            assert not workers.dispatches
+            assert all(
+                event.kind != "work_lease_granted"
+                for event in r.core.notifications.list_events(r.handle)
+            )
+            return
         attempt = workers.start(
             r.handle, task.id, "claude", expected_version=task.version,
             decision_revision=task.decision_revision, decision_ref=r.decision(task, "In Progress"),
@@ -122,6 +180,23 @@ def test_v209_real_managed_consumer_uses_accounted_identity_and_joins_it(tmp_pat
         )
         native = factory.owned[attempt.id]
         assert workers._freshness[attempt.id].continuity.identities is native.identity.observations
+        if boundary == "headroom":
+            refreshed = [c for c in budget.control.snapshot()["calls"]
+                         if c["call_id"].endswith(":identity-1")]
+            assert len(refreshed) == 1 and refreshed[0]["process_stopped"] is True
+            assert native.identity.observations.prepare().observation.expires_at > r.now + 38
+            assert workers._freshness[attempt.id]._failure is None
+            workers.executions = ReviewedExecutions(
+                journal,
+                {"assignment": ModelWork(task.id, "claude", "Authored normal work", "assignment")},
+                accounting,
+                UnusedCommands(),
+            )
+            workers.execute_reviewed(r.handle, attempt.id, "assignment", "normal-headroom-work")
+            assert r.core.get_attempt(r.handle, attempt.id).state == "done"
+            assert native.process._closed and not native.identity._thread.is_alive()
+            assert not workers.failure_diagnostics
+            return
         previous = native.identity.observations.prepare()
         native.identity.observations.refresh(native.directory / "manual-fresh-auth")
         previous.check()  # Overlapping proof remains valid through its own expiry.

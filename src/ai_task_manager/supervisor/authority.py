@@ -172,6 +172,22 @@ class AttemptAuthority:
             if core.context.clock() >= self.deadline:
                 raise AccessDenied("The original execution deadline cannot be extended")
             task = core.get_task(self.handle, self.task_id)
+            identity = self.native.identity
+            if identity is not None:
+                if (
+                    identity is not self.native._identity_bound
+                    or identity.observations is not self.continuity.identities
+                ):
+                    raise AccessDenied("The original native identity authority changed")
+                # This is preparation outside Core/model locks. Keep the same
+                # identity authority ahead of the full next-collection budget;
+                # a still-unexpired but short cached proof is insufficient.
+                identity.ensure_current(
+                    minimum_remaining_seconds=(
+                        MAX_COLLECTION_SECONDS + CHECK_INTERVAL_SECONDS
+                        + self._preparation_latency
+                    )
+                )
             collection_started = diagnostic_clock()
             collection_clock = core.context.clock()
             key = "work-freshness:" + str(uuid4())

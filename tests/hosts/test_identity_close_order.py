@@ -129,6 +129,39 @@ def test_stop_requests_identity_before_transport_and_joins_after():
     assert events == ["request", "session", "process", "join", "record"]
 
 
+def test_required_identity_window_wait_is_cancelled_before_another_auth(
+    bootstrap_graph, monkeypatch
+):
+    from tests.hosts.test_identity_observations import identity
+
+    item, _, observer = identity(bootstrap_graph)
+    helper = IdentityRefresh(observer, item.root / "required-window", 1)
+    expiry = observer.prepare().observation.expires_at
+    item.journal.clock = lambda: expiry - 18
+    prepared = Event()
+    original = observer.prepare
+
+    def observed(**kwargs):
+        result = original(**kwargs)
+        prepared.set()
+        return result
+
+    monkeypatch.setattr(observer, "prepare", observed)
+    before = item.accounting.number
+    helper._collect.acquire()
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            waiting = pool.submit(helper.ensure_current, minimum_remaining_seconds=21)
+            assert prepared.wait(2)
+            helper.request_stop()
+            with pytest.raises(AccessDenied):
+                waiting.result(timeout=1)
+        assert item.accounting.number == before
+    finally:
+        helper._collect.release()
+        assert helper.close()
+
+
 def test_real_identity_thread_close_cancels_model_wait(bootstrap_graph, monkeypatch):
     from threading import current_thread
 
