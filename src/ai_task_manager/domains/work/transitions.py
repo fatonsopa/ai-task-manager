@@ -28,6 +28,11 @@ _PAIRS = {
 }
 
 
+def human_hold_required(target):
+    """A verified later human Backlog or On Hold decision keeps work held."""
+    return target in {S.BACKLOG, S.ON_HOLD}
+
+
 def check_transition(source: S, target: S, cause: C, facts: TransitionFacts) -> bool:
     """Return whether state changes; reject unknown causes and missing guards."""
     try:

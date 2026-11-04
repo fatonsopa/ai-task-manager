@@ -43,7 +43,10 @@ class OutboundDrain:
                 or task.version != operation.payload["task_version"]
                 or task.decision_revision != operation.payload["decision_revision"]
                 or task.desired_status != operation.payload["desired_status"]
-                or task.human_hold
+                or (
+                    task.human_hold
+                    and not self.core.sync.authorizes_hold_publication(handle, operation.id)
+                )
             ):
                 raise LinearError("stale_outbound_authority")
             if self.client.binding is None:
@@ -91,7 +94,10 @@ class OutboundDrain:
             if (
                 current.version != task.version
                 or current.decision_revision != task.decision_revision
-                or current.human_hold
+                or (
+                    current.human_hold
+                    and not self.core.sync.authorizes_hold_publication(handle, operation.id)
+                )
             ):
                 raise LinearError("stale_outbound_authority")
             candidate_id = (

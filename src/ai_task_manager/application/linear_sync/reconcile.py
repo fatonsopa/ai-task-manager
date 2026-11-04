@@ -61,7 +61,10 @@ class Reconciliation:
             raise LinearError("creation_identity_uncertain", uncertain=True) from exc
         if (
             task.version != operation.payload["task_version"]
-            or task.human_hold
+            or (
+                task.human_hold
+                and not self.core.sync.authorizes_hold_publication(handle, operation.id)
+            )
             or task.decision_revision != operation.payload["decision_revision"]
         ):
             raise LinearError("stale_recovery_authority", uncertain=True)

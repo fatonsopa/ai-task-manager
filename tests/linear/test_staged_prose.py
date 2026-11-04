@@ -114,7 +114,7 @@ def test_approved_external_prose_needs_fresh_readback_and_separate_status_settle
         {},
         rig.key(),
     )
-    assert task.sync_state == "confirmed" and not task.human_hold
+    assert task.sync_state == "confirmed" and task.human_hold
 
 
 def test_active_or_unresolved_worker_blocks_prose_adoption_until_real_quiescence(rig):

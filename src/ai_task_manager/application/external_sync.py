@@ -7,7 +7,7 @@ from uuid import uuid4
 from ai_task_manager.domains.work.errors import EvidenceRequired, InvalidTransition, StaleVersion
 from ai_task_manager.domains.work.models import DELIVERED, AttemptState, Evidence, SyncState
 from ai_task_manager.domains.work.models import IssueStatus as S
-from ai_task_manager.domains.work.transitions import check_transition
+from ai_task_manager.domains.work.transitions import check_transition, human_hold_required
 from ai_task_manager.storage import attempts, issue_claims, sessions, work
 from ai_task_manager.storage.database import encode
 
@@ -329,7 +329,9 @@ class ExternalSynchronization:
                     desired_status=target,
                     observed_status=target,
                     sync_state=SyncState.CONFIRMED,
-                    human_hold=(target == S.ON_HOLD or data.get("assigned_to_owner") is not True),
+                    human_hold=(
+                        human_hold_required(target) or data.get("assigned_to_owner") is not True
+                    ),
                     queued_once=task.queued_once
                     or (target == S.TODO and not issue_claims.imported(conn, task.id)),
                     delivered_once=task.delivered_once or target in DELIVERED,

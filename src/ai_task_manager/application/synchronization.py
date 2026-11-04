@@ -1,4 +1,5 @@
 from ai_task_manager.domains.work.errors import EvidenceRequired, ValidationError
+from ai_task_manager.domains.work.transitions import human_hold_required
 from ai_task_manager.storage import outbox, sessions, work
 from ai_task_manager.storage.work import fingerprint
 
@@ -50,6 +51,48 @@ class Synchronization:
             if task_id is not None:
                 work.get(conn, sid, task_id)
             return outbox.claim(conn, sid, adapter_id, self.c.clock(), lease_seconds, task_id)
+
+    def authorizes_hold_publication(self, handle, operation_id):
+        """Verify the current human hold intent without authorizing any work or retry."""
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            operation = outbox.get(conn, sid, operation_id)
+            task = work.get(conn, sid, operation.task_id)
+            allowed_causes = (
+                {"dequeue", "review_decision"}
+                if task.desired_status == "Backlog"
+                else {"hold", "review_decision"}
+            )
+            if (
+                not task.human_hold
+                or not human_hold_required(task.desired_status)
+                or operation.kind != "set_status"
+                or operation.fenced_by
+                or operation.state == "confirmed"
+                or operation.payload.get("cause") not in allowed_causes
+                or operation.payload.get("task_version") != task.version
+                or operation.payload.get("decision_revision") != task.decision_revision
+                or operation.payload.get("desired_status") != task.desired_status
+            ):
+                return False
+            human = self.c.proof(task.decision_ref, "human_decision", scope, task.id).payload
+            if (
+                human.get("actor") != "human"
+                or human.get("hold") is not True
+                or human.get("target") != task.desired_status
+                or human.get("previous_revision") != task.decision_revision - 1
+                or human.get("prose_digest") != task.prose_digest
+            ):
+                return False
+            self.c.decision(
+                conn,
+                task,
+                scope,
+                operation.payload.get("decision_ref"),
+                task.desired_status,
+                human=True,
+            )
+            return True
 
     def record_outcome(self, handle, operation_id, adapter_id, attempt, state, detail):
         with self.c.db.transaction() as conn:

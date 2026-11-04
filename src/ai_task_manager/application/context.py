@@ -47,7 +47,8 @@ class Context:
             raise StaleDecision("Decision does not authorize this destination and revision")
         if human and proof.payload.get("actor") != "human":
             raise EvidenceRequired("This transition needs explicit human acceptance")
-        if task.human_hold and target != "On Hold":
+        retaining_backlog_hold = target == "Backlog" and proof.payload.get("actor") == "human"
+        if task.human_hold and target != "On Hold" and not retaining_backlog_hold:
             raise StaleDecision("Human hold requires a newer explicit human decision")
         return proof
 

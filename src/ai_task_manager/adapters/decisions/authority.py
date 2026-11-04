@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
+from ai_task_manager.domains.work.transitions import human_hold_required
 
 
 @dataclass(frozen=True)
@@ -188,7 +189,7 @@ class DecisionAuthority:
             task.id,
             {
                 "previous_revision": task.decision_revision,
-                "hold": target == "On Hold",
+                "hold": human_hold_required(target),
                 "actor": "human",
                 "reason": source.reason,
                 "target": target,
