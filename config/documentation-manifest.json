@@ -2,7 +2,7 @@
   "schema_version": 3,
   "scope": "Documentation and declared supporting inputs; not whole-product or runtime attestation.",
   "path_base": "repository_root",
-  "previous_manifest_sha256": "46ebe36b3aeb64740df0f7eb48bd3bbaa2f9c29e854b7c6945fcf4bdfda387cd",
+  "previous_manifest_sha256": "8dd280674ef04cc433ee57389490ecf526fa6a921ccea54424a5674411b4cdc7",
   "files": [
     {
       "path": ".gitignore",
@@ -146,7 +146,7 @@
     },
     {
       "path": "docs/high_level_document.md",
-      "sha256": "abc1bd66b46495840b83f572c34e39833f167ebc5f4d13e618ce4734fdf70060"
+      "sha256": "5001704d6b67a62b0ee1f12caa55bbc525dea115b444f29ee8ad3d1682023e65"
     },
     {
       "path": "docs/implementation_plan.md",

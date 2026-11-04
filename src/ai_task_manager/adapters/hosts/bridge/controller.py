@@ -378,6 +378,13 @@ class ManagedNativeHost:
                 retention_error, FailureStage.DIAGNOSTIC_RETENTION
             )
 
+    def identity_failed(self, error):
+        # Preserve the original owned cause before cancellation obscures it.
+        try:
+            self._diagnose(error, FailureStage.IDENTITY_REFRESH)
+        finally:
+            self.stop()
+
     def invocation_completed(self, permit):
         # Trusted accounting must have recorded completion before the watchdog
         # accepts this reset to the immutable host deadline.

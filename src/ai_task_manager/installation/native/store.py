@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from threading import local
@@ -9,7 +10,12 @@ from uuid import uuid4
 
 from ai_task_manager.config.files import digest, private_path
 from ai_task_manager.domains.work.errors import AccessDenied
-from ai_task_manager.storage.coherence import StoreBinding, probe_connection
+from ai_task_manager.storage.coherence import (
+    StoreBinding,
+    is_busy_sqlite,
+    probe_connection,
+    probe_read_connection,
+)
 
 
 class NativeStore:
@@ -67,11 +73,51 @@ class NativeStore:
         }
 
     @contextmanager
-    def transaction(self):
+    def settlement_snapshot(self):
+        if getattr(self._active, "connection", None) is not None:
+            raise AccessDenied("Settlement cannot wait inside its own native transaction")
         private_path(self.path)
-        conn = sqlite3.connect(self.path, timeout=0.1)
+        conn = sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True, timeout=0)
         try:
-            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("BEGIN")
+            probe_read_connection(conn, self.binding)
+            yield conn
+            probe_read_connection(conn, self.binding)
+        finally:
+            conn.rollback()
+            conn.close()
+
+    @contextmanager
+    def transaction(self, *, wait_until=None, clock=None, cancelled=None):
+        private_path(self.path)
+        # Only trusted settlement supplies a bound. Ordinary admission/effect
+        # acquisition retains its original fail-fast SQLite policy.
+        conn = sqlite3.connect(self.path, timeout=0 if wait_until is not None else 0.1)
+        end = time.monotonic() + max(0, wait_until - clock()) if wait_until is not None else None
+        try:
+            if wait_until is not None and getattr(self._active, "connection", None) is not None:
+                raise AccessDenied("Settlement cannot wait inside its own native transaction")
+            contended = False
+            while True:
+                if contended and (clock() >= wait_until or time.monotonic() >= end):
+                    raise AccessDenied("Original native settlement wait expired")
+                if cancelled is not None and cancelled.is_set():
+                    raise AccessDenied("Native settlement wait was cancelled")
+                try:
+                    conn.execute("BEGIN IMMEDIATE")
+                    break
+                except sqlite3.Error as error:
+                    if wait_until is None or not is_busy_sqlite(error):
+                        raise
+                    contended = True
+                    remaining = min(wait_until - clock(), end - time.monotonic())
+                    if remaining <= 0:
+                        raise AccessDenied("Original native settlement wait expired") from error
+                    # No transaction, writer, model guard or Core lock is held.
+                    if cancelled is not None:
+                        cancelled.wait(min(0.02, remaining))
+                    else:
+                        time.sleep(min(0.02, remaining))
             probe_connection(conn, self.binding)
             self._active.connection = conn
             yield conn

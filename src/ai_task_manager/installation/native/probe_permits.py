@@ -2,6 +2,7 @@
 
 from dataclasses import asdict
 from datetime import UTC, datetime
+from threading import Event
 
 from ai_task_manager.adapters.hosts.bridge.conformance import ProbeThreadGate
 from ai_task_manager.adapters.hosts.bridge.identity import NativeIdentityObservations
@@ -33,6 +34,7 @@ class ProbePermits:
         self._auth_pending = None
         self._identity_next = 0
         self._identity_observer = None
+        self._identity_cancelled = Event()
 
     def check_admission(self, host):
         raise AccessDenied("Canary permission cannot admit a normal Core worker")
@@ -135,6 +137,7 @@ class ProbePermits:
             completion["group"]["confirmed_stop"],
             effect="accounting_auth",
             completion=completion,
+            cancelled=self._identity_cancelled,
         )
         self._auth_pending = None
 
@@ -149,13 +152,22 @@ class ProbePermits:
             raise AccessDenied("Probe neutral input requires actual matching subscription auth")
         return self._claim("neutral")
 
-    def _record(self, permit, outcome, stopped, *, effect, **data):
+    def _record(self, permit, outcome, stopped, *, effect, cancelled=None, **data):
         if permit not in self.issued.values():
             raise AccessDenied("Probe outcome belongs to another invocation")
+        permit.issuer._validate(permit)
         ref = self.journal._append("trace", {"effect": effect, "call_id": permit.reference, **data})
-        self.controller.record_outcome(
-            permit.reference, outcome=outcome, process_stopped=stopped, evidence_ref=ref
-        )
+        if permit.issuer.controller is not self.controller:
+            raise AccessDenied("Probe outcome controller changed")
+        if effect == "accounting_auth" and stopped:
+            permit.issuer.record_outcome(
+                permit, outcome=outcome, process_stopped=stopped, evidence_ref=ref,
+                cancelled=cancelled,
+            )
+        else:
+            self.controller.record_outcome(
+                permit.reference, outcome=outcome, process_stopped=stopped, evidence_ref=ref
+            )
 
     def record_initialization(self, permit, *, outcome, observation_ref, detail):
         if permit is not self.initialization:
@@ -211,5 +223,6 @@ class ProbePermits:
             observer,
             native.directory / "probe-identity",
             len(refs),
-            on_failure=lambda reason: native.stop(),
+            on_failure=native.identity_failed,
+            cancelled=self._identity_cancelled,
         )
