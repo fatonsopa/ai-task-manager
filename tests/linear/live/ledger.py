@@ -46,9 +46,12 @@ class Limits:
             or self.deadline <= 0
         ):
             raise DriverRefused("invalid_deadline")
-        for name in ("requests", "projects", "issues", "webhooks", "comments"):
+        if type(self.requests) is not int or not 0 < self.requests <= 10000:
+            raise DriverRefused("invalid_limit")
+        # Zero disables this optional resource kind; begin() refuses its first reservation.
+        for name in ("projects", "issues", "webhooks", "comments"):
             value = getattr(self, name)
-            if type(value) is not int or not 0 < value <= 10000:
+            if type(value) is not int or not 0 <= value <= 10000:
                 raise DriverRefused("invalid_limit")
         if (
             type(self.started_at) not in {int, float}
