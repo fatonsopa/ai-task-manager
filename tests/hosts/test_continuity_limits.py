@@ -14,12 +14,12 @@ from ai_task_manager.adapters.hosts.bridge.records import (
     ManagedProcesses,
     ProcessIdentity,
 )
+from ai_task_manager.domains.scheduling.models import SchedulingBlocked
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import Scope
 from tests.hosts.accounting_fixtures import FixtureAccounting
+from tests.hosts.test_authority_latency import graph as renewal_graph
 from tests.hosts.test_composition import composition as composition
-from tests.hosts.test_composition import start
-from tests.hosts.test_continuity import AuthoredDependencyCollection
 
 
 class ClockGuard:
@@ -224,63 +224,78 @@ def test_expiry_during_preparation_cannot_issue_an_observation(clock_native):
 def test_expired_identity_refuses_effect_while_actual_owned_native_is_alive(
     composition, journal, monkeypatch
 ):
-    now = [time.time()]
-    monkeypatch.setattr(journal, "clock", lambda: now[0])
+    # The provider fixture and renewal graph must start from the same authored
+    # clock, so neither dependency nor native identity expires first by setup drift.
+    initial = journal.clock()
+    monkeypatch.setattr(journal, "clock", lambda: initial)
     append = journal._append
 
     def shorter(kind, payload, *, sources=(), expires_at=None):
         if kind == "startup":
-            expires_at = min(expires_at, now[0] + 10)
+            # Allow the unchanged 20-second collection bound, monitor interval
+            # and measured preparation cost before the first renewal.
+            expires_at = min(expires_at, journal.clock() + 30)
         return append(kind, payload, sources=sources, expires_at=expires_at)
 
     monkeypatch.setattr(journal, "_append", shorter)
-    value = composition()
-    runtime, _, _, workers, _, _, _ = value
-    runtime.rig.core.context.clock = lambda: now[0]
-    source = AuthoredDependencyCollection(runtime.rig.core, runtime.rig.handle)
-    workers.bind_dependencies(source)
-    attempt = start(value)
-    native = value[4].owned[attempt.id]
-    authority = workers._freshness[attempt.id]
+    # This existing helper drives renewal manually and keeps its finite 55-second
+    # execution cap. It makes no background-monitor coverage claim.
+    g = renewal_graph(composition, monkeypatch, journal)
+    native, authority = g.native, g.owner
     current = authority.continuity
-    expiry = current.original["expires_at"]
+    assert authority._thread is None
+    original = journal._read(native.startup.ready_ref)
+    expiry = original["expires_at"]
     prepared, _ = current.prepare()
     current.acknowledge(prepared)
-    assert authority._expires_at <= expiry
+    assert g.clock[0] < expiry < current.execution_not_after
+    assert authority._expires_at == expiry
     assert all(
-        record.value.expires_at <= expiry for record in workers.authorities._prepared.values()
+        record.value.expires_at <= expiry for record in g.workers.authorities._prepared.values()
     )
-    now[0] = expiry
-    assert native.process.verify_identity().pid > 0
+    identity = native.process.verify_identity()
     marker = native.pair.worktree / "forbidden-after-identity-expiry"
-    observed_before = len(
-        [
-            event
-            for event in runtime.rig.core.notifications.list_events(runtime.rig.handle)
-            if event.kind == "scheduling_authority_renewed"
-        ]
-    )
-    with pytest.raises(AccessDenied):
+    observed_before = [
+        event
+        for event in g.core.notifications.list_events(g.handle)
+        if event.kind == "scheduling_authority_renewed"
+    ]
+    assert observed_before
+    # Current identity and Core authority must both work immediately before
+    # the same expiry boundary; another precondition cannot explain refusal.
+    g.clock[0] = expiry - 0.001
+    current.check(prepared)
+    before = g.core.scheduling.explain(g.handle, g.task.id)
+    assert before["state"] == "ready" and before["expires_at"] == expiry
+    with g.core.execution.work_boundary(g.handle, g.attempt.id, g.attempt.version):
+        authority.check_prepared()
+    g.clock[0] = expiry
+    assert native.process.verify_identity() == identity
+    with pytest.raises(
+        AccessDenied, match="Native continuity no longer has its original authority"
+    ):
+        current.check(prepared)
+    with pytest.raises(AccessDenied, match="Expired, stopped or replaced native continuity"):
+        current.prepare()
+    with pytest.raises(AccessDenied, match="Expired work authority cannot be revived"):
         authority.refresh()
-    assert (
-        len(
-            [
-                event
-                for event in runtime.rig.core.notifications.list_events(runtime.rig.handle)
-                if event.kind == "scheduling_authority_renewed"
-            ]
-        )
-        == observed_before
-    )
-    with pytest.raises(AccessDenied):
-        with runtime.rig.core.execution.work_boundary(
-            runtime.rig.handle, attempt.id, attempt.version
-        ):
-            authority.check_prepared()
+    assert [
+        event
+        for event in g.core.notifications.list_events(g.handle)
+        if event.kind == "scheduling_authority_renewed"
+    ] == observed_before
+    after = g.core.scheduling.explain(g.handle, g.task.id)
+    assert after["source_revision"] == before["source_revision"]
+    assert after["expires_at"] == expiry
+    assert [blocker["code"] for blocker in after["blockers"]] == ["dependency_snapshot_expired"]
+    with pytest.raises(SchedulingBlocked, match="^Obtain a fresh trusted dependency snapshot$"):
+        with g.core.execution.work_boundary(g.handle, g.attempt.id, g.attempt.version):
             marker.write_text("forbidden")
     assert not marker.exists()
-    assert native.process.verify_identity().pid > 0
-    assert (
-        workers.stop(runtime.rig.handle, attempt.id, operation_key="identity-expired-stop").state
-        == "paused"
-    )
+    assert journal._read(native.startup.ready_ref, fresh=False) == original
+    assert native.process.verify_identity() == identity
+    assert g.workers.stop(
+        g.handle, g.attempt.id, operation_key="identity-expired-stop"
+    ).state == "paused"
+    assert native.process._closed
+    assert authority.close()
