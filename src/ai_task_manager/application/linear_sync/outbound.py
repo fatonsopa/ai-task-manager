@@ -2,6 +2,7 @@ from ai_task_manager.adapters.linear.errors import LinearError, ScopeMismatch
 from ai_task_manager.domains.work.errors import WorkError
 from ai_task_manager.domains.work.models import SyncState
 
+from .inflight import owned_request
 from .observations import record_scope_removal
 
 
@@ -108,14 +109,15 @@ class OutboundDrain:
             send_id = self.journal.begin_send(
                 scope, operation, candidate_id, connection_digest=connection.digest
             )
-            result = (
-                self.client.create_issue(task, candidate_id)
-                if candidate_id
-                else self.client.create_issue(task)
-                if operation.kind == "create_backlog"
-                else self.client.update_issue(task, operation.kind)
-            )
-            self.journal.finish_send(send_id, "mutation_returned", result)
+            with owned_request(self.journal, scope, operation, send_id):
+                result = (
+                    self.client.create_issue(task, candidate_id)
+                    if candidate_id
+                    else self.client.create_issue(task)
+                    if operation.kind == "create_backlog"
+                    else self.client.update_issue(task, operation.kind)
+                )
+                self.journal.finish_send(send_id, "mutation_returned", result)
             if candidate_id is not None and result.id != candidate_id:
                 raise LinearError("creation_uuid_not_honored", uncertain=True)
             self.client.check_connection(scope, refresh=True)

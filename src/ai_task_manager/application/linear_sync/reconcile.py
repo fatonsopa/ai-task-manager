@@ -1,9 +1,11 @@
 import json
+import time
 
 from ai_task_manager.adapters.linear.errors import LinearError, ScopeMismatch
 from ai_task_manager.domains.work.models import SyncState
 
 from .echoes import pending_echo
+from .inflight import request_in_flight
 from .observations import record_scope_removal
 
 
@@ -88,6 +90,7 @@ class Reconciliation:
         check_authority=None,
         max_tasks=None,
         after_task_id=None,
+        task_ids=None,
         should_yield=lambda: False,
     ):
         """Read a bounded registered slice; all effects retain the existing Core policy."""
@@ -100,6 +103,9 @@ class Reconciliation:
         _, scope = self.core.session_binding(handle)
         results = []
         tasks = sorted(self.core.list_tasks(handle), key=lambda task: task.id)
+        if task_ids is not None:
+            selected = frozenset(task_ids)
+            tasks = [task for task in tasks if task.id in selected]
         if max_tasks is not None:
             if type(max_tasks) is not int or not 1 <= max_tasks <= 32:
                 raise LinearError("invalid_reconciliation_limit")
@@ -144,6 +150,39 @@ class Reconciliation:
                 self.core, self.journal, handle, scope, task, snapshot
             )
             if (
+                pending
+                and not known_echo
+                and pending.state == "leased"
+                and pending.lease_until > self.core.context.clock()
+                and (
+                    not task.human_hold
+                    or self.core.sync.authorizes_hold_publication(handle, pending.id)
+                )
+                and pending.payload["task_version"] == task.version
+                and pending.payload["decision_revision"] == task.decision_revision
+                and request_in_flight(self.journal, scope, pending)
+            ):
+                # This is bounded deferral, not snapshot attribution. A returned
+                # response/readback must still prove the effect. Different fields
+                # fail pending matching and retain immediate observation below.
+                check()
+                results.append(
+                    {
+                        "task_id": task.id,
+                        "state": "outbound_in_flight",
+                        "retry_at": time.monotonic()
+                        + max(0, pending.lease_until - self.core.context.clock()),
+                    }
+                )
+                continue
+            # A response can be published while the ownership probe runs. If
+            # the request is no longer live, read its durable result after that
+            # probe so the send cannot fall between the two classifications.
+            if pending and not known_echo:
+                pending, _, known_echo = pending_echo(
+                    self.core, self.journal, handle, scope, task, snapshot
+                )
+            if (
                 known_echo
                 and task.sync_state != SyncState.CONFIRMED
                 and pending.payload["task_version"] == task.version
@@ -160,7 +199,17 @@ class Reconciliation:
                 and snapshot.body == task.body
                 and snapshot.assignee_id == scope.principal
             )
-            if not matches:
+            # A human can restore the previously observed status while our
+            # request is outstanding. Equal fields do not erase that newer
+            # revision; the retained snapshot distinguishes it from pre-write
+            # readback that still shows the original unchanged state.
+            previous = self.journal.latest_snapshot(scope, task.issue_id)
+            pending_revision_changed = (
+                task.sync_state != SyncState.CONFIRMED
+                and previous is not None
+                and previous["revision"] < snapshot.revision
+            )
+            if not matches or pending_revision_changed:
                 check()
                 ref = self.journal.external_receipt(scope, task, snapshot, {}, frozenset())
                 check()

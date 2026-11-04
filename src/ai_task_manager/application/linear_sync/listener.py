@@ -127,6 +127,7 @@ class InstalledReceiver:
         )
         self.next_reconciliation = 0.0
         self.reconciliation_after = None
+        self.reconciliation_pending = {}
         self.provider_not_before = 0.0
         self.reconciliation_failures = 0
         secret_path = values["secret_file"]
@@ -243,17 +244,33 @@ class InstalledReceiver:
         """One bounded recovery slice using the same Core observation policy."""
         self.check()
         try:
+            due = sorted(
+                task_id
+                for task_id, deadline in self.reconciliation_pending.items()
+                if deadline <= time.monotonic()
+            )[:8]
             rows = self.reconciliation.inspect_registered(
                 self.service.handle,
                 check_authority=self.check,
                 max_tasks=8,
-                after_task_id=self.reconciliation_after,
+                after_task_id=None if due else self.reconciliation_after,
+                task_ids=due if due else None,
                 should_yield=lambda: self.wake.is_set() or self.draining.is_set(),
             )
-            if rows:
+            if rows and not due:
                 self.reconciliation_after = rows[-1]["task_id"]
+            for row in rows:
+                self.reconciliation_pending.pop(row["task_id"], None)
+                if "retry_at" in row:
+                    self.reconciliation_pending[row["task_id"]] = row["retry_at"]
+            if due and not rows:
+                for task_id in due:
+                    self.reconciliation_pending.pop(task_id, None)
             self.reconciliation_failures = 0
-            self.next_reconciliation = time.monotonic() + self.reconciliation_seconds
+            self.next_reconciliation = min(
+                [time.monotonic() + self.reconciliation_seconds]
+                + list(self.reconciliation_pending.values())
+            )
         except StaleVersion:
             # A current webhook/local operation won. Never apply the older read.
             self.next_reconciliation = time.monotonic() + self.reconciliation_seconds

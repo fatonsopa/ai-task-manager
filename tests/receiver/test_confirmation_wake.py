@@ -401,10 +401,20 @@ def test_cw10_expired_parked_lease_recovers_without_spin_or_provider_poll(fixtur
         time.sleep(0.15)
         trial.service = fixture.load()
         trial.receiver = InstalledReceiver(trial.service, fixture.config)
+        before_task = trial.service.core.get_task(trial.service.handle, trial.task.id)
         trial.receiver.start()
+        # Startup recovery owns one provider scan. Parked receipt recovery must
+        # not poll after that independently scheduled lane has completed.
+        wait_for(lambda: trial.receiver.next_reconciliation > 0)
         before = len(fixture.provider.requests)
         time.sleep(0.8)
         assert len(fixture.provider.requests) == before
+        assert trial.child.poll() is None and not trial.release.is_set()
+        assert trial.service.core.get_task(trial.service.handle, trial.task.id) == before_task
+        pending = trial.service.core.sync.list_operations(trial.service.handle)[-1]
+        assert pending.state == "leased" and not pending.fenced_by
+        remaining = pending.lease_until - time.time()
+        assert time.monotonic() < trial.receiver.next_reconciliation <= time.monotonic() + remaining
         assert trial.receiver._recovery_delay() == trial.receiver.CONFIRMATION_RECOVERY_SECONDS
         trial.confirm()
         wait_for(lambda: trial.rows()[0]["state"] == "applied")

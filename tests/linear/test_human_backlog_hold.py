@@ -269,3 +269,31 @@ def test_hb11_newer_hold_fences_old_publication_and_nonhold_work(rig, tmp_path):
     result = rig.outbound.run_once(rig.handle)
     assert result["state"] == "failed" and result["error"] == "stale_outbound_authority"
     assert len(rig.provider.requests) == before and rig.current(newer) == newer
+
+
+@pytest.mark.parametrize("target", ["Backlog", "On Hold"])
+def test_current_hold_publication_survives_inflight_reconciliation(rig, tmp_path, target):
+    if target == "Backlog":
+        task = rig.queued()
+    else:
+        task, attempt = rig.running()
+        task, _ = rig.settle(task, attempt, state="paused")
+    service, observations = human_service(rig, tmp_path, provider=False)
+    assert human_action(service, observations, task, target, "hold-before-recovery")["ok"]
+    held = rig.current(task)
+    checked = []
+
+    def during_request(request, _):
+        if "mutation UpdateIssue" in request["query"]:
+            rows = rig.reconcile.inspect_registered(rig.handle)
+            checked.append(rows)
+            assert rig.current(task) == held
+
+    rig.provider.hook = during_request
+    result = rig.outbound.run_once(rig.handle)
+    assert result["state"] == "confirmed"
+    assert checked[0][0]["state"] == "outbound_in_flight"
+    current = rig.current(task)
+    assert current.human_hold and current.observed_status == target
+    assert current.decision_revision == held.decision_revision
+    assert not rig.core.sync.list_operations(rig.handle)[-1].fenced_by
