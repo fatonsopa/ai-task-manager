@@ -3,6 +3,7 @@ import json
 from ai_task_manager.adapters.linear.errors import LinearError, ScopeMismatch
 from ai_task_manager.domains.work.models import SyncState
 
+from .echoes import pending_echo
 from .observations import record_scope_removal
 
 
@@ -138,6 +139,20 @@ class Reconciliation:
                         check_authority=check,
                     )
                 results.append({"task_id": task.id, "state": "scope_conflict"})
+                continue
+            pending, _, known_echo = pending_echo(
+                self.core, self.journal, handle, scope, task, snapshot
+            )
+            if (
+                known_echo
+                and task.sync_state != SyncState.CONFIRMED
+                and pending.payload["task_version"] == task.version
+                and pending.payload["decision_revision"] == task.decision_revision
+            ):
+                # The normal confirmation/recovery path still owns this send.
+                # Inspection neither confirms it nor manufactures a human hold.
+                check()
+                results.append({"task_id": task.id, "state": "pending_outbound"})
                 continue
             matches = (
                 snapshot.status == task.observed_status
