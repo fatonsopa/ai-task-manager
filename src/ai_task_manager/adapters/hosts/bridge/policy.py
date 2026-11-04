@@ -44,11 +44,15 @@ def clean_environment(home, *, claude_profile=None, codex_home=None):
     if claude_profile is not None:
         profile = Path(claude_profile)
         if (
-            profile.is_symlink()
-            or profile.resolve() != home / ".claude_roni"
+            not profile.is_absolute()
+            or profile.is_symlink()
+            or profile.resolve() != profile
+            or profile.parent != home
             or not profile.is_dir()
+            or profile.stat().st_uid != os.getuid()
+            or profile.stat().st_mode & 0o022
         ):
-            raise AccessDenied("Only the explicit approved Claude profile is supported")
+            raise AccessDenied("Claude requires an explicit owned physical profile under its home")
         env["CLAUDE_CONFIG_DIR"] = str(profile.resolve())
         env["CLAUDE_CODE_ENTRYPOINT"] = "sdk-py"
     else:
