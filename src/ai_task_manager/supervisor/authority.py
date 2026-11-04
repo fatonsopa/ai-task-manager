@@ -318,9 +318,16 @@ class AttemptAuthority:
         return next_at
 
     def ensure_current(self):
+        """Prepare outside Core, then serialize the current local observation."""
         if self._current is None or self.registry.core.context.clock() >= self._next_refresh_at:
             self.refresh()
-        return self.check_prepared()
+        # Provider collection above must not hold the model fence. This caller
+        # has no Core transaction, so wait here rather than using the reverse
+        # nonblocking observation while another native observer holds it.
+        with self.native.startup.model_guard.observation_boundary(
+            cancelled=self._stop, not_after=self.deadline
+        ):
+            return self.check_prepared()
 
     def start(self):
         if self._thread is not None:
