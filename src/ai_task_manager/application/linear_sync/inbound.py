@@ -172,6 +172,14 @@ class InboundDrain:
         )
         try:
             check()
+            # Journal acceptance can race the HTTP producer's Core admission,
+            # including arrivals after the listener's startup repair snapshot.
+            # Admit this claimed receipt using its original proof before any
+            # classification or effect; a later producer admission is idempotent.
+            self.core.sync.ingest(
+                handle, receipt["delivery_id"], payload, receipt["ingress_ref"]
+            )
+            check()
             if task is None:
                 self.journal.finish_delivery(
                     receipt["id"], worker_id, "ignored", self.clock(), "unregistered_issue"
