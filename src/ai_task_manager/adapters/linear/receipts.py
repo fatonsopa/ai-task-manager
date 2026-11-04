@@ -399,9 +399,13 @@ class ProviderJournal:
         with self.transaction() as conn:
             return self._proof(conn, "external_observation", scope, task.id, payload)
 
-    def claim_delivery(self, scope, owner, now, lease_seconds=30):
+    def claim_delivery(self, scope, owner, now, lease_seconds=30, *, receipt_id=None):
         if not owner or not 0 < lease_seconds <= 300:
             raise LinearError("invalid_receiver_lease")
+        if receipt_id is not None:
+            from .models import canonical_id
+
+            canonical_id(receipt_id)
         with self.transaction() as conn:
             scope_text = encoded(asdict(scope))
             conn.execute(
@@ -411,8 +415,8 @@ class ProviderJournal:
             )
             row = conn.execute(
                 "SELECT * FROM deliveries WHERE scope=? AND state='received' "
-                "ORDER BY rowid LIMIT 1",
-                (scope_text,),
+                "AND (? IS NULL OR id=?) ORDER BY rowid LIMIT 1",
+                (scope_text, receipt_id, receipt_id),
             ).fetchone()
             if row is None:
                 return None

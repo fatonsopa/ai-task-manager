@@ -188,11 +188,27 @@ class InstalledReceiver:
         self.check()
         return json.dumps({"instance_id": self.instance}).encode()
 
+    # Only parked receipts need this local recovery check. Core is the durable
+    # cross-process signal, including a crash before an optional notification.
+    CONFIRMATION_RECOVERY_SECONDS = 0.25
+
     def _recovery_delay(self):
         # A crashed holder's durable lease supplies its own recovery wake deadline.
         rows = self.service.inbound.journal.deliveries(self.service.scope)
-        leases = [r["lease_until"] for r in rows if r["state"] == "leased" and r["lease_until"]]
-        return max(0, min(leases) - time.time()) if leases else None
+        delays = []
+        now = time.time()
+        for row in rows:
+            waiting = json.loads(row["checkpoint"]).get("awaiting_outbound")
+            if row["state"] == "leased" and row["lease_until"] > now:
+                delays.append(row["lease_until"] - now)
+            elif row["state"] in {"received", "leased"} and waiting:
+                # A crash after checkpoint but before release may retain an
+                # expired lease. It must not turn this recovery wait into a spin.
+                delays.append(self.CONFIRMATION_RECOVERY_SECONDS)
+            elif row["state"] in {"received", "leased"}:
+                # Work may have arrived or changed claimant after selection.
+                delays.append(0)
+        return min(delays) if delays else None
 
     def _drain(self):
         delay = None
@@ -220,7 +236,7 @@ class InstalledReceiver:
                     result = self.service.inbound.run_once(
                         self.service.handle, check_authority=self.check
                     )
-                    if result is None or result.get("state") == "pending":
+                    if result is None:
                         break
                 else:
                     self.wake.set()
