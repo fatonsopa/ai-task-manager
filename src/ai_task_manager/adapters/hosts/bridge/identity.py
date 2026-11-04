@@ -211,14 +211,19 @@ class NativeIdentityObservations:
             self._refresh_lock.release()
 
     def _refresh(self, directory, *, cancelled=None):
-        self.prepare(cancelled=cancelled)
+        previous = self.prepare(cancelled=cancelled)
         n = self.native
         expected_account = n.expected_account
         directory = Path(directory)
         directory.mkdir(mode=0o700, parents=False, exist_ok=False)
         # The unchanged probe obtains a unique accounted invocation, performs
         # actual auth status and records its owned subprocess outcome.
-        reference = self._probe.observe(n.policy, n.binding, directory)
+        parent = self._invocation.native
+        with parent.issuer.identity_boundary(
+            parent, not_after=min(previous.observation.expires_at, self.execution_not_after),
+            cancelled=cancelled,
+        ):
+            reference = self._probe.observe(n.policy, n.binding, directory)
         self.prepare(
             cancelled=cancelled
         )  # Collection must finish before the previous proof expires.

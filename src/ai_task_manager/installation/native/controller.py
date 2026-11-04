@@ -305,6 +305,43 @@ class NormalInvocationController:
             row = self._owned(conn, call_id, worker_identity, "running")
             yield {"run_id": self.store.binding.store_id, "policy_revision": 1, "call": row}
 
+    @contextmanager
+    def identity_boundary(self, invocation, *, not_after, cancelled=None):
+        from ai_task_manager.adapters.hosts.bridge.invocations import InvocationBinding
+
+        require(
+            type(invocation) is InvocationBinding
+            and type(not_after) in {int, float} and math.isfinite(not_after)
+            and not_after <= invocation.deadline,
+            "Original finite identity parent authority required",
+        )
+
+        def validate(conn):
+            self._current(conn)
+            row = self._owned(conn, invocation.call_id, invocation.worker_identity, "running")
+            require(
+                row["uses_worker"] and not row["process_stopped"]
+                and InvocationBinding.observed({
+                    "run_id": self.store.binding.store_id, "policy_revision": 1, "call": row
+                }) == invocation and self.clock().timestamp() < not_after,
+                "Original identity parent, scope or validity changed",
+            )
+
+        with self.store.settlement_snapshot() as conn:
+            validate(conn)
+            deadline = min(not_after, self.permission["deadline"])
+        with self.store.identity_acquisition(
+            not_after=deadline, clock=lambda: self.clock().timestamp(),
+            cancelled=cancelled, validate=validate,
+        ):
+            # The body performs each admission/launch/accounting operation once.
+            # Only its zero-effect writer acquisition may wait.
+            with self.store.transaction():
+                pass
+            yield
+            with self.store.transaction():
+                pass
+
     def settle_outcome(self, invocation, **observed):
         return self.record_outcome(invocation.call_id, invocation=invocation, **observed)
 
