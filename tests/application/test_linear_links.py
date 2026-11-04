@@ -90,7 +90,7 @@ def test_lr01_lr02_lr03_supported_links_are_exact_and_idempotent(body, expected)
     renderer = LinearMarkdownRenderer()
     prose = TaskProse(f"Title {URL}", body)
     actual = renderer.render(prose)
-    assert actual == RenderedProse(prose.title, expected, "linear-markdown-v3")
+    assert actual == RenderedProse(prose.title, expected, "linear-markdown-v4")
     assert renderer.render(replace(prose, body=actual.body)) == actual
 
 
@@ -160,7 +160,7 @@ def test_lr06_writer_approves_the_exact_link_bytes_sent_and_confirmed(composed):
     prose, approval = view.prose(ref), view.verify_approval(ref)
     assert f"Read {LINK}." in prose.body and not prose.body.endswith("\n")
     rendered = LinearMarkdownRenderer().render(prose)
-    assert approval.representation == "linear-markdown-v3"
+    assert approval.representation == "linear-markdown-v4"
     assert approval.digest == prose_digest(prose, rendered)
     folder, _ = service.writer._session(prepared["writing_id"], service.scope)
     exact = ("# " + prose.title + "\n\n" + prose.body).encode()

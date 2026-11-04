@@ -1,0 +1,31 @@
+{
+  "version": 4,
+  "task": "TST-173",
+  "representation": "linear-markdown-v4",
+  "requirements": ["R38", "R04", "R14", "R30"],
+  "module": "M2",
+  "connection": "LINK-01; LP03/LP04 representation prerequisite",
+  "basis": "One retained actual TST-169 creation added exactly one blank line after each of three top-level headings. Approved/sent bytes matched; response/readback bytes matched each other. Exact confirmation correctly refused. The original uncertain operation and issue remain unchanged.",
+  "supported": [
+    "Use CommonMark heading source maps to add one blank line after a top-level ATX or setext heading when following source content is not already separated.",
+    "Preserve existing separators, heading spelling, indentation, meaningful whitespace and original line endings. A heading at document end gains no content.",
+    "Fenced/indented code, HTML literals and nonheading hash text are not headings. Existing v3 link/list/terminal-LF behavior remains unchanged.",
+    "Already separated container headings retain their source bytes. Unseparated blockquote/list headings refuse before approval instead of inserting a line that could change container structure."
+  ],
+  "legacy": {
+    "known_versions": ["linear-markdown-v1", "linear-markdown-v2", "linear-markdown-v3"],
+    "confirmed": "Only exact saved, confirmed and linked submissions replay under their original scoped approval and current policy, without current rendering or new effects.",
+    "unsubmitted_or_uncertain": "Old approvals cannot acquire v4 meaning. Original uncertainty and exact readback remain; no old body or approval is rewritten.",
+    "unknown_version": "Refuse unknown representation authority."
+  },
+  "cases": {
+    "HS01": "Retained actual description and response difference is reproduced locally; an independently authored provider hook adds the observed three separators.",
+    "HS02": "ATX levels, closing hashes, setext and consecutive headings gain only missing separators; already separated and terminal headings are idempotent.",
+    "HS03": "Code, nested fences, literal quotes, HTML, nonheading hashes, line endings and whitespace remain exact; unseparated container headings refuse before writing artifacts.",
+    "HS04": "Actual local Writer review approves v4 bytes before HTTP submission; exact readback confirms and repeats without another mutation.",
+    "HS05": "Changed provider bytes remain uncertain; v3 confirmed replay, unused approval and uncertain history preserve original meaning and no new effect authority.",
+    "HS06": "Existing v1/v2 history and affected link/list/literal/writing/intake/progress controls remain passing on the changed source."
+  },
+  "controls": "tests/application/test_linear_headings.py and affected existing application/linear/writing tests",
+  "limits": "Local provider, review and authority observations are explicitly authored. No live provider, credential, model, tunnel or TST-169 recovery effects. A fresh separately reviewed installed case must establish actual provider preservation."
+}

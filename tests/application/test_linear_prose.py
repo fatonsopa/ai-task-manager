@@ -63,7 +63,7 @@ def test_v2_normalizes_only_terminal_lf_and_is_idempotent(ending):
     renderer = LinearMarkdownRenderer()
     prose = TaskProse("Exact representation", body + ending)
     rendered = renderer.render(prose)
-    assert rendered.representation == "linear-markdown-v3"
+    assert rendered.representation == "linear-markdown-v4"
     assert rendered.body == body.replace("- prose", "* prose", 1)
     assert renderer.render(replace(prose, body=rendered.body)) == rendered
     assert rendered.title == prose.title
@@ -79,7 +79,7 @@ def test_new_approval_reviews_exact_v2_bytes_and_confirms_create(composed, endin
     approval = view.verify_approval(ref)
     rendered = LinearMarkdownRenderer().render(approved_prose)
     assert not approved_prose.body.endswith("\n")
-    assert approval.representation == rendered.representation == "linear-markdown-v3"
+    assert approval.representation == rendered.representation == "linear-markdown-v4"
     assert approval.digest == prose_digest(approved_prose, rendered)
     folder, _ = service.writer._session(prepared["writing_id"], service.scope)
     expected = ("# " + approved_prose.title + "\n\n" + rendered.body).encode()
