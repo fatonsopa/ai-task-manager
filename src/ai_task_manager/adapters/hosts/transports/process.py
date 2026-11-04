@@ -64,6 +64,8 @@ class HostProcess:
                 raise AccessDenied("A typed initialization invocation is required")
             self.deadline = min(deadline, invocation.native.binding.deadline)
         self.native_input = None
+        self._relay_ready_fd = None
+        self._relay_nonce = None
         self.input_audit = InputAudit(self.directory)
         self._active_invocation = None
         self._active_guard = None
@@ -158,6 +160,8 @@ class HostProcess:
                 raise RuntimeUncertain("Actual native process ownership is not established")
             self.identity = ProcessIdentity(native.pid, native.start_identity, self.group.group_id)
             self.native_exit = NativeExitWatch.capture(self)
+            self._relay_ready_fd, read_fd = read_fd, -1
+            self._relay_nonce = nonce
             return self.identity
         except BaseException as error:
             try:
@@ -170,7 +174,8 @@ class HostProcess:
                 error.owned_stop_error = type(cleanup_error).__name__
             raise
         finally:
-            os.close(read_fd)
+            if read_fd >= 0:
+                os.close(read_fd)
             if write_fd >= 0:
                 os.close(write_fd)
             if native_read >= 0:
@@ -229,7 +234,11 @@ class HostProcess:
         if actual["metadata"].get("parent_call_id") != native.call_id:
             raise AccessDenied("Submission is not registered under this native host")
         self._pending_completion, self._pending_submitted = permit, False
-        self._control({"op": "invocation", "call_id": permit.binding.call_id})
+        request_id = secrets.token_hex(16)
+        self._control(
+            {"op": "invocation", "call_id": permit.binding.call_id, "request_id": request_id}
+        )
+        self._invocation_ready(permit, request_id)
         self._active_invocation, self._active_guard, self._active_lease = permit, guard, lease
         self._active_started = permit.mode == "running"
         try:
@@ -238,6 +247,35 @@ class HostProcess:
             self._active_invocation = self._active_guard = None
             self._active_lease = None
             self._active_started = False
+
+    def _invocation_ready(self, permit, request_id):
+        """Wait outside the effect writer for this relay's exact admission result."""
+        if self._relay_ready_fd is None or self._relay_nonce is None:
+            raise AccessDenied("Owned relay readiness channel is unavailable")
+        deadline = min(self.deadline, permit.binding.deadline)
+        wait_until = min(deadline, self.clock() + 3)
+        raw = b""
+        while b"\n" not in raw:
+            if self._closed or self.clock() >= wait_until:
+                raise RuntimeUncertain("Owned relay invocation readiness expired or stopped")
+            with selectors.DefaultSelector() as selected:
+                selected.register(self._relay_ready_fd, selectors.EVENT_READ)
+                if not selected.select(min(0.05, wait_until - self.clock())):
+                    continue
+                part = os.read(self._relay_ready_fd, 4097 - len(raw))
+            if not part or len(raw) + len(part) > 4096:
+                raise RuntimeUncertain("Owned relay readiness is missing or oversized")
+            raw += part
+        expected = {
+            "op": "invocation_ready",
+            "nonce": self._relay_nonce,
+            "request_id": request_id,
+            "call_id": permit.binding.call_id,
+            "deadline": deadline,
+        }
+        if strict_json(raw) != expected or self.clock() >= deadline:
+            raise AccessDenied("Relay readiness differs from the exact current invocation")
+        self.verify_identity()
 
     def _check_invocation_owner(self, permit):
         if self.invocation is None or self.invocation is not self._bound_invocation:
@@ -420,6 +458,9 @@ class HostProcess:
             if self.native_input is not None:
                 self.native_input.close()
             self._closed = True
+            if self._relay_ready_fd is not None:
+                os.close(self._relay_ready_fd)
+                self._relay_ready_fd = None
             try:
                 if self.native_exit is not None:
                     self.native_exit.close()

@@ -138,13 +138,30 @@ def main():
                     record = json.dumps({"nonce": nonce, "pid": child.pid}).encode() + b"\n"
                     if os.write(ready_fd, record) != len(record):
                         terminate("partial_handshake")
-                    os.close(ready_fd)
                 elif operation == "invocation" and child is not None and policy is not None:
                     if active_call is not None:
                         terminate("active_invocation_unreconciled")
                     # Same ledger determines the persisted bound; no caller extension.
                     current_utc = min(absolute, policy.invocation_deadline(data["call_id"]))
                     active_call = data["call_id"]
+                    request_id = data.get("request_id")
+                    if not isinstance(request_id, str) or len(request_id) != 32:
+                        terminate("invalid_invocation_request")
+                    ready = (
+                        json.dumps(
+                            {
+                                "op": "invocation_ready",
+                                "nonce": nonce,
+                                "request_id": request_id,
+                                "call_id": active_call,
+                                "deadline": current_utc,
+                            },
+                            allow_nan=False,
+                        )
+                        + "\n"
+                    ).encode()
+                    if os.write(ready_fd, ready) != len(ready):
+                        terminate("unconfirmed_invocation_readiness")
                 elif operation == "complete" and child is not None and policy is not None:
                     if not policy.completed(data["call_id"], active_call=active_call):
                         terminate("unconfirmed_completion")
