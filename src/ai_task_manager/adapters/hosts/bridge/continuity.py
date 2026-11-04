@@ -152,7 +152,8 @@ class NativeContinuity:
             metadata,
             self._identity_prepared,
         )
-        prepared.check(observed, {n.binding.attempt_id: n}, n.process_registry, n.journal.clock)
+        with n.startup.model_guard.observation_boundary(not_after=expires):
+            prepared.check(observed, {n.binding.attempt_id: n}, n.process_registry, n.journal.clock)
         n._flush_source_observations()
         reference = n.journal._append(
             "trace",

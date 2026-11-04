@@ -193,7 +193,8 @@ class NativeStartupObservations:
         ):
             raise AccessDenied("Restricted authenticated native startup was not observed")
         if identities is not None:
-            current_identity.check()
+            with native.startup.model_guard.observation_boundary(not_after=native.binding.deadline):
+                current_identity.check()
         return record, identity, frame
 
     def capture(self, native, ready_ref):

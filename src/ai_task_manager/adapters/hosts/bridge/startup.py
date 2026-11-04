@@ -274,7 +274,8 @@ class HostStartupReceipts:
                 owner.session,
                 metadata,
             )
-            prepared.check(observed, self.hosts, self.processes, self.journal.clock)
+            with owner.startup.model_guard.observation_boundary(not_after=observed.expires_at):
+                prepared.check(observed, self.hosts, self.processes, self.journal.clock)
             previous = self._prepared.get(opaque_ref)
             if previous is not None and previous != prepared:
                 raise AccessDenied("Original prepared startup cannot be replaced")

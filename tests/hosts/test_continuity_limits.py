@@ -28,6 +28,10 @@ class ClockGuard:
     configuration = None
 
     @contextmanager
+    def observation_boundary(self, **kwargs):
+        yield
+
+    @contextmanager
     def startup_current_boundary(self):
         yield
 

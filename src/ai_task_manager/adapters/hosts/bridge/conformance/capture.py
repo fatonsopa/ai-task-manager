@@ -4,6 +4,7 @@ from dataclasses import asdict
 
 from ai_task_manager.adapters.process.groups import GroupStop
 from ai_task_manager.config.files import digest
+from ai_task_manager.observability.failures import FailureStage, capture_failure
 from ai_task_manager.supervisor.models import Command
 
 from ..admission import launch_template
@@ -116,8 +117,14 @@ class ConformanceCapture:
                     "The exact trusted identity observer is required",
                 )
                 prepared = helper.observations.prepare()
-                prepared.check()
-                self._identity_ref = prepared.observation.reference
+                # This is a pre-Core observation, so serialize transient contention.
+                # Core-held consumers retain their nonblocking current check.
+                with native.startup.model_guard.observation_boundary(not_after=c.deadline):
+                    prepared.check()
+                    self.authority.require_current(
+                        c, policy=native.policy, binding=native.binding, phase="observe"
+                    )
+                    self._identity_ref = prepared.observation.reference
             if self._native_bound is not None:
                 require(
                     all(
@@ -148,6 +155,7 @@ class ConformanceCapture:
         gateway = CanaryGateway(c, self.authority, self.journal)
         native, owner, stop, error = None, None, None, None
         completed = []
+        failure = None
         try:
             native = factory.start(c, gateway)
             self.check(native)
@@ -205,6 +213,7 @@ class ConformanceCapture:
                 completed.append({"case_id": case.case_id, **value})
         except BaseException as failed:
             error = failed
+            failure = capture_failure(failed, FailureStage.MANAGED_EXECUTION)
         finally:
             if native is not None:
                 try:
@@ -212,6 +221,7 @@ class ConformanceCapture:
                 except BaseException as failed_stop:
                     if error is None:
                         error = failed_stop
+                        failure = capture_failure(failed_stop, FailureStage.MANAGED_STOP)
         confirmed = (
             isinstance(stop, GroupStop)
             and stop.confirmed
@@ -236,6 +246,7 @@ class ConformanceCapture:
             "stop": asdict(stop) if isinstance(stop, GroupStop) else None,
             "confirmed_stop": bool(confirmed),
             "error_type": type(error).__name__ if error else None,
+            "failure": failure,
             "provenance": {
                 "manifest_digest": self.manifest.digest,
                 "probe_deadline": c.deadline,

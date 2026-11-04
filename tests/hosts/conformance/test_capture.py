@@ -2,6 +2,7 @@
 
 import hashlib
 import importlib.metadata
+import json
 import platform
 from contextlib import nullcontext
 from dataclasses import asdict, replace
@@ -409,7 +410,7 @@ def test_probe_thread_gate_is_distinct_from_conformance_and_needs_no_core(rig):
 
 
 def test_capture_pre_return_failure_preserves_original_and_unknown_stop(rig):
-    original = AccessDenied("authored startup failure")
+    original = AccessDenied("private exception message and credential sentinel")
 
     def start(*args):
         raise original
@@ -424,6 +425,11 @@ def test_capture_pre_return_failure_preserves_original_and_unknown_stop(rig):
     assert raised.value is original
     payload = rig.journal._read(capture.report_ref)["payload"]
     assert payload["confirmed_stop"] is False and payload["stop"] is None
+    failure = payload["failure"]
+    assert failure["stage"] == "managed_execution"
+    assert failure["causes"][0]["code"] == "access_denied"
+    assert "private exception" not in json.dumps(payload)
+    assert all("message" not in cause and "locals" not in cause for cause in failure["causes"])
 
 
 @pytest.mark.parametrize("change", ["missing", "expired", "foreign"])
@@ -579,3 +585,41 @@ def test_probe_context_rejects_nonfinite_deadline_and_relative_root(rig):
         replace(rig.context, deadline=float("nan"))
     with pytest.raises(AccessDenied):
         replace(rig.context, fixture_root=Path("relative"))
+
+
+@pytest.mark.parametrize("execution_fails", [False, True])
+def test_capture_retains_first_failure_when_owned_stop_also_fails(rig, execution_fails):
+    from tests.hosts.conformance.test_profile import AuthoredFactory
+
+    first = AccessDenied("private execution sentinel")
+    stopping = RuntimeError("private stop sentinel")
+
+    class FailingFactory(AuthoredFactory):
+        def execute(self, context, native, case):
+            if execution_fails:
+                raise first
+            return super().execute(context, native, case)
+
+        def stop(self, context, native):
+            super().stop(context, native)
+            raise stopping
+
+    (rig.root / "input.txt").unlink()
+    capture = ConformanceCapture(
+        rig.manifest, rig.pins, rig.context, rig.authority, rig.journal, profile=rig.profile
+    )
+    with pytest.raises((AccessDenied, RuntimeError)) as raised:
+        capture.run(FailingFactory(rig))
+    assert raised.value is (first if execution_fails else stopping)
+    payload = rig.journal._read(capture.report_ref)["payload"]
+    assert payload["failure"]["stage"] == (
+        "managed_execution" if execution_fails else "managed_stop"
+    )
+    assert payload["failure"]["causes"][0]["code"] == (
+        "access_denied" if execution_fails else "runtime_error"
+    )
+    assert not payload["confirmed_stop"]
+    assert "private execution sentinel" not in json.dumps(payload)
+    assert "private stop sentinel" not in json.dumps(payload)
+    with pytest.raises(AccessDenied):
+        capture.completed()

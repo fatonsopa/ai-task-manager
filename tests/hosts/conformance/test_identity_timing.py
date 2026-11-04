@@ -1,6 +1,7 @@
 """Deterministic authored observations; these do not execute a native model."""
 
 import json
+from contextlib import nullcontext
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -62,6 +63,9 @@ class TimingFactory(AuthoredFactory):
 
     def start(self, context, gateway):
         native = super().start(context, gateway)
+        native.startup.model_guard = SimpleNamespace(
+            observation_boundary=lambda **kwargs: nullcontext()
+        )
         expires = (
             TERMINAL
             if self.change
@@ -200,6 +204,13 @@ def test_historical_selection_cannot_replace_current_or_effect_identity_checks(r
         capture.run(factory)
     report = rig.journal._read(capture.report_ref, fresh=False)["payload"]
     assert report["error_type"] == "AccessDenied"
+    assert report["failure"]["stage"] == "managed_execution"
+    assert report["failure"]["causes"][0]["code"] == "access_denied"
+    assert any(
+        frame["module"].startswith("ai_task_manager.")
+        for frame in report["failure"]["causes"][0]["frames"]
+    )
+    assert "message" not in report["failure"]
     assert report["confirmed_stop"]
     assert len(report["cases"]) == 8
     assert factory.native.process._closed
