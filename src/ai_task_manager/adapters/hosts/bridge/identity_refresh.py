@@ -1,11 +1,13 @@
 """Finite trusted identity refresh; never an execution or human grant."""
 
+import math
 import threading
 import time
 from pathlib import Path
 
 from ai_task_manager.domains.work.errors import AccessDenied
 
+from .auth_probe import AUTH_OBSERVATION_MAX_SECONDS
 from .identity import NativeIdentityObservations
 
 
@@ -23,8 +25,19 @@ class IdentityRefresh:
         self._stop = threading.Event()
         self._thread = None
         self._failure = None
+        self._window_lock = threading.Lock()
+        self._minimum_remaining = 0.0
 
-    def ensure_current(self):
+    def ensure_current(self, *, minimum_remaining_seconds=0):
+        if (
+            type(minimum_remaining_seconds) not in {int, float}
+            or not math.isfinite(minimum_remaining_seconds)
+            or minimum_remaining_seconds < 0
+        ):
+            raise AccessDenied("A finite identity preparation window is required")
+        with self._window_lock:
+            self._minimum_remaining = max(self._minimum_remaining, minimum_remaining_seconds)
+            required = self._minimum_remaining
         if (
             (self.observations, self.root, self.maximum) != self._bound
             or self._stop.is_set()
@@ -34,13 +47,31 @@ class IdentityRefresh:
         observer = self.observations
         prepared = observer.prepare(cancelled=self._stop)
         remaining = prepared.observation.expires_at - observer.journal.clock()
-        if prepared.observation.expires_at >= observer.execution_not_after or remaining > max(
-            15, 2 * self._latency + 2
-        ):
+        # Refresh before the work observer's next full collection budget is
+        # consumed, allowing the existing bounded auth operation to finish.
+        threshold = max(
+            15, 2 * self._latency + 2,
+            required + AUTH_OBSERVATION_MAX_SECONDS + 2 if required else 0,
+        )
+        if prepared.observation.expires_at >= observer.execution_not_after or remaining > threshold:
             return prepared
         if not self._collect.acquire(blocking=False):
-            return prepared  # The old issued observation remains fresh during collection.
+            if not minimum_remaining_seconds:
+                return prepared  # The old issued observation remains fresh during collection.
+            while not self._collect.acquire(timeout=0.05):
+                if self._stop.is_set() or observer.journal.clock() >= min(
+                    prepared.observation.expires_at, observer.execution_not_after
+                ):
+                    raise AccessDenied("Identity preparation stopped or expired while waiting")
         try:
+            if self._stop.is_set() or self._failure is not None:
+                raise AccessDenied("Identity refresh stopped or failed during preparation")
+            # A concurrent collector may already have supplied the needed window.
+            prepared = observer.prepare(cancelled=self._stop)
+            if prepared.observation.expires_at >= observer.execution_not_after or (
+                prepared.observation.expires_at - observer.journal.clock() > threshold
+            ):
+                return prepared
             if self._count >= self.maximum:
                 raise AccessDenied("The finite identity refresh invocation plan is exhausted")
             self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -51,7 +82,7 @@ class IdentityRefresh:
             if (
                 result.observation.expires_at < observer.execution_not_after
                 and result.observation.expires_at - observer.journal.clock()
-                <= max(15, 2 * self._latency + 2)
+                <= max(threshold, 2 * self._latency + 2)
             ):
                 raise AccessDenied("Fresh identity leaves no safe next observation window")
             return result

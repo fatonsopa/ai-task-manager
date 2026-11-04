@@ -13,6 +13,8 @@ from ai_task_manager.domains.work.errors import AccessDenied
 
 from .invocations import require_invocation, spawn_claimed
 
+AUTH_OBSERVATION_MAX_SECONDS = 15
+
 
 def claude_account_hash(status):
     return digest([status.get(k) for k in ("email", "orgId", "userId")])
@@ -28,7 +30,9 @@ class ClaudeAuthProbe:
             self.permits.authorize_auth(policy, binding), policy, binding, "auth"
         )
         end = self.journal.clock() + permit.bounded_timeout(
-            15, original_deadline=binding.deadline, clock=self.journal.clock
+            AUTH_OBSERVATION_MAX_SECONDS,
+            original_deadline=binding.deadline,
+            clock=self.journal.clock,
         )
         require_group_monitoring()
         stdout, stderr = directory / "auth.stdout", directory / "auth.stderr"
