@@ -53,13 +53,17 @@ def test_ra01_ra02_authority_change_during_readback_has_no_later_effect(
 
     def blocked(*args, **kwargs):
         snapshot = original(*args, **kwargs)
-        entered.set()
-        assert release.wait(5), "Authored readback gate deadline"
+        if threading.current_thread().name == "linear-inbound":
+            entered.set()
+            assert release.wait(5), "Authored readback gate deadline"
         return snapshot
 
     monkeypatch.setattr(service.inbound.client, "read_issue", blocked)
     receiver.start()
     try:
+        # This control targets webhook consumption; periodic readback revocation
+        # has its own SR03 control. Finish the unchanged startup safety scan first.
+        wait_for(lambda: receiver.next_reconciliation > 0)
         if branch != "echo":
             fixture.provider.edit(
                 fixture.task.issue_id, state={"id": STATES["Todo"], "name": "Todo"}

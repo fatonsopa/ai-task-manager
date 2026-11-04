@@ -80,16 +80,53 @@ class Reconciliation:
         self.journal.finish_send(sends[-1]["id"], "confirmed", readback)
         return confirmed
 
-    def inspect_registered(self, handle):
+    def inspect_registered(
+        self,
+        handle,
+        *,
+        check_authority=None,
+        max_tasks=None,
+        after_task_id=None,
+        should_yield=lambda: False,
+    ):
+        """Read a bounded registered slice; all effects retain the existing Core policy."""
+
+        def check():
+            if check_authority is not None:
+                check_authority()
+
+        check()
         _, scope = self.core.session_binding(handle)
         results = []
-        for task in self.core.list_tasks(handle):
+        tasks = sorted(self.core.list_tasks(handle), key=lambda task: task.id)
+        if max_tasks is not None:
+            if type(max_tasks) is not int or not 1 <= max_tasks <= 32:
+                raise LinearError("invalid_reconciliation_limit")
+            tasks = [t for t in tasks if after_task_id is None or t.id > after_task_id] + [
+                t for t in tasks if after_task_id is not None and t.id <= after_task_id
+            ]
+            tasks = tasks[:max_tasks]
+        self.client.check_connection(scope)
+        for task in tasks:
+            check()
+            if results and should_yield():
+                break
             if task.issue_id is None:
                 results.append({"task_id": task.id, "state": "unconfirmed_intake"})
                 continue
             try:
                 snapshot = self.client.read_issue(task.issue_id)
+                check()
+                self.client.require_delegate(snapshot)
+                current = self.core.get_task(handle, task.id)
+                if (current.version, current.decision_revision) != (
+                    task.version,
+                    task.decision_revision,
+                ):
+                    results.append({"task_id": task.id, "state": "superseded"})
+                    continue
             except ScopeMismatch as exc:
+                check()
                 if exc.observation:
                     record_scope_removal(
                         self.core,
@@ -98,6 +135,7 @@ class Reconciliation:
                         task,
                         exc.observation,
                         f"linear-recovery-scope:{task.id}:{exc.observation['updatedAt']}:{task.version}",
+                        check_authority=check,
                     )
                 results.append({"task_id": task.id, "state": "scope_conflict"})
                 continue
@@ -108,7 +146,9 @@ class Reconciliation:
                 and snapshot.assignee_id == scope.principal
             )
             if not matches:
+                check()
                 ref = self.journal.external_receipt(scope, task, snapshot, {}, frozenset())
+                check()
                 self.core.external.observe(
                     handle,
                     task.id,
