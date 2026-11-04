@@ -26,6 +26,27 @@ from ai_task_manager.observability.failures import FailureStage
 
 from .ledger import DriverRefused, uuid
 
+PROCESS_OBSERVATION_REASONS = frozenset(
+    {
+        "leader_already_reaped",
+        "leader_group_changed",
+        "leader_exit_race_unconfirmed",
+        "leader_ownership:OSError",
+        "leader_ownership:ChildProcessError",
+        "leader_ownership:ProcessLookupError",
+        "leader_ownership:PermissionError",
+        "unexpected_child_identity",
+        "unrecognized_child_exit",
+        "process_inventory:OSError",
+        "process_inventory:TimeoutExpired",
+        "process_inventory:PermissionError",
+        "process_inventory_unavailable",
+        "process_inventory_incomplete",
+        "leader_missing_from_inventory",
+        "leader_start_identity_changed",
+    }
+)
+
 
 def installed_route(run_id):
     return "/hooks/" + uuid(run_id)
@@ -120,13 +141,63 @@ class InstalledReceiverProcess:
             raise DriverRefused("installed_receiver_command_changed")
         leader = self.group.leader()
         group = self.group.observe()
-        if (
-            not leader.known
-            or leader.exited
-            or not group.known
-            or not any(m.pid == self.group.process.pid for m in group.live_members)
-        ):
-            raise DriverRefused("installed_receiver_process_not_running")
+        if not leader.known:
+            classification = "leader_observation_unknown"
+        elif leader.exited:
+            classification = "leader_exited"
+        elif not group.known:
+            classification = "group_observation_unknown"
+        elif not any(m.pid == self.group.process.pid for m in group.live_members):
+            classification = "owned_leader_not_live"
+        else:
+            return
+        code = (
+            "installed_receiver_process_observation_unknown"
+            if classification in {"leader_observation_unknown", "group_observation_unknown"}
+            else "installed_receiver_process_not_running"
+        )
+        refused = DriverRefused(code)
+        refused.category = code
+        try:
+            self._retain_process_refusal(leader, group, classification)
+        except (OSError, WorkError):
+            # Diagnostic storage cannot turn an unknown observation into admission.
+            refused.diagnostic_retention_failed = True
+        raise refused
+
+    def _retain_process_refusal(self, leader, group, classification):
+        def reason(value):
+            if value is None or (
+                isinstance(value, str) and value in PROCESS_OBSERVATION_REASONS
+            ):
+                return value
+            return "unrecognized"
+
+        pid = self.group.process.pid
+        record = {
+            "version": 1,
+            "recorded_at": time.time(),
+            "pid": pid,
+            "group_id": self.group.group_id,
+            "classification": classification,
+            "leader": {
+                "known": leader.known,
+                "exited": leader.exited if leader.known else None,
+                "reason": reason(leader.reason),
+            },
+            "group": {
+                "known": group.known,
+                "reason": reason(group.reason),
+                "owned_leader_present": (
+                    any(m.pid == pid for m in group.members) if group.known else None
+                ),
+                "owned_leader_live": (
+                    any(m.pid == pid for m in group.live_members) if group.known else None
+                ),
+            },
+        }
+        # The first refusal aborts this run. Preserve it even if a caller checks again.
+        write_private(self.config_file.parent / f"receiver-process-refusal-{pid}.json", record)
 
     def _retain_readiness(self, raw, status, envelope=None, mismatches=()):
         # Child output is untrusted even when the executable is pinned. Retain
