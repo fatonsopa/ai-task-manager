@@ -45,6 +45,22 @@ def main(argv=None, *, workflow_registry=None):
     try:
         if not args.config:
             raise ValueError("A sealed configuration is required; cwd is not authority")
+        if args.group == "workflow" and args.action == "prepare":
+            if args.installation or args.session_file or not args.input:
+                raise ValueError(
+                    "Initial preparation needs explicit input and the configured session"
+                )
+            from ai_task_manager.installation.workflows.bootstrap import prepare
+
+            if args.input == "-":
+                raw = sys.stdin.buffer.read(MAX_JSON_BYTES + 1)
+            else:
+                with open(args.input, "rb") as stream:
+                    raw = stream.read(MAX_JSON_BYTES + 1)
+            envelope = prepare(args.config, strict_json(raw))
+            output = sys.stdout if envelope["ok"] else sys.stderr
+            output.write(json.dumps(envelope, ensure_ascii=False, allow_nan=False) + "\n")
+            return exit_code(envelope)
         if args.group == "workflow" and args.action == "owner":
             if not args.installation or args.input or args.session_file:
                 raise ValueError("Owner launch needs installation and no request/session override")

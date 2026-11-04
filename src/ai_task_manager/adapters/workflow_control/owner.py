@@ -55,12 +55,34 @@ class WorkflowOwner:
         self._auth_lock = Lock()
 
     def serve(self, stop=None, ready=None):
+        from ai_task_manager.installation.sessions.recovery import setup_lock
+
+        # All trusted owner callers share this nonblocking admission/lifetime lock.
+        # No Core transaction is held while serving or waiting for native work.
+        with setup_lock(self.config_file):
+            return self._serve(stop, ready)
+
+    def _serve(self, stop=None, ready=None):
         path = Path(self.settings["endpoint"])
         record = Path(self.settings["record"])
         if path.exists() or path.is_symlink() or record.exists() or record.is_symlink():
             raise AccessDenied("Existing owner state requires verified recovery; no replacement")
         if path.parent.resolve() != path.parent or path.parent.stat().st_mode & 0o077:
             raise AccessDenied("Owner directory must be private and physical")
+        from ai_task_manager.adapters.decisions.observations import bind_record
+        from ai_task_manager.installation.workflows.bootstrap import activation_reference
+
+        bind_record(
+            self.service.decisions.journal,
+            activation_reference(self.config_file, self.settings),
+            {
+                "config": file_binding(self.config_file),
+                "scope": self.scope,
+                "instance": self.settings["instance"],
+                "source": self.source,
+                "deadline": self.deadline,
+            },
+        )
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
             listener.bind(str(path))
             path.chmod(0o600)

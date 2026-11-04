@@ -20,6 +20,7 @@ from ai_task_manager.config.files import FileSeal, digest, private_path, read_pr
 from ai_task_manager.config.sessions import SessionControl, SessionFile
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.domains.work.models import ApprovalPolicy, Scope
+from ai_task_manager.storage import capacity
 from ai_task_manager.storage.database import Database
 
 from .recovery import (
@@ -120,6 +121,9 @@ def _setup(
         or deadline <= time.time()
     ):
         raise AccessDenied("Explicit finite session delegation required")
+    from ai_task_manager.config.capacity import policies
+
+    capacity_policies = policies(config)
     reference = PREFIX + digest({"config": str(config_file), "key": operation_key})
     if renew_from is not None or config.get("grant_ref") is not None:
         installed_authority(config)
@@ -208,17 +212,21 @@ def _setup(
         "expires_at": deadline,
     }
     bind_record(journal, reference, payload)
-    if published:
-        result = {"scope": asdict(scope), "session_file": identity(destination, content=True)}
-        bind_record(journal, result_ref, result)
-        seal.check()
-        return {"enrollment_ref": reference, "scope": asdict(scope), "capability_saved": True}
     pointer = {
         "reference": reference,
         "journal": identity(journal.path),
         "key": identity(journal.key_path, content=True),
     }
     observations = SessionObservations(journal, components.client, config_file, pointer)
+    if published:
+        observations.verify_enrollment(reference)
+        result = {"scope": asdict(scope), "session_file": identity(destination, content=True)}
+        bind_record(journal, result_ref, result)
+        seal.check()
+        with database.transaction() as conn:
+            for policy in capacity_policies:
+                capacity.configure(conn, policy)
+        return {"enrollment_ref": reference, "scope": asdict(scope), "capability_saved": True}
     pending = _PendingSetup(observations)
     if renew_from is None:
         pending.verify_enrollment(reference)
@@ -230,6 +238,11 @@ def _setup(
     bind_record(journal, result_ref, result)
     updated = {**config, "grant_ref": reference, "session_observations": pointer}
     seal.check()
+    # Only trusted setup installs policy, after original intent, renewal/current
+    # authority and capability checks. Runtime loads merely validate these rows.
+    with database.transaction() as conn:
+        for policy in capacity_policies:
+            capacity.configure(conn, policy)
     if updated != config:
         write_private(config_file, updated, replace=True)
     return {"enrollment_ref": reference, "scope": asdict(scope), "capability_saved": True}

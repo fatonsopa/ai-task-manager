@@ -55,6 +55,7 @@ def load_service(
         "workflow_control",
         "session_observations",
         "receiver_file",
+        "capacity_policies",
     }
     if (
         not isinstance(config, dict)
@@ -80,9 +81,13 @@ def load_service(
         for x in policy.values()
     ):
         raise ValidationError("Pinned approval policy hashes are required")
+    from ai_task_manager.config.capacity import policies, require_installed
+
+    capacity_policies = policies(config)
     private_path(config["core_database"])
     journal = AuthorityJournal(config["authority_database"], config["authority_key"])
     database, claim_store = open_claim_store(config["core_database"], journal)
+    require_installed(database, capacity_policies)
     components = linear_components
     if config.get("linear"):
         components = components or LinearComponents(config["linear"])

@@ -15,7 +15,16 @@ from tests.linear.helpers import CONNECTION, EXPECTED, ProviderFixture
 
 
 class Demonstration:
-    def __init__(self, root, database, writer_root):
+    def __init__(
+        self,
+        root,
+        database,
+        writer_root,
+        *,
+        workflow_control=None,
+        provider_factory=ProviderFixture,
+        capacity_policies=None,
+    ):
         self.root = Path(root).resolve()
         if not self.root.is_dir() or any(self.root.iterdir()):
             raise ValueError("Demonstration requires its own existing empty directory")
@@ -23,7 +32,7 @@ class Demonstration:
         database = Path(database).resolve()
         if not database.is_file() or database.stat().st_size != 0:
             raise ValueError("An explicitly owned empty disposable database is required")
-        self.provider = ProviderFixture()
+        self.provider = provider_factory()
         self.endpoint = self.provider.endpoint
         self.config = self.root / "service.json"
         package = WriterPackage.capture(writer_root, sys.executable)
@@ -54,6 +63,10 @@ class Demonstration:
                 "key": str(self.root / "writing.key"),
             },
         }
+        if capacity_policies is not None:
+            config["capacity_policies"] = capacity_policies
+        if workflow_control is not None:
+            config["workflow_control"] = workflow_control
         write_private(self.config, config)
         self.components = LinearComponents(
             linear,
