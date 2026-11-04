@@ -89,6 +89,7 @@ class WebhookReceiver:
                 or payload["action"] not in {"create", "update", "remove"}
             ):
                 return HttpResponse(403)
+            event_payload = payload
             data = payload["data"]
             issue_id = canonical_id(data["id"])
             canonical_id(data["teamId"])
@@ -131,7 +132,9 @@ class WebhookReceiver:
         except (ValueError, KeyError, TypeError, UnicodeError, LinearError):
             return HttpResponse(400)
         try:
-            receipt, _ = self.journal.accept_delivery(self.scope, delivery_id, raw_body, payload)
+            receipt, _ = self.journal.accept_delivery(
+                self.scope, delivery_id, raw_body, payload, event_payload=event_payload
+            )
             stored_payload = json.loads(receipt["payload"])
             self.core.sync.ingest(
                 self.handle, receipt["delivery_id"], stored_payload, receipt["ingress_ref"]

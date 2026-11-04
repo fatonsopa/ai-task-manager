@@ -115,7 +115,7 @@ def test_l14_persist_before_success_and_wake_failure_is_recoverable(rig, monkeyp
     monkeypatch.setattr(
         rig.journal,
         "accept_delivery",
-        lambda *a: (_ for _ in ()).throw(sqlite3.OperationalError("fixture disk failure")),
+        lambda *a, **kw: (_ for _ in ()).throw(sqlite3.OperationalError("fixture disk failure")),
     )
     headers, body = rig.signed(event(rig), delivery_id=str(uuid4()))
     assert rig.receiver.receive("POST", headers, body).status == 503

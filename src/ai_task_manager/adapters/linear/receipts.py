@@ -225,16 +225,21 @@ class ProviderJournal:
                 raise AccessDenied("Verified provider principal is missing")
             return Scope(**json.loads(row[0]))
 
-    def accept_delivery(self, scope, delivery_id, raw_body, payload):
+    def accept_delivery(self, scope, delivery_id, raw_body, payload, *, event_payload=None):
         scope_text = encoded(asdict(scope))
         raw_digest = hashlib.sha256(raw_body).hexdigest()
-        semantic = digest({k: v for k, v in payload.items() if k != "webhookTimestamp"})
+        # The receiver supplies the complete authenticated event before scope redaction.
+        # Keep its business identity without retaining foreign actor/prose fields.
+        event_payload = payload if event_payload is None else event_payload
+        semantic = digest({k: v for k, v in event_payload.items() if k != "webhookTimestamp"})
         with self.transaction() as conn:
             old = conn.execute(
                 "SELECT * FROM deliveries WHERE scope=? AND delivery_id=?",
                 (scope_text, delivery_id),
             ).fetchone()
-            if old and old["raw_digest"] != raw_digest:
+            if old and old["raw_digest"] != raw_digest and old["semantic_digest"] != semantic:
+                # Legacy scope-removal rows only hashed the projection. Their original
+                # business identity is unavailable, so changed raw bytes fail closed.
                 raise LinearError("delivery_payload_conflict")
             if old:
                 return dict(old), False
