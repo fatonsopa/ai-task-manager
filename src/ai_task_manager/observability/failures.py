@@ -3,6 +3,7 @@
 import hashlib
 import marshal
 import math
+import sqlite3
 import sys
 import time
 from enum import StrEnum
@@ -14,6 +15,7 @@ from ai_task_manager.domains.work import errors
 
 class FailureStage(StrEnum):
     AUTHORITY_REFRESH = "authority_refresh"
+    IDENTITY_REFRESH = "identity_refresh"
     AUTHORITY_MONITOR = "authority_monitor"
     AUTHORITY_STOP = "authority_stop"
     AUTHORITY_CALLBACK = "authority_callback"
@@ -35,6 +37,7 @@ class FailureStage(StrEnum):
 
 
 _TYPES = {
+    sqlite3.OperationalError: "sqlite_operational_error",
     errors.WorkError: "work_error",
     errors.ValidationError: "validation_error",
     errors.AccessDenied: "access_denied",

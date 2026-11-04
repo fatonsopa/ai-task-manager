@@ -305,7 +305,12 @@ class NormalInvocationController:
             row = self._owned(conn, call_id, worker_identity, "running")
             yield {"run_id": self.store.binding.store_id, "policy_revision": 1, "call": row}
 
-    def record_outcome(self, call_id, *, outcome, process_stopped, evidence_ref):
+    def settle_outcome(self, invocation, **observed):
+        return self.record_outcome(invocation.call_id, invocation=invocation, **observed)
+
+    def record_outcome(
+        self, call_id, *, outcome, process_stopped, evidence_ref, invocation=None, cancelled=None
+    ):
         require(
             outcome in {"succeeded", "failed", "interrupted", "unknown"}
             and type(process_stopped) is bool
@@ -313,7 +318,34 @@ class NormalInvocationController:
             and evidence_ref.startswith("host-record:"),
             "Trusted accounting outcome required",
         )
-        with self.store.transaction() as conn:
+        wait = {}
+        if invocation is not None:
+            from ai_task_manager.adapters.hosts.bridge.invocations import InvocationBinding
+
+            require(
+                type(invocation) is InvocationBinding and invocation.call_id == call_id,
+                "Original native settlement binding required",
+            )
+            # Read the original persisted authority before waiting. A supplied
+            # extended/foreign binding cannot buy a longer lock-acquisition wait.
+            with self.store.settlement_snapshot() as conn:
+                current = self._current(conn, admission=False)
+                original = self.store.read(conn, "native_calls", call_id)
+                require(
+                    original is not None and original["permission_ref"] == self.reference
+                    and InvocationBinding.observed({
+                        "run_id": self.store.binding.store_id, "policy_revision": 1,
+                        "call": original,
+                    }) == invocation,
+                    "Original native settlement owner or deadline differs",
+                )
+                deadline = min(invocation.deadline, current["deadline"])
+            wait = {
+                "wait_until": deadline,
+                "clock": lambda: self.clock().timestamp(),
+                "cancelled": cancelled,
+            }
+        with self.store.transaction(**wait) as conn:
             # Settlement remains possible after expiry/revocation; it cannot launch work.
             self._current(conn, admission=False)
             row = self.store.read(conn, "native_calls", call_id)
@@ -327,6 +359,13 @@ class NormalInvocationController:
                 ),
                 "Outcome cannot replace ownership, history or an observed stop",
             )
+            if invocation is not None:
+                require(
+                    InvocationBinding.observed({
+                        "run_id": self.store.binding.store_id, "policy_revision": 1, "call": row
+                    }) == invocation,
+                    "Native settlement owner, scope or original deadline changed",
+                )
             row.update(
                 status="failed" if outcome == "interrupted" else outcome,
                 outcome=outcome,

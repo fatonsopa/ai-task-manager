@@ -1,5 +1,7 @@
 """Consume exact finite auth-refresh names from the existing accounting owner."""
 
+from threading import Event
+
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import AttemptState
 
@@ -11,6 +13,7 @@ class IdentityAuthPermits:
         self.observer = self._bound_observer = None
         self._next = 0
         self._pending = None
+        self.cancelled = Event()
 
     def bind(self, observer):
         if self.observer is not None or observer.native is not self.native:
@@ -43,5 +46,7 @@ class IdentityAuthPermits:
     def record_auth(self, binding, completion):
         if self._pending is None or binding is not self.native.binding:
             raise AccessDenied("No exact identity observation invocation is pending")
-        self.accounting._record_auth_call(self._pending.reference, completion)
+        self.accounting._record_auth_call(
+            self._pending.reference, completion, cancelled=self.cancelled
+        )
         self._pending = None

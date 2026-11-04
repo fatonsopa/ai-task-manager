@@ -86,6 +86,17 @@ def _binding(conn, binding, select):
         raise AccessDenied("Connection metadata differs from the enrolled store")
 
 
+def probe_read_connection(conn, binding: StoreBinding):
+    """Validate a read snapshot used only to bound a later writer acquisition.
+
+    This does not exercise moved-file write protection and grants no mutation;
+    the eventual writer must still use the full probe_connection check.
+    """
+    if type(binding) is not StoreBinding or not conn.in_transaction:
+        raise AccessDenied("Read validation requires a binding and active transaction")
+    _binding(conn, binding, _STATEMENTS[binding.table][0])
+
+
 def probe_connection(conn, binding: StoreBinding):
     """Validate inside an active transaction, before its body and before commit.
 

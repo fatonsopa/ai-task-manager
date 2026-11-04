@@ -12,7 +12,7 @@ from .identity import NativeIdentityObservations
 
 
 class IdentityRefresh:
-    def __init__(self, observations, root, maximum, *, on_failure=None):
+    def __init__(self, observations, root, maximum, *, on_failure=None, cancelled=None):
         if not isinstance(observations, NativeIdentityObservations):
             raise AccessDenied("A real same-native identity observer is required")
         if type(maximum) is not int or maximum < 1:
@@ -22,7 +22,7 @@ class IdentityRefresh:
         self._on_failure = on_failure
         self._count, self._latency = 0, 0.0
         self._collect = threading.Lock()
-        self._stop = threading.Event()
+        self._stop = cancelled if cancelled is not None else threading.Event()
         self._thread = None
         self._failure = None
         self._window_lock = threading.Lock()
@@ -108,7 +108,7 @@ class IdentityRefresh:
                     self._failure = type(error).__name__
                     self.observations.revoke()
                     if self._on_failure is not None:
-                        self._on_failure(self._failure)
+                        self._on_failure(error)
                     return
 
         self._thread = threading.Thread(target=run, name="managed-identity-refresh", daemon=True)

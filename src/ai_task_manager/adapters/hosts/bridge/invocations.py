@@ -139,6 +139,19 @@ class InvocationPermits:
         self.registered = self._bound_registered = MappingProxyType(dict(registered))
         self._key = object()
 
+    def record_outcome(self, prepared, *, outcome, process_stopped, evidence_ref, cancelled=None):
+        self._validate(prepared)
+        bounded = getattr(self.controller, "settle_outcome", None)
+        if callable(bounded):
+            return bounded(
+                prepared.binding, outcome=outcome, process_stopped=process_stopped,
+                evidence_ref=evidence_ref, cancelled=cancelled,
+            )
+        return self.controller.record_outcome(
+            prepared.reference, outcome=outcome, process_stopped=process_stopped,
+            evidence_ref=evidence_ref,
+        )
+
     def _current_owner(self):
         if (
             self.controller is not self._bound_controller

@@ -354,17 +354,23 @@ class HostInvocationAccounting:
             raise AccessDenied("Authentication belongs to another runtime owner")
         self._record_auth_call(self._calls["auth"], completion)
 
-    def _record_auth_call(self, call_id, completion):
+    def _record_auth_call(self, call_id, completion, *, cancelled=None):
         confirmed = completion["group"]["confirmed_stop"]
         if type(confirmed) is not bool:
             raise AccessDenied("Authentication stop must be explicitly observed")
         ref = self._evidence("accounting_auth", call_id=call_id, completion=completion)
-        self.control.record_outcome(
-            call_id,
-            outcome=completion["outcome"],
-            process_stopped=confirmed,
-            evidence_ref=ref,
-        )
+        permit = self._permits[call_id]
+        if permit.issuer.controller is not self.control:
+            raise AccessDenied("Authentication settlement controller changed")
+        if confirmed:
+            permit.issuer.record_outcome(
+                permit, outcome=completion["outcome"], process_stopped=True,
+                evidence_ref=ref, cancelled=cancelled,
+            )
+        else:
+            self.control.record_outcome(
+                call_id, outcome=completion["outcome"], process_stopped=False, evidence_ref=ref
+            )
 
     def identity_observations(self, native):
         if not self.plan.identity_refreshes:
@@ -379,7 +385,7 @@ class HostInvocationAccounting:
         source.bind(observer)
         return IdentityRefresh(
             observer, native.directory / "identity-observations", len(self.plan.identity_refreshes),
-            on_failure=lambda reason: native.stop(),
+            on_failure=native.identity_failed, cancelled=source.cancelled,
         )
 
     def authorize_neutral_start(self, policy, binding):
