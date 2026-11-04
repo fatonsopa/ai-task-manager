@@ -15,7 +15,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_task_manager.adapters.decisions.observations import SessionObservations, current_enrollment
-from ai_task_manager.adapters.linear.listener import LoopbackListener
+from ai_task_manager.adapters.linear.listener import ListenerStopping, LoopbackListener
 from ai_task_manager.adapters.linear.models import canonical_id
 from ai_task_manager.adapters.linear.webhooks import WebhookReceiver
 from ai_task_manager.config.files import FileSeal, private_path, read_private
@@ -151,8 +151,6 @@ class InstalledReceiver:
         self.check()
 
     def check(self):
-        if self.closing.is_set():
-            raise AccessDenied("Receiver is stopping")
         for source in self.sources:
             source.check()
         if self.service.claim_store:
@@ -175,6 +173,10 @@ class InstalledReceiver:
             raise AccessDenied("Receiver credential changed")
         if self.owner:
             self.owner.check()
+        # Check real revocation/source failures even when shutdown was requested.
+        # Only this explicit lifecycle signal is an expected drain cancellation.
+        if self.closing.is_set():
+            raise ListenerStopping()
         if time.monotonic() >= self.deadline:
             raise AccessDenied("Receiver lifetime expired")
 
@@ -223,6 +225,8 @@ class InstalledReceiver:
                 else:
                     self.wake.set()
                 delay = self._recovery_delay()
+        except ListenerStopping:
+            pass
         except BaseException:
             self.failed = "receiver_drain_failed"
             self.closing.set()
@@ -264,6 +268,8 @@ class InstalledReceiver:
             self.worker.join(max(0, end - time.monotonic()))
         drain_stopped = self.worker is None or not self.worker.is_alive()
         stopped = http["stopped"] and drain_stopped
+        if self.http and self.http.failure:
+            self.failed = self.failed or "receiver_listener_failed"
         if stopped and self.owner:
             self.owner.close()
         return {
@@ -313,7 +319,10 @@ def serve(service, config_file, emit, *, receiver=None):
                 diagnostics.append(capture_failure(error, FailureStage.RECEIVER_STOP))
         for signum, handler in previous.items():
             signal.signal(signum, handler)
-    ok = failed is None and cleanup["stopped"]
+    failed = failed or cleanup.get("failure")
+    if not cleanup["stopped"]:
+        failed = failed or "receiver_cleanup_failed"
+    ok = failed is None
     result = {"ok": ok, "event": "receiver_stopped", "failure": failed, "cleanup": cleanup}
     if diagnostics:
         result["diagnostics"] = diagnostics

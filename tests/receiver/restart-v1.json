@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "task": "TST-154",
+  "requirements": [
+    "R04",
+    "R05",
+    "R23",
+    "R27",
+    "R37"
+  ],
+  "existing_cases": [
+    "IR04",
+    "IR05",
+    "IR06",
+    "IR07",
+    "LP09",
+    "LP15"
+  ],
+  "cases": {
+    "RR01": "After an actual HTTP connection and complete stop, immediately reuse the same loopback port.",
+    "RR02": "An active exact-address or wildcard foreign listener remains exclusive and usable; never use SO_REUSEPORT or stop a foreign process. Retain a non-listening reservation; verify both partial-start descriptors close and either contender or product exclusively wins the pre-listen race.",
+    "RR03": "An explicit shutdown signal refuses intake and health with503 without inventing a listener failure.",
+    "RR04": "Shutdown during a drain authority checkpoint stops work and releases ownership without inventing a drain failure.",
+    "RR05": "A real runtime, revoked-session or changed-source failure after shutdown starts remains a failure in cleanup, top-level result and exit status.",
+    "RR06": "An actual late HTTP callback failure remains visible after shutdown starts.",
+    "RR07": "The exact installed package receives an authenticated local-provider request, stops, immediately restarts on the same port/config/session, and deduplicates the original signed replay. Both stops report actual failure-free cleanup and all child processes stop."
+  },
+  "scope": "Source and installed component evidence using declared local fixtures; no actual Linear, tunnel, model or full LP09/LP15 acceptance. Preserve the original failed installed baseline and separate shutdown failure."
+}

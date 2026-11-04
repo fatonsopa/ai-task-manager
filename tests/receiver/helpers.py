@@ -24,16 +24,16 @@ ROUTE = "/hooks/receiver_fixture_154"
 
 
 class Fixture:
-    def __init__(self, root, *, enrollment_seconds=120, database_directory=None):
+    def __init__(self, root, *, enrollment_seconds=120, database_directory=None, port=0):
         self.provider = None
         try:
-            self._initialize(root, enrollment_seconds, database_directory)
+            self._initialize(root, enrollment_seconds, database_directory, port)
         except BaseException:
             if self.provider is not None:
                 self.provider.close()
             raise
 
-    def _initialize(self, root, enrollment_seconds, database_directory):
+    def _initialize(self, root, enrollment_seconds, database_directory, port):
         self.root = Path(root).resolve()
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.root.chmod(0o700)
@@ -62,7 +62,7 @@ class Fixture:
             "version": 1,
             "route": ROUTE,
             "webhook_id": WEBHOOK,
-            "port": 0,
+            "port": port,
             "secret_file": str(secret),
             "lifetime_seconds": 60,
         }

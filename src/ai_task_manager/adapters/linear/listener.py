@@ -6,6 +6,10 @@ import time
 from http import HTTPStatus
 
 
+class ListenerStopping(Exception):
+    """The owner requested shutdown after current authority checks passed."""
+
+
 class LoopbackListener:
     HEADER_LIMIT = 16384
     BODY_LIMIT = 1048576
@@ -16,6 +20,7 @@ class LoopbackListener:
         self.receive, self.route, self.health = receive, route, health
         self.health_route = route + "/health"
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.reservation = None
         self.socket.settimeout(0.1)
         self.address = ("127.0.0.1", port)
         self.closing = threading.Event()
@@ -27,6 +32,16 @@ class LoopbackListener:
 
     def start(self):
         try:
+            # BSD permits a specific-address bind over a reusable wildcard listener.
+            # Retain a non-listening wildcard reservation to exclude that overlap.
+            # It never listens, accepts or sends data; HTTP remains loopback-only.
+            self.reservation = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.reservation.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.reservation.bind(("0.0.0.0", self.address[1]))
+            self.address = ("127.0.0.1", self.reservation.getsockname()[1])
+            # Reclaim this address after closed HTTP connections enter TIME_WAIT.
+            # SO_REUSEPORT is deliberately absent: an active listener stays exclusive.
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.socket.bind(self.address)
             self.socket.listen(self.CAPACITY)
             self.address = self.socket.getsockname()
@@ -161,6 +176,8 @@ class LoopbackListener:
                 try:
                     if not self.closing.is_set():
                         result[0] = self.receive("POST", *value).status
+                except ListenerStopping:
+                    pass  # Keep the refusal response; shutdown is not an intake failure.
                 except BaseException:
                     self.failure = True
                     self.closing.set()
@@ -172,6 +189,8 @@ class LoopbackListener:
             # Reserve output time; an elapsed HTTP wait does not cancel durable intake.
             ready = done.wait(max(0, deadline - time.monotonic() - 0.1))
             self._reply(connection, result[0] if ready else 503, b"", deadline)
+        except ListenerStopping:
+            self._reply(connection, 503, b"", deadline)
         except (OSError, TimeoutError):
             self._reply(connection, 408, b"", deadline)
         except BaseException:
@@ -203,4 +222,7 @@ class LoopbackListener:
             if thread is not None and thread.ident is not None:
                 thread.join(max(0, end - time.monotonic()))
         live = [t.name for t in threads if t is not None and t.is_alive()]
-        return {"stopped": not live and self.socket.fileno() == -1, "live_workers": live}
+        stopped = not live and self.socket.fileno() == -1
+        if stopped and self.reservation is not None:
+            self.reservation.close()
+        return {"stopped": stopped, "live_workers": live}
