@@ -756,3 +756,119 @@ def test_a45_actual_http_uses_remaining_configured_timeout_without_shared_mutati
             OPERATIONS["identity"], {"team": ledger.scope.team}, Credentials("AUTHORED_NOT_LIVE")
         )
     assert len(provider.requests) == before
+
+
+@pytest.mark.parametrize("trashed", [None, False])
+def test_project_nullable_trash_recovers_original_create_and_cleans_up(adapter, trashed):
+    admin, graphql, ledger, provider, _, _, now = adapter
+    graphql.preflight()
+    underlying = graphql.client.transport
+
+    class LoseReply:
+        def send(self, query, variables, credentials):
+            response = underlying.send(query, variables, credentials)
+            if query == OPERATIONS["project_create"]:
+                raise LinearError("authored_lost_local_reply", uncertain=True)
+            return response
+
+    graphql.client.transport = LoseReply()
+    with pytest.raises(DriverRefused, match="unconfirmed"):
+        admin.create_project("project")
+    provider.projects[ledger.scope.project]["trashed"] = trashed
+    # Recovery keeps the original deadline and borrows only reserved read capacity.
+    now[0] = ledger.limits.deadline - 1
+    admin.recover_create("project")
+    assert ledger.get("project")["state"] == "confirmed"
+    assert operations(provider).count(OPERATIONS["project_create"]) == 1
+    admin.cleanup("archive", ledger.scope.project, "archive")
+    assert ledger.resource(ledger.scope.project)["state"] == "archived"
+    assert operations(provider).count(OPERATIONS["project_archive"]) == 1
+
+
+@pytest.mark.parametrize("trashed", [True, 0, 1, "false", "null", [], {}, "missing"])
+def test_project_nullable_trash_rejects_true_malformed_and_missing(adapter, trashed):
+    admin, graphql, ledger, provider, *_ = adapter
+    graphql.preflight()
+
+    def change(query, variables, result):
+        if query == OPERATIONS["project_metadata"]:
+            if trashed == "missing":
+                del result["project"]["trashed"]
+            else:
+                result["project"]["trashed"] = trashed
+        return result
+
+    provider.transform = change
+    with pytest.raises(DriverRefused, match="unconfirmed"):
+        admin.create_project("project")
+    assert ledger.get("project")["state"] == "uncertain"
+    assert OPERATIONS["project_marker"] not in operations(provider)
+    assert OPERATIONS["project_archive"] not in operations(provider)
+
+
+def test_project_nullable_trash_does_not_renew_expired_recovery(adapter):
+    admin, graphql, ledger, provider, _, _, now = adapter
+    graphql.preflight()
+
+    def change(query, variables, result):
+        if query == OPERATIONS["project_metadata"]:
+            result["project"]["trashed"] = True
+        return result
+
+    provider.transform = change
+    with pytest.raises(DriverRefused, match="unconfirmed"):
+        admin.create_project("project")
+    provider.transform = None
+    provider.projects[ledger.scope.project]["trashed"] = None
+    now[0] = ledger.limits.deadline
+    before = len(provider.requests)
+    with pytest.raises(DriverRefused, match="deadline_expired"):
+        admin.recover_create("project")
+    assert len(provider.requests) == before
+    assert ledger.get("project")["state"] == "uncertain"
+
+
+def test_project_nullable_trash_matches_observed_active_metadata_shape(adapter):
+    admin, graphql, ledger, provider, *_ = adapter
+    graphql.preflight()
+
+    def change(query, variables, result):
+        if query == OPERATIONS["project_metadata"]:
+            result["project"]["trashed"] = None
+            result["project"]["teams"]["pageInfo"]["endCursor"] = ledger.scope.team
+        return result
+
+    provider.transform = change
+    admin.create_project("project")
+    assert ledger.resource(ledger.scope.project)["state"] == "active"
+    assert operations(provider).count(OPERATIONS["project_create"]) == 1
+    assert operations(provider).count(OPERATIONS["project_marker"]) == 1
+
+
+@pytest.mark.parametrize("target", ["creator", "lead", "team", "workspace", "marker", "revision"])
+def test_project_nullable_trash_preserves_ownership_and_marker_refusals(adapter, target):
+    admin, graphql, ledger, provider, *_ = adapter
+    graphql.preflight()
+
+    def change(query, variables, result):
+        if query == OPERATIONS["project_metadata"]:
+            result["project"]["trashed"] = None
+            if target in {"creator", "lead"}:
+                result["project"][target]["id"] = str(uuid4())
+            elif target == "team":
+                result["project"]["teams"]["nodes"][0]["id"] = str(uuid4())
+            elif target == "workspace":
+                result["organization"]["id"] = str(uuid4())
+        if query == OPERATIONS["project_marker"]:
+            if target == "marker":
+                result["project"]["content"] = "other run"
+            elif target == "revision":
+                result["project"]["updatedAt"] = provider.tick()
+        return result
+
+    provider.transform = change
+    with pytest.raises(DriverRefused, match="unconfirmed"):
+        admin.create_project("project")
+    assert ledger.get("project")["state"] == "uncertain"
+    assert operations(provider).count(OPERATIONS["project_create"]) == 1
+    assert OPERATIONS["project_archive"] not in operations(provider)

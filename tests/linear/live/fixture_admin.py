@@ -106,7 +106,7 @@ class FixtureAdministration:
                 if (
                     candidate != scope.project
                     or item.get("lead", {}).get("id") != scope.owner
-                    or item["trashed"] is not False
+                    or (item["trashed"] is not False and item["trashed"] is not None)
                 ):
                     raise DriverRefused("fixture_metadata_scope_mismatch")
                 connection = item["teams"]
