@@ -24,6 +24,10 @@ def launch(
     ready=None,
     reviews=None,
 ):
+    if registry is None:
+        from ai_task_manager.installation.native import resolve
+
+        registry = resolve(config_file, installation_file, service_options=service_options)
     installed = InstalledWorkflow(
         config_file, installation_file, registry, service_options=service_options, reviews=reviews
     )
