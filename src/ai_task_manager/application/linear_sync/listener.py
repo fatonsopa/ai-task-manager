@@ -15,11 +15,13 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_task_manager.adapters.decisions.observations import SessionObservations, current_enrollment
+from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.adapters.linear.listener import ListenerStopping, LoopbackListener
 from ai_task_manager.adapters.linear.models import canonical_id
 from ai_task_manager.adapters.linear.webhooks import WebhookReceiver
+from ai_task_manager.application.linear_sync.reconcile import Reconciliation
 from ai_task_manager.config.files import FileSeal, private_path, read_private
-from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
+from ai_task_manager.domains.work.errors import AccessDenied, StaleVersion, ValidationError
 from ai_task_manager.observability.failures import FailureStage, capture_failure
 
 
@@ -87,7 +89,18 @@ class InstalledReceiver:
         if (
             not isinstance(values, dict)
             or set(values)
-            != {"version", "webhook_id", "route", "port", "secret_file", "lifetime_seconds"}
+            not in (
+                {"version", "webhook_id", "route", "port", "secret_file", "lifetime_seconds"},
+                {
+                    "version",
+                    "webhook_id",
+                    "route",
+                    "port",
+                    "secret_file",
+                    "lifetime_seconds",
+                    "reconciliation_seconds",
+                },
+            )
             or type(values["version"]) is not int
             or values["version"] != 1
         ):
@@ -103,6 +116,20 @@ class InstalledReceiver:
             or not 0 < values["lifetime_seconds"] <= 86400
         ):
             raise ValidationError("Receiver route, loopback port and finite lifetime are required")
+        self.reconciliation_seconds = values.get("reconciliation_seconds", 300)
+        if (
+            type(self.reconciliation_seconds) is not int
+            or not 120 <= self.reconciliation_seconds <= 900
+        ):
+            raise ValidationError("Reconciliation interval must be120 to900 seconds")
+        self.reconciliation = Reconciliation(
+            service.core, service.inbound.client, service.inbound.journal
+        )
+        self.next_reconciliation = 0.0
+        self.reconciliation_after = None
+        self.reconciliation_pending = {}
+        self.provider_not_before = 0.0
+        self.reconciliation_failures = 0
         secret_path = values["secret_file"]
         if not isinstance(secret_path, str) or not Path(secret_path).is_absolute():
             raise ValidationError("An absolute private webhook secret file is required")
@@ -132,6 +159,9 @@ class InstalledReceiver:
         self.owner = None
         self.http = None
         self.worker = None
+        self.recovery_worker = None
+        self.reconciliation_wake = threading.Event()
+        self.draining = threading.Event()
         self.closing, self.wake = threading.Event(), threading.Event()
         self.failed = None
         self.instance = str(uuid4())
@@ -210,6 +240,82 @@ class InstalledReceiver:
                 delays.append(0)
         return min(delays) if delays else None
 
+    def _reconcile(self):
+        """One bounded recovery slice using the same Core observation policy."""
+        self.check()
+        try:
+            due = sorted(
+                task_id
+                for task_id, deadline in self.reconciliation_pending.items()
+                if deadline <= time.monotonic()
+            )[:8]
+            rows = self.reconciliation.inspect_registered(
+                self.service.handle,
+                check_authority=self.check,
+                max_tasks=8,
+                after_task_id=None if due else self.reconciliation_after,
+                task_ids=due if due else None,
+                should_yield=lambda: self.wake.is_set() or self.draining.is_set(),
+            )
+            if rows and not due:
+                self.reconciliation_after = rows[-1]["task_id"]
+            for row in rows:
+                self.reconciliation_pending.pop(row["task_id"], None)
+                if "retry_at" in row:
+                    self.reconciliation_pending[row["task_id"]] = row["retry_at"]
+            if due and not rows:
+                for task_id in due:
+                    self.reconciliation_pending.pop(task_id, None)
+            self.reconciliation_failures = 0
+            self.next_reconciliation = min(
+                [time.monotonic() + self.reconciliation_seconds]
+                + list(self.reconciliation_pending.values())
+            )
+        except StaleVersion:
+            # A current webhook/local operation won. Never apply the older read.
+            self.next_reconciliation = time.monotonic() + self.reconciliation_seconds
+        except LinearError as error:
+            self.check()
+            if error.category not in {
+                "rate_limited",
+                "http_failure",
+                "transport_failure",
+                "transport_deadline",
+            }:
+                raise
+            self.reconciliation_failures = min(self.reconciliation_failures + 1, 4)
+            backoff = min(
+                3600, self.reconciliation_seconds * 2 ** (self.reconciliation_failures - 1)
+            )
+            if error.retry_after is not None:
+                if (
+                    type(error.retry_after) not in (int, float)
+                    or not math.isfinite(error.retry_after)
+                    or error.retry_after < 0
+                ):
+                    raise
+                backoff = max(backoff, error.retry_after)
+            self.provider_not_before = time.monotonic() + backoff
+            self.next_reconciliation = self.provider_not_before
+
+    def _reconcile_loop(self):
+        try:
+            while not self.closing.is_set():
+                due = max(self.next_reconciliation, self.provider_not_before)
+                self.reconciliation_wake.wait(max(0, due - time.monotonic()))
+                self.reconciliation_wake.clear()
+                if self.closing.is_set():
+                    break
+                if time.monotonic() < max(self.next_reconciliation, self.provider_not_before):
+                    continue
+                self._reconcile()
+        except ListenerStopping:
+            pass
+        except BaseException:
+            self.failed = "receiver_reconciliation_failed"
+            self.closing.set()
+            self.wake.set()
+
     def _drain(self):
         delay = None
         try:
@@ -218,6 +324,10 @@ class InstalledReceiver:
                 self.wake.clear()
                 if self.closing.is_set():
                     break
+                self.check()
+                if time.monotonic() < self.provider_not_before:
+                    delay = self.provider_not_before - time.monotonic()
+                    continue
                 # Repair a crash between journal acceptance and Core intake using
                 # the existing signed ingress receipt and idempotent Core operation.
                 for receipt in self.service.inbound.journal.deliveries(self.service.scope):
@@ -233,14 +343,22 @@ class InstalledReceiver:
                     self.check()
                     if self.closing.is_set():
                         break
-                    result = self.service.inbound.run_once(
-                        self.service.handle, check_authority=self.check
-                    )
+                    if time.monotonic() < self.provider_not_before:
+                        break
+                    self.draining.set()
+                    try:
+                        result = self.service.inbound.run_once(
+                            self.service.handle, check_authority=self.check
+                        )
+                    finally:
+                        self.draining.clear()
                     if result is None:
                         break
                 else:
                     self.wake.set()
                 delay = self._recovery_delay()
+                if time.monotonic() < self.provider_not_before:
+                    delay = self.provider_not_before - time.monotonic()
         except ListenerStopping:
             pass
         except BaseException:
@@ -263,6 +381,10 @@ class InstalledReceiver:
             self.worker = threading.Thread(target=self._drain, name="linear-inbound", daemon=True)
             self.worker.start()
             self.wake.set()  # Pending durable work is processed even without a new delivery.
+            self.recovery_worker = threading.Thread(
+                target=self._reconcile_loop, name="linear-reconciliation", daemon=True
+            )
+            self.recovery_worker.start()
             return {
                 "instance_id": self.instance,
                 "host": self.http.address[0],
@@ -279,11 +401,15 @@ class InstalledReceiver:
         end = time.monotonic() + timeout
         self.closing.set()
         self.wake.set()
+        self.reconciliation_wake.set()
         http = self.http.close(max(0, end - time.monotonic())) if self.http else {"stopped": True}
         if self.worker is not None and self.worker.ident is not None:
             self.worker.join(max(0, end - time.monotonic()))
         drain_stopped = self.worker is None or not self.worker.is_alive()
-        stopped = http["stopped"] and drain_stopped
+        if self.recovery_worker is not None and self.recovery_worker.ident is not None:
+            self.recovery_worker.join(max(0, end - time.monotonic()))
+        recovery_stopped = self.recovery_worker is None or not self.recovery_worker.is_alive()
+        stopped = http["stopped"] and drain_stopped and recovery_stopped
         if self.http and self.http.failure:
             self.failed = self.failed or "receiver_listener_failed"
         if stopped and self.owner:
@@ -292,6 +418,7 @@ class InstalledReceiver:
             "stopped": stopped,
             "listener": http,
             "drain_stopped": drain_stopped,
+            "reconciliation_stopped": recovery_stopped,
             "ownership_released": stopped,
             "failure": self.failed,
         }

@@ -212,7 +212,13 @@ def test_rr04_rr05_stop_during_drain_preserves_real_failures(tmp_path, monkeypat
             assert final["failure"] is final["cleanup"]["failure"] is None
         else:
             assert code == 1 and not final["ok"]
-            assert final["failure"] == final["cleanup"]["failure"] == "receiver_drain_failed"
+            # Revocation/configuration loss can first be observed by either
+            # owned lane; genuine late drain exceptions still identify the drain.
+            expected = {"receiver_drain_failed"}
+            if fault in {"revoked", "config"}:
+                expected.add("receiver_reconciliation_failed")
+            assert final["failure"] == final["cleanup"]["failure"]
+            assert final["failure"] in expected
         assert service.inbound.journal.deliveries(service.scope) == []
     finally:
         if receiver is not None:

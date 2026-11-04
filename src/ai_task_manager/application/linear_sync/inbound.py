@@ -7,6 +7,7 @@ from ai_task_manager.adapters.linear.models import revision
 from ai_task_manager.domains.work.errors import InvalidTransition, WorkError
 from ai_task_manager.domains.work.models import Cause
 
+from .echoes import pending_echo, retained_responses
 from .observations import record_scope_removal
 
 
@@ -55,16 +56,6 @@ class InboundDrain:
             raise LinearError("staged_readback_changed")
         return self.journal.prose_readback_receipt(scope, task, snapshot)
 
-    def _responses(self, scope, operation):
-        """Retained responses from this scoped operation's current attempt only."""
-        return [
-            json.loads(send["snapshot"])
-            for send in self.journal.sends(scope)
-            if send["operation_id"] == operation.id
-            and send["attempt"] == operation.attempt_count
-            and send["snapshot"] is not None
-        ]
-
     def next_receipt(self, handle):
         """Choose eligible durable work without reading the provider.
 
@@ -108,7 +99,7 @@ class InboundDrain:
                     and task.desired_status == waiting["desired_status"]
                     and task.decision_revision == waiting["decision_revision"]
                 ):
-                    responses = self._responses(scope, operation)
+                    responses = retained_responses(self.journal, scope, operation)
                     snapshot = json.loads(row["checkpoint"]).get("snapshot")
                     if responses and snapshot not in responses:
                         return row["id"]
@@ -176,9 +167,7 @@ class InboundDrain:
             # including arrivals after the listener's startup repair snapshot.
             # Admit this claimed receipt using its original proof before any
             # classification or effect; a later producer admission is idempotent.
-            self.core.sync.ingest(
-                handle, receipt["delivery_id"], payload, receipt["ingress_ref"]
-            )
+            self.core.sync.ingest(handle, receipt["delivery_id"], payload, receipt["ingress_ref"])
             check()
             if task is None:
                 self.journal.finish_delivery(
@@ -216,25 +205,9 @@ class InboundDrain:
             )
             # Confirmation can commit in another process during the provider read.
             task = self.core.get_task(handle, task.id)
-            matching_pending = next(
-                (
-                    operation
-                    for operation in self.core.sync.list_operations(handle)
-                    if operation.task_id == task.id
-                    and not operation.fenced_by
-                    and operation.state in {"pending", "leased", "uncertain"}
-                    and operation.payload["desired_status"] == snapshot.status
-                    and snapshot.assignee_id == scope.principal
-                    and snapshot.title == task.title
-                    and snapshot.body == task.body
-                ),
-                None,
+            matching_pending, responses, known_pending_echo = pending_echo(
+                self.core, self.journal, handle, scope, task, snapshot
             )
-            # Status/prose alone cannot attribute a newer human revision to our
-            # write. The retained response binds an exact snapshot to this scoped
-            # operation and attempt, even when its confirmation was lost.
-            responses = self._responses(scope, matching_pending) if matching_pending else []
-            known_pending_echo = asdict(snapshot) in responses
             if revision(payload["data"]["updatedAt"]) != snapshot.revision:
                 if not (
                     known_pending_echo
