@@ -308,8 +308,15 @@ class InstalledWorkflow:
                 scope, current, target, action, grant_ref=grant
             ),
         )
+        from ai_task_manager.installation.native.reviewer import NormalReviewerFactory
+
+        # Normal sealed composition retains its lifecycle owner. Explicit trusted
+        # callable injection keeps its existing contract, without a new close API.
+        factory = self.registry.reviewer_factory
         return WorkflowService(
-            driver, {task.id: plan.id}, reviewer_owner=self.registry.reviewer_factory
+            driver,
+            {task.id: plan.id},
+            reviewer_owner=factory if isinstance(factory, NormalReviewerFactory) else None,
         )
 
     def _review_source(self, root):
