@@ -39,7 +39,12 @@ def capture(manifest, permits, native, service, event):
     permission = permits.admissions.store.permission(permits.permission.reference)
     if permission.get("operator_mode") != "delegated":
         raise AccessDenied("Native permission does not explicitly delegate lead enrollment")
+    # Startup authenticates initial admission. Its short freshness window is
+    # historical provenance once this distinct current delegation is captured.
+    startup = native.journal._read(native.startup.ready_ref, "startup")
     payload = {
+        "provenance_version": 2,
+        "startup_hash": digest(startup),
         "scope": asdict(service.scope),
         "logical_session": service.scope.logical_session,
         "session_id": service.session_id,
@@ -63,7 +68,6 @@ def capture(manifest, permits, native, service, event):
     return native.journal._append(
         KIND,
         payload,
-        sources=(native.startup.ready_ref,),
         expires_at=min(grant.expires_at, native.binding.deadline, permission["deadline"]),
     )
 
@@ -77,7 +81,7 @@ def verify(journal, record, grant, binding, session_id):
     if record["kind"] != KIND:
         raise AccessDenied("Distinct delegated enrollment provenance required")
     p = record["payload"]
-    if set(p) != {
+    legacy_fields = {
         "scope",
         "logical_session",
         "session_id",
@@ -94,7 +98,11 @@ def verify(journal, record, grant, binding, session_id):
         "permission_ref",
         "permission_hash",
         "actions",
-    }:
+    }
+    historical = set(p) == legacy_fields | {"provenance_version", "startup_hash"}
+    if (not historical and set(p) != legacy_fields) or (
+        historical and (type(p["provenance_version"]) is not int or p["provenance_version"] != 2)
+    ):
         raise AccessDenied("Exact delegated enrollment fields required")
     if set(p["files"]) != {"seal", "config", "installation"} or any(
         identity(value["path"], content=True) != value for value in p["files"].values()
@@ -131,7 +139,11 @@ def verify(journal, record, grant, binding, session_id):
         or p["event_id"] != spec["lead"]["event_id"]
         or session_id != spec["lead"]["session_id"]
         or startup["payload"]["scope"] != p["scope"]
-        or set(record["sources"]) != {p["startup_ref"]}
+        or (
+            (record["sources"] != [] or p["startup_hash"] != digest(startup))
+            if historical
+            else record["sources"] != [p["startup_ref"]]
+        )
         or record["expires_at"] > min(grant.expires_at, current["deadline"], binding["deadline"])
     ):
         raise AccessDenied("Current delegated lead event, source or authority changed")

@@ -196,7 +196,9 @@ def observe(owner, grant, reference):
     try:
         source = owner.journal._get(source_ref, SOURCE)
     except AccessDenied as error:
-        raise EvidenceRequired("Actual bound native notification source is unavailable") from error
+        raise EvidenceRequired(
+            "Bound native notification source is missing, changed or expired"
+        ) from error
     if source["scope"] != asdict(grant.scope):
         raise AccessDenied("Native source belongs to another provider enrollment")
     result = _observed(owner.journal, source, reference)
