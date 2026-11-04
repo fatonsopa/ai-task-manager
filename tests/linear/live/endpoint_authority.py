@@ -13,7 +13,7 @@ from ai_task_manager.adapters.linear.webhooks import WebhookReceiver
 from ai_task_manager.adapters.tunnels import ngrok
 from ai_task_manager.config.files import digest
 
-from .endpoint_probe import EndpointProbe, origin_parts, private_json
+from .endpoint_probe import EndpointNotReady, EndpointProbe, origin_parts, private_json
 from .fixture_admin import VerifiedEndpoint
 from .installed_endpoint import InstalledReceiverProcess
 from .ledger import DriverRefused, uuid
@@ -93,12 +93,25 @@ class OwnedTunnel:
 
 
 class EndpointAuthority:
-    def __init__(self, receiver, tunnel, ledger, webhook_id, private_root, *, clock=time.time):
+    def __init__(
+        self,
+        receiver,
+        tunnel,
+        ledger,
+        webhook_id,
+        private_root,
+        *,
+        clock=time.time,
+        readiness_attempts=1,
+    ):
         if (
             not isinstance(receiver, (BoundedReceiver, InstalledReceiverProcess))
             or receiver.ledger is not ledger
         ):
             raise DriverRefused("owned_endpoint_receiver_required")
+        if type(readiness_attempts) is not int or not 1 <= readiness_attempts <= 3:
+            raise DriverRefused("invalid_endpoint_readiness_bound")
+        self.readiness_attempts = readiness_attempts
         self.receiver, self.tunnel, self.ledger = receiver, tunnel, ledger
         self.webhook_id, self.clock = uuid(webhook_id), clock
         self.root = Path(private_root)
@@ -195,17 +208,42 @@ class EndpointAuthority:
 
     def observe_transport(self):
         before, tunnel = self._receiver(), self._tunnel()
-        observed = self.probe(self.receiver, tunnel["origin"])
-        if (
-            observed.get("result", {}).get("passed") is not True
-            or before["identity"] != self._receiver()["identity"]
-            or tunnel["identity"] != self._tunnel()["identity"]
-        ):
-            raise DriverRefused("owned_endpoint_observation_changed")
+        attempts = []
+        for attempt in range(1, self.readiness_attempts + 1):
+            self.ledger._time(ordinary=True)
+            if (
+                before["identity"] != self._receiver()["identity"]
+                or tunnel["identity"] != self._tunnel()["identity"]
+            ):
+                raise DriverRefused("owned_endpoint_observation_changed")
+            pending = None
+            try:
+                observed = self.probe(self.receiver, tunnel["origin"])
+            except EndpointNotReady as error:
+                pending, observed = error, error.observation
+            record = {"attempt": attempt, "probe": observed, "not_ready": pending is not None}
+            private_json(self.root / ("readiness-attempt-" + str(uuid4()) + ".json"), record)
+            attempts.append(record)
+            self.ledger._time(ordinary=True)
+            if (
+                before["identity"] != self._receiver()["identity"]
+                or tunnel["identity"] != self._tunnel()["identity"]
+            ):
+                raise DriverRefused("owned_endpoint_observation_changed")
+            if pending is None:
+                if observed.get("result", {}).get("passed") is not True:
+                    raise DriverRefused("owned_endpoint_observation_changed")
+                break
+            if attempt == self.readiness_attempts:
+                raise pending
+            # At most three existing eight-second probe children and two short waits.
+            # The original ledger deadline and request reserve apply to every request.
+            time.sleep(0.25)
         evidence = {
             "receiver": before,
             "tunnel": tunnel,
             "probe": observed,
+            "readiness_attempts": attempts,
             "observed_at": self.clock(),
             "scope": asdict(self.ledger.scope),
             "run_id": self.ledger.run_id,

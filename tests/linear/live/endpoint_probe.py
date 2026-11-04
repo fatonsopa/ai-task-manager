@@ -27,6 +27,27 @@ def private_json(path, value):
         output.write("\n")
 
 
+class EndpointNotReady(DriverRefused):
+    """A stopped probe observed owned local health but no public route yet."""
+
+    def __init__(self, observation):
+        super().__init__("endpoint_public_not_ready")
+        self.observation = observation
+
+
+def public_not_ready(result):
+    rows = result.get("observations", [])
+    return (
+        result.get("passed") is False
+        and result.get("error_type") is None
+        and len(rows) == 3
+        and [row.get("label") for row in rows] == ["local_health", "public_health", "public_route"]
+        and rows[0].get("status") == 200
+        and rows[0].get("run_matches") is True
+        and all(row.get("status") == 404 for row in rows[1:])
+    )
+
+
 def origin_parts(origin):
     parsed = urlsplit(origin)
     if (
@@ -224,17 +245,23 @@ class EndpointProbe:
             error is not None
             or cleanup_error is not None
             or child is None
-            or child.returncode != 0
+            or child.returncode not in {0, 1}
             or not ownership["reaped"]
             or not stop
             or not stop["confirmed_stop"]
             or not ownership["source_unchanged"]
         ):
             raise DriverRefused("endpoint_probe_not_confirmed")
-        actual = json.loads((folder / "result.json").read_text())
-        if actual.get("passed") is not True:
+        try:
+            actual = json.loads((folder / "result.json").read_text())
+        except (OSError, ValueError) as error:
+            raise DriverRefused("endpoint_probe_not_confirmed") from error
+        observation = {"result": actual, "ownership": ownership, "evidence": str(folder)}
+        if child.returncode == 1 and public_not_ready(actual):
+            raise EndpointNotReady(observation)
+        if child.returncode != 0 or actual.get("passed") is not True:
             raise DriverRefused("endpoint_probe_not_confirmed")
-        return {"result": actual, "ownership": ownership, "evidence": str(folder)}
+        return observation
 
 
 if __name__ == "__main__":
