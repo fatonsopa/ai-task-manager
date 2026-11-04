@@ -74,6 +74,39 @@ class WorkflowDriver:
             raise EvidenceRequired("Decision authority is not configured")
         return self.decisions(self.scope, task, target, action)
 
+    def _failed_start(self, attempt, reservation, events):
+        outcomes = [
+            event
+            for event in events
+            if event.task_id == attempt.task_id
+            and event.sequence > reservation.sequence
+            and event.kind == "attempt_outcome_recorded"
+            and event.payload.get("attempt_id") == attempt.id
+        ]
+        if len(outcomes) != 1 or outcomes[0].payload.get("outcome") != "failed":
+            return None
+        event = outcomes[0]
+        proof = self.core.context.proof(
+            event.payload.get("outcome_ref"), "attempt_outcome", self.scope, attempt.id
+        )
+        if (
+            proof.payload.get("state") != "failed"
+            or proof.payload.get("quiescent") is not True
+            or proof.payload.get("task_id") != attempt.task_id
+            or proof.payload.get("host") != attempt.host
+            or proof.payload.get("worker_id") != attempt.worker_id
+        ):
+            return None
+        return {
+            "attempt_id": attempt.id,
+            "state": "failed",
+            "quiescent": True,
+            "failed_start": True,
+            "reconciled": True,
+            "reconciled_from_core_event": event.id,
+            "outcome_ref": event.payload["outcome_ref"],
+        }
+
     def _reconcile_start(self, row, task, intent):
         cursor = intent["payload"]["cursor"]
         events = self.core.notifications.list_events(self.handle)
@@ -89,11 +122,6 @@ class WorkflowDriver:
             if event.task_id == task.id and event.kind == "attempt_reserved"
         ]
         ids = {event.payload["attempt_id"] for event in reservations if event.sequence > cursor}
-        if len(ids) == 1:
-            attempt = self.core.get_attempt(self.handle, next(iter(ids)))
-            if attempt.state == "running":
-                self.runtime.pair(attempt.id)
-                return {"attempt_id": attempt.id, "reconciled": True}
         original = next(
             (
                 event
@@ -102,6 +130,37 @@ class WorkflowDriver:
             ),
             None,
         )
+        if len(ids) == 1 and original is not None:
+            plan = self.plans.get(row["plan_id"])
+            if (
+                self.core.session_binding(self.handle) != (self.session_id, self.scope)
+                or original.payload.get("decision_revision") != row["decision_revision"]
+                or type(original.payload.get("task_version")) is not int
+            ):
+                return None
+            attempt = self.core.execution.existing_reservation(
+                self.handle,
+                task.id,
+                plan.host,
+                original.payload["task_version"],
+                row["decision_revision"],
+                intent["payload"]["decision_ref"],
+                row["id"] + ":start:reserve",
+            )
+            if (
+                attempt is None
+                or attempt.id != next(iter(ids))
+                or attempt.session_id != self.session_id
+            ):
+                return None
+            reservation = next(
+                event for event in reservations if event.payload["attempt_id"] == attempt.id
+            )
+            if attempt.state == "running":
+                self.runtime.pair(attempt.id)
+                return {"attempt_id": attempt.id, "reconciled": True}
+            if attempt.state == "failed":
+                return self._failed_start(attempt, reservation, events)
         if (
             reservations
             or row["attempt_id"] is not None
