@@ -88,18 +88,42 @@ class NativeStore:
             conn.close()
 
     @contextmanager
+    def identity_acquisition(self, *, not_after, clock, cancelled, validate):
+        if getattr(self._active, "connection", None) is not None or getattr(
+            self._active, "identity_wait", None
+        ) is not None:
+            raise AccessDenied("Identity admission cannot nest an owned native transaction")
+        policy = (
+            not_after, clock, cancelled, time.monotonic() + max(0, not_after - clock()), validate
+        )
+        self._active.identity_wait = policy
+        try:
+            yield
+        finally:
+            del self._active.identity_wait
+
+    @contextmanager
     def transaction(self, *, wait_until=None, clock=None, cancelled=None):
         private_path(self.path)
-        # Only trusted settlement supplies a bound. Ordinary admission/effect
-        # acquisition retains its original fail-fast SQLite policy.
+        identity = getattr(self._active, "identity_wait", None)
+        if identity is not None:
+            original_end, original_clock, original_cancel, monotonic_end, validate = identity
+            wait_until = min(wait_until, original_end) if wait_until is not None else original_end
+            clock, cancelled = original_clock, original_cancel
+        # Only trusted settlement or scoped identity admission supplies a bound.
+        # Ordinary admission/effect acquisition retains its fail-fast SQLite policy.
         conn = sqlite3.connect(self.path, timeout=0 if wait_until is not None else 0.1)
         end = time.monotonic() + max(0, wait_until - clock()) if wait_until is not None else None
+        if identity is not None:
+            end = min(end, monotonic_end)
         try:
             if wait_until is not None and getattr(self._active, "connection", None) is not None:
                 raise AccessDenied("Settlement cannot wait inside its own native transaction")
             contended = False
             while True:
-                if contended and (clock() >= wait_until or time.monotonic() >= end):
+                if (contended or identity is not None) and (
+                    clock() >= wait_until or time.monotonic() >= end
+                ):
                     raise AccessDenied("Original native settlement wait expired")
                 if cancelled is not None and cancelled.is_set():
                     raise AccessDenied("Native settlement wait was cancelled")
@@ -120,7 +144,11 @@ class NativeStore:
                         time.sleep(min(0.02, remaining))
             probe_connection(conn, self.binding)
             self._active.connection = conn
+            if identity is not None:
+                validate(conn)
             yield conn
+            if identity is not None:
+                validate(conn)
             probe_connection(conn, self.binding)
             conn.commit()
         except BaseException:

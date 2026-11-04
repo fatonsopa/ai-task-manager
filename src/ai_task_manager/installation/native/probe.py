@@ -204,11 +204,16 @@ class NativeProbeFactory:
         if self._stop is not None:
             if native.process is None or not native.process._closed:
                 raise AccessDenied("Previous stop does not describe this current process")
-            return self._stop
+            if self._stop.confirmed:
+                native.verify_stop_owner()
+                return self._stop
         if self._stop_entered:
-            raise AccessDenied("Uncertain original probe stop requires reconciliation")
-        self._stop_entered = True
-        result = native.stop()
+            # Only retained exact physical stop proof can reconcile a helper
+            # that was still alive during the first stop; no transport replay.
+            result = native.reconcile_stop()
+        else:
+            self._stop_entered = True
+            result = native.stop()
         if not isinstance(result, GroupStop):
             raise AccessDenied("Actual owned process-group stop observation is unavailable")
         self._stop = result

@@ -139,6 +139,18 @@ class InvocationPermits:
         self.registered = self._bound_registered = MappingProxyType(dict(registered))
         self._key = object()
 
+    @contextmanager
+    def identity_boundary(self, prepared, *, not_after, cancelled=None):
+        self._validate(prepared)
+        boundary = getattr(self.controller, "identity_boundary", None)
+        if callable(boundary):
+            with boundary(prepared.binding, not_after=not_after, cancelled=cancelled):
+                self._validate(prepared)
+                yield
+                self._validate(prepared)
+        else:
+            yield  # Existing non-native accounting owners retain their own policy.
+
     def record_outcome(self, prepared, *, outcome, process_stopped, evidence_ref, cancelled=None):
         self._validate(prepared)
         bounded = getattr(self.controller, "settle_outcome", None)

@@ -91,6 +91,7 @@ class ManagedNativeHost:
         self._turn_lock = Lock()
         self._stop_lock = Lock()
         self._session_close_attempted = False
+        self._physical_stop = None
         self.failure_diagnostics = []
         self.diagnostics_truncated = False
         self.authority = None
@@ -394,12 +395,53 @@ class ManagedNativeHost:
         if not self._stop_lock.acquire(blocking=False):
             raise AccessDenied("Owned native stopping is already in progress")
         try:
+            if getattr(self, "_physical_stop", None) is not None:
+                return self._settle_known_stop()
             return self._stop_owned()
         except BaseException as error:
             self._diagnose(error, FailureStage.NATIVE_STOP)
             raise
         finally:
             self._stop_lock.release()
+
+    def reconcile_stop(self):
+        """Reobserve helper exit using retained physical stop proof; never signal again."""
+        if not self._stop_lock.acquire(blocking=False):
+            raise AccessDenied("Owned native stopping is already in progress")
+        try:
+            return self._settle_known_stop()
+        finally:
+            self._stop_lock.release()
+
+    def verify_stop_owner(self):
+        prior = getattr(self, "_physical_stop", None)
+        if prior is None:
+            raise AccessDenied("Original physical native stop proof is unavailable")
+        process, identity, stopped = prior
+        if (process is not self.process or process.identity != identity
+                or not process._closed or self.identity is not self._identity_bound):
+            raise AccessDenied("Original stopped native process or helper owner changed")
+        return stopped
+
+    def _settle_known_stop(self):
+        stopped = self.verify_stop_owner()
+        with self._source_audit_boundary(before=False):
+            if self.identity is not None:
+                self.identity.request_stop()
+            return self._finish_identity_stop(stopped)
+
+    def _finish_identity_stop(self, stopped, *, identity_stopped=None):
+        if identity_stopped is None:
+            identity_stopped = self.identity is None or self.identity.close()
+        if not identity_stopped:
+            self.journal._append(
+                "trace", {"effect": "identity_helper_stop_unknown",
+                          "attempt_id": self.binding.attempt_id,
+                          "native_group_stop": asdict(stopped)},
+            )
+            stopped = replace(stopped, confirmed=False, reason="identity_helper_stop_unknown")
+        self.permits.record_host_stop(self.binding, stopped)
+        return stopped
 
     def _stop_owned(self):
         with self._source_audit_boundary(before=False):
@@ -435,6 +477,8 @@ class ManagedNativeHost:
                     self._portal_context = self.portal = None
             try:
                 stopped = self.process.stop()
+                if stopped.confirmed and getattr(self.process, "_closed", False):
+                    self._physical_stop = (self.process, self.process.identity, stopped)
             finally:
                 # Closing the transport releases pending input/reader work;
                 # only then wait for the already-cancelled identity collector.
@@ -450,18 +494,7 @@ class ManagedNativeHost:
                             "error": error,
                         },
                     )
-            if not identity_stopped:
-                self.journal._append(
-                    "trace",
-                    {
-                        "effect": "identity_helper_stop_unknown",
-                        "attempt_id": self.binding.attempt_id,
-                        "native_group_stop": asdict(stopped),
-                    },
-                )
-                stopped = replace(stopped, confirmed=False, reason="identity_helper_stop_unknown")
-            self.permits.record_host_stop(self.binding, stopped)
-            return stopped
+            return self._finish_identity_stop(stopped, identity_stopped=identity_stopped)
 
 
 class ManagedHostFactory:
