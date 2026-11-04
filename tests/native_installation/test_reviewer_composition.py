@@ -276,7 +276,7 @@ def test_NR01_default_installed_cli_constructs_real_reviewer_and_cold_capture(
         source = owner._review_source(Path(owner.spec.data["state_root"]))
         captured.append(source.resolve(s["inspection"]))
         assert captured[-1].reviewer_id != s["inspection"].context["author"]["worker_id"]
-        owner.owner.shutdown_result = {"declared_owner_loop": "not_started"}
+        owner.owner.shutdown_result = owner.service.workflows.close()
 
     monkeypatch.setattr(InstalledWorkflow, "serve", bounded_serve)
     code = main(

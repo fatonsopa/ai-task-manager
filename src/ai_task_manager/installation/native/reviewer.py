@@ -32,6 +32,11 @@ class NormalReviewerFactory:
             raise AccessDenied("Reviewer composition owns its runtime ports")
         self.pointer = read_private(author_manifest.installation.path)["reviewer_installation"]
         self.producers = {}
+        from threading import RLock
+
+        self._lifecycle_lock = RLock()
+        self._closed = False
+        self._close_outcomes = None
         self._check_pointer()
 
     def _check_pointer(self):
@@ -49,6 +54,12 @@ class NormalReviewerFactory:
             raise AccessDenied("Reviewer installation changed or was replaced")
 
     def __call__(self, inspection):
+        with self._lifecycle_lock:
+            if self._closed:
+                raise AccessDenied("The retained reviewer owner is closed")
+            return self._create(inspection)
+
+    def _create(self, inspection):
         from ai_task_manager.installation.workflows.composition import NativeContext, NoCommands
 
         from .resolver import resolve
@@ -215,3 +226,80 @@ class NormalReviewerFactory:
         )
         self.producers[inspection.digest] = producer
         return producer
+
+    def close(self):
+        """Inspect retained stop evidence; never repeat an uncertain native stop."""
+        from ai_task_manager.domains.work.errors import EvidenceRequired
+        from ai_task_manager.domains.work.models import ACTIVE_ATTEMPTS
+
+        with self._lifecycle_lock:
+            self._closed = True
+            if self._close_outcomes is not None:
+                return [dict(row) for row in self._close_outcomes]
+            outcomes = []
+            for inspection, producer in self.producers.items():
+                workers, handle = producer.workers, producer.handle
+                base = {"role": "reviewer", "inspection": inspection, "task_id": producer.task_id}
+                try:
+                    _, scope = workers.core.session_binding(handle)
+                    with workers.journal.transaction() as conn:
+                        ids = [
+                            row[0]
+                            for row in conn.execute("SELECT id FROM runtime_attempts ORDER BY id")
+                        ]
+                    for attempt_id in ids:
+                        item = {**base, "attempt_id": attempt_id}
+                        try:
+                            record = workers.journal.attempt(attempt_id)
+                            attempt = workers.core.get_attempt(handle, attempt_id)
+                            if (
+                                record["task_id"] != producer.task_id
+                                or attempt.task_id != producer.task_id
+                                or record["scope"] != asdict(scope)
+                            ):
+                                raise EvidenceRequired("Retained reviewer ownership differs")
+                            observations = workers.journal.observations(
+                                attempt_id, "runtime_outcome"
+                            )
+                            stops = [row for row in observations if row.get("managed_stop") is True]
+                            if (
+                                not stops
+                                or stops[-1].get("quiescent") is not True
+                                or stops[-1].get("worker_id") != attempt.worker_id
+                                or stops[-1].get("runtime_owner_worker_id") != record["worker_id"]
+                            ):
+                                raise EvidenceRequired("Complete reviewer stop is unavailable")
+                            # Core validates the original managed proof and current scope.
+                            # Reconciliation never launches or stops a process again.
+                            if attempt.state in ACTIVE_ATTEMPTS:
+                                attempt = workers.reconcile(
+                                    handle,
+                                    attempt_id,
+                                    operation_key="review-owner-close:" + attempt_id,
+                                )
+                            if (
+                                attempt.state in ACTIVE_ATTEMPTS
+                                or stops[-1].get("state") != attempt.state
+                            ):
+                                raise EvidenceRequired("Reviewer settlement remains unresolved")
+                            outcomes.append({**item, "state": attempt.state, "quiescent": True})
+                        except Exception as error:
+                            outcomes.append(
+                                {
+                                    **item,
+                                    "state": "uncertain",
+                                    "quiescent": False,
+                                    "reason": type(error).__name__,
+                                }
+                            )
+                except Exception as error:
+                    outcomes.append(
+                        {
+                            **base,
+                            "state": "uncertain",
+                            "quiescent": False,
+                            "reason": type(error).__name__,
+                        }
+                    )
+            self._close_outcomes = tuple(outcomes)
+            return [dict(row) for row in outcomes]

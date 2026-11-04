@@ -4,11 +4,12 @@ from ai_task_manager.application.service.models import result
 
 
 class WorkflowService:
-    def __init__(self, driver, task_plans=None):
+    def __init__(self, driver, task_plans=None, *, reviewer_owner=None):
         from types import MappingProxyType
 
         self.task_plans = MappingProxyType(dict(task_plans or {}))
         self.driver = driver
+        self.reviewer_owner = reviewer_owner
         self.references = set()
         from threading import Lock
 
@@ -221,4 +222,16 @@ class WorkflowService:
             finally:
                 if claimed:
                     driver.store.release(reference, owner)
+        if self.reviewer_owner is not None:
+            try:
+                outcomes.extend(self.reviewer_owner.close())
+            except Exception as error:
+                outcomes.append(
+                    {
+                        "role": "reviewer",
+                        "state": "uncertain",
+                        "quiescent": False,
+                        "reason": type(error).__name__,
+                    }
+                )
         return outcomes

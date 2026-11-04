@@ -32,4 +32,14 @@ def launch(
         config_file, installation_file, registry, service_options=service_options, reviews=reviews
     )
     installed.serve(stop, ready)
-    return result({"state": "owner_closed", "shutdown": installed.owner.shutdown_result})
+    shutdown = installed.owner.shutdown_result
+    uncertain = any(
+        row.get("state") in {"unknown", "uncertain"} or row.get("quiescent") is False
+        for row in shutdown
+    )
+    envelope = result(
+        {"state": "owner_closed", "shutdown": shutdown}, "uncertain" if uncertain else "confirmed"
+    )
+    if uncertain:
+        envelope["exit_code"] = 6
+    return envelope

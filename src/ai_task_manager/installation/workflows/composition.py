@@ -308,7 +308,9 @@ class InstalledWorkflow:
                 scope, current, target, action, grant_ref=grant
             ),
         )
-        return WorkflowService(driver, {task.id: plan.id})
+        return WorkflowService(
+            driver, {task.id: plan.id}, reviewer_owner=self.registry.reviewer_factory
+        )
 
     def _review_source(self, root):
         from ai_task_manager.adapters.workflow_reviews.capture_store import (
