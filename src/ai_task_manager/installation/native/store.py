@@ -130,6 +130,15 @@ class NativeStore:
             (kind, call_id, json.dumps(value, sort_keys=True, allow_nan=False)),
         )
 
+    def conformance(self, reference):
+        """Read capability state under this store's exact owned effect transaction."""
+        active = getattr(self._active, "connection", None)
+        if active is not None:
+            probe_connection(active, self.binding)
+            return self.read(active, "native_conformance", reference)
+        with self.transaction() as conn:
+            return self.read(conn, "native_conformance", reference)
+
     def permission(self, reference):
         # A managed canary rechecks authority while its invocation owns the
         # writer transaction. Read that exact same-thread/store transaction;

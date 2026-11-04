@@ -88,8 +88,7 @@ class CaptureEnrollments:
         return self.require(row["reference"], row["profile_digest"])
 
     def _read(self, reference):
-        with self.store.transaction() as conn:
-            row = self.store.read(conn, "native_conformance", reference)
+        row = self.store.conformance(reference)
         if row is None:
             raise Unavailable("Normal conformance capture is not enrolled")
         required = {
