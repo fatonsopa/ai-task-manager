@@ -24,7 +24,7 @@ from ai_task_manager.domains.work.errors import AccessDenied
 
 from .lead import connect_lead
 from .manifest import NativeManifest
-from .normal import NormalAuthoritySource
+from .normal import NormalAuthoritySource, lead_operator
 from .resolver import policy_builder
 
 
@@ -183,7 +183,8 @@ def report(config_file, installation_file):
     fields = {"session_id", "event_id", "journal", "key", "directory", "cwd"}
     if (
         type(lead) is not dict
-        or set(lead) != fields
+        or not fields <= set(lead)
+        or set(lead) - fields - {"operator_mode"}
         or any(type(value) is not str or not value for value in lead.values())
     ):
         raise AccessDenied("Exact finite lead startup fields are required")
@@ -239,12 +240,17 @@ def report(config_file, installation_file):
         native.verify_active()
         permits.require_native_conformance(policy, binding)
         grant = service.decisions.observations.verify_enrollment(service.grant_ref)
-        enrollment = OperatorChannel(journal).capture_enrollment(
-            scope=service.scope,
-            actions=grant.actions,
-            startup_ref=startup_ref,
-            timeout=min(60, binding.deadline - journal.clock()),
-        )
+        if lead_operator(spec) == "delegated":
+            from .delegated_lead import capture
+
+            enrollment = capture(manifest, permits, native, service, event)
+        else:
+            enrollment = OperatorChannel(journal).capture_enrollment(
+                scope=service.scope,
+                actions=grant.actions,
+                startup_ref=startup_ref,
+                timeout=min(60, binding.deadline - journal.clock()),
+            )
         terminal = os.open("/dev/tty", os.O_WRONLY | os.O_NOCTTY)
         connection = connect_lead(
             config_file, native.startup.transcript, native.startup, enrollment, terminal

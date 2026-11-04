@@ -42,16 +42,25 @@ def bind(owner, grant, observer, session_id, lead_enrollment_ref):
     if startup.scope != grant.scope or startup.session_id != observer.startup.native_session:
         raise AccessDenied("Native startup differs from the provider enrollment")
     record = observer.journal._read(observer.startup.ready_ref, "startup")
-    lead = HostObservations(observer.journal).verify_enrollment(lead_enrollment_ref)
-    enrollment = observer.journal._read(lead_enrollment_ref, "enrollment")
+    enrollment = observer.journal._read(lead_enrollment_ref)
+    delegated = enrollment["kind"] == "delegated_enrollment"
+    if delegated:
+        from ai_task_manager.installation.native.delegated_lead import verify
+
+        lead = verify(observer.journal, enrollment, grant, asdict(observer.binding), session_id)
+    else:
+        lead = HostObservations(observer.journal).verify_enrollment(lead_enrollment_ref)
     payload = enrollment["payload"]
     if (
         lead.scope != grant.scope
         or payload["startup_ref"] != record["ref"]
-        or type(payload.get("operator_pid")) is not int
-        or payload["operator_pid"] <= 0
-        or not isinstance(payload.get("source_hash"), str)
-        or len(payload["source_hash"]) != 64
+        or not delegated
+        and (
+            type(payload.get("operator_pid")) is not int
+            or payload["operator_pid"] <= 0
+            or not isinstance(payload.get("source_hash"), str)
+            or len(payload["source_hash"]) != 64
+        )
         or not set(lead.actions) <= set(grant.actions)
     ):
         raise AccessDenied("Independent lead enrollment differs from the provider/native scope")
@@ -70,13 +79,15 @@ def bind(owner, grant, observer, session_id, lead_enrollment_ref):
         "key": identity(observer.journal.key_path, content=True),
         "expires_at": min(grant.expires_at, observer.binding.deadline, lead.expires_at),
     }
+    if delegated:
+        value["delegated_event_id"] = payload["event_id"]
     reference = SOURCE + digest(grant.source_ref)
     bind_record(owner.journal, reference, value)
     return reference
 
 
 def _journal(authority, source):
-    current_enrollment(authority, source["enrollment"], source["scope"])
+    provider = current_enrollment(authority, source["enrollment"], source["scope"])
     for name in ("journal", "key"):
         if identity(source[name]["path"], content=name == "key") != source[name]:
             raise AccessDenied("Enrolled native notification storage changed")
@@ -87,11 +98,26 @@ def _journal(authority, source):
     startup = journal._read(source["startup_ref"], "startup", fresh=False)
     if digest(startup) != source["startup_hash"]:
         raise AccessDenied("Original native startup changed")
-    if (
-        digest(journal._read(source["lead_enrollment_ref"], "enrollment"))
-        != source["lead_enrollment_hash"]
-    ):
+    enrollment = journal._read(source["lead_enrollment_ref"])
+    if digest(enrollment) != source["lead_enrollment_hash"]:
         raise AccessDenied("Original lead enrollment changed or expired")
+    if "delegated_event_id" in source:
+        from ai_task_manager.adapters.decisions.authority import HostGrant
+        from ai_task_manager.domains.work.models import Scope
+        from ai_task_manager.installation.native.delegated_lead import verify
+
+        grant = HostGrant(
+            Scope(**provider["scope"]),
+            provider["scope"]["logical_session"],
+            tuple(provider["actions"]),
+            source["enrollment"],
+            provider["expires_at"],
+        )
+        verify(journal, enrollment, grant, source["binding"], source["session_id"])
+        if enrollment["payload"]["event_id"] != source["delegated_event_id"]:
+            raise AccessDenied("Delegated event differs from original notification source")
+    elif enrollment["kind"] != "enrollment":
+        raise AccessDenied("Human enrollment provenance changed")
     verify_model_history(journal, startup["payload"], source["process"])
     if source["binding"]["host"] == "codex":
         for row in journal._history("trace"):
@@ -118,6 +144,8 @@ def _observed(authority, source, reference):
     journal = _journal(authority, source)
     row = journal._read(reference, "notification")
     data = row["payload"]
+    if "delegated_event_id" in source and data.get("event_id") != source["delegated_event_id"]:
+        raise AccessDenied("Notification is outside the explicitly delegated event")
     if any(
         data.get(key) != value
         for key, value in {

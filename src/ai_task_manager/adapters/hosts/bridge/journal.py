@@ -20,6 +20,7 @@ KINDS = frozenset(
     {
         "startup",
         "enrollment",
+        "delegated_enrollment",
         "human",
         "notification",
         "notification_input",

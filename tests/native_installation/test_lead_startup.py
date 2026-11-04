@@ -37,7 +37,7 @@ class DeclaredRestrictions(AuthoredRestrictions):
 
 
 @pytest.fixture
-def lead(tmp_path, monkeypatch):
+def lead(tmp_path, monkeypatch, request):
     p = OwnedProvider(tmp_path / "provider")
     master, slave = os.openpty()
     try:
@@ -77,6 +77,8 @@ def lead(tmp_path, monkeypatch):
                 "cwd": str(b.root),
             },
         )
+        if getattr(request, "param", None) == "delegated":
+            spec["lead"]["operator_mode"] = "delegated"
         write_private(b.installation, spec, replace=True)
         b.data.update(
             authority_store=store.pointer,
@@ -110,7 +112,18 @@ def lead(tmp_path, monkeypatch):
             lambda m, **kw: original_source(m, conformance=DeclaredRestrictions(), **kw),
         )
 
+        from ai_task_manager.installation.native import delegated_lead
+
+        monkeypatch.setattr(
+            delegated_lead,
+            "NormalAuthoritySource",
+            lambda m, **kw: original_source(m, conformance=DeclaredRestrictions(), **kw),
+        )
+        delegated = getattr(request, "param", None) == "delegated"
+
         def reply(self, request, timeout):
+            if delegated:
+                raise AssertionError("Delegated lead must never request human console approval")
             return {
                 "request_id": request["request_id"],
                 "challenge": request["challenge"],
@@ -357,3 +370,82 @@ def test_LC08_connection_close_failure_still_stops_native(lead, monkeypatch):
         store, store.permission(manifest.data["authorization_ref"])
     ).snapshot()["calls"]
     assert len(calls) == 5 and all(row["process_stopped"] for row in calls)
+
+
+@pytest.mark.parametrize("lead", ["delegated"], indirect=True)
+def test_LD01_explicit_delegation_no_console_full_receipts_and_cold_refusal(
+    lead, capsys, monkeypatch
+):
+    """Declared native/provider contracts, not actual human/model conformance."""
+    test_LC01_installed_entrypoint_native_operator_receipts_and_restart(lead, capsys, monkeypatch)
+    from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
+
+    p, b, store, manifest, service, event = lead
+    spec = json.loads(b.installation.read_text())
+    journal = HostJournal.open_existing(spec["lead"]["journal"], spec["lead"]["key"])
+    assert journal._history("enrollment") == []
+    delegated = journal._history("delegated_enrollment")
+    assert len(delegated) == 1
+    record = delegated[0]
+    assert "operator_pid" not in record["payload"]
+    assert "source_hash" not in record["payload"]
+    assert record["payload"]["actions"] == []
+    assert record["payload"]["event_id"] == event.id
+    cold = load_service(p.config)
+    receipt = journal._history("notification")[-1]["ref"]
+    assert cold.decisions.observations.verify_host_observation(receipt).event_id == event.id
+    from copy import deepcopy
+
+    from ai_task_manager.installation.native.delegated_lead import verify
+
+    grant = cold.decisions.observations.verify_enrollment(service.grant_ref)
+    for field, replacement in {
+        "event_id": "foreign-event",
+        "task_id": "foreign-task",
+        "provider_enrollment": "foreign-provider",
+        "session_id": "foreign-session",
+        "manifest_digest": "0" * 64,
+        "permission_hash": "0" * 64,
+        "actions": ["start"],
+        "binding": {},
+    }.items():
+        changed = deepcopy(record)
+        changed["payload"][field] = replacement
+        with pytest.raises(AccessDenied):
+            verify(journal, changed, grant, record["payload"]["binding"], service.session_id)
+    changed = deepcopy(record)
+    changed["payload"]["operator_pid"] = os.getpid()
+    with pytest.raises(AccessDenied):
+        verify(journal, changed, grant, record["payload"]["binding"], service.session_id)
+    notification = journal._read(receipt)
+    changed = deepcopy(notification["payload"])
+    changed["event_id"] = "foreign-event"
+    foreign = journal._append(
+        "notification",
+        changed,
+        sources=notification["sources"],
+        expires_at=notification["expires_at"],
+    )
+    with pytest.raises(AccessDenied, match="explicitly delegated event"):
+        cold.decisions.observations.verify_host_observation(foreign)
+    store.revoke(manifest.data["authorization_ref"])
+    with pytest.raises(AccessDenied):
+        cold.decisions.observations.verify_host_observation(receipt)
+
+
+def test_LD02_existing_role_does_not_select_delegation(lead):
+    from ai_task_manager.installation.native.normal import lead_operator
+
+    _, b, store, manifest, _, _ = lead
+    assert lead_operator(json.loads(b.installation.read_text())) == "human-console"
+    assert "operator_mode" not in store.permission(manifest.data["authorization_ref"])
+    with pytest.raises(AccessDenied):
+        lead_operator({"role": "worker", "lead": {"operator_mode": "delegated"}})
+    with pytest.raises(AccessDenied):
+        lead_operator({"role": "lead", "lead": {"operator_mode": "model-selected"}})
+
+
+@pytest.mark.parametrize("lead", ["delegated"], indirect=True)
+@pytest.mark.parametrize("change", ["revoked", "foreign", "expired", "source", "provider-revoked"])
+def test_LD03_delegated_current_authority_refuses_before_launch(lead, change):
+    test_LC03_current_permission_refuses_before_native_launch(lead, change)

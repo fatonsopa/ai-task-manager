@@ -14,6 +14,16 @@ from .store import NativeStore
 PURPOSES = frozenset({"host", "relay", "auth", "neutral", "assignment"})
 
 
+def lead_operator(installation):
+    """Only sealed installer input can opt into standing lead delegation."""
+    mode = installation.get("lead", {}).get("operator_mode", "human-console")
+    if mode not in {"human-console", "delegated"}:
+        raise AccessDenied("Unknown lead operator enrollment mode")
+    if mode == "delegated" and installation.get("role") != "lead":
+        raise AccessDenied("Only the sealed lead role can select delegated enrollment")
+    return mode
+
+
 def enroll(store, manifest, limits, *, identity_refreshes, conformance_ref, role="worker"):
     """Trusted installer operation; permission is not an execution or billing receipt.
 
@@ -66,6 +76,8 @@ def enroll(store, manifest, limits, *, identity_refreshes, conformance_ref, role
         "billing_policy": "subscription-only",
         "revoked": False,
     }
+    if role == "lead" and "operator_mode" in installation.get("lead", {}):
+        permission["operator_mode"] = lead_operator(installation)
     store.enroll(d["authorization_ref"], permission)
     return permission
 
@@ -112,8 +124,11 @@ class NormalAuthoritySource:
             "revoked",
         }
         installation = json.loads(manifest.installation.path.read_text())
+        if self._role == "lead" and "operator_mode" in installation.get("lead", {}):
+            expected.add("operator_mode")
         if (
             set(p) != expected
+            or p.get("operator_mode", "human-console") != lead_operator(installation)
             or installation.get("role", "worker") != self._role
             or p["kind"] != ("normal" if self._role == "worker" else "normal-" + self._role + "-v1")
             or type(p["identity_refreshes"]) is not list
