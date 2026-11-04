@@ -26,6 +26,11 @@ class FailureStage(StrEnum):
     MANAGED_EXECUTION = "managed_execution"
     MANAGED_SETTLEMENT = "managed_settlement"
     MANAGED_STOP = "managed_stop"
+    RECEIVER_LOAD = "receiver_load"
+    RECEIVER_CONFIGURE = "receiver_configure"
+    RECEIVER_START = "receiver_start"
+    RECEIVER_MONITOR = "receiver_monitor"
+    RECEIVER_STOP = "receiver_stop"
     DIAGNOSTIC_RETENTION = "diagnostic_retention"
 
 

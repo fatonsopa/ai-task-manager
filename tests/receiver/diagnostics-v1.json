@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "scope": "Listener startup diagnostics and retained observer projection; authored local/installed controls, not live provider acceptance.",
+  "cases": [
+    {
+      "id": "LD01",
+      "test": "tests/receiver/test_diagnostics.py::test_startup_diagnostics_preserve_failure_without_private_text",
+      "variants": [
+        "load",
+        "configure",
+        "start",
+        "stop"
+      ],
+      "oracle": "Emit safe stage/code/internal locations, preserve failure and bounded cleanup, restore handlers, omit private exception text."
+    },
+    {
+      "id": "LD02",
+      "test": "tests/linear/live/test_installed_endpoint.py::test_ip08_first_readiness_refusal_retains_only_safe_projection",
+      "variants": [
+        "stopped",
+        "malformed",
+        "wrong_port",
+        "wrong_route",
+        "nonobject",
+        "hostile_diagnostic"
+      ],
+      "oracle": "Persist bounded first-record hash/count and closed metadata in a private file; retain refusal with no ledger effects and no foreign/raw text."
+    },
+    {
+      "id": "LD03",
+      "test": "tests/receiver/test_installed.py::test_installed_private_database_parent_startup_diagnostic",
+      "variants": [
+        "0755 database parent",
+        "0700 database parent"
+      ],
+      "oracle": "With private authority/configuration and a separate database directory, the installed CLI refuses 0755 at Owner.__init__ with receiver_start/access_denied; 0700 starts and stops cleanly."
+    }
+  ],
+  "reused_controls": [
+    "tests/linear/live/test_installed_endpoint.py existing IP01-IP07",
+    "tests/receiver/test_installed.py::test_ir07_actual_installed_finite_lifetime_stops_cleanly"
+  ],
+  "historical_limit": "The failed actual LP05 first envelope was discarded. Current filesystem metadata plus the declared local installed reproduction establish a concrete incompatible condition; they do not recover that lost envelope."
+}

@@ -20,6 +20,7 @@ from ai_task_manager.adapters.linear.models import canonical_id
 from ai_task_manager.adapters.linear.webhooks import WebhookReceiver
 from ai_task_manager.config.files import FileSeal, private_path, read_private
 from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
+from ai_task_manager.observability.failures import FailureStage, capture_failure
 
 
 class Source:
@@ -282,12 +283,16 @@ def serve(service, config_file, emit, *, receiver=None):
         previous[signum] = signal.getsignal(signum)
         signal.signal(signum, lambda *_: stop_requested.set())
     failed = None
+    diagnostics = []
+    stage = FailureStage.RECEIVER_CONFIGURE
     cleanup = {"stopped": True}
     try:
         if receiver is None:
             receiver = InstalledReceiver(service, config_file)
+        stage = FailureStage.RECEIVER_START
         ready = receiver.start()
         emit({"ok": True, "event": "receiver_ready", "data": ready})
+        stage = FailureStage.RECEIVER_MONITOR
         while not stop_requested.wait(0.25):
             if time.monotonic() >= receiver.deadline:
                 break
@@ -295,15 +300,24 @@ def serve(service, config_file, emit, *, receiver=None):
             if receiver.closing.is_set() or receiver.http.failure:
                 failed = receiver.failed or "receiver_listener_failed"
                 break
-    except BaseException:
+    except BaseException as error:
         failed = "receiver_refused"
+        diagnostics.append(capture_failure(error, stage))
     finally:
         if receiver is not None:
-            cleanup = receiver.stop()
+            try:
+                cleanup = receiver.stop()
+            except BaseException as error:
+                failed = failed or "receiver_cleanup_failed"
+                cleanup = {"stopped": False}
+                diagnostics.append(capture_failure(error, FailureStage.RECEIVER_STOP))
         for signum, handler in previous.items():
             signal.signal(signum, handler)
     ok = failed is None and cleanup["stopped"]
-    emit({"ok": ok, "event": "receiver_stopped", "failure": failed, "cleanup": cleanup})
+    result = {"ok": ok, "event": "receiver_stopped", "failure": failed, "cleanup": cleanup}
+    if diagnostics:
+        result["diagnostics"] = diagnostics
+    emit(result)
     return 0 if ok else 1
 
 
@@ -317,17 +331,20 @@ def serve_config(config_file, session_file, emit):
     def timeout(*_):
         raise TimeoutError("Receiver startup deadline")
 
+    stage = FailureStage.RECEIVER_LOAD
     try:
         signal.signal(signal.SIGALRM, timeout)
         signal.setitimer(signal.ITIMER_REAL, 30)
         service = load_service(config_file, session_file)
+        stage = FailureStage.RECEIVER_CONFIGURE
         receiver = InstalledReceiver(service, config_file)
-    except BaseException:
+    except BaseException as error:
         emit(
             {
                 "ok": False,
                 "event": "receiver_stopped",
                 "failure": "receiver_startup_refused",
+                "diagnostics": [capture_failure(error, stage)],
                 "cleanup": {"stopped": True, "listener_started": False},
             }
         )

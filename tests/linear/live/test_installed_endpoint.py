@@ -243,3 +243,103 @@ def test_ip07_worker_protocol_selection_is_exact(
     result = endpoint_probe.worker(folder / "job.json")
     assert result == (0 if passed else 1)
     assert json.loads((folder / "result.json").read_text())["passed"] is passed
+
+
+@pytest.mark.parametrize(
+    "fault",
+    ["stopped", "malformed", "wrong_port", "wrong_route", "nonobject", "hostile_diagnostic"],
+)
+def test_ip08_first_readiness_refusal_retains_only_safe_projection(installed, fault):
+    import hashlib
+    import sys
+
+    fixture, _, ledger = installed
+    secret = "PRIVATE-TOKEN-FOREIGN-CONTENT"
+    record = {
+        "ok": True,
+        "event": "receiver_ready",
+        "data": {
+            "instance_id": str(uuid4()),
+            "host": "127.0.0.1",
+            "port": 12345,
+            "route": "/hooks/" + ledger.run_id,
+            "health_route": "/hooks/" + ledger.run_id + "/health",
+            "lifetime_seconds": 30,
+        },
+    }
+    if fault in {"stopped", "hostile_diagnostic"}:
+        record = {
+            "ok": False,
+            "event": "receiver_stopped",
+            "failure": secret,
+            "diagnostics": [
+                {
+                    "stage": "receiver_start",
+                    "causes": [
+                        {
+                            "code": "access_denied",
+                            "type": secret,
+                            "message": secret,
+                            "frames": [
+                                {
+                                    "module": "ai_task_manager.application.linear_sync.listener",
+                                    "line": 44,
+                                    "function": secret,
+                                    "locals": secret,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        if fault == "hostile_diagnostic":
+            record["diagnostics"][0]["stage"] = secret
+            record["diagnostics"][0]["causes"][0]["frames"][0]["module"] = secret
+            record["diagnostics"][0]["causes"][0]["code"] = secret
+    elif fault == "wrong_port":
+        record["data"]["port"] = True
+    elif fault == "wrong_route":
+        record["data"]["route"] = secret
+    elif fault == "nonobject":
+        record = [secret]
+    raw = secret if fault == "malformed" else json.dumps(record)
+    fixture.entrypoint.write_text(
+        "#!" + sys.executable + "\nprint(" + repr(raw) + ", flush=True)\n"
+    )
+    fixture.package["pins"][str(fixture.entrypoint)] = hashlib.sha256(
+        fixture.entrypoint.read_bytes()
+    ).hexdigest()
+    before = ledger.summary()
+    with pytest.raises(DriverRefused, match="readiness_mismatch"):
+        fixture.start()
+    evidence = ledger.path.parent / f"receiver-readiness-{fixture.child.pid}.json"
+    saved = read_private(evidence)
+    assert (
+        saved["status"] == "refused" and saved["sha256"] == hashlib.sha256(raw.encode()).hexdigest()
+    )
+    assert saved["bytes"] == len(raw.encode())
+    assert secret not in evidence.read_text()
+    assert evidence.stat().st_mode & 0o777 == 0o600
+    assert ledger.summary() == before
+    if fault == "stopped":
+        assert saved["diagnostics"] == [
+            {
+                "stage": "receiver_start",
+                "causes": [
+                    {
+                        "code": "access_denied",
+                        "frames": [
+                            {
+                                "module": "ai_task_manager.application.linear_sync.listener",
+                                "line": 44,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    if fault == "wrong_port":
+        assert saved["mismatches"] == ["port"]
+    if fault == "wrong_route":
+        assert saved["mismatches"] == ["route"]

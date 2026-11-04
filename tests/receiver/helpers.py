@@ -16,6 +16,7 @@ from ai_task_manager.config.service import load_service
 from ai_task_manager.config.sessions import SessionFile
 from ai_task_manager.domains.work.models import ApprovalPolicy
 from ai_task_manager.installation.sessions.setup import setup
+from ai_task_manager.storage.database import Database
 from tests.linear.helpers import CONNECTION, EXPECTED, WEBHOOK, LinearRig, ProviderFixture
 
 SECRET = "fixture-webhook-signing-secret"
@@ -23,25 +24,31 @@ ROUTE = "/hooks/receiver_fixture_154"
 
 
 class Fixture:
-    def __init__(self, root, *, enrollment_seconds=120):
+    def __init__(self, root, *, enrollment_seconds=120, database_directory=None):
         self.provider = None
         try:
-            self._initialize(root, enrollment_seconds)
+            self._initialize(root, enrollment_seconds, database_directory)
         except BaseException:
             if self.provider is not None:
                 self.provider.close()
             raise
 
-    def _initialize(self, root, enrollment_seconds):
+    def _initialize(self, root, enrollment_seconds, database_directory):
         self.root = Path(root).resolve()
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.root.chmod(0o700)
         self.provider = ProviderFixture()
         self.rig = LinearRig(self.root, self.provider)
+        if database_directory is not None:
+            database_directory = Path(database_directory)
+            database_directory.mkdir(mode=0o700)
+            target = database_directory / "core.sqlite"
+            Path(self.rig.db.path).rename(target)
+            self.rig.db = Database(target)
         self.rig.now = time.time()
         self.rig.policy = ApprovalPolicy("a" * 64, "b" * 64, "c" * 64)
         self.rig.core = self.rig.new_core()
-        self.rig.db_path = self.root / "core.sqlite"
+        self.rig.db_path = Path(self.rig.db.path)
         self.rig.db_path.chmod(0o600)
         self.rig.scope = replace(self.rig.scope, logical_session="receiver-installed-fixture")
         self.connection = replace(CONNECTION, logical_session=self.rig.scope.logical_session)

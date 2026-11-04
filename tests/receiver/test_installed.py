@@ -178,3 +178,37 @@ def test_ir07_actual_installed_enrollment_expiry_stops_without_renewal(tmp_path)
             process.kill()
             process.wait(timeout=3)
         fixture.close()
+
+
+@pytest.mark.parametrize("parent_mode", [0o755, 0o700])
+def test_installed_private_database_parent_startup_diagnostic(tmp_path, parent_mode):
+    # Match the live topology: private service/authority files and a separate
+    # registered database directory. No real credentials or provider calls.
+    fixture = Fixture(tmp_path / "service", database_directory=tmp_path / "registered-database")
+    try:
+        fixture.rig.db_path.parent.chmod(parent_mode)
+        if parent_mode == 0o700:
+            process, ready = start(fixture)
+            assert ready["host"] == "127.0.0.1"
+            assert stop(fixture, process, label="private-parent-stop")["ok"]
+            return
+        result = subprocess.run(
+            command(fixture, "sync", "listen"), capture_output=True, text=True, timeout=15
+        )
+        (fixture.root / "public-parent-refusal.json").write_text(
+            json.dumps(
+                {"returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}
+            )
+        )
+        assert result.returncode == 1 and not result.stderr
+        final = json.loads(result.stdout)
+        assert final["event"] == "receiver_stopped" and final["cleanup"]["stopped"]
+        assert final["diagnostics"][0]["stage"] == "receiver_start"
+        cause = final["diagnostics"][0]["causes"][0]
+        assert cause["code"] == "access_denied"
+        assert cause["frames"][-1]["module"] == "ai_task_manager.application.linear_sync.listener"
+        assert cause["frames"][-1]["function"] == "__init__"
+        assert str(fixture.root) not in result.stdout
+        assert "Receiver database requires" not in result.stdout
+    finally:
+        fixture.close()

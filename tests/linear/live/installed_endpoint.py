@@ -20,8 +20,9 @@ from ai_task_manager.adapters.decisions.observations import (
 )
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup
 from ai_task_manager.application.service.facade import ApplicationService
-from ai_task_manager.config.files import FileSeal, digest, read_private, strict_json
+from ai_task_manager.config.files import FileSeal, digest, read_private, strict_json, write_private
 from ai_task_manager.domains.work.errors import WorkError
+from ai_task_manager.observability.failures import FailureStage
 
 from .ledger import DriverRefused, uuid
 
@@ -127,6 +128,90 @@ class InstalledReceiverProcess:
         ):
             raise DriverRefused("installed_receiver_process_not_running")
 
+    def _retain_readiness(self, raw, status, envelope=None, mismatches=()):
+        # Child output is untrusted even when the executable is pinned. Retain
+        # only closed vocabularies and locations within that package, never text.
+        record = {
+            "version": 1,
+            "pid": self.group.process.pid,
+            "status": status,
+            "bytes": len(raw),
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "mismatches": list(mismatches),
+            "diagnostics": [],
+        }
+        if type(envelope) is dict:
+            record["event"] = (
+                envelope.get("event")
+                if envelope.get("event") in ("receiver_ready", "receiver_stopped")
+                else "unrecognized"
+            )
+            record["ok"] = envelope.get("ok") if type(envelope.get("ok")) is bool else None
+            allowed_modules = set()
+            runtime = Path(self.package["runtime_root"])
+            for path in self.package["pins"]:
+                try:
+                    relative = Path(path).relative_to(runtime)
+                except ValueError:
+                    continue
+                if relative.suffix == ".py":
+                    allowed_modules.add(
+                        "ai_task_manager." + ".".join(relative.with_suffix("").parts)
+                    )
+            diagnostics = envelope.get("diagnostics")
+            for item in diagnostics[:2] if type(diagnostics) is list else ():
+                if type(item) is not dict:
+                    continue
+                stages = {stage.value for stage in FailureStage}
+                stage = item.get("stage")
+                projected = {
+                    "stage": stage if type(stage) is str and stage in stages else "unknown",
+                    "causes": [],
+                }
+                causes = item.get("causes")
+                for cause in causes[:4] if type(causes) is list else ():
+                    if type(cause) is not dict:
+                        continue
+                    codes = {
+                        "access_denied",
+                        "validation_error",
+                        "timeout",
+                        "os_error",
+                        "permission_error",
+                        "file_not_found",
+                        "runtime_error",
+                        "type_error",
+                        "value_error",
+                        "interrupted",
+                        "unclassified",
+                    }
+                    code = cause.get("code")
+                    safe = {
+                        "code": code if type(code) is str and code in codes else "unclassified",
+                        "frames": [],
+                    }
+                    frames = cause.get("frames")
+                    for frame in frames[:8] if type(frames) is list else ():
+                        if type(frame) is not dict:
+                            continue
+                        module, line = frame.get("module"), frame.get("line")
+                        if (
+                            type(module) is str
+                            and module in allowed_modules
+                            and type(line) is int
+                            and 0 < line < 10_000_000
+                        ):
+                            safe["frames"].append({"module": module, "line": line})
+                    projected["causes"].append(safe)
+                record["diagnostics"].append(projected)
+        self.readiness_diagnostic = record
+        path = self.ledger.path.parent / f"receiver-readiness-{self.group.process.pid}.json"
+        try:
+            write_private(path, record)
+        except (OSError, WorkError):
+            # Diagnostic failure cannot change the original refusal or grant readiness.
+            record["retention_failed"] = True
+
     def _read_ready(self, seconds):
         stream = self.group.process.stdout
         if stream is None:
@@ -137,33 +222,62 @@ class InstalledReceiverProcess:
             while b"\n" not in raw:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0 or not selected.select(remaining):
+                    self._retain_readiness(raw, "timeout")
                     raise DriverRefused("installed_receiver_readiness_timeout")
                 chunk = os.read(stream.fileno(), 4096)
                 if not chunk or len(raw) + len(chunk) > 16384:
+                    self._retain_readiness(raw, "unavailable")
                     raise DriverRefused("installed_receiver_readiness_unavailable")
                 raw.extend(chunk)
+        first = bytes(raw).split(b"\n", 1)[0]
+        envelope, mismatches = None, []
         try:
-            envelope = strict_json(raw.split(b"\n", 1)[0])
-            ready = envelope["data"]
-            if (
-                set(envelope) != {"ok", "event", "data"}
-                or envelope["ok"] is not True
-                or envelope["event"] != "receiver_ready"
-                or set(ready)
-                != {"instance_id", "host", "port", "route", "health_route", "lifetime_seconds"}
-                or ready["host"] != "127.0.0.1"
-                or type(ready["port"]) is not int
-                or not 1 <= ready["port"] <= 65535
-                or ready["route"] != self.route
-                or ready["health_route"] != self.health_route
-                or ready["lifetime_seconds"] != self.config["lifetime_seconds"]
-                or self.config["port"] not in (0, ready["port"])
-            ):
+            envelope = strict_json(first)
+            if type(envelope) is not dict:
+                mismatches.append("envelope")
                 raise ValueError()
-            uuid(ready["instance_id"])
-            return ready
+            ready = envelope.get("data")
+            checks = {
+                "envelope_keys": set(envelope) == {"ok", "event", "data"},
+                "ok": envelope.get("ok") is True,
+                "event": envelope.get("event") == "receiver_ready",
+                "data": type(ready) is dict,
+            }
+            if type(ready) is dict:
+                checks.update(
+                    {
+                        "data_keys": set(ready)
+                        == {
+                            "instance_id",
+                            "host",
+                            "port",
+                            "route",
+                            "health_route",
+                            "lifetime_seconds",
+                        },
+                        "host": ready.get("host") == "127.0.0.1",
+                        "port": type(ready.get("port")) is int
+                        and 1 <= ready["port"] <= 65535
+                        and self.config["port"] in (0, ready["port"]),
+                        "route": ready.get("route") == self.route,
+                        "health_route": ready.get("health_route") == self.health_route,
+                        "lifetime_seconds": ready.get("lifetime_seconds")
+                        == self.config["lifetime_seconds"],
+                    }
+                )
+            mismatches.extend(key for key, passed in checks.items() if not passed)
+            if mismatches:
+                raise ValueError()
+            try:
+                uuid(ready["instance_id"])
+            except DriverRefused:
+                mismatches.append("instance_id")
+                raise ValueError() from None
         except (ValueError, KeyError, TypeError, WorkError):
+            self._retain_readiness(first, "refused", envelope, mismatches or ("json",))
             raise DriverRefused("installed_receiver_readiness_mismatch") from None
+        self._retain_readiness(first, "accepted", envelope)
+        return ready
 
     def check_product(self, webhook_id):
         if any(
