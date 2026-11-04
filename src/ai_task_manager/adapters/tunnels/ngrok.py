@@ -231,7 +231,7 @@ class NgrokTunnel:
         if (
             type(lifetime) not in {int, float}
             or not math.isfinite(lifetime)
-            or not 0 < lifetime <= 105
+            or not 0 < lifetime <= 86400
             or not re.fullmatch(r"[0-9a-f]{64}", executable_sha256)
         ):
             raise NgrokRefused("ngrok_bound_required")

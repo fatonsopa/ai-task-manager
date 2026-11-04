@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "task": "TST-151",
+  "requirements": ["R04", "R23", "R27", "R37"],
+  "scope": "Explicit trusted finite transport duration; no live connection acceptance or packet renewal.",
+  "cases": [
+    {"id": "ND01", "oracle": "Omitted lifetime remains 105 seconds; construction does not read credentials or launch."},
+    {"id": "ND02", "oracle": "Explicit numeric finite lifetime greater than 105 and at most 86400 seconds is preserved exactly."},
+    {"id": "ND03", "oracle": "Reject bool, nonnumeric, nonpositive, nonfinite and over-86400 lifetime before creating run files or launching."},
+    {"id": "ND04", "oracle": "An authored owned process remains observable after virtual second 105, expires at its original longer deadline, stops and is reaped; restart cannot renew it."}
+  ],
+  "retained_control": "NG08 existing short deadline and owned-group cleanup",
+  "frozen_packets": "Existing transport-only and LP05/LP03 packets and installed packages remain unchanged."
+}
