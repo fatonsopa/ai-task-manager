@@ -4,6 +4,7 @@ import json
 import sys
 from pathlib import Path
 
+import ai_task_manager
 from ai_task_manager.application.core import Core
 from ai_task_manager.domains.work.models import ApprovalPolicy, Evidence, Scope, SessionHandle
 from ai_task_manager.storage.database import Database
@@ -12,6 +13,10 @@ from tests.domains.helpers import ProofFixture
 
 def main():
     payload = json.loads(Path(sys.argv[1]).read_text())
+    runtime_root = str(Path(ai_task_manager.__file__).resolve().parent)
+    if "runtime_root" in payload:
+        assert runtime_root == payload["runtime_root"]
+        Path(payload["import_record"]).write_text(json.dumps({"runtime_root": runtime_root}))
     proofs = ProofFixture()
     data = payload["proof"]
     proofs.evidence["hold-fixture"] = Evidence(

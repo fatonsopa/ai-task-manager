@@ -20,9 +20,17 @@ from .manifest import NativeManifest
 
 
 def resolve(
-    config_file, installation_file, *, authority_source=None, commands=None, service_options=None
+    config_file,
+    installation_file,
+    *,
+    authority_source=None,
+    commands=None,
+    service_options=None,
+    role="worker",
 ):
     installation = read_private(installation_file)
+    if role not in {"worker", "reviewer"} or installation.get("role", "worker") != role:
+        raise AccessDenied("Worker workflow cannot use a lead or reviewer installation")
     path = installation.get("native_manifest")
     if path is None:
         return NativeRegistry()
@@ -47,7 +55,7 @@ def resolve(
     if authority_source is None and d.get("authority_store") is not None:
         from .normal import NormalAuthoritySource
 
-        authority_source = NormalAuthoritySource(manifest)
+        authority_source = NormalAuthoritySource(manifest, role=role)
     source = authority_source or MissingNativeAuthority()
     permission = source.resolve(manifest.data["authorization_ref"], manifest)
     if type(permission) is not NativePermission:
@@ -90,7 +98,16 @@ def resolve(
     )
     if registration.fingerprint != installation["native_digest"]:
         raise AccessDenied("Cold native registration differs from installed reference digest")
-    return NativeRegistry((registration,), service_options=service_options)
+    reviewer_factory = None
+    if installation.get("reviewer_installation") is not None:
+        if role != "worker":
+            raise AccessDenied("Independent reviewer cannot delegate another review")
+        from .reviewer import NormalReviewerFactory
+
+        reviewer_factory = NormalReviewerFactory(manifest, service_options=service_options)
+    return NativeRegistry(
+        (registration,), service_options=service_options, reviewer_factory=reviewer_factory
+    )
 
 
 def policy_builder(manifest):

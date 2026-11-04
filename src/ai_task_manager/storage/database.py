@@ -71,6 +71,7 @@ class Database:
     def __init__(self, path: str | Path, *, guard=None):
         self.path = str(path)
         self.guard = guard
+        self._active_transactions = set()
         if self.path == ":memory:":
             raise SchemaError("Use a disposable file for shared transactional storage")
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
@@ -170,6 +171,11 @@ class Database:
         conn.execute("PRAGMA busy_timeout=10000")
         return conn
 
+    def require_transaction(self, connection):
+        """Accept only a currently leased connection from this exact store object."""
+        if connection not in self._active_transactions or not connection.in_transaction:
+            raise SchemaError("Connection does not belong to this active Core transaction")
+
     @contextmanager
     def transaction(self):
         conn = self.connect()
@@ -190,6 +196,7 @@ class Database:
                 )
 
                 validate_publication(conn)
+            self._active_transactions.add(conn)
             yield conn
             if self.guard:
                 self.guard(conn)
@@ -198,4 +205,5 @@ class Database:
             conn.rollback()
             raise
         finally:
+            self._active_transactions.discard(conn)
             conn.close()

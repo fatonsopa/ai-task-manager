@@ -64,7 +64,7 @@ class Execution:
             return self._work_lease(conn, handle, attempt_id, expected_attempt_version)
 
     @contextmanager
-    def work_boundary(self, handle, attempt_id, expected_attempt_version):
+    def work_boundary(self, handle, attempt_id, expected_attempt_version, *, inspect=None):
         """Serialize a bounded short effect against other task-authority writers.
 
         The trusted adapter owns effect intent/reconciliation. This transaction cannot
@@ -72,7 +72,12 @@ class Execution:
         a whole command, host call, provider request or model turn.
         """
         with self.c.db.transaction() as conn:
-            yield self._work_lease(conn, handle, attempt_id, expected_attempt_version)
+            attempt = self._work_lease(conn, handle, attempt_id, expected_attempt_version)
+            if inspect is not None:
+                inspect(conn)
+            yield attempt
+            if inspect is not None:
+                inspect(conn)
 
     @contextmanager
     def work_snapshot_boundary(self, handle, attempt_id, expected_attempt_version):

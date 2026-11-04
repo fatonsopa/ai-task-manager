@@ -161,10 +161,10 @@ class ManagedToolGateway:
             return result
 
     @contextmanager
-    def lease_boundary(self):
+    def lease_boundary(self, *, inspect=None):
         """Only current Core authority and cached resource metadata, no I/O preparation."""
         with self.core.execution.work_boundary(
-            self.handle, self.dispatch.attempt_id, self._attempt_version
+            self.handle, self.dispatch.attempt_id, self._attempt_version, inspect=inspect
         ):
             if self.authority is not None:
                 self.authority.check_prepared()

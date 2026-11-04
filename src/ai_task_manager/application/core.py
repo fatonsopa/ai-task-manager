@@ -76,10 +76,13 @@ class Core:
             sid, _ = sessions.resolve(conn, handle)
             conn.execute("UPDATE sessions SET revoked=1 WHERE id=?", (sid,))
 
-    def get_task(self, handle, task_id):
-        with self.context.db.transaction() as conn:
-            sid, _ = sessions.resolve(conn, handle)
-            return work.get(conn, sid, task_id)
+    def get_task(self, handle, task_id, *, connection=None):
+        if connection is None:
+            with self.context.db.transaction() as conn:
+                return self.get_task(handle, task_id, connection=conn)
+        self.context.db.require_transaction(connection)
+        sid, _ = sessions.resolve(connection, handle)
+        return work.get(connection, sid, task_id)
 
     def list_tasks(self, handle):
         with self.context.db.transaction() as conn:

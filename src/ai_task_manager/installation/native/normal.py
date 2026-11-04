@@ -14,7 +14,7 @@ from .store import NativeStore
 PURPOSES = frozenset({"host", "relay", "auth", "neutral", "assignment"})
 
 
-def enroll(store, manifest, limits, *, identity_refreshes, conformance_ref):
+def enroll(store, manifest, limits, *, identity_refreshes, conformance_ref, role="worker"):
     """Trusted installer operation; permission is not an execution or billing receipt.
 
     This function is not a public model tool. It records the operator's exact
@@ -43,12 +43,14 @@ def enroll(store, manifest, limits, *, identity_refreshes, conformance_ref):
     if manifest.data["host"] != "claude" and identity_refreshes:
         raise AccessDenied("Genuine same-native identity refresh is currently Claude-only")
     installation = json.loads(manifest.installation.path.read_text())
+    if role not in {"worker", "lead", "reviewer"} or installation.get("role", "worker") != role:
+        raise AccessDenied("Normal permission role differs from sealed installation")
     deadline = installation["deadline"]
     if type(deadline) not in {int, float} or not math.isfinite(deadline):
         raise AccessDenied("Original finite installation deadline required")
     d = manifest.data
     permission = {
-        "kind": "normal",
+        "kind": "normal" if role == "worker" else "normal-" + role + "-v1",
         "identity_refreshes": list(identity_refreshes),
         "conformance_ref": conformance_ref,
         "reference": d["authorization_ref"],
@@ -69,7 +71,10 @@ def enroll(store, manifest, limits, *, identity_refreshes, conformance_ref):
 
 
 class NormalAuthoritySource:
-    def __init__(self, manifest, *, conformance=None, clock=None):
+    def __init__(self, manifest, *, conformance=None, clock=None, role="worker"):
+        if role not in {"worker", "lead", "reviewer"}:
+            raise AccessDenied("Unknown native permission role")
+        self._role = role
         pointer = manifest.data.get("authority_store")
         if not isinstance(pointer, dict) or set(pointer) != {"path", "device", "inode", "store_id"}:
             raise AccessDenied("Exact enrolled normal authority store is required")
@@ -109,7 +114,8 @@ class NormalAuthoritySource:
         installation = json.loads(manifest.installation.path.read_text())
         if (
             set(p) != expected
-            or p["kind"] != "normal"
+            or installation.get("role", "worker") != self._role
+            or p["kind"] != ("normal" if self._role == "worker" else "normal-" + self._role + "-v1")
             or type(p["identity_refreshes"]) is not list
             or len(set(p["identity_refreshes"])) != len(p["identity_refreshes"])
             or any(type(v) is not str or not v or v in PURPOSES for v in p["identity_refreshes"])

@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from contextlib import contextmanager
 from dataclasses import asdict
 
 from ai_task_manager.adapters.hosts.bridge.controller import ManagedHostFactory, ManagedNativeHost
@@ -58,15 +59,24 @@ class CompletedNativeReview:
 
 
 class ReadOnlyReviewGateway:
-    def __init__(self, delegate, inspection):
+    def __init__(self, delegate, inspection, current_author=None):
         self.delegate, self.inspection = delegate, inspection
+        self.current_author = current_author
 
     def check(self):
+        if self.current_author is not None:
+            self.current_author()
         self.inspection.check()
         self.delegate.check()
 
+    @contextmanager
     def lease_boundary(self):
-        return self.delegate.lease_boundary()
+        # Physical inspection/source preparation must not reacquire Core or do Git
+        # work while the delegate owns its short effect transaction.
+        self.check()
+        with self.delegate.lease_boundary(inspect=self.current_author):
+            yield
+        self.check()
 
     def call(self, name, arguments):
         self.check()
@@ -74,7 +84,9 @@ class ReadOnlyReviewGateway:
 
 
 class NativeReviewCapture:
-    def __init__(self, workers, handle, task_id, registration, command_ref, decision):
+    def __init__(
+        self, workers, handle, task_id, registration, command_ref, decision, *, current_author=None
+    ):
         if (
             type(workers) is not ManagedWorkers
             or type(workers.hosts) is not ManagedHostFactory
@@ -82,12 +94,19 @@ class NativeReviewCapture:
             or type(workers.executions) is not ReviewedExecutions
         ):
             raise EvidenceRequired("Actual managed reviewer ports and normal registration required")
+        if current_author is not None and not callable(current_author):
+            raise EvidenceRequired("Current author authority must be a trusted check")
+        self.current_author = self._current_author = current_author
         self.workers, self.handle, self.task_id = workers, handle, task_id
         self.registration, self.command_ref, self.decision = registration, command_ref, decision
         self._bound = (workers, handle, task_id, registration, command_ref, decision)
         self._completion = self._completion_token = self._completed = None
 
     def capture(self, inspection, store):
+        if self.current_author is not self._current_author:
+            raise EvidenceRequired("Current author authority binding changed")
+        if self.current_author is not None:
+            self.current_author()
         if (
             self.workers,
             self.handle,
@@ -167,7 +186,9 @@ class NativeReviewCapture:
                 or attempt.id == context["author"]["attempt_id"]
             ):
                 raise EvidenceRequired("Artifact author cannot review its own result")
-            native.gateway.delegate = ReadOnlyReviewGateway(native.gateway.delegate, inspection)
+            native.gateway.delegate = ReadOnlyReviewGateway(
+                native.gateway.delegate, inspection, self.current_author
+            )
             w.execute_reviewed(self.handle, attempt.id, self.command_ref, key + ":execute")
             settled = core.get_attempt(self.handle, attempt.id)
             if settled.state != "done" or not native.process._closed:
@@ -262,6 +283,8 @@ class NativeReviewCapture:
         ):
             raise EvidenceRequired("No actual independent review completion was issued")
         context, record, trace, native, settled = self._completion
+        if self.current_author is not None:
+            self.current_author()
         inspection.check()
         self.registration.check()
         if (

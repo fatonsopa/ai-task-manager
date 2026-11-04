@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import ai_task_manager
 from ai_task_manager.domains.work.errors import InvalidTransition
 from tests.domains.helpers import Rig
 
@@ -18,6 +19,8 @@ def hold_process(rig, task, tmp_path):
     )
     payload = {
         "database": rig.db.path,
+        "runtime_root": str(Path(ai_task_manager.__file__).resolve().parent),
+        "import_record": str(tmp_path / "child-import.json"),
         "policy": asdict(rig.policy),
         "proof": asdict(rig.proofs.evidence[ref]),
         "handle": rig.handle.token,
@@ -33,7 +36,10 @@ def hold_process(rig, task, tmp_path):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        env={"PATH": os.defpath, "PYTHONPATH": str(Path("src").resolve())},
+        env={
+            "PATH": os.defpath,
+            "PYTHONPATH": str(Path(ai_task_manager.__file__).resolve().parent.parent),
+        },
     )
 
 
@@ -44,6 +50,9 @@ def test_independent_hold_commits_first_prevents_file_effect(tmp_path):
     assert child.stdout.readline().strip() == "READY"
     stdout, stderr = child.communicate(input="GO\n", timeout=5)
     assert child.returncode == 0, (stdout, stderr)
+    assert json.loads((tmp_path / "child-import.json").read_text())["runtime_root"] == str(
+        Path(ai_task_manager.__file__).resolve().parent
+    )
     output = tmp_path / "must-not-exist"
     with pytest.raises(InvalidTransition):
         with r.core.execution.work_boundary(r.handle, attempt.id, attempt.version):
@@ -69,6 +78,9 @@ def test_short_effect_lock_precedes_independent_hold_and_later_effect_refuses(tm
         output.write_text("published-before-hold")
     stdout, stderr = child.communicate(timeout=5)
     assert child.returncode == 0, (stdout, stderr)
+    assert json.loads((tmp_path / "child-import.json").read_text())["runtime_root"] == str(
+        Path(ai_task_manager.__file__).resolve().parent
+    )
     assert "COMMITTED" in stdout and output.read_text() == "published-before-hold"
     with pytest.raises(InvalidTransition):
         with r.core.execution.work_boundary(r.handle, attempt.id, attempt.version):

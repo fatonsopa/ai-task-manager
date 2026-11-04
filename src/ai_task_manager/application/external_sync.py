@@ -358,15 +358,18 @@ class ExternalSynchronization:
 
         return self.c.task_mutation(handle, operation_key, payload, action)
 
-    def observations(self, handle, task_id):
-        with self.c.db.transaction() as conn:
-            sid, _ = sessions.resolve(conn, handle)
-            work.get(conn, sid, task_id)
-            return [
-                dict(row)
-                for row in conn.execute(
-                    "SELECT id,source_revision,state,payload FROM "
-                    "external_observations WHERE task_id=? ORDER BY rowid",
-                    (task_id,),
-                )
-            ]
+    def observations(self, handle, task_id, *, connection=None):
+        if connection is None:
+            with self.c.db.transaction() as conn:
+                return self.observations(handle, task_id, connection=conn)
+        self.c.db.require_transaction(connection)
+        sid, _ = sessions.resolve(connection, handle)
+        work.get(connection, sid, task_id)
+        return [
+            dict(row)
+            for row in connection.execute(
+                "SELECT id,source_revision,state,payload FROM "
+                "external_observations WHERE task_id=? ORDER BY rowid",
+                (task_id,),
+            )
+        ]

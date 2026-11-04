@@ -7,11 +7,15 @@ from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import ACTIVE_ATTEMPTS
 
 
-def quarantined(service, task):
+def quarantined(service, task, *, connection=None):
     external = getattr(service.core, "external", None)
     if external is None:
         return False
-    observations = external.observations(service.handle, task.id)
+    observations = (
+        external.observations(service.handle, task.id)
+        if connection is None
+        else external.observations(service.handle, task.id, connection=connection)
+    )
     if not observations:
         return False
     latest_revision = max(item["source_revision"] for item in observations)
@@ -23,8 +27,8 @@ def quarantined(service, task):
     return any(item.get("assigned_to_owner") is False for item in latest)
 
 
-def require_owned(service, task):
-    if quarantined(service, task):
+def require_owned(service, task, *, connection=None):
+    if quarantined(service, task, connection=connection):
         raise AccessDenied("Task left the managed scope; reconcile its retained ownership")
 
 
@@ -47,10 +51,17 @@ def task_view(service, task):
     data["quarantined"], data["active_group"] = False, True
     readiness = service.core.scheduling.explain(service.handle, task.id)
     if readiness["task_version"] != task.version:
-        readiness = {**readiness, "state": "unknown", "blockers": [{
-            "code": "projection_version_changed", "dependency": None,
-            "release_condition": "Read the current owned task snapshot",
-        }]}
+        readiness = {
+            **readiness,
+            "state": "unknown",
+            "blockers": [
+                {
+                    "code": "projection_version_changed",
+                    "dependency": None,
+                    "release_condition": "Read the current owned task snapshot",
+                }
+            ],
+        }
     data["scheduling"] = readiness
     if readiness["state"] != "ready":
         data["activity"], data["work_authorized"] = "blocked", False
@@ -75,13 +86,22 @@ def attempt_view(service, attempt):
     data = asdict(attempt)
     readiness = service.core.scheduling.explain(service.handle, task.id)
     current_attempt = service.core.get_attempt(service.handle, attempt.id)
-    if (readiness["task_version"] != task.version
-            or current_attempt.version != attempt.version
-            or current_attempt.state != attempt.state):
-        readiness = {**readiness, "state": "unknown", "blockers": [{
-            "code": "projection_version_changed", "dependency": None,
-            "release_condition": "Read the current owned task and attempt snapshot",
-        }]}
+    if (
+        readiness["task_version"] != task.version
+        or current_attempt.version != attempt.version
+        or current_attempt.state != attempt.state
+    ):
+        readiness = {
+            **readiness,
+            "state": "unknown",
+            "blockers": [
+                {
+                    "code": "projection_version_changed",
+                    "dependency": None,
+                    "release_condition": "Read the current owned task and attempt snapshot",
+                }
+            ],
+        }
         data["last_observed_state"], data["state"] = attempt.state, "stale_projection"
     data["scheduling"] = readiness
     if readiness["state"] != "ready":

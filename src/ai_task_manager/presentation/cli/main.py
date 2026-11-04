@@ -36,6 +36,7 @@ def main(argv=None, *, workflow_registry=None):
             "mcp",
             "view",
             "workflow",
+            "lead",
         ],
     )
     parser.add_argument("action", nargs="?")
@@ -54,6 +55,14 @@ def main(argv=None, *, workflow_registry=None):
 
                 workflow_registry = resolve(args.config, args.installation)
             envelope = launch(args.config, args.installation, registry=workflow_registry)
+            sys.stdout.write(json.dumps(envelope, ensure_ascii=False, allow_nan=False) + "\n")
+            return exit_code(envelope)
+        if args.group == "lead" and args.action == "report":
+            if not args.installation or args.input or args.session_file:
+                raise ValueError("Lead report needs sealed installation and no request override")
+            from ai_task_manager.installation.native.lead_startup import report
+
+            envelope = report(args.config, args.installation)
             sys.stdout.write(json.dumps(envelope, ensure_ascii=False, allow_nan=False) + "\n")
             return exit_code(envelope)
         if args.installation:
