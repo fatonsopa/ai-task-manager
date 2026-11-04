@@ -179,7 +179,15 @@ class NativeIdentityObservations:
             n.policy.check_admission_metadata(metadata)
         return observed
 
-    def prepare(self):
+    def prepare(self, *, cancelled=None):
+        # Preparation is outside Core. Waiting here must not strand shutdown
+        # behind an effect's model fence; local consumers still never wait.
+        with self.native.startup.model_guard.observation_boundary(
+            cancelled=cancelled, not_after=self.execution_not_after
+        ):
+            return self._prepare()
+
+    def _prepare(self):
         self._bound_current()
         n = self.native
         n.verify_active()
@@ -191,19 +199,19 @@ class NativeIdentityObservations:
         result.check()
         return result
 
-    def refresh(self, directory):
+    def refresh(self, directory, *, cancelled=None):
         if not self._refresh_lock.acquire(blocking=False):
             raise AccessDenied("Native identity collection is already in progress")
         try:
-            return self._refresh(directory)
+            return self._refresh(directory, cancelled=cancelled)
         except BaseException:
             self._revoked = True
             raise
         finally:
             self._refresh_lock.release()
 
-    def _refresh(self, directory):
-        self.prepare()
+    def _refresh(self, directory, *, cancelled=None):
+        self.prepare(cancelled=cancelled)
         n = self.native
         expected_account = n.expected_account
         directory = Path(directory)
@@ -211,7 +219,9 @@ class NativeIdentityObservations:
         # The unchanged probe obtains a unique accounted invocation, performs
         # actual auth status and records its owned subprocess outcome.
         reference = self._probe.observe(n.policy, n.binding, directory)
-        self.prepare()  # Collection must finish before the previous proof expires.
+        self.prepare(
+            cancelled=cancelled
+        )  # Collection must finish before the previous proof expires.
         data = self.journal._read(reference, "trace")
         if (
             n.expected_account != expected_account
@@ -222,22 +232,30 @@ class NativeIdentityObservations:
             raise AccessDenied("Fresh native account differs from the original approved owner")
         expires = min(data["expires_at"], self.execution_not_after)
         payload = {
-            "effect": "native_identity_refreshed", "binding": asdict(n.binding),
-            "process": asdict(self._identity), "session_id": self._session,
-            "account_hash": expected_account, "model": n.policy.model,
-            "effort": n.policy.effort, "original_startup_ref": self._original_ref,
+            "effect": "native_identity_refreshed",
+            "binding": asdict(n.binding),
+            "process": asdict(self._identity),
+            "session_id": self._session,
+            "account_hash": expected_account,
+            "model": n.policy.model,
+            "effort": n.policy.effort,
+            "original_startup_ref": self._original_ref,
             "original_startup_digest": self._original_digest,
             "original_identity_not_after": self.original_identity_not_after,
             "execution_not_after": self.execution_not_after,
         }
         current = self.journal._append("trace", payload, sources=(reference,), expires_at=expires)
         observed = IdentityObservation(
-            current, data["observed_at"], expires, self._original_ref,
-            self.original_identity_not_after, self.execution_not_after,
+            current,
+            data["observed_at"],
+            expires,
+            self._original_ref,
+            self.original_identity_not_after,
+            self.execution_not_after,
         )
         self._issued[current] = observed
         self._current = observed
-        prepared = self.prepare()
+        prepared = self.prepare(cancelled=cancelled)
         # Later SDK system/init frames must consume this successfully verified
         # same-native auth child, not the expired original startup auth receipt.
         # The original signed startup and its sources remain unchanged.

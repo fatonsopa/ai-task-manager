@@ -244,6 +244,32 @@ class PinnedModelGuard:
             self._check_bound()
 
     @contextmanager
+    def observation_boundary(self, *, cancelled=None, not_after=None):
+        """Serialize an observation before Root/Core; never use inside their locks.
+
+        A closing identity helper can leave this wait without needing the effect
+        owner to finish first. Core-held consumers retain the nonblocking path.
+        """
+        while True:
+            if (cancelled is not None and cancelled.is_set()) or (
+                not_after is not None and self.journal.clock() >= not_after
+            ):
+                raise AccessDenied("Native observation stopped or expired while waiting")
+            if self._lock.acquire(timeout=0.05):
+                break
+        try:
+            if (cancelled is not None and cancelled.is_set()) or (
+                not_after is not None and self.journal.clock() >= not_after
+            ):
+                raise AccessDenied("Native observation stopped or expired before consumption")
+            if self.configuration is not None:
+                self.configuration.check_metadata()
+            self._check_bound()
+            yield
+        finally:
+            self._lock.release()
+
+    @contextmanager
     def startup_current_boundary(self):
         """Nonblocking reverse point observation while Core consumes startup.
 

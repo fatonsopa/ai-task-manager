@@ -27,14 +27,16 @@ class IdentityRefresh:
     def ensure_current(self):
         if (
             (self.observations, self.root, self.maximum) != self._bound
-            or self._stop.is_set() or self._failure is not None
+            or self._stop.is_set()
+            or self._failure is not None
         ):
             raise AccessDenied("Identity refresh is stopped, failed or rebound")
         observer = self.observations
-        prepared = observer.prepare()
+        prepared = observer.prepare(cancelled=self._stop)
         remaining = prepared.observation.expires_at - observer.journal.clock()
-        if (prepared.observation.expires_at >= observer.execution_not_after
-                or remaining > max(15, 2 * self._latency + 2)):
+        if prepared.observation.expires_at >= observer.execution_not_after or remaining > max(
+            15, 2 * self._latency + 2
+        ):
             return prepared
         if not self._collect.acquire(blocking=False):
             return prepared  # The old issued observation remains fresh during collection.
@@ -44,11 +46,13 @@ class IdentityRefresh:
             self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
             self._count += 1
             started = time.monotonic()
-            result = observer.refresh(self.root / str(self._count))
+            result = observer.refresh(self.root / str(self._count), cancelled=self._stop)
             self._latency = max(self._latency, time.monotonic() - started)
-            if (result.observation.expires_at < observer.execution_not_after
-                    and result.observation.expires_at - observer.journal.clock()
-                    <= max(15, 2 * self._latency + 2)):
+            if (
+                result.observation.expires_at < observer.execution_not_after
+                and result.observation.expires_at - observer.journal.clock()
+                <= max(15, 2 * self._latency + 2)
+            ):
                 raise AccessDenied("Fresh identity leaves no safe next observation window")
             return result
         except BaseException as error:
@@ -68,6 +72,8 @@ class IdentityRefresh:
                 try:
                     self.ensure_current()
                 except BaseException as error:
+                    if self._stop.is_set():
+                        return
                     self._failure = type(error).__name__
                     self.observations.revoke()
                     if self._on_failure is not None:
@@ -77,12 +83,17 @@ class IdentityRefresh:
         self._thread = threading.Thread(target=run, name="managed-identity-refresh", daemon=True)
         self._thread.start()
 
-    def close(self):
+    def request_stop(self):
         self._stop.set()
+        self.observations.revoke()
+
+    def close(self):
+        self.request_stop()
         thread = self._thread
         if thread is not None and thread is not threading.current_thread():
-            remaining = max(0, self.observations.execution_not_after
-                            - self.observations.journal.clock())
+            remaining = max(
+                0, self.observations.execution_not_after - self.observations.journal.clock()
+            )
             thread.join(timeout=min(16, remaining))
         self.observations.revoke()
         return thread is None or not thread.is_alive()

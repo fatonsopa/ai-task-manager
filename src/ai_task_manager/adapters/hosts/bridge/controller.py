@@ -303,7 +303,10 @@ class ManagedNativeHost:
             self.startup.assert_stable()
             self._flush_source_observations()
             if self.authority is not None:
-                self.authority.check_prepared()
+                # Transport observation has not acquired Core. Serialize its
+                # current-only authority check, then release before Core lookup.
+                with self.startup.model_guard.observation_boundary(not_after=self.binding.deadline):
+                    self.authority.check_prepared()
             return self.core.execution.validate_work_lease(handle, attempt.id, attempt.version)
 
     def verify_active(self):
@@ -398,7 +401,9 @@ class ManagedNativeHost:
             errors = []
             if self.identity is not self._identity_bound:
                 raise AccessDenied("The installed identity helper owner changed")
-            identity_stopped = self.identity.close() if self.identity is not None else True
+            if self.identity is not None:
+                self.identity.request_stop()
+            identity_stopped = self.identity is None
             try:
                 if not self._session_close_attempted:
                     self._session_close_attempted = True
@@ -424,6 +429,10 @@ class ManagedNativeHost:
             try:
                 stopped = self.process.stop()
             finally:
+                # Closing the transport releases pending input/reader work;
+                # only then wait for the already-cancelled identity collector.
+                if self.identity is not None:
+                    identity_stopped = self.identity.close()
                 for stage, error in errors:
                     self.journal._append(
                         "trace",
