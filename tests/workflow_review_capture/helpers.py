@@ -29,11 +29,14 @@ from tests.runtime.helpers import ProviderFixture
 from tests.scheduling.helpers import known_declaration
 
 
-def reviewer(author, root, verdict=None):
+def reviewer(author, root, verdict=None, *, host="claude", model="claude-opus-5-5"):
     root.mkdir(mode=0o700)
+    journals = root / "journals"
+    journals.mkdir(mode=0o700)
+    (root / "hosts").mkdir(mode=0o700)
     r, runtime = author.r, author.runtime
     r.now = time.time()
-    r.capacity = CapacityPolicy("claude", 2, 2)
+    r.capacity = CapacityPolicy(host, 2, 2)
     r.core = r.new_core()
     inspection = author.artifacts.prepare(author.scope, author.task, author.saved["digest"])
     prompt = review_prompt(inspection)
@@ -54,7 +57,7 @@ def reviewer(author, root, verdict=None):
     task = r.confirm(task)
     r.known_dependencies[task.id] = ((), "normal")
     known_declaration(r, task)
-    b = bundle(root / "native", "claude", "claude-opus-5-5", task_id=task.id)
+    b = bundle(root / "native", host, model, task_id=task.id)
     executable = root / "authored-review-cli"
     data = verdict or {
         "context_digest": inspection.digest,
@@ -70,9 +73,14 @@ def reviewer(author, root, verdict=None):
         + repr(data)
         + ') if "Independently review" in json.dumps(value) else "READY"),',
     )
+    if host == "codex":
+        from ai_task_manager.config.files import digest
+        from tests.hosts.fixture_cli import ACCOUNT
+
+        source = codex_script(data, model)
     executable.write_text("#!" + sys.executable + "\n" + source)
     executable.chmod(0o700)
-    store = NativeStore.create(root / "native.sqlite")
+    store = NativeStore.create(journals / "native.sqlite")
     spec = json.loads(b.installation.read_text())
     spec["scope"] = asdict(r.scope)
     write_private(b.installation, spec, replace=True)
@@ -81,7 +89,9 @@ def reviewer(author, root, verdict=None):
         installation=installation_intent(b.installation),
         executable=str(executable),
         executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
-        account_hash=claude_account_hash(
+        account_hash=digest(ACCOUNT)
+        if host == "codex"
+        else claude_account_hash(
             {"email": "fixture@example.invalid", "orgId": "authored-org", "userId": "authored-user"}
         ),
     )
@@ -95,11 +105,19 @@ def reviewer(author, root, verdict=None):
         identity_refreshes=(),
         conformance_ref="authored-not-live",
     )
-    source = NormalAuthoritySource(manifest, conformance=AuthoredRestrictions())
+
+    class DeclaredCodexRestrictions(AuthoredRestrictions):
+        def require_native_conformance(self, *args):
+            # Declared contract input for this authored Python executable only.
+            assert manifest.data["executable"] == str(executable)
+            return "authored-codex-protocol-not-genuine-conformance"
+
+    restrictions = DeclaredCodexRestrictions() if host == "codex" else AuthoredRestrictions()
+    source = NormalAuthoritySource(manifest, conformance=restrictions)
     registration = resolve(b.config, b.installation, authority_source=source).require(
         "normal-native"
     )
-    journal = HostJournal(root / "host.sqlite", root / "host.key")
+    journal = HostJournal(journals / "host.sqlite", journals / "host.key")
     context = NativeContext(
         r.core,
         r.handle,
@@ -118,11 +136,11 @@ def reviewer(author, root, verdict=None):
         root / "hosts",
         authority.policy_builder,
         authority.launch_permits,
-        {"claude": b.data["account_hash"]},
-        model_profiles={"claude": registration.profile},
+        {host: b.data["account_hash"]},
+        model_profiles={host: registration.profile},
     )
     proofs = RuntimeProofs(
-        runtime.journal, root / "runtime.key", host_startups=factory.startup_verifier
+        runtime.journal, journals / "runtime.key", host_startups=factory.startup_verifier
     )
     r.core.context.evidence = EvidenceRouter(
         [
@@ -134,7 +152,7 @@ def reviewer(author, root, verdict=None):
     )
     executions = ReviewedExecutions(
         journal,
-        {"review": ModelWork(task.id, "claude", prompt, "assignment")},
+        {"review": ModelWork(task.id, host, prompt, "assignment")},
         authority.model_accounting,
         NoCommands(),
     )
@@ -158,3 +176,19 @@ def reviewer(author, root, verdict=None):
 
     producer = NativeReviewCapture(workers, r.handle, task.id, registration, "review", decision)
     return inspection, producer
+
+
+def codex_script(data, model):
+    source = Path(__file__).parents[1].joinpath("hosts/fixture_cli.py").read_text()
+    source = source.replace('"synthetic-no-model"', repr(model))
+    source = source.replace(
+        '            tool("synthetic-owned-call", "synthetic-turn")',
+        '            send({"method": "item/completed", "params": {"threadId": THREAD, '
+        '"turnId": "synthetic-turn", "item": {"id": "review-output", '
+        '"type": "agentMessage", "phase": "final_answer", "text": json.dumps('
+        + repr(data)
+        + ")}}})\n"
+        '            send({"method": "turn/completed", "params": {"threadId": THREAD, '
+        '"turn": {"id": "synthetic-turn", "status": "completed"}}})',
+    )
+    return source

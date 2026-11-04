@@ -94,8 +94,8 @@ class NormalReviewerFactory:
             return self.producers[inspection.digest]
         registry = resolve(self.author.config.path, spec.seal.path, role="reviewer")
         registration = registry.require(d["native_ref"])
-        if registration.host != "claude":
-            raise AccessDenied("The existing independent native review producer is Claude-only")
+        if registration.host not in {"claude", "codex"}:
+            raise AccessDenied("Independent native review requires a supported managed host")
         service = load_service(self.author.config.path, **self.options)
         core, handle = service.core, service.handle
 

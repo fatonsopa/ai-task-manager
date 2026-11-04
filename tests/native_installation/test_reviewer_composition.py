@@ -44,7 +44,7 @@ def installed(tmp_path, monkeypatch, request):
     r = author.r
     r.now = time.time()
     r.policy = ApprovalPolicy("a" * 64, "b" * 64, "c" * 64)
-    r.capacity = CapacityPolicy("claude", 2, 2)
+    r.capacity = CapacityPolicy("codex" if getattr(request, "param", None) else "claude", 2, 2)
     r.core = r.new_core()
     inspection = author.artifacts.prepare(author.scope, author.task, author.saved["digest"])
     prose = TaskProse("Independent review of the owned artifact", review_prompt(inspection), False)
@@ -133,11 +133,21 @@ def installed(tmp_path, monkeypatch, request):
         native_module, "resolve", lambda *a, **kw: resolve(*a, **{**kw, "service_options": options})
     )
     # The real resolver selects the factory; external service ports are declared contracts.
+    codex_model = getattr(request, "param", None)
+
+    class DeclaredReviewerRestrictions(AuthoredRestrictions):
+        def require_native_conformance(self, manifest, *args):
+            assert codex_model is not None and manifest.data["host"] == "codex"
+            assert Path(manifest.data["executable"]).name == "declared-native"
+            return "authored-codex-contract-not-genuine-conformance"
+
     original_source = normal.NormalAuthoritySource
     monkeypatch.setattr(
         normal,
         "NormalAuthoritySource",
-        lambda *a, **kw: original_source(*a, **{**kw, "conformance": AuthoredRestrictions()}),
+        lambda *a, **kw: original_source(
+            *a, **{**kw, "conformance": DeclaredReviewerRestrictions()}
+        ),
     )
     deadline = time.time() + 60
     verdict = {
@@ -158,9 +168,16 @@ def installed(tmp_path, monkeypatch, request):
     stores = {}
 
     def install(name, selected, role, extra):
-        b = bundle(root / name, "claude", "claude-opus-5-5", task_id=selected.id)
+        host = "codex" if codex_model is not None and role == "reviewer" else "claude"
+        model = codex_model if host == "codex" else "claude-opus-5-5"
+        b = bundle(root / name, host, model, task_id=selected.id)
+        selected_script = script
+        if host == "codex":
+            from tests.workflow_review_capture.helpers import codex_script
+
+            selected_script = codex_script(verdict, model)
         executable = b.root / "declared-native"
-        executable.write_text("#!" + sys.executable + "\n" + script)
+        executable.write_text("#!" + sys.executable + "\n" + selected_script)
         executable.chmod(0o700)
         store = NativeStore.create(b.root / "permission.sqlite")
         spec = {
@@ -185,13 +202,18 @@ def installed(tmp_path, monkeypatch, request):
             **extra,
         }
         write_private(b.installation, spec, replace=True)
+        from ai_task_manager.config.files import digest
+        from tests.hosts.fixture_cli import ACCOUNT
+
         b.data.update(
             authority_store=store.pointer,
             config=file_binding(config),
             installation=installation_intent(b.installation),
             executable=str(executable),
             executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
-            account_hash=claude_account_hash(
+            account_hash=digest(ACCOUNT)
+            if host == "codex"
+            else claude_account_hash(
                 {
                     "email": "fixture@example.invalid",
                     "orgId": "authored-org",

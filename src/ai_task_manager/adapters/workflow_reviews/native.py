@@ -13,6 +13,7 @@ from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.installation.workflows.registry import NativeRegistration
 from ai_task_manager.supervisor.managed import ManagedWorkers
 
+from .codex_terminal import CodexReviewTerminal
 from .models import Inspection
 
 
@@ -121,20 +122,22 @@ class NativeReviewCapture:
             return captured
         store.require_unused(inspection)
         prompt = review_prompt(inspection)
-        # Current ClaudeSession string-query framing is known before startup.
-        # Use the transport's actual validator; prompt byte length alone misses
-        # the extra JSON escaping in the outgoing request.
-        NativeInput.frames(
-            json.dumps(
-                {
-                    "type": "user",
-                    "message": {"role": "user", "content": prompt},
-                    "parent_tool_use_id": None,
-                    "session_id": "default",
-                }
-            )
-            + "\n"
+        # Validate escaped protocol size before admitting a reviewer process.
+        frame = (
+            {
+                "type": "user",
+                "message": {"role": "user", "content": prompt},
+                "parent_tool_use_id": None,
+                "session_id": "default",
+            }
+            if self.registration.host == "claude"
+            else {
+                "id": 1,
+                "method": "turn/start",
+                "params": {"threadId": "0" * 36, "input": [{"type": "text", "text": prompt}]},
+            }
         )
+        NativeInput.frames(json.dumps(frame) + "\n")
         w, registration = self.workers, self.registration
         registration.check()
         core = w.core
@@ -155,7 +158,7 @@ class NativeReviewCapture:
             or plan.host != registration.host
             or w.hosts.accounts.get(registration.host) != registration.account_hash
             or w.hosts.model_profiles.get(registration.host) != registration.profile
-            or registration.host != "claude"
+            or registration.host not in {"claude", "codex"}
         ):
             raise EvidenceRequired("Distinct current exact-profile reviewer task/prompt required")
         directory = store.begin(
@@ -189,7 +192,14 @@ class NativeReviewCapture:
             native.gateway.delegate = ReadOnlyReviewGateway(
                 native.gateway.delegate, inspection, self.current_author
             )
-            w.execute_reviewed(self.handle, attempt.id, self.command_ref, key + ":execute")
+            codex = CodexReviewTerminal(native) if registration.host == "codex" else None
+            if codex is not None:
+                native.startup.transcript.listen(codex.observe)
+            try:
+                w.execute_reviewed(self.handle, attempt.id, self.command_ref, key + ":execute")
+            finally:
+                if codex is not None:
+                    native.startup.transcript.unlisten(codex.observe)
             settled = core.get_attempt(self.handle, attempt.id)
             if settled.state != "done" or not native.process._closed:
                 raise EvidenceRequired("Review completion requires actual confirmed owned stop")
@@ -203,22 +213,31 @@ class NativeReviewCapture:
                 or payload.get("worker_id") != native.binding.worker_id
                 or payload.get("configuration_digest") != native.binding.configuration_digest
                 or payload.get("process") != asdict(native.process.identity)
-                or frame.get("type") != "result"
-                or frame.get("subtype") != "success"
-                or frame.get("is_error") is not False
-                or frame.get("session_id") != native.startup.native_session
                 or startup["payload"].get("model") != registration.profile.model
             ):
                 raise EvidenceRequired(
                     "Matching actual independent native terminal/profile required"
                 )
-            verdict = strict_json(frame["result"])
+            answer = None
+            if codex is not None:
+                text, answer = codex.decode(terminal)
+            else:
+                if (
+                    frame.get("type") != "result"
+                    or frame.get("subtype") != "success"
+                    or frame.get("is_error") is not False
+                    or frame.get("session_id") != native.startup.native_session
+                ):
+                    raise EvidenceRequired("Matching actual Claude review terminal required")
+                text = frame["result"]
+            verdict = strict_json(text)
             expected = [c[0] for c in context["criteria"]]
             if (
                 type(verdict) is not dict
                 or set(verdict) != {"context_digest", "criteria", "reason"}
                 or verdict["context_digest"] != inspection.digest
                 or type(verdict["criteria"]) is not list
+                or any(type(c) is not dict for c in verdict["criteria"])
                 or [c.get("id") for c in verdict["criteria"]] != expected
                 or any(
                     type(c) is not dict
@@ -253,6 +272,8 @@ class NativeReviewCapture:
                 "reviewer_binding": asdict(native.binding),
                 "reviewer_attempt": asdict(settled),
             }
+            if answer is not None:
+                trace["answer"] = answer
             self._completion_token = object()
             self._completion = (inspection.digest, record, trace, native, settled)
             self._completed = CompletedNativeReview(self, self._completion_token)
@@ -295,4 +316,10 @@ class NativeReviewCapture:
             != trace["terminal"]
         ):
             raise EvidenceRequired("Completed native review provenance changed")
+        if (
+            "answer" in trace
+            and native.journal._read(trace["answer"]["ref"], "trace", fresh=False)
+            != trace["answer"]
+        ):
+            raise EvidenceRequired("Completed Codex review answer provenance changed")
         return record, trace
