@@ -184,6 +184,14 @@ class WorkflowService:
                     outcomes.append({"workflow": reference, **found})
                     continue
                 if attempt.state not in ACTIVE_ATTEMPTS:
+                    started = row["steps"].get("start", {}).get("result") or {}
+                    if (
+                        started.get("failed_start") is True
+                        and started.get("attempt_id") == attempt.id
+                        and started.get("state") == attempt.state == "failed"
+                        and started.get("quiescent") is True
+                    ):
+                        outcomes.append({"workflow": reference, **started})
                     continue
                 pair = driver.runtime.pair(attempt.id)
                 if (

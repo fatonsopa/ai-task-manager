@@ -281,6 +281,40 @@ class Execution:
 
         return attempts.attempt_from(self.c.mutation(handle, operation_key, payload, action))
 
+    def existing_reservation(
+        self,
+        handle,
+        task_id,
+        host,
+        expected_version,
+        decision_revision,
+        decision_ref,
+        operation_key,
+    ):
+        """Read an exact committed reservation; absence never creates another attempt."""
+        payload = {
+            "command": "reserve",
+            "task_id": task_id,
+            "host": host,
+            "version": expected_version,
+            "revision": decision_revision,
+            "decision_ref": decision_ref,
+        }
+        with self.c.db.transaction() as conn:
+            sid, _ = sessions.resolve(conn, handle)
+            recorded = work.replay(conn, sid, operation_key, payload)
+            if recorded is None:
+                return None
+            original = attempts.attempt_from(recorded)
+            if (original.task_id, original.session_id, original.host, original.state) != (
+                task_id,
+                sid,
+                host,
+                A.RESERVED,
+            ):
+                raise EvidenceRequired("Reservation operation does not match its execution owner")
+            return attempts.get(conn, sid, original.id)
+
     def start(
         self,
         handle,
