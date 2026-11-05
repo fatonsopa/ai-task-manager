@@ -306,3 +306,45 @@ def test_more_than_four_declared_commands_have_one_pinned_phase_budget(owned):
     assert result["groups"]["checks"]["result"]["physical_count"] == 5
     assert len(owner.runner.jobs) == 5
     assert all(job["stop"].confirmed for job in owner.runner.jobs.values())
+
+
+def test_uncovered_allowed_file_refuses_default_resolution_before_admission(owned):
+    spec = json.loads(owned.bundle.installation.read_text())
+    spec["files"].append("unknown.py")
+    write_private(owned.bundle.installation, spec, replace=True)
+    owned.reseal()
+    with pytest.raises(AccessDenied, match="cover every allowed or changed file"):
+        owned.resolve()
+    assert not owned.journal._intents()
+
+
+@pytest.mark.parametrize("covered", [False, True])
+def test_new_candidate_file_requires_actual_declared_snapshot_input(tmp_path, covered):
+    value = Provisioned(tmp_path / "owned", new_file="new.py", cover_new_file=covered)
+    try:
+        cap = value.prepare()
+        guard = cap.checks.checks.source_guard
+        if not covered:
+            with pytest.raises(AccessDenied, match="cover every allowed or changed file"):
+                cap.checks.prepare(
+                    value.candidate_profile, value.grant, value.candidate, "new-file"
+                )
+            assert not guard.runner.jobs
+            assert not value.journal._intents()
+            return
+        ref = cap.checks.prepare(value.candidate_profile, value.grant, value.candidate, "new-file")
+        scope = Scope(
+            value.r.scope.principal,
+            value.r.scope.project,
+            value.r.scope.logical_session,
+            value.task.id,
+        )
+        plan = cap.checks.checks.store.read(ref, scope)["plan"]
+        assert "new.py" in {fact.name for unit in plan.units for fact in unit.inputs}
+        result = cap.checks.checks.run(ref, scope)
+        assert result["outcome"] == "passed", result
+        assert len(guard.runner.jobs) == 1
+        snapshot = next(iter(guard.runner.jobs.values()))["directory"] / "input/new.py"
+        assert snapshot.read_text() == "new input"
+    finally:
+        value.close()

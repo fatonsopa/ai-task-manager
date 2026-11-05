@@ -158,6 +158,7 @@ class CodeProvisioning:
             v["command_ref"] for v in self.units.values()
         } != {v.reference for v in self.commands.definitions}:
             raise ValidationError("Every installed command needs exactly one check unit")
+        self.require_coverage(installation.get("files", ()))
         self.registration = CodeRegistration(
             self.policy.path, self.prepare, sources=(self.seal, self.catalog, self.commands.seal)
         )
@@ -210,6 +211,11 @@ class CodeProvisioning:
     def prepare_commands(self, context):
         self.check()
         return self.commands.prepare(context, maximum_jobs=self.maximum_jobs)
+
+    def require_coverage(self, paths):
+        covered = {path for definition in self.commands.definitions for path in definition.files}
+        if not set(paths) <= covered:
+            raise AccessDenied("Installed check recipes do not cover every allowed or changed file")
 
     def prepare(self, context):
         self.check()
@@ -368,11 +374,11 @@ class CandidateCheckOwner:
         )
         self.selected = (candidate, grant, pair, cp, store)
         self._require_new_work()
-        units = self._units()
         if not self._verify_source():
             raise AccessDenied(
                 "Published candidate permits evidence consumption, not new discovery"
             )
+        units = self._units()
         return self._discovery(units)
 
     def _discovery(self, units):
@@ -439,6 +445,21 @@ class CandidateCheckOwner:
             ).stdout
         ):
             raise AccessDenied("Candidate check source or target changed")
+        changed = cp.query(
+            candidate.path,
+            "diff",
+            "--name-only",
+            "--no-renames",
+            "-z",
+            grant.target_head,
+            candidate.commit,
+            "--",
+        ).stdout
+        try:
+            paths = tuple(path.decode("utf-8") for path in changed.split(b"\0") if path)
+        except UnicodeDecodeError:
+            raise AccessDenied("Changed candidate paths require supported UTF-8 names") from None
+        self.source.require_coverage(paths)
         return not published
 
     def _publication_started(self):

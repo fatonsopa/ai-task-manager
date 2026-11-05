@@ -37,7 +37,7 @@ def pointer(path):
 
 
 class Provisioned:
-    def __init__(self, root):
+    def __init__(self, root, *, new_file=None, cover_new_file=False):
         root.mkdir(mode=0o700)
         self.root = root
         self.runtime = RuntimeRig(root / "runtime")
@@ -45,6 +45,8 @@ class Provisioned:
         self.r.now = time.time()
         repo = self.runtime.repo
         self.script = "from pathlib import Path\nassert Path('src/a.txt').read_text() == '4'\n"
+        if cover_new_file:
+            self.script += f"assert Path({new_file!r}).read_text() == 'new input'\n"
         for name, text in [("verify.py", self.script), ("src/a.txt", "0")]:
             path = repo / name
             path.parent.mkdir(exist_ok=True)
@@ -61,7 +63,8 @@ class Provisioned:
             self.runtime.command(
                 self.dispatch,
                 "from pathlib import Path; import subprocess; Path('src/a.txt').write_text('4'); "
-                "subprocess.run(['git','add','src/a.txt'],check=True); "
+                + (f"Path({new_file!r}).write_text('new input'); " if new_file else "")
+                + "subprocess.run(['git','add','.'],check=True); "
                 "subprocess.run(['git','commit','-qm','Owned authored change'],check=True)",
             ),
             operation_key=self.r.key(),
@@ -155,7 +158,8 @@ class Provisioned:
                         "recipe": "python-script",
                         "script": "verify.py",
                         "script_sha256": hashlib.sha256(self.script.encode()).hexdigest(),
-                        "files": ["verify.py", "src/a.txt"],
+                        "files": ["verify.py", "src/a.txt"]
+                        + ([new_file] if cover_new_file else []),
                         "seconds": 8,
                     }
                 ],
@@ -190,6 +194,7 @@ class Provisioned:
             scope=asdict(self.r.scope),
             prose_digest=self.task.prose_digest,
             code_ref="code",
+            files=["src/a.txt"] + ([new_file] if cover_new_file else []),
             deadline=time.time() + 300,
         )
         spec["code_digest"] = provisioning_digest(pointer(self.manifest), pointer(self.commands))
