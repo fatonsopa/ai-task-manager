@@ -1,10 +1,12 @@
 """Coordinate observed resource ownership without a second task policy."""
 
+from contextlib import contextmanager
 from pathlib import Path
 
 from ai_task_manager.domains.work.models import ACTIVE_ATTEMPTS
 from ai_task_manager.supervisor.models import ResourcePair, RuntimeRefused, RuntimeUncertain
 
+from .consumers import consumer_boundary
 from .git import GitWorktrees
 from .paths import confined, unchanged
 from .release import DeliveryReleasePolicy, RejectRemoval, RemovalReceipt
@@ -103,7 +105,33 @@ class ResourceManager:
         self.databases.inspect(pair.database, pair.attempt_id)
         return fact
 
+    @contextmanager
+    def use(self, pair):
+        """Pin physical resources; callers reverify after waits before consumption."""
+        self.journal.attempt(pair.attempt_id)
+        with self._consumer_boundary(pair.attempt_id):
+            yield self.verify(pair)
+
     def cleanup(self, core, handle, attempt_id):
+        self.journal.attempt(attempt_id)
+        with self._consumer_boundary(attempt_id, exclusive=True):
+            return self._cleanup(core, handle, attempt_id)
+
+    @contextmanager
+    def _consumer_boundary(self, attempt_id, *, exclusive=False):
+        with consumer_boundary(self.root, attempt_id, exclusive=exclusive) as (physical, created):
+            records = self.journal.observations(attempt_id, "consumer_fence")
+            if records and any(
+                {key: record.get(key) for key in physical} != physical for record in records
+            ):
+                raise RuntimeRefused("Resource consumer fence physical identity changed")
+            if not records:
+                if not created:
+                    raise RuntimeRefused("Resource consumer fence ownership is unconfirmed")
+                self.journal.observe(attempt_id, "consumer_fence", physical)
+            yield
+
+    def _cleanup(self, core, handle, attempt_id):
         attempt = core.get_attempt(handle, attempt_id)
         task = core.get_task(handle, attempt.task_id)
         if attempt.state in ACTIVE_ATTEMPTS or task.execution_state in {"merging", "unknown"}:
