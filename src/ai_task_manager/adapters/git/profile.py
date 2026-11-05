@@ -94,6 +94,47 @@ class Executable:
             raise AccessDenied("Git subprogram profile is unavailable")
         return hashlib.sha256(repr(rows).encode()).hexdigest()
 
+    @staticmethod
+    def _inventory_witness(path):
+        """Seal membership, routing and content metadata around initial hashing."""
+        root = Path(path)
+        physical(root)
+
+        def stamp(info):
+            return (
+                info.st_dev,
+                info.st_ino,
+                info.st_uid,
+                info.st_mode,
+                info.st_nlink,
+                info.st_size,
+                info.st_mtime_ns,
+                info.st_ctime_ns,
+            )
+
+        parents, entries = {}, []
+        for entry in sorted(root.iterdir()):
+            routing = None
+            if entry.name.startswith("git-") and entry.is_file():
+                resolved = entry.resolve()
+                for parent in resolved.parents:
+                    if parent not in parents:
+                        info = parent.lstat()
+                        parents[parent] = (
+                            info.st_dev,
+                            info.st_ino,
+                            info.st_uid,
+                            info.st_mode,
+                            info.st_nlink,
+                        )
+                routing = str(resolved), stamp(resolved.stat())
+            entries.append((entry.name, stamp(entry.lstat()), routing))
+        return (
+            stamp(root.stat()),
+            tuple(entries),
+            tuple(sorted((str(path), value) for path, value in parents.items())),
+        )
+
     @classmethod
     def capture(cls, path, environment):
         p = Path(path).absolute()
@@ -113,13 +154,30 @@ class Executable:
         ep = Path(values[1])
         if not ep.is_absolute():
             raise AccessDenied("Git exec path is not absolute")
-        return cls(str(p), ident, file_digest(p), values[0], str(ep), cls._manifest(ep))
+        before = cls._inventory_witness(ep)
+        manifest = cls._manifest(ep)
+        if cls._inventory_witness(ep) != before:
+            raise AccessDenied("Git subprogram inventory changed during initial hashing")
+        selected = cls(str(p), ident, file_digest(p), values[0], str(ep), manifest)
+        object.__setattr__(selected, "_exec_witness", (str(ep), before, manifest))
+        return selected
+
+    def _valid_inventory(self):
+        witness = getattr(self, "_exec_witness", None)
+        if witness is None:
+            return self._manifest(self.exec_path) == self.exec_manifest
+        path, inventory, manifest = witness
+        return (
+            path == self.exec_path
+            and manifest == self.exec_manifest
+            and self._inventory_witness(path) == inventory
+        )
 
     def validate(self):
         if (
             physical(self.path, directory=False) != self.identity
             or file_digest(self.path) != self.sha256
-            or self._manifest(self.exec_path) != self.exec_manifest
+            or not self._valid_inventory()
         ):
             raise AccessDenied("Selected Git executable profile changed")
 

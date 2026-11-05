@@ -3,7 +3,9 @@
 from contextlib import contextmanager
 from dataclasses import asdict, replace
 from pathlib import Path
+from uuid import UUID
 
+from ai_task_manager.config.files import digest
 from ai_task_manager.domains.merging.candidates import CandidateResult
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired, IdempotencyConflict
 
@@ -206,7 +208,14 @@ class CandidateService:
             target_head=selected.target_head,
             binding=replace(previous.binding, operation_key=selected.binding.operation_key),
         )
-        if selected != expected or selected.target_head == previous.target_head:
+        selected_key = "candidate-target:" + digest(
+            [asdict(previous.binding), selected.target_head]
+        )
+        if (
+            selected != expected
+            or selected.target_head == previous.target_head
+            or selected.binding.operation_key != selected_key
+        ):
             raise AccessDenied("Target successor cannot change original worker authority")
         self.authority.check_current(previous)
         self.profile.validate()
@@ -248,13 +257,44 @@ class CandidateService:
             raise AccessDenied("Candidate predecessor ownership is ambiguous")
         predecessor = prior[0] if prior else None
         if predecessor is not None:
-            self.store.owner(predecessor)
             data = self.store.get(predecessor)
             if any(
                 not effect.get("result", {}).get("group", {}).get("confirmed_stop")
                 for effect in data["effects"].values()
             ):
                 raise AccessDenied("Unresolved predecessor work retains candidate ownership")
+            pending = [
+                op
+                for op in operations
+                if op["binding"] == asdict(selected.binding)
+                and op["fingerprint"] == selected.binding.fingerprint
+                and not op["facts"]
+            ]
+            claim = self.store.journal.current(data["claim"])["facts"]
+            owner = claim.get("candidate_owner", {})
+            if pending and owner.get("operation") == pending[0]["ref"]:
+                prior_owner = {
+                    "operation": predecessor,
+                    "generation": data["generation"],
+                    "owner_ref": previous.owner_ref,
+                }
+                try:
+                    generation_ok = str(UUID(owner["generation"])) == owner["generation"]
+                except (KeyError, ValueError, TypeError):
+                    generation_ok = False
+                if (
+                    len(pending) != 1
+                    or not generation_ok
+                    or set(owner) != {"operation", "owner_ref", "generation"}
+                    or owner["owner_ref"] != selected.owner_ref
+                    or claim.get("candidate_owner_history", [])[-1:] != [prior_owner]
+                    or data.get("result", {}).get("status") != "target_moved"
+                ):
+                    raise AccessDenied("Pending candidate successor ownership differs")
+                if "resource" in data:
+                    self._verify_resource(predecessor)
+                return None if validate_only else self.prepare(selected)
+            self.store.owner(predecessor)
             observed = self.reconcile(predecessor, previous)
             if observed.status != "target_moved":
                 raise AccessDenied("Only a known target-moved candidate permits successor")

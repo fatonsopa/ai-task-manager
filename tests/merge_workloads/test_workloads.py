@@ -112,14 +112,49 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
     completed = []
     errors = []
     lock = threading.Lock()
+    stop_monitor = threading.Event()
+    peaks = {
+        "merge_controllers": 0,
+        "docker_watchers": 0,
+        "candidate_git_children": 0,
+        "publication_children": 0,
+    }
+    active_controllers = 0
+
+    def observe():
+        while not stop_monitor.is_set():
+            docker = candidates = publication = 0
+            for owner in owners:
+                jobs = list(owner.capability.checks.checks.source_guard.runner.jobs.values())
+                docker += sum(not getattr(job.get("stop"), "confirmed", False) for job in jobs)
+                candidates += len(owner.candidates.runner.live)
+                if owner.workflow:
+                    publication += sum(
+                        sum(len(children) for children in value.service.publisher._live.values())
+                        for value in list(owner.workflow.consumers.values())
+                    )
+            with lock:
+                peaks["docker_watchers"] = max(peaks["docker_watchers"], docker)
+                peaks["candidate_git_children"] = max(peaks["candidate_git_children"], candidates)
+                peaks["publication_children"] = max(peaks["publication_children"], publication)
+            stop_monitor.wait(0.02)
+
+    monitor = None
     try:
         for i in range(count):
             owners.append(Owner(project, i))
 
+        monitor = threading.Thread(target=observe, name="owned-workload-observer")
+        monitor.start()
+
         def deliver(owner):
+            nonlocal active_controllers
             owner.workflow = compose(owner)
             barrier.wait(timeout=10)
             began = time.monotonic()
+            with lock:
+                active_controllers += 1
+                peaks["merge_controllers"] = max(peaks["merge_controllers"], active_controllers)
             try:
                 result = owner.workflow.run(
                     owner.task.id, owner.workflow.plan.id, "ordered-delivery"
@@ -134,6 +169,10 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
                             "database": str(owner.pair.database),
                             "result": result,
                             "seconds": time.monotonic() - began,
+                            "prepared_before_call_seconds": began - owner.queued_at,
+                            "database_seconds": owner.database_seconds,
+                            "worker_commit_seconds": owner.worker_commit_seconds,
+                            "setup_seconds": owner.setup_seconds,
                             "stages": owner.workflow.timings,
                         }
                     )
@@ -148,6 +187,9 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
                         }
                     )
                 raise
+            finally:
+                with lock:
+                    active_controllers -= 1
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=count) as pool:
             futures = [pool.submit(deliver, owner) for owner in owners]
@@ -161,9 +203,18 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
             )
             assert git(owner.pair.worktree, "rev-parse", "HEAD") == owner.grant.source_head
             assert len(owner.runtime.runtime.workers) == 1
+            git(project.repo, "merge-base", "--is-ancestor", owner.grant.source_head, "integration")
+        assert peaks["merge_controllers"] == count
+        assert peaks["docker_watchers"] <= 4
+        assert peaks["publication_children"] <= 1
+        assert len({owner.pair.database.stat().st_ino for owner in owners}) == count
         assert len({owner.task.id for owner in owners}) == count
         assert time.monotonic() - started <= 600
     finally:
+        stop_monitor.set()
+        if monitor is not None:
+            monitor.join(2)
+            assert not monitor.is_alive()
         (tmp_path / f"contenders-{count}-timings.json").write_text(
             json.dumps(
                 {
@@ -171,6 +222,13 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
                     "seconds": time.monotonic() - started,
                     "completed": completed,
                     "errors": errors,
+                    "observed_peaks": peaks,
+                    "sampling_seconds": 0.02,
+                    "peak_definition": (
+                        "Started owned Docker watchers until confirmed stop; "
+                        "Git children from existing product live-child maps. "
+                        "Sampling does not reap or signal processes."
+                    ),
                 },
                 indent=2,
             )
