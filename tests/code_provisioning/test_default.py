@@ -237,6 +237,41 @@ def test_recorded_publication_cannot_reauthorize_old_target(owned, monkeypatch):
     assert not owned.journal._intents()
 
 
+@pytest.mark.parametrize("operation", ["discover", "execute"])
+def test_pending_publication_refuses_new_checks_but_allows_evidence_validation(owned, operation):
+    from dataclasses import asdict, replace
+
+    cap = owned.prepare()
+    ref = cap.checks.prepare(
+        owned.candidate_profile, owned.grant, owned.candidate, "pending-intent"
+    )
+    scope = Scope(
+        owned.r.scope.principal, owned.r.scope.project, owned.r.scope.logical_session, owned.task.id
+    )
+    plan = cap.checks.checks.store.read(ref, scope)["plan"]
+    guard = cap.checks.checks.source_guard
+    candidate, grant, _, _, store = guard.selected
+    binding = replace(grant.binding, operation_key="owned-pending-publication")
+    saved = store.journal.register(asdict(binding), binding.fingerprint)
+    store.journal.commit(
+        saved["ref"],
+        0,
+        "intent",
+        "publication_intent",
+        {"publication_intent": {"new": candidate.commit}},
+    )
+    # The original target has not moved and prior input facts still validate.
+    guard.verify(plan)
+    assert not guard.runner.jobs
+    with pytest.raises(AccessDenied, match="Frozen publication intent"):
+        if operation == "discover":
+            guard.discover(candidate)
+        else:
+            guard.execute(plan, "checks", ("verify",))
+    assert not guard.runner.jobs
+    assert not owned.journal._intents()
+
+
 @pytest.mark.parametrize("maximum", [0, -1, True, 65, 1.5, "8"])
 def test_retained_budget_invalid_types_refuse_before_constructor_effects(maximum):
     from ai_task_manager.adapters.hosts.bridge.containers import DockerCommands

@@ -367,6 +367,7 @@ class CandidateCheckOwner:
             Path(candidate.path), candidate.candidate_ref, data["resource"]["physical"]
         )
         self.selected = (candidate, grant, pair, cp, store)
+        self._require_new_work()
         units = self._units()
         if not self._verify_source():
             raise AccessDenied(
@@ -449,6 +450,12 @@ class CandidateCheckOwner:
             } and op["facts"].get("publication_intent", {}).get("new") == candidate.commit:
                 return True
         return False
+
+    def _require_new_work(self):
+        if self._publication_started():
+            raise AccessDenied(
+                "Frozen publication intent permits evidence consumption, not new checks"
+            )
 
     def _published(self, candidate, grant, cp, store):
         """Observe only the exact canonical workflow's recorded quiescent CAS."""
@@ -551,6 +558,7 @@ class CandidateCheckOwner:
 
     def execute(self, plan, group, names):
         self.verify(plan)
+        self._require_new_work()
         if not self._verify_source():
             raise AccessDenied(
                 "Published candidate permits evidence consumption, not new execution"
@@ -567,6 +575,7 @@ class CandidateCheckOwner:
 
             def boundary():
                 self.verify(plan)
+                self._require_new_work()
                 job = self.runner.jobs.get("container:" + key)
                 if job is not None:
                     snapshot = job["directory"] / "input.sqlite"
