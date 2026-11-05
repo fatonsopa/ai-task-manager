@@ -49,3 +49,63 @@ def test_delivery_dependency_collection_never_revives_expired_or_foreign_authori
             controller.close()
             assert controller._thread is None or not controller._thread.is_alive()
         fixture.close()
+
+
+def test_delivery_close_during_collection_publishes_no_new_observation(tmp_path):
+    fixture = WorkerFixture((tmp_path / "worker").resolve())
+    controller = None
+    try:
+        row = fixture.execute_only()
+        r = fixture.rig
+        source = AuthoredDependencyCollection(r.core, r.handle)
+        original = source.prepare
+        controller = DeliveryDependencies(r.core, r.handle, source, fixture.plan.deadline)
+        before = r.core.scheduling.explain(r.handle, row["task_id"])
+
+        def close_during_read(*args, **kwargs):
+            value = original(*args, **kwargs)
+            controller.close()
+            return value
+
+        source.prepare = close_during_read
+        controller.start(row)
+        assert controller._thread is None
+        assert (
+            r.core.scheduling.explain(r.handle, row["task_id"])["source_revision"]
+            == before["source_revision"]
+        )
+    finally:
+        if controller is not None:
+            controller.close()
+        fixture.close()
+
+
+def test_own_unit_progress_during_collection_keeps_exact_scope_and_graph(tmp_path):
+    fixture = WorkerFixture((tmp_path / "worker").resolve())
+    controller = None
+    try:
+        row = fixture.execute_only()
+        r = fixture.rig
+        source = AuthoredDependencyCollection(r.core, r.handle)
+        original = source.prepare
+        before = r.core.scheduling.explain(r.handle, row["task_id"])
+
+        def complete_during_read(*args, **kwargs):
+            value = original(*args, **kwargs)
+            r.complete(r.core.get_task(r.handle, row["task_id"]))
+            return value
+
+        source.prepare = complete_during_read
+        controller = DeliveryDependencies(r.core, r.handle, source, fixture.plan.deadline)
+        controller.start(row)
+        controller.check()
+        current = r.core.get_task(r.handle, row["task_id"])
+        assert current.completed_work == current.required_work
+        assert (
+            r.core.scheduling.explain(r.handle, current.id)["graph_version"]
+            == before["graph_version"]
+        )
+    finally:
+        if controller is not None:
+            controller.close()
+        fixture.close()

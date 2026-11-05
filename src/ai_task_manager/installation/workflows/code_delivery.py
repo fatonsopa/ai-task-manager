@@ -323,12 +323,13 @@ class InstalledCodeDelivery:
             self.evidence,
             clock=self.core.context.clock,
             candidate_reviews=reviews,
+            publication_lifecycle=self.freshness,
         )
         self.components[row["id"]] = component
         return component
 
     def advance(self, row, plan, owner):
-        self.freshness.start(row)
+        self.freshness.bind(row)
         current = (
             self.core,
             self.handle,
@@ -359,6 +360,7 @@ class InstalledCodeDelivery:
             self.resources.verify(pair)
             prior = row["steps"].get("code-plan")
             if prior is None:
+                self.freshness.start(row)
                 observed = self.inspector.inspect(task, attempt, plan)
                 self._step(row, owner, "verify", {"attempt_id": attempt.id}, lambda: observed)
                 issuer = CodeWorkerUnitIssuer(

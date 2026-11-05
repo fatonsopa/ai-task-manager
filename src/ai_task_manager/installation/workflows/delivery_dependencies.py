@@ -18,6 +18,9 @@ class DeliveryDependencies:
         self._error = None
         self._assignment = None
         self._graph = None
+        self._mode = "idle"
+        self._publication = None
+        self._row = None
 
     def _facts(self):
         if (self.core, self.handle, self.source, self.deadline) != self._bound:
@@ -46,6 +49,8 @@ class DeliveryDependencies:
         if task.delivered_once:
             self._stop.set()
             return
+        if task.observed_status != "In Progress" or task.sync_state != "confirmed":
+            raise AccessDenied("Delivery dependency observation requires confirmed current work")
         before = self.core.scheduling.explain(self.handle, task.id)
         now = self.core.context.clock()
         if self._graph is None:
@@ -59,7 +64,11 @@ class DeliveryDependencies:
         prepared = self.source.prepare(
             task.id, key, expected_version=task.version, decision_revision=task.decision_revision
         )
-        self._facts()
+        if self._stop.is_set():
+            return
+        current, _ = self._facts()
+        if current.observed_status != "In Progress" or current.sync_state != "confirmed":
+            raise AccessDenied("Task synchronization changed during dependency collection")
         now = self.core.context.clock()
         if time.monotonic() - started > 20 or now >= min(before["expires_at"], self.deadline):
             raise AccessDenied("Dependency collection outlived its prior current authority")
@@ -67,7 +76,12 @@ class DeliveryDependencies:
         if latest["state"] != "ready" or latest["graph_version"] != before["graph_version"]:
             raise AccessDenied("Dependency graph changed while collecting delivery facts")
         after = self.core.scheduling.observe(
-            self.handle, task.id, task.version, task.decision_revision, prepared.snapshot_ref, key
+            self.handle,
+            task.id,
+            current.version,
+            task.decision_revision,
+            prepared.snapshot_ref,
+            key,
         )
         if after["state"] != "ready" or after["graph_version"] != before["graph_version"]:
             raise AccessDenied("Changed dependency facts require guarded reconciliation")
@@ -85,7 +99,7 @@ class DeliveryDependencies:
         ):
             pass
 
-    def start(self, row):
+    def bind(self, row):
         assignment = (
             row["task_id"],
             row["attempt_id"],
@@ -94,18 +108,72 @@ class DeliveryDependencies:
         )
         if self._assignment is not None and assignment != self._assignment:
             raise AccessDenied("Delivery dependency task/attempt binding changed")
-        self._assignment = assignment
+        self._assignment, self._row = assignment, row
+        self._facts()
+
+    def start(self, row=None):
+        self.bind(row if row is not None else self._row)
+        if self._mode == "publication":
+            self.check()
+            return
         if self._thread is not None and self._thread.is_alive():
             self.check()
             return
         if self._error is not None:
             self.check()
         self._stop.clear()
+        self._mode = "observing"
         self._refresh()
         if self._stop.is_set():
             return
         self._thread = threading.Thread(target=self._run, name="delivery-dependencies", daemon=True)
         self._thread.start()
+
+    def before_fence(self, plan):
+        if (
+            self._assignment is None
+            or (plan.grant.binding.task_id, plan.grant.binding.attempt_id) != self._assignment[:2]
+        ):
+            raise AccessDenied("Publication handoff belongs to another delivery")
+        self.close()
+        if self._error is not None:
+            raise AccessDenied(
+                "Failed dependency observation cannot admit publication"
+            ) from self._error
+        self._facts()
+        # No generic issue-open lookup is permitted after Core has inserted the
+        # exact fence. New begin operations atomically require the current graph;
+        # identical committed begin operations retain their historical replay.
+        self._mode = "handoff"
+
+    def adopt_fence(self, plan, context, binding_digest, commit):
+        if context.binding_digest != binding_digest or context.commit != commit:
+            raise AccessDenied("Publication context differs from the exact selected binding")
+        self.before_fence(plan)
+        fact = self.core.publications.inspect(self.handle, plan.grant.binding.task_id, context)
+        intent = fact["intent"]
+        g = plan.grant
+        expected = {
+            "task_id": g.binding.task_id,
+            "attempt_id": g.binding.attempt_id,
+            "prose_digest": g.binding.prose_digest,
+            "task_version": g.task_version,
+            "attempt_version": g.attempt_version,
+            "decision_revision": g.decision_revision,
+            "decision_ref": g.decision_ref,
+            "source_ref": g.source_ref,
+            "source_head": g.source_head,
+            "old": g.target_head,
+            "binding_digest": binding_digest,
+            "commit": commit,
+        }
+        if any(intent.get(key) != value for key, value in expected.items()):
+            raise AccessDenied("Canonical publication intent belongs to another source or grant")
+        selected = (plan, context, binding_digest, commit)
+        if self._publication is not None and self._publication != selected:
+            raise AccessDenied("Retained publication handoff changed")
+        self._publication, self._mode = selected, "publication"
+        self.check()
 
     def _run(self):
         while not self._stop.wait(1):
@@ -119,18 +187,38 @@ class DeliveryDependencies:
     def check(self):
         if self._error is not None:
             raise AccessDenied("Delivery dependency observation failed") from self._error
-        if self._assignment is not None:
-            task, _ = self._facts()
-            if task.delivered_once:
-                return
-            current = self.core.scheduling.explain(self.handle, task.id)
-            if (
-                current["state"] != "ready"
-                or current["graph_version"] != self._graph
-                or not current["expires_at"]
-                or self.core.context.clock() >= current["expires_at"]
-            ):
-                raise AccessDenied("Delivery dependency authority is no longer current")
+        if self._assignment is None:
+            return
+        task, _ = self._facts()
+        if self._mode == "publication":
+            plan, context, _, _ = self._publication
+            fact = self.core.publications.inspect(self.handle, task.id, context)
+            if fact["state"] == "pending":
+                g = plan.grant
+                with self.core.execution.merge_snapshot_boundary(
+                    self.handle,
+                    task.id,
+                    g.binding.attempt_id,
+                    g.task_version,
+                    g.attempt_version,
+                    g.decision_revision,
+                    g.decision_ref,
+                    publication_context=context,
+                ):
+                    pass
+            # Committed canonical facts authorize only receipt consumption here.
+            # The existing publication consumer refuses any new Git effect.
+            return
+        if self._mode in {"idle", "handoff"} or task.delivered_once:
+            return
+        current = self.core.scheduling.explain(self.handle, task.id)
+        if (
+            current["state"] != "ready"
+            or current["graph_version"] != self._graph
+            or not current["expires_at"]
+            or self.core.context.clock() >= current["expires_at"]
+        ):
+            raise AccessDenied("Delivery dependency authority is no longer current")
 
     def close(self):
         self._stop.set()

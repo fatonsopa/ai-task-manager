@@ -1,10 +1,11 @@
 """Irreversible publication fences are independent of task-status authorization."""
 
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 from uuid import uuid4
 
 from ai_task_manager.domains.work.errors import EvidenceRequired
-from ai_task_manager.storage import issue_claims, merging_fences, work
+from ai_task_manager.storage import attempts, issue_claims, merging_fences, sessions, work
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,9 @@ class PublicationFences:
                 decision_revision,
                 decision_ref,
             )
+            # A new fence consumes the current original attempt's dependency
+            # graph atomically. Committed same-key replay returns before action.
+            self.c.scheduling.require(conn, scope, task, "lease", attempt)
             try:
                 proof = self.c.proof(prepared_intent_ref, "publication_intent", scope, task_id)
             except EvidenceRequired as error:
@@ -104,6 +108,28 @@ class PublicationFences:
             return asdict(context)
 
         return PublicationContext(**self.c.mutation(handle, operation_key, payload, action))
+
+    def inspect(self, handle, task_id, context):
+        """Read one exact scoped canonical fact; this never grants an effect."""
+        if type(context) is not PublicationContext:
+            raise EvidenceRequired("An exact typed canonical publication context is required")
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            task = work.get(conn, sid, task_id)
+            fact = merging_fences.current(conn, issue_claims.identity(scope, task.issue_id))
+            if fact is None or fact["context"] != asdict(context):
+                raise EvidenceRequired("The exact canonical publication context is unavailable")
+            intent = fact["intent"]
+            if (intent["task_id"], intent["issue_id"], intent["prose_digest"]) != (
+                task.id,
+                task.issue_id,
+                task.prose_digest,
+            ):
+                raise EvidenceRequired("Canonical publication belongs to another current task")
+            attempt = attempts.get(conn, sid, intent["attempt_id"])
+            if attempt.task_id != task.id:
+                raise EvidenceRequired("Canonical publication attempt belongs to another task")
+            return deepcopy(fact)
 
     def confirm(self, handle, task_id, context, actual_merge_ref, operation_key):
         if type(context) is not PublicationContext:
