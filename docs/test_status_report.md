@@ -96,6 +96,17 @@ DONE - Verified on 5 November 2026 through actual installed CLI processes and MC
 
 DONE - Verified on 5 November 2026. One final invocation of the complete required P02 pure gate passed 1,670 tests with zero failures, errors or skips in 98.279 seconds wall time (JUnit 94.595 seconds). All original selector entries, sixteen storage controls and every one of the prior nine failing nodes executed. It supports current canonical claim/capacity concurrency, exact-key replay, denied scope and durable Core recovery together with the API proof. Independent source acceptance closed the hard-link finding and retained the earlier needs-changes review. No previous pass was substituted for this final run; earlier setup, fixture and red attempts remain unchanged. Full private records bind source/package/test inputs, review, results and owned cleanup.
 
+<a id="p03-integrated-code-components"></a>
+### Integrated P03 code components on 5 November 2026
+
+DONE - The five additional completed component portions listed in the Implementation Plan (IP) are integrated at `3afb3ba6ece3ebeffb1b13583cb89e6b792a1618`. Independent review accepted all 59 changed runtime/test paths at source `f2a9770700fae92884a46148be83dfce9e44fa58`, reusing matching earlier reviews and inspecting the new shutdown, stage-binding and normal-fixture changes. Canonical documentation and manifest edits were preserved. These portions add no checklist units and do not mark a whole P03 required item or phase exit complete.
+
+The normal installed ordinary recovery control passed in 135.05 seconds. Its first CLI response was uncertain after the existing 120-second socket limit; one explicit same-key request retrieved canonical completion without another execution. CLI replay/resume, MCP resume, Git content, provider-fixture In Dev confirmation and one attempt for each of the three roles were checked. The installed wheel SHA-256 is `0b5a1e8ebba682d423de797cc56fb20d5561f9b51bad8cc4e70f503583bc628e`; all 330 runtime files matched source and installation. The earlier cache-clear reconstruction pass uses the same retained owner and is not an operating-system owner restart.
+
+The checks used declared local native-protocol and provider controls. They establish the supported implementation path, not genuine Claude Code/Codex account, model, tool-surface or live Linear acceptance. Earlier failed timeouts, scheduling refusals and uncertain native outcomes remain retained. Fresh observation found the 72 recorded process IDs, 52 groups and 16 exact containers absent across the four owned installed fixtures; it did not promote historical unknown records to successful outcomes.
+
+Remaining P03 work includes exact item/exit qualification, operating-system owner restart, complete resource retirement/recovery and representative workload/concurrency measurements, plus required genuine task/Git/Linear facts. No later phase is admitted by this component integration.
+
 <a id="p03-current-joins"></a>
 ### P03 delivery connections on 5 November 2026
 
