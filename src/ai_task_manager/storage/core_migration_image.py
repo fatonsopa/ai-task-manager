@@ -1,6 +1,7 @@
 """Retain an owned Core before-image, without restore or work authority.
 
-Automatic legacy migration supports DELETE-journal images up to 64 MiB. The
+Automatic legacy migration requires single-link source and evidence files,
+with independent physical identities, and DELETE-journal images up to 64 MiB. The
 bound limits serialization memory and retained disk I/O; larger stores refuse
 before capture or schema edits rather than silently skipping the before-image.
 Fresh stores need no historical image. Completed migrations cannot use this
@@ -21,6 +22,8 @@ def _identity(path, *, private=False):
     if path.is_symlink() or not path.is_file():
         raise SchemaError("Migration image requires an owned regular file")
     value = path.stat()
+    if value.st_nlink != 1:
+        raise SchemaError("Core migration files must have one physical link")
     if value.st_uid != os.getuid() or (private and value.st_mode & 0o777 != 0o600):
         raise SchemaError("Migration image ownership or permissions changed")
     return [value.st_dev, value.st_ino]
@@ -69,7 +72,9 @@ def preserve(conn, filename, version):
             finally:
                 os.close(fd)
         backup_identity = _identity(backup, private=True)
-        _identity(receipt, private=True)
+        receipt_identity = _identity(receipt, private=True)
+        if len({tuple(identity), tuple(backup_identity), tuple(receipt_identity)}) != 3:
+            raise SchemaError("Core source, before-image and receipt must be independent files")
         # Bound existing artifacts before reading them; incomplete capture refuses.
         if backup.stat().st_size > MAX_IMAGE_BYTES or receipt.stat().st_size > 4096:
             raise SchemaError("Core before-image evidence exceeds its supported bound")
@@ -78,7 +83,11 @@ def preserve(conn, filename, version):
             raise SchemaError("Core before-image is not this original migration snapshot")
         if hashlib.sha256(backup.read_bytes()).hexdigest() != expected["sha256"]:
             raise SchemaError("Core migration before-image content changed")
-        if _identity(path) != identity:
-            raise SchemaError("Core migration source identity changed")
+        if (
+            _identity(path) != identity
+            or _identity(backup, private=True) != backup_identity
+            or _identity(receipt, private=True) != receipt_identity
+        ):
+            raise SchemaError("Core migration source or evidence identity changed")
     except (OSError, ValueError, TypeError) as error:
         raise SchemaError("Core migration before-image is incomplete or unavailable") from error
