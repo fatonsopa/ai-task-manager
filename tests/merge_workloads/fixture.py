@@ -51,7 +51,10 @@ class Project:
         for i in range(4):
             (self.repo / f"features/{i}.txt").write_text("0\n" * 8)
             (self.repo / f"checks/{i}.py").write_text(
-                "import json\nfrom pathlib import Path\n"
+                "import json, sqlite3\nfrom pathlib import Path\n"
+                "with sqlite3.connect('file:/input-db.sqlite?mode=ro',uri=True) as database:\n"
+                "    owners=database.execute('SELECT attempt_id FROM fixture_owner').fetchall()\n"
+                "    assert len(owners)==1 and owners[0][0]\n"
                 "settings=json.loads(Path('settings.json').read_text())\n"
                 f"values=[int(v) for v in Path('features/{i}.txt').read_text().splitlines()]\n"
                 "assert len(values)==8\n"

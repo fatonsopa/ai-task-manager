@@ -68,6 +68,32 @@ def test_broad_eight_line_config_selects_all_four_checks(tmp_path):
     owner = Owner(project, 0, broad=True)
     started = time.monotonic()
     try:
+        owner.candidate = owner.candidates.prepare(owner.grant)
+        inputs = owner.capability.checks
+        from ai_task_manager.domains.checks.models import Scope
+
+        scope = Scope(
+            owner.r.scope.principal,
+            owner.r.scope.project,
+            owner.r.scope.logical_session,
+            owner.task.id,
+        )
+        before = time.monotonic()
+        cold_ref = inputs.prepare(
+            owner.candidates.profile, owner.grant, owner.candidate, "broad-cold"
+        )
+        cold = inputs.checks.run(cold_ref, scope)
+        cold_seconds = time.monotonic() - before
+        assert cold["outcome"] == "passed"
+        before = time.monotonic()
+        warm_ref = inputs.prepare(
+            owner.candidates.profile, owner.grant, owner.candidate, "broad-warm"
+        )
+        warm = inputs.checks.run(warm_ref, scope)
+        warm_seconds = time.monotonic() - before
+        assert warm["outcome"] == "passed"
+        assert len(inputs.checks.source_guard.runner.jobs) == 4
+        assert sum(group["result"]["carried_count"] for group in warm["groups"].values()) == 4
         owner.workflow = compose(owner)
         result = owner.workflow.run(owner.task.id, owner.workflow.plan.id, "broad-delivery")
         assert result["data"]["state"] == "done", result
@@ -93,6 +119,10 @@ def test_broad_eight_line_config_selects_all_four_checks(tmp_path):
             "delivery_seconds": time.monotonic() - started,
             "stages": owner.workflow.timings,
             "selected_units": [u.name for u in checks["plan"].units],
+            "cold_check_seconds": cold_seconds,
+            "warm_check_seconds": warm_seconds,
+            "warm_carried_units": 4,
+            "docker_jobs": 4,
         }
         (tmp_path / "broad-timings.json").write_text(json.dumps(timings, indent=2))
         assert timings["setup_seconds"] + timings["delivery_seconds"] <= 240
@@ -101,7 +131,9 @@ def test_broad_eight_line_config_selects_all_four_checks(tmp_path):
 
 
 @pytest.mark.parametrize("count", [1, 2, 4])
-def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_path, count):
+def test_successful_ordered_contenders_keep_every_owned_eight_line_change(
+    tmp_path, count, resume_waits=False
+):
     import concurrent.futures
     import threading
 
@@ -167,9 +199,38 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
                 active_controllers += 1
                 peaks["merge_controllers"] = max(peaks["merge_controllers"], active_controllers)
             try:
-                result = owner.workflow.run(
-                    owner.task.id, owner.workflow.plan.id, "ordered-delivery"
-                )
+                from ai_task_manager.domains.work.errors import AccessDenied
+
+                calls = []
+                for call in range(2 if resume_waits else 1):
+                    call_started = time.monotonic()
+                    try:
+                        result = owner.workflow.run(
+                            owner.task.id, owner.workflow.original_plan.id, "ordered-delivery"
+                        )
+                        calls.append(
+                            {
+                                "call": call + 1,
+                                "seconds": time.monotonic() - call_started,
+                                "state": result["data"]["state"],
+                            }
+                        )
+                        break
+                    except AccessDenied as error:
+                        if (
+                            not resume_waits
+                            or str(error) != "Original repository turn wait budget expired"
+                            or call
+                        ):
+                            raise
+                        calls.append(
+                            {
+                                "call": call + 1,
+                                "seconds": time.monotonic() - call_started,
+                                "state": "bounded_no_effect_wait_refusal",
+                                "reason": str(error),
+                            }
+                        )
                 with lock:
                     completed.append(
                         {
@@ -185,6 +246,19 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
                             "worker_commit_seconds": owner.worker_commit_seconds,
                             "setup_seconds": owner.setup_seconds,
                             "stages": owner.workflow.timings,
+                            "public_calls": calls,
+                            "cumulative_repository_wait_seconds": (
+                                sum(
+                                    c["seconds"]
+                                    for c in calls
+                                    if c["state"] == "bounded_no_effect_wait_refusal"
+                                )
+                                + sum(
+                                    stage["seconds"]
+                                    for stage in owner.workflow.timings
+                                    if stage["stage"] == "repository_wait"
+                                )
+                            ),
                         }
                     )
                 assert result["data"]["state"] == "done", result
@@ -237,6 +311,11 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
                     "observed_peaks": peaks,
                     "observer_errors": observer_errors,
                     "sampling_seconds": 0.02,
+                    "same_key_wait_resume_allowed": resume_waits,
+                    "frozen_queue_budget_met": all(
+                        row["cumulative_repository_wait_seconds"] <= 120 for row in completed
+                    )
+                    and len(completed) == count,
                     "peak_definition": (
                         "Started owned Docker watchers until confirmed stop; "
                         "Git children from existing product live-child maps. "
@@ -346,3 +425,9 @@ def test_observer_failure_is_retained_and_never_counts_as_peak_success(tmp_path,
     assert result["observer_errors"][0]["message"] == "Authored monitor failure"
     assert result["completed"][0]["result"]["data"]["state"] == "done"
     assert result["observed_peaks"]["docker_watchers"] == 0
+
+
+def test_four_queued_contenders_resume_original_public_keys_after_bounded_turn_refusal(tmp_path):
+    test_successful_ordered_contenders_keep_every_owned_eight_line_change(
+        tmp_path, 4, resume_waits=True
+    )
