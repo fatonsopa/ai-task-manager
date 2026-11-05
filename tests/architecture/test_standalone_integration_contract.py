@@ -81,4 +81,5 @@ def test_malformed_integration_refuses_without_an_attribute_error(value):
 def test_implemented_contract_requires_a_traceable_contract_reference():
     policy = valid_policy()
     policy["integration"]["merge_interface"]["status"] = "implemented"
+    policy["integration"]["merge_interface"].pop("contract_ref", None)
     assert failures(policy)

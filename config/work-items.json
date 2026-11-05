@@ -399,7 +399,8 @@
         "R04",
         "R06",
         "R07",
-        "R15"
+        "R15",
+        "R11"
       ],
       "result": "Committed implementation and tests for the named responsibility; actual evidence indexed under the build run.",
       "entry": "Task issue exists, is explicitly queued, and one worker receives the scope, paths and acceptance criteria.",

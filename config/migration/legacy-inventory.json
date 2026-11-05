@@ -14,7 +14,9 @@
     "policy_rows_complete": true,
     "runtime_external_settings_inspected": false,
     "raw_private_source_published": false,
-    "source_catalogue_is_not_semantic_approval": true
+    "source_catalogue_is_not_semantic_approval": true,
+    "current_merge_contract": "docs/spec_driven_development.md#code-and-merge-plan-selection-contract",
+    "historical_command_fields": "Source rows and preserved_command_surface record captured historical commands, not current product compatibility requirements. R08 revision 6 retires the merge shell entry point, wrappers and aliases; current callers select a trusted installed code/merge plan through workflow_run/resume."
   },
   "counts": {
     "contracts": 54,
@@ -106,6 +108,19 @@
         "OUTBOX"
       ],
       "resolution": "Strict managed mode refuses uncertain missing enforcement and retains failed sync obligations; legacy fail-open or dropped-write behavior is not a valid replacement guarantee."
+    },
+    {
+      "id": "STANDALONE-MERGE-R08-6",
+      "legacy_rows": [
+        "MERGE",
+        "MERGE-BEHIND",
+        "MERGE-DB",
+        "AFTER-MERGE",
+        "POSTMERGE",
+        "REMOVE-MERGED",
+        "STORE-MERGE-STATE"
+      ],
+      "resolution": "Retire the old merge shell interface and compatibility wrappers. Retain source rows/results as historical scenario evidence; current product code/merge selection uses the frozen workflow_run/resume installed-plan contract. Critically version useful checks/resource/recovery outcomes before new execution."
     }
   ],
   "rows": [
@@ -123,7 +138,7 @@
       "new_owner": "application.intake + adapters.legacy",
       "disposition": "replace_enforcement",
       "preserved_command_surface": [
-        "python3 scripts/linear/issue_cli.py new \"<title>\" --type T --product P --priority X --project \"<name|project id>\"|none --blocked-by <ids|none> --blocks <ids|none> --parent <id|none> --next \"<who>: <what>\" [--seen-on P…] [--in-the-way-of <ids>] [--description TEXT | --description-file F] [--asked \"<owner words>\"]"
+        "python3 scripts/linear/issue_cli.py new \"<title>\" --type T --product P --priority X --project \"<name|project id>\"|none --blocked-by <ids|none> --blocks <ids|none> --parent <id|none> --next \"<who>: <what>\" [--seen-on P\u2026] [--in-the-way-of <ids>] [--description TEXT | --description-file F] [--asked \"<owner words>\"]"
       ],
       "state_to_import": [
         "issue identity, acceptance, labels and queue intent"
@@ -542,7 +557,7 @@
       "new_owner": "adapters.legacy.reopen + application.intake",
       "disposition": "change_policy",
       "preserved_command_surface": [
-        "python3 scripts/linear/issue_cli.py reopen <id> --why \"<owner words>\" [--next \"AI: …\"]"
+        "python3 scripts/linear/issue_cli.py reopen <id> --why \"<owner words>\" [--next \"AI: \u2026\"]"
       ],
       "state_to_import": [
         "original delivered issue is immutable; new issue links and authorized reason"
@@ -1205,7 +1220,7 @@
       "preserved_command_surface": [
         "bash scripts/worktree-db.sh up",
         "bash scripts/worktree-db.sh migrate",
-        "bash scripts/worktree-db.sh run <command…>",
+        "bash scripts/worktree-db.sh run <command\u2026>",
         "bash scripts/worktree-db.sh status",
         "bash scripts/worktree-db.sh stop",
         "bash scripts/worktree-db.sh remove [--root <worktree>|--id <stack-id>]",
@@ -2219,7 +2234,7 @@
       "new_owner": "adapters.legacy.issue_cli",
       "disposition": "replace_enforcement",
       "preserved_command_surface": [
-        "python3 scripts/linear/issue_cli.py follow-up …"
+        "python3 scripts/linear/issue_cli.py follow-up \u2026"
       ],
       "state_to_import": [],
       "disable_or_fence": "Fence the legacy mutation path at project-wide cutover; route preserved entry points to the new authority, and reject stale epochs.",
@@ -2258,7 +2273,7 @@
       "new_owner": "adapters.legacy.issue_cli",
       "disposition": "replace_enforcement",
       "preserved_command_surface": [
-        "python3 scripts/linear/issue_cli.py decided …"
+        "python3 scripts/linear/issue_cli.py decided \u2026"
       ],
       "state_to_import": [],
       "disable_or_fence": "Fence the legacy mutation path at project-wide cutover; route preserved entry points to the new authority, and reject stale epochs.",
@@ -12682,7 +12697,7 @@
       "id": "USER-REQUEST",
       "stage": "User request or newly found work",
       "existing_paths": [
-        ".claude/standards/task-management.md §3",
+        ".claude/standards/task-management.md \u00a73",
         "scripts/linear/issue_cli.py cmd_new"
       ],
       "interpretation": "Source requires a Linear issue before native TaskCreate. New Backlog-first admission intentionally tightens legacy placement."

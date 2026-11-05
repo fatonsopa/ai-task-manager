@@ -35,10 +35,10 @@ def verify_standalone_integration(policy, require):
     )
     require(
         interface.get("owner") == "standalone_product_contract"
-        and interface.get("status") in {"contract_pending", "implemented"}
+        and interface.get("status") in {"contract_pending", "contract_frozen", "implemented"}
         and (interface.get("status") != "contract_pending" or interface.get("command_name") is None)
         and (
-            interface.get("status") != "implemented"
+            interface.get("status") not in {"contract_frozen", "implemented"}
             or (
                 isinstance(interface.get("contract_ref"), str)
                 and bool(interface["contract_ref"].strip())
@@ -46,6 +46,21 @@ def verify_standalone_integration(policy, require):
         ),
         "A pending merge contract cannot invent an implemented public command.",
     )
+    if interface.get("status") == "contract_frozen":
+        require(
+            interface.get("command_name") is None
+            and interface.get("contract_ref")
+            == "docs/spec_driven_development.md#code-and-merge-plan-selection-contract"
+            and interface.get("public_operations") == ["workflow_run", "workflow_resume"]
+            and interface.get("cli_actions") == [
+                "aitm workflow run --input request.json",
+                "aitm workflow resume --input request.json",
+            ]
+            and interface.get("implementation_status")
+            == "installed_code_merge_composition_and_acceptance_pending",
+            "A frozen merge contract needs the known workflow routes/reference "
+            "and must retain pending implementation/acceptance.",
+        )
     require(
         integration.get("copied_application_scripts_allowed") is False
         and integration.get("original_application_access") == "read_only_scenario_analysis"
@@ -75,6 +90,74 @@ def verify_standalone_integration(policy, require):
         "Merge replacement needs reviewed standalone scenarios and safe recovery, "
         "without legacy compatibility restrictions.",
     )
+
+
+def verify_traceability(traceability, requirements, cases, work, require):
+    """Check ownership references and completeness, not semantic review or acceptance."""
+    if not isinstance(traceability, dict):
+        require(False, "Traceability must be an object.")
+        return
+    require(
+        type(traceability.get("schema_version")) is int
+        and traceability.get("schema_version") == 1,
+        "Traceability needs schema version 1.",
+    )
+    require(
+        isinstance(traceability.get("scope"), str)
+        and bool(traceability["scope"].strip()),
+        "Traceability needs an explicit scope.",
+    )
+    tasks = {row["id"]: row for row in work.get("tasks", [])}
+    phases = {row["id"] for row in work.get("phases", [])}
+    required = {row["id"] for row in requirements}
+    tagged = {identifier for row in tasks.values() for identifier in row.get("requirements", [])}
+    require(required <= tagged, "Requirements without a declared work-item owner.")
+    for task in tasks.values():
+        require(task.get("phase") in phases, f"{task['id']}: unknown task phase.")
+    for group, identifiers in (("requirements", required), ("cases", {c["id"] for c in cases})):
+        rows = traceability.get(group)
+        if not isinstance(rows, list):
+            require(False, f"Traceability {group} must be a list.")
+            continue
+        seen = set()
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("id"), str):
+                require(False, f"Traceability {group}: malformed row.")
+                continue
+            identifier = row["id"]
+            require(identifier not in seen, f"Traceability {group}: duplicate {identifier}.")
+            seen.add(identifier)
+            require(identifier in identifiers, f"Traceability {group}: unknown {identifier}.")
+            require(
+                isinstance(row.get("rationale"), str) and bool(row["rationale"].strip()),
+                f"{identifier}: ownership needs a behavior rationale.",
+            )
+            assigned = set()
+            for role in ("implementation_owners", "supporting_owners", "verification_owners"):
+                owners = row.get(role)
+                if not isinstance(owners, list):
+                    require(False, f"{identifier}: {role} must be a list.")
+                    continue
+                if role != "supporting_owners":
+                    require(bool(owners), f"{identifier}: missing {role}.")
+                for owner in owners:
+                    if not isinstance(owner, dict) or set(owner) != {"task", "phase"}:
+                        require(False, f"{identifier}: malformed {role} owner.")
+                        continue
+                    task_id, phase = owner["task"], owner["phase"]
+                    if not isinstance(task_id, str) or not isinstance(phase, str):
+                        require(False, f"{identifier}: owner task and phase must be strings.")
+                        continue
+                    require(task_id not in assigned, f"{identifier}: repeated owner {task_id}.")
+                    assigned.add(task_id)
+                    require(task_id in tasks, f"{identifier}: unknown owner {task_id}.")
+                    require(phase in phases, f"{identifier}: unknown owner phase {phase}.")
+                    if task_id in tasks:
+                        require(
+                            phase == tasks[task_id].get("phase"),
+                            f"{identifier}: {task_id} phase differs from the work graph.",
+                        )
+        require(seen == identifiers, f"Traceability {group}: incomplete identifier coverage.")
 
 
 def verify_execution_limits(policy, require):
@@ -158,6 +241,7 @@ def build_manifest(root):
         {
             "CLAUDE.md",
             "config/repository-layout.json",
+            "config/traceability.json",
             "tools/repository_layout.py",
             "tests/architecture/test_repository_layout.py",
         }
@@ -205,6 +289,7 @@ def verify(root):
     requirement_data = read("config/requirements.json")
     acceptance = read("tests/acceptance/cases.json")
     work = read("config/work-items.json")
+    traceability = read("config/traceability.json")
     requirements = requirement_data.get("requirements", [])
     req_ids = {r["id"] for r in requirements}
     cases = acceptance.get("cases", [])
@@ -284,6 +369,7 @@ def verify(root):
                     isinstance(row.get("evidence"), str) and bool(row["evidence"].strip()),
                     f"{row['id']}: progress needs explicit evidence and scope.",
                 )
+    verify_traceability(traceability, requirements, cases, work, require)
     verify_execution_limits(policy, require)
     require(
         set(policy.get("acceptance", {}).get("required_hosts", [])) == {"claude-code", "codex-cli"},
@@ -299,13 +385,18 @@ def verify(root):
         "Copyright holder mismatch.",
     )
     active = policy.get("active_host_profiles", {}).get("claude-code", {})
+    selected_fields = (
+        "label", "executable", "config_dir_relative_to_home",
+        "default_account_allowed", "fallback_allowed",
+    )
+    selections = [row.get("host_profile") for row in policy.get("user_decisions", [])
+                  if row.get("id") == active.get("authorization_decision")]
     require(
-        active.get("label") == "claude"
+        len(selections) == 1
+        and selections[0] == {key: active.get(key) for key in selected_fields}
         and active.get("executable") == "claude"
-        and active.get("config_dir_relative_to_home") == ".claude"
-        and active.get("default_account_allowed") is True
         and active.get("fallback_allowed") is False,
-        "Claude launches must select the explicitly approved default account and forbid fallback.",
+        "Claude launches must match the explicitly approved account selection and forbid fallback.",
     )
     statuses = set(policy.get("linear", {}).get("workflow_statuses", []))
     review_rule = policy.get("linear", {}).get("review_exit", {})

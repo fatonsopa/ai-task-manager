@@ -6,7 +6,7 @@ This directory is the maintained documentation for the standalone task coordinat
 
 Work from the repository root with Git and Python 3 available. Paths in code spans are relative to that root. Read the Policy (POL), [policy.md](policy.md), then the Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), and the Implementation Plan (IP), [implementation_plan.md](implementation_plan.md). Inspect `config/execution-policy.json`, requirements, work graph and acceptance inventory before acting. Documents describe approved work; they do not authorize production actions. The repository address stays in `config/execution-policy.json` so personal identifiers do not need to appear in Markdown.
 
-The user lifted the earlier total spending, elapsed-time and retry ceilings for this approved build. Preserve the original run and accounting, and use finite measured concurrency, reviewed batches and bounded invocations. Use the supplied public repository and the default `claude` account authorized on 3 November 2026. Verify its identity before new effects and preserve earlier account-bound evidence. Use the current approved Technical Writer and Skill Builder, and audit affected work when the user supplies an update. Every task prose write needs the appropriate reference and Writing Style (WS) review. A missing second Linear identity blocks live two-user acceptance only; continue independent work.
+The user lifted the earlier total spending, elapsed-time and retry ceilings for this approved build. Preserve the original run and accounting, and use finite measured concurrency, reviewed batches and bounded invocations. Use the supplied public repository and the explicitly selected Claude account in `config/execution-policy.json`. Verify its identity before new effects and preserve earlier account-bound evidence. Use the current approved Technical Writer and Skill Builder, and audit affected work when the user supplies an update. Every task prose write needs the appropriate reference and Writing Style (WS) review. A missing second Linear identity blocks live two-user acceptance only; continue independent work.
 
 For this authorized build, the existing primary Linear key may be read from the application repository's `.env.local` as `LINEAR_API_KEY`, without copying or displaying it. Authentication or development-task writes do not establish product fixture acceptance. Verify actual scope before each live fixture run. Docker Desktop must be running for the declared disposable database and Linux-container cases. Standalone verification uses independently authored project fixtures; it does not require the original application stack.
 
@@ -17,6 +17,16 @@ python3 tools/setup_test_credentials.py --secondary-only
 ```
 
 The helper uses hidden input and stores `LINEAR_TEST_USER_B_TOKEN` outside Git at `$HOME/.config/ai-task-manager/test-credentials.env`, mode 600. It must identify a different user with TST access. Do not paste tokens into chat or test logs.
+
+## Installed inbound listener
+
+The installed CLI supports `aitm --config /private/aitm/service.json --json sync listen` after trusted session setup has completed for that configuration. Its private service configuration names an absolute `receiver_file`; that private JSON file contains `version: 1`, the exact `webhook_id`, a `/hooks/` route with a 16–128 character identifier, `port` (zero selects an ephemeral port), an absolute `secret_file`, and finite `lifetime_seconds` up to 86,400. The secret file contains the selected webhook signing secret. Keep these files owned and mode 0600; the parent configuration directory must be private. The installed command accepts no receiver request payload and rejects a session override that differs from the sealed configuration.
+
+The listener binds loopback and emits a `receiver_ready` record with its address, instance identity and health route. An owned HTTPS tunnel is a separate prerequisite for provider delivery. The listener durably accepts authenticated events, wakes the existing inbound drain and reports `receiver_stopped` with cleanup evidence on exit. Expired or revoked delegation, changed configuration or ownership loss stops admission. Inspect the actual stop record; process exit alone does not prove that provider synchronization succeeded.
+
+## Installed lead and reviewer components
+
+Source `7e4e4f4` includes explicit [initial workflow preparation](workflow_preparation/how_to_guide.md), finite capacity configuration, and the independently reviewed [lead reporting command](lead_reporting/how_to_guide.md) and [independent reviewer configuration](independent_review/how_to_guide.md). Both require sealed installer inputs, distinct role authority, current source/account evidence and finite invocation limits. Before first owner activation, the trusted `workflow prepare` command permits approved intake and enqueue. Ordinary calls still require the owner. Lead reporting is a separate explicit command; its sealed installation chooses human-console or explicitly delegated enrollment. The declared scripted owner cycle has passed, while actual LP17 and required host/model profiles remain pending. These components do not implement automatic idle wake, continuous reporting or the complete coordination skill.
 
 ## Check the result
 
@@ -38,6 +48,9 @@ A successful check reports consistent requirements, cases, links and diagram pai
 | Components, interfaces, data and trust boundaries | High Level Document (HLD), [high_level_document.md](high_level_document.md) |
 | Delivery phases, dependencies and rollout | Implementation Plan (IP), [implementation_plan.md](implementation_plan.md) |
 | Methods, environments, acceptance and exact cases | Test Plan (TP), [test_plan.md](test_plan.md), and `tests/acceptance/cases.json` |
+| Prepare initial approved work before owner activation | [Workflow preparation How-to Guide (HTG)](workflow_preparation/how_to_guide.md) |
+| Report a scoped lead event | [Lead reporting How-to Guide (HTG)](lead_reporting/how_to_guide.md) |
+| Configure the independent review producer | [Independent review How-to Guide (HTG)](independent_review/how_to_guide.md) |
 | Current observed results and blockers | Test Status Report (TSR), [test_status_report.md](test_status_report.md) |
 | Requirement IDs, trusted configuration and work graph | `config/requirements.json`, `config/execution-policy.json`, `config/work-items.json` |
 | Historical contract lessons and source audit | [Contract lessons](migration/current-contracts.md) and [coordination audit](audits/coordination-policy-audit.md) |

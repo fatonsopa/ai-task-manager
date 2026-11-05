@@ -27,31 +27,35 @@ Each CLI operation opens the existing installed application in a fresh process. 
 
 [Expectations version 3](expectations-v3.json) freezes 12 demonstration checks and the public error categories. Versions 1 and 2 preserve earlier assertions. Two failed authoring attempts confused queue membership with execution state, and classified an illegal transition as invalid input. Version 3 records the source-based corrections; it does not change product policy.
 
-The integrated run on runtime source `7a7f564bc537338a10cea368a4daf672fadd5e5a` matched all 303 runtime files. It passed the 10 direct CLI/MCP checks. The selected existing API baseline then passed 1,337 cases and failed one; 27 remained unrun. The full invocation took 21.93 seconds. These are local control results, not whole-M1 acceptance.
+The integrated demonstration on source `283bf5f942e2c6f795f674316dc847027aafbe6a` matched all 303 runtime files, passed the 10 direct CLI/MCP checks and passed all 1,365 selected API baseline cases without failures or skips. The complete invocation took 18.3 seconds. Together these verify the 12 declared demonstration checks in isolation; they do not establish whole-M1 or live-provider acceptance.
 
-The required failing case is `tests/storage/test_atomicity.py::test_p08_racing_distinct_tasks_obey_global_and_project_capacity[project]`. Its later same-session task can race ahead of an earlier eligible queue item, so scheduling refuses before the test reaches its expected capacity exception. This does not prove a capacity violation. The original case remains selected and unchanged; its failed result blocks a complete baseline pass.
+The earlier run on `7a7f564bc537338a10cea368a4daf672fadd5e5a` passed the direct checks and 1,337 baseline cases, failed one and left 27 unrun in 21.93 seconds. Its failing case, `tests/storage/test_atomicity.py::test_p08_racing_distinct_tasks_obey_global_and_project_capacity[project]`, allowed two same-session tasks to race before the later task was eligible. The corrected fixture uses independently eligible sessions and separately verifies FIFO ordering; runtime policy was unchanged. Retain the original failure and the later verification as separate evidence.
 
-Omit `--without-baseline` to run the frozen existing API selection in [baseline version 1](baseline-v1.json). That mode currently exits nonzero at the retained failure. It does not silently skip or reinterpret the case. A later bounded correction must reconcile queue eligibility with the capacity-race fixture, preserve the failure, and complete the unrun cases. Do not change runtime policy to satisfy the old test assumption.
+Omit `--without-baseline` to run the frozen existing API selection in [baseline version 1](baseline-v1.json). Both modes passed on the integrated candidate above. The runtime-file comparison excludes exact `.DS_Store` metadata filenames; changed or missing runtime files still refuse. Final database replacement or unreadable identity produces retained failure evidence and a nonzero exit. Earlier failed runs remain retained.
 
 ## Coverage and remaining work
 
-The 12-check demonstration has **10/12 verified**, separate from module acceptance:
+The 12-check demonstration has **12/12 verified**, separate from module acceptance:
 
 | M1 submodule | Verified demonstration checks | Limits |
 | --- | --- | --- |
-| Lifecycle/scope | 6/7 | Create/read, explicit queue, lifecycle refusal, missing-human refusal, scope and stale-state controls pass. The positive human-hold API baseline remains unrun. |
-| Dependencies/capacity | 1/2 | Missing evidence remains blocked. The combined dependency/capacity baseline is incomplete after the retained race failure. |
-| Persistence/recovery | 2/2 | Cold clients and lost committed replies preserve task/effect identity. Attempt, pending-effect and controller recovery are broader obligations; the existing restart baseline remains unrun. |
-| CLI/API | 1/1 | Installed CLI and MCP return the same scoped data and schemas. This is not proof that every public operation has its required producer. |
+| Lifecycle/scope | 7/7 | Create/read, queue, refusal, scope and stale-state controls pass. The positive human-hold check uses the declared Core API fixture, not installed human-input capture. |
+| Dependencies/capacity | 2/2 | The dependency/capacity baseline passes. The direct demonstration leaves execution idle and blocks unknown dependency evidence; queue membership does not authorize work. |
+| Persistence/recovery | 2/2 | Cold clients and lost committed replies preserve task/effect identity. The selected restart baseline passes; broader attempt/controller recovery has separate evidence. |
+| CLI/API | 1/1 | Installed CLI and MCP return the same scoped data and schemas. This does not prove that every operation has its required production authority source. |
 
-The full module remains unaccepted. The following obligations are not proved by this delivery:
+The [remaining Core guard mapping](remaining_guards_v1.json), integrated at `63add9c99dae350c9978e19f2c5ab77fd7518e28`, records 53 independently reviewed controls for canonical ownership, delivered-task/follow-up fences, approval tampering/version checks and interruption/ownership recovery. Its initial private-runner failure and corrected single-case retry remain retained. These results verify Core consumption rules; they do not supply a missing production issuer.
 
-- Successful installed human instruction capture, hold/release and human review decisions. The default `SessionObservations.verify_instruction` refuses; a negative `human_ref` test cannot prove its missing producer.
-- Dependency cycles, predecessor milestones, project capacity across hosts and positive human-hold behavior in the unrun baseline. Queueing leaves execution idle and dependency readiness unknown; it does not authorize work.
-- A canonical imported issue claim across sessions, delivered-task/follow-up fences, all approval tampering/version cases, and all interruption/ownership recovery cases on this candidate. The baseline maps existing coverage but does not claim every M1 requirement is closed.
-- Public dependency mutation, capacity configuration and direct reservation commands. These are Core/code-only interfaces; this CLI schema exposes no corresponding operation. `worker_start` needs its configured worker integration, which this fixture deliberately lacks.
-- Real provider/host connections, fresh semantic writing review, independent source review, integration of this tooling, and the cumulative accepted-module demonstration. Accepted recovery has separate lead-owned evidence and is not reimplemented or regraded here.
+Core behavior is verified in isolation; real connections remain pending. The integrated follow-up path uses an explicitly enrolled `delivered_followup` capability. It creates a linked Backlog child without reopening its parent, queueing the child or starting an attempt. Cached and supplied proofs revalidate the original enrollment and configuration before an uncommitted effect. Exact committed retries recover the original result. Existing enrollments gain no new capability automatically.
 
-These gaps affect completion of R03/R04/R06/R07/R09/R11/R13/R14/R15/R20/R27/R30/R38 as a combined module; individual passing checks retain their narrower meaning. The Implementation Plan (IP), [implementation_plan.md](../../docs/implementation_plan.md), owns the six common acceptance conditions and module/connection boundaries. This baseline does not replace the original acceptance inventory or the Test Plan (TP), [test_plan.md](../../docs/test_plan.md).
+The correction passed 67 focused author checks and four independent review controls. The original cached-proof source-continuity failure remains retained. The integrated demonstration and 1,365-case Core baseline passed after that correction. These overlapping selections must not be added as a coverage total.
+
+The remaining connection obligations are:
+
+- Actual human-instruction capture, hold/release and human review decisions through the supported hosts. The default `SessionObservations.verify_instruction` refuses; positive Core fixtures establish consumption rules only. The Implementation Plan (IP) permits those declared external fixtures for M1 isolation and requires real producers in the assigned host/connection checks.
+- Actual provider and host connections, fresh semantic writing review, worker execution and lead reporting. Follow-up controls use the production issuer/router with authored local provider observations; they do not prove live Linear or verified worker delivery.
+- Dependency mutation, capacity configuration and direct reservation remain Core APIs rather than CLI commands. The demonstrated CLI exposes scoped projections and queue operations. Actual `worker_start` behavior belongs to the configured worker connection.
+
+The Implementation Plan (IP), [implementation_plan.md](../../docs/implementation_plan.md), owns the six common completion conditions and module/connection boundaries. Retained evidence covers the declared M1 selection for R03/R04/R06/R07/R09/R11/R13/R14/R15/R20/R27/R30/R38. This demonstration does not replace the original acceptance inventory, full release obligations or the Test Plan (TP), [test_plan.md](../../docs/test_plan.md).
 
 If a run fails, retain its directory. Inspect its recorded failure before selecting another bounded invocation. The tool never resets an existing store, retries a native worker, changes policy, or promotes a refusal into a successful producer result.

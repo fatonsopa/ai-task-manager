@@ -1,12 +1,19 @@
 # AI Index integration checks
 
-Status: Draft
+## Current standalone contract and historical scope
+
+The R08 revision 3 proposal below is superseded for current execution by R08 revision 6 and the [code and merge plan selection contract](../spec_driven_development.md#code-and-merge-plan-selection-contract). The standalone product uses the existing workflow run/resume routes with a trusted installed code/merge plan. The retired shell entry point, wrappers, aliases and old application commands are not compatibility requirements.
+
+All remaining source procedures, case oracles and proposed integration choices on this page are historical revision 3 material. They grant no current execution authority and do not establish a frozen standalone replacement case or a passing result. Preserve their identifiers, text and observed outcomes in version-bound history. Before new execution, map each applicable case to retain, correct or retire under the current contract; preserve useful outcomes such as whole-issue attribution, current checks, resource lifetime, independent heavy jobs and uncertain publication recovery. Do not silently reinterpret an earlier pass or failure.
+
+
+Status: Superseded historical proposal; current contract linked above
 Decision MERGE-BOUNDARY: expanded proposed coverage after located source audit and actual lead presentation; implementation and each affected fixture remain separately gated.
-Test basis: R08 revision 3, R09, R14, R28, R31, R32 and R34; the [protected merge behavior](../spec_driven_development.md#protected-merge-and-command-behavior) and proposed [Decision Record (DR)](decision_record.md).
+Historical test basis: R08 revision 3, R09, R14, R28, R31, R32 and R34; the [protected merge behavior](../spec_driven_development.md#standalone-merge-behavior) and proposed [Decision Record (DR)](decision_record.md).
 Test item: Product project adapter not yet implemented; application source `44a91116d73d0a3ac279aa3b064d373000356477`, merge SHA-256 `b47d53d4f9861e2a22e1412dd1d9b8c48407bf177c232cb97ff4770acd307022`.
 Approach and release criteria: [Test Plan (TP)](../test_plan.md). This local specification adds source-derived cases; it does not replace or change the 248 existing authored acceptance cases.
 
-Preserve `scripts/merge-to-dev.sh`, `/sync-with-dev`, `#push`, `#release` and `#hotfix` with their established arguments and flow. `MergeContext.authority_boundary` is an internal proposed port, not a new user command.
+The historical proposal preserved `scripts/merge-to-dev.sh`, `/sync-with-dev`, `#push`, `#release` and `#hotfix` with their established arguments and flow. That compatibility obligation is retired; these literals identify historical scenarios only. `MergeContext.authority_boundary` is an internal proposed port, not a new user command.
 
 ## Coverage and setup
 

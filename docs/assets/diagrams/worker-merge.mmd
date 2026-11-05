@@ -3,7 +3,7 @@
 %% Subtitle: Planned merges through one authority, with current checks and verified outcomes.
 flowchart TD
     accTitle: Worker merge workflow
-    accDescr: A worker commits its own changes and requests a foreground merge through the product authority. Checks and publication are verified before execution is settled; unknown outcomes retain recovery obligations. Public command names remain pending.
+    accDescr: A worker commits its own changes and requests a foreground merge through the product authority. Checks and publication are verified before execution is settled; unknown outcomes retain recovery obligations. Existing workflow run/resume routes select the installed plan.
     A@{ shape: rect, label: "1. Worker commits its changes" }
     class A process
     B@{ shape: fr-rect, label: "2. Validate merge request" }

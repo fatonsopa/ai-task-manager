@@ -152,12 +152,23 @@
     "cutover": "single project-wide clean cutover; no parallel live writers",
     "merge_interface": {
       "owner": "standalone_product_contract",
-      "status": "contract_pending",
+      "status": "contract_frozen",
       "command_name": null,
       "retired_entrypoints": [
         "scripts/merge-to-dev.sh"
       ],
-      "compatibility_wrappers_allowed": false
+      "compatibility_wrappers_allowed": false,
+      "contract_ref": "docs/spec_driven_development.md#code-and-merge-plan-selection-contract",
+      "public_operations": [
+        "workflow_run",
+        "workflow_resume"
+      ],
+      "cli_actions": [
+        "aitm workflow run --input request.json",
+        "aitm workflow resume --input request.json"
+      ],
+      "selection": "Trusted installed task-bound code/merge plan; request data cannot construct authority or choose commands/targets.",
+      "implementation_status": "installed_code_merge_composition_and_acceptance_pending"
     },
     "copied_application_scripts_allowed": false,
     "original_application_access": "read_only_scenario_analysis",
@@ -288,20 +299,33 @@
       "id": "D-CLAUDE-ACCOUNT-2",
       "supersedes": "D12",
       "decision": "Actual user now requires default claude instead of claude_roni. Verify current identity for new effects; preserve historical evidence and refuse silent account fallback."
+    },
+    {
+      "id": "D-CLAUDE-ACCOUNT-3",
+      "supersedes": "D-CLAUDE-ACCOUNT-2",
+      "decision": "Use explicitly selected claude_info account within its own service limits. Verify authentication before execution and preserve historical account-bound evidence.",
+      "host_profile": {
+        "label": "claude_info",
+        "executable": "claude",
+        "config_dir_relative_to_home": ".claude_info",
+        "default_account_allowed": false,
+        "fallback_allowed": false
+      }
     }
   ],
   "active_host_profiles": {
     "claude-code": {
-      "label": "claude",
+      "label": "claude_info",
       "executable": "claude",
-      "config_dir_relative_to_home": ".claude",
-      "default_account_allowed": true,
+      "config_dir_relative_to_home": ".claude_info",
+      "default_account_allowed": false,
       "fallback_allowed": false,
-      "authentication_preflight": "2026-11-03: loggedIn true, claude.ai, firstParty, Max; no model invocation in this preflight"
+      "authorization_decision": "D-CLAUDE-ACCOUNT-3",
+      "authentication_preflight": "2026-11-04T23:50:13.334113+00:00: recorded selected-profile preflight confirms authenticated claude_info with the expected account and unmodified CLI. Both owned metadata processes stopped. This verifies authentication only; model and workflow acceptance remain separate."
     },
     "codex-cli": {
       "executable": "codex",
-      "authentication": "existing ChatGPT CLI login; checked"
+      "authentication": "Configured Codex subscription; current authentication and model-access verification is pending under P00.4. No account, provider or API-key fallback is authorized."
     }
   },
   "unavailable_accounts": {},
@@ -448,6 +472,39 @@
         "authentication_preflight": "signed in via claude.ai; Max; no model invocation yet"
       },
       "reason": "Actual user explicitly switched from claude_roni to claude."
+    },
+    {
+      "superseded_at": "2026-11-03T19:32:40.387166+00:00",
+      "profile": {
+        "label": "claude",
+        "executable": "claude",
+        "config_dir_relative_to_home": ".claude",
+        "default_account_allowed": true,
+        "fallback_allowed": false,
+        "authentication_preflight": "2026-11-03: loggedIn true, claude.ai, firstParty, Max; no model invocation in this preflight"
+      },
+      "reason": "Actual user explicitly selects claude_info instead of claude."
+    },
+    {
+      "recorded_at": "2026-11-05T00:38:57.725925+00:00",
+      "previous_profile_observation": {
+        "label": "claude_info",
+        "executable": "claude",
+        "config_dir_relative_to_home": ".claude_info",
+        "default_account_allowed": false,
+        "fallback_allowed": false,
+        "authorization_decision": "D-CLAUDE-ACCOUNT-3",
+        "authentication_preflight": "2026-11-03: claude_info exists and resolves HOME/.claude_info; loggedIn false, authMethod none; user sign-in requested. No model call."
+      },
+      "previous_unavailable_accounts": {
+        "claude_info": "Latest authentication preflight reports not signed in; reverify after user login."
+      },
+      "reason": "Replace stale signed-out observation with verified selected-profile metadata; selection, permissions and fallback policy unchanged."
+    },
+    {
+      "recorded_at": "2026-11-05T00:47:59.221047+00:00",
+      "previous_codex_authentication_observation": "existing ChatGPT CLI login; checked",
+      "reason": "Preserve old checked assertion as historical; exact current Codex access remains under P00.4 verification."
     }
   ]
 }

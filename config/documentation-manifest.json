@@ -2,7 +2,7 @@
   "schema_version": 3,
   "scope": "Documentation and declared supporting inputs; not whole-product or runtime attestation.",
   "path_base": "repository_root",
-  "previous_manifest_sha256": "9ac709f363094e48fec06f97ebe6615e93e6b0083cf15845c88b0569ceb7b8b8",
+  "previous_manifest_sha256": "9f991bd14c5f1d8408007f20d954f44383accc3782ec0eaa6012767e8c2f7347",
   "files": [
     {
       "path": ".gitignore",
@@ -10,7 +10,7 @@
     },
     {
       "path": "AGENTS.md",
-      "sha256": "4645f32eadd06b87d78bc407d489efd161a71e11764d0402da247125df421967"
+      "sha256": "5ecfafe5c19b93fccdd19b0669a0f1c672a1a722ed96cbcf28ff5b38bdef923b"
     },
     {
       "path": "CLAUDE.md",
@@ -26,11 +26,11 @@
     },
     {
       "path": "config/execution-policy.json",
-      "sha256": "cdd47b32b3dffc750f7d8593c84cdfe3c15d207b396d2f0f8702a927098628b8"
+      "sha256": "e70f87fce4136c469c5123647de6ead5e514c591f0c7c617a27371f156149af3"
     },
     {
       "path": "config/migration/legacy-inventory.json",
-      "sha256": "a45787e433057a674b76f174de0c34237c90d5d563432b48ba22e062f00e08d0"
+      "sha256": "680181b9cdb9cf73001a327024600321c18d5fc3a795e75aaad8da20ba1db5c6"
     },
     {
       "path": "config/repository-layout.json",
@@ -50,7 +50,7 @@
     },
     {
       "path": "config/work-items.json",
-      "sha256": "9feafb813655ced5f16cb4d1057fe646b173573bf6d858706d407c9e3aa1226f"
+      "sha256": "9197c722f97037910f0ac8e7355b31f3adba93027c84dab5cd0aee903be25194"
     },
     {
       "path": "docs/assets/diagrams/architecture.mmd",
@@ -134,11 +134,11 @@
     },
     {
       "path": "docs/assets/diagrams/worker-merge.mmd",
-      "sha256": "90493cf6f0c6ca8ff0456bf93adafbb9f5595d03a1a9df84ce1e98901db9bd0d"
+      "sha256": "72a7633f053cbd1a6be4f5f5bf166595ffe715965dffaf584228f4bb02c1a20a"
     },
     {
       "path": "docs/assets/diagrams/worker-merge.svg",
-      "sha256": "3d7d978019f5aa4b9f629edba9fe22886fb67dd0d82c3f2c267027471dd9c504"
+      "sha256": "a5cf2998cfe236e49b8d82862029bbd14b38c5dc6a47a32a358fee1b1153de00"
     },
     {
       "path": "docs/audits/coordination-policy-audit.md",
@@ -146,23 +146,35 @@
     },
     {
       "path": "docs/high_level_document.md",
-      "sha256": "c4cefc19fbfa252e254e5db7afe3ec474e9a37ba0cdb1adc76b0d4f1ed867463"
+      "sha256": "80b37f04c4c9f01c26fc0cca0cde6b9607389fd7677f0d54724fe3415ddfefce",
+      "previous_sha256": "600e06971b50a292034614198f3576bc0ba10bc8ada07943e3fe4ea28b384e8b"
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "18012bdcc3764040203afa61beb25392408acd46af9536feca902a7e67a45d91"
+      "sha256": "5bf2a401b1657a1f79b0c813a8792567da24d9bb311cb09cc5125f7f4d3001be",
+      "previous_sha256": "1d38954824689b0ac158f16edfc8614e3e01c9bf5f1a40b9afe58b6966832924"
+    },
+    {
+      "path": "docs/independent_review/how_to_guide.md",
+      "sha256": "474e631c915509e80594c4f066e2eae288670c39a89e5eb6a8c738b8bffbeb0f",
+      "previous_sha256": "bd9e3445033f7d8555f62961a31f70e5270bbce6802b9dec8ba3770cbbcda07f"
+    },
+    {
+      "path": "docs/lead_reporting/how_to_guide.md",
+      "sha256": "75a5e9561291bbbbc642f3053b32b37ca4154a6cd0701715dbd4854950775ff1",
+      "previous_sha256": "5f12d104839300f91530b99e32f7892418080718b2cfdb1b27f5f61933b0c0d6"
     },
     {
       "path": "docs/merge/decision_record.md",
-      "sha256": "3bc33ec103f0ea89c933233b1142e458f2bffee75052cb9eb80261ee0c5229e5"
+      "sha256": "116d84dfe1d06ab3b4a2e5a6fef75591347f081abc7fb8b829999663727035ae"
     },
     {
       "path": "docs/merge/test_specification.md",
-      "sha256": "d614e30e54dc9f1382194a2bc1bbf2c3922541f490d614f1095eba8b9c00c849"
+      "sha256": "422fa28e73687390b2038b02c49f5fd8a5bf4eb629e251c07c20027977cd22b0"
     },
     {
       "path": "docs/migration/current-contracts.md",
-      "sha256": "6db92111dc77172789b361708a185a7acd4be724c0dd2f785dbc61cd9f220d3f"
+      "sha256": "e17713cd69bc9c0e1e057269fc6cc6203e88a3800b1f7c982bc00039305469ea"
     },
     {
       "path": "docs/mockups/sidebar-activities.png",
@@ -178,11 +190,12 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "fbf8de45df6457b2a646e4180ca329ff7d85f86778b53577dfacfcc0ffb52a0b"
+      "sha256": "4ac7c3471135e0c0b07b8b5871356103ffa07703afce1b07fe777a7b1ed32e70",
+      "previous_sha256": "23d353af60c0e48b37968294b5d50d055d71fa38faa7a6fa79ff9a2487f04778"
     },
     {
       "path": "docs/spec_driven_development.md",
-      "sha256": "b4c86d16494f4477f77f2ca127e256917d691c56363ac7d22b6687fc204eba0a"
+      "sha256": "c7847366eed4faf07f1cd1de61bc9d38d969ff22e4afc27c56b759fa9ab180d9"
     },
     {
       "path": "docs/terminal/spec_driven_development.md",
@@ -190,11 +203,12 @@
     },
     {
       "path": "docs/test_plan.md",
-      "sha256": "f1d9331be116538552ea2065f453452bd1974cad19126d476d45573d18e58d4d"
+      "sha256": "6a92c3a61fdc2d5f89cdbbee76c789e2b44656cf5ebf2e12bff25cfa779a9638"
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "dfd03202c079608f5afa6025ad93c64f8cc4e22f085e1b43aa45b4146a83b7c1"
+      "sha256": "cea5b2bfe11a926abf07dca2fd6bbf698bbfab22f446d7852c51af802dea4faf",
+      "previous_sha256": "ab67969620aab307f96cf3b33fb75aa20223a2904374a7e9e5ba0446a4390015"
     },
     {
       "path": "prototypes/terminal/session-task-management.html",
@@ -214,7 +228,7 @@
     },
     {
       "path": "tools/check_handoff.py",
-      "sha256": "498dd226647641e51748741f5976fc65b19804ded405b7222637e7e8d6727c38"
+      "sha256": "829270c7be445a1bd180d74e003639d57df7e5f7a2438096bce5a3d2b4515cc6"
     },
     {
       "path": "tools/repository_layout.py",
@@ -223,6 +237,10 @@
     {
       "path": "tools/setup_test_credentials.py",
       "sha256": "0cc9998df178caa40df53ee9f53e22448ebef354ce40ed27a2ffb94136836013"
+    },
+    {
+      "path": "docs/workflow_preparation/how_to_guide.md",
+      "sha256": "70ae308e3aa5e6d0219db96bb8c65b50c9f36f71128c5748fa61f5b3c39794c1"
     }
   ]
 }

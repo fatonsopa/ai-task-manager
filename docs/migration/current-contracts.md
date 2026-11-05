@@ -10,6 +10,8 @@ Each row in [the inventory](../../config/migration/legacy-inventory.json) names 
 
 ## Current disposition
 
+Current code/merge callers use the [frozen workflow plan contract](../spec_driven_development.md#code-and-merge-plan-selection-contract). The linked merge Decision Record (DR) and Test Specification (TS) preserve superseded revision 3 proposals; their command-preservation instructions are historical. The current standalone requirement retires that shell route and its wrappers. Version each retained, corrected or retired scenario before new execution; do not change an earlier outcome.
+
 The product must install and work in an empty project. No AI Index script may be copied into any product cache, worktree, example or fixture. Required immutable historical evidence is external and hash-bound; the private relocation record is metadata, not a runtime or import path. Do not execute or link archived source into product behavior.
 
 Use these lessons to design independent cases for intended outcomes, faults and recovery. They do not freeze old algorithms or its check catalog. After product completion, a separately requested audit of the then-current target determines complete file/section retirement, necessary product-owned guidance and single-authority migration. No old task-management filename is required to survive.

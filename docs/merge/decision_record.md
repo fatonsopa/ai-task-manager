@@ -1,14 +1,21 @@
 # AI Index integration boundaries
 
-Status: Draft
+## Current standalone contract and historical scope
+
+The R08 revision 3 proposal below is superseded for current execution by R08 revision 6 and the [code and merge plan selection contract](../spec_driven_development.md#code-and-merge-plan-selection-contract). The standalone product uses the existing workflow run/resume routes with a trusted installed code/merge plan. The retired shell entry point, wrappers, aliases and old application commands are not compatibility requirements.
+
+All remaining source procedures, case oracles and proposed integration choices on this page are historical revision 3 material. They grant no current execution authority and do not establish a frozen standalone replacement case or a passing result. Preserve their identifiers, text and observed outcomes in version-bound history. Before new execution, map each applicable case to retain, correct or retire under the current contract; preserve useful outcomes such as whole-issue attribution, current checks, resource lifetime, independent heavy jobs and uncertain publication recovery. Do not silently reinterpret an earlier pass or failure.
+
+
+Status: Superseded historical proposal; current contract linked above
 Decision MERGE-BOUNDARY: proposed integration design; source findings and independent-work scope reviewed by the lead. Exact implementation and affected fixture gates remain pending.
 Scope: AI Index project adapter, MERGE-COMPATIBILITY / TST-84.
 
-The approved coordinator requires one task-state authority, task-owned resources and recovery from uncertain effects. The existing merge route already supplies substantial Git and test safeguards. The missing project adapter is an implementation gap; it does not justify replacing that route.
+The approved coordinator requires one task-state authority, task-owned resources and recovery from uncertain effects. The existing merge route already supplies substantial Git and test safeguards. That earlier proposal treated the missing project adapter as an implementation gap rather than a reason to replace the route. R08 revision 6 later superseded that choice with the standalone product boundary.
 
-Three located integration conflicts require focused changes to its dependencies: legacy callbacks can write Linear independently, database sweeps can remove resources outside the copied repository, and a blocking merge has no coordinator authority boundary at its eventual Git effect. Preserve `scripts/merge-to-dev.sh` as the default route and regression baseline. Adapt these boundaries rather than reproduce the merge algorithm.
+Three located integration conflicts require focused changes to its dependencies: legacy callbacks can write Linear independently, database sweeps can remove resources outside the copied repository, and a blocking merge has no coordinator authority boundary at its eventual Git effect. The earlier proposal selected `scripts/merge-to-dev.sh` as its default route and regression baseline. That selection is superseded; no current caller may preserve or wrap it as the product interface.
 
-The governing requirements are R08 revision 3, R09, R14, R28, R31, R32 and R34 in the [requirements registry](../../config/requirements.json), together with the [protected merge behavior](../spec_driven_development.md#protected-merge-and-command-behavior). The [Test Specification (TS)](test_specification.md) defines the proposed frozen checks. No merge, application database, provider write or new implementation has run under this assignment.
+The governing requirements are R08 revision 3, R09, R14, R28, R31, R32 and R34 in the [requirements registry](../../config/requirements.json), together with the [protected merge behavior](../spec_driven_development.md#standalone-merge-behavior). The [Test Specification (TS)](test_specification.md) defines the proposed frozen checks. No merge, application database, provider write or new implementation has run under this assignment.
 
 ## Source and evidence boundary
 
