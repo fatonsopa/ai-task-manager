@@ -96,6 +96,16 @@ DONE - Verified on 5 November 2026 through actual installed CLI processes and MC
 
 DONE - Verified on 5 November 2026. One final invocation of the complete required P02 pure gate passed 1,670 tests with zero failures, errors or skips in 98.279 seconds wall time (JUnit 94.595 seconds). All original selector entries, sixteen storage controls and every one of the prior nine failing nodes executed. It supports current canonical claim/capacity concurrency, exact-key replay, denied scope and durable Core recovery together with the API proof. Independent source acceptance closed the hard-link finding and retained the earlier needs-changes review. No previous pass was substituted for this final run; earlier setup, fixture and red attempts remain unchanged. Full private records bind source/package/test inputs, review, results and owned cleanup.
 
+<a id="p03-resource-alias"></a>
+### P03 resource alias refusal component
+
+DONE - Verified and integrated on 5 November 2026 at `be61f031c2b5edc672b5bb4467ae18f445811990`. The SQLite application-resource adapter refuses hard-linked or changed databases and rechecks identity/ownership before removal, preserving foreign sentinels. Independent source review accepted the exact component and 35 distinct current local controls, retaining original failures. The owned local-worker demonstration records a PID/start identity, admission handshake, isolated Git/database, fixture commit and timings. A post-reap observation remains Unknown and undelivered resources remain retained; this is not full P03.1–P03.3 or genuine host acceptance.
+
+<a id="p03-candidate-review"></a>
+### P03 exact prepared-candidate review component
+
+DONE - Verified and integrated on 5 November 2026 at the same source. Code publication is fenced by independent review bound to the exact prepared candidate commit/tree, task/attempt/scope and expiry. Five final controls and one additional scope/expiry/port-replacement control passed; the configured local worker/Git/database service path reached In Dev. Non-code issuers remain unchanged. Independent source review accepted the bounded component; actual installed routing and native candidate inspection remain incomplete. The known native inspection/prompt compatibility gap is retained explicitly. Full review, source hashes, original failures and cleanup records are private. Neither completed component is counted as a complete P03 required item.
+
 ### Retained connected-workflow results through 4 November 17:42 UTC
 
 Live Linear acceptance remains 16/18: LP17 task reporting and LP18 endurance are incomplete. Complete required host/model profiles remain 0/4. The integrated source includes the independently reviewed Codex reviewer and delegated reporting-lifetime corrections. These source components do not establish complete installed acceptance.

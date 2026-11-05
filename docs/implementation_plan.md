@@ -212,6 +212,14 @@ Before merge integration, freeze the standalone merge contract and critically re
 | P03.7 | Complete supported one-worker delivery path | Implementation | Demonstrate registration through owned work, committed fixture change, standalone merge, authoritative readback/reporting and checked cleanup; retain actual-host/provider obligations. | Not assessed |
 
 
+#### Completed P03 components
+
+These completed portions retain their exact required-item parents. They add no scoring units; P03.1–P03.7 remain open until each complete criterion is verified.
+
+* DONE - Application database alias refusal, verified 5 November 2026. Owned SQLite resources refuse shared physical links and recheck ownership before removal. [Dated completion evidence](test_status_report.md#p03-resource-alias). Remaining P03.2 lifecycle and consumer-boundary work stays required.
+* DONE - Exact prepared-candidate review fence, verified 5 November 2026. Publication requires independent scope- and expiry-bound review of the prepared commit/tree. [Dated completion evidence](test_status_report.md#p03-candidate-review). Installed/native producer and P03.5/P03.7 connection work stays required.
+
+
 Prepare owned worktrees and required databases with durable identifiers, confined paths and compensation for partial setup. Use separate disposable SQLite fixtures for product-development tasks. Exercise other configured database providers with independently authored resources; the old application stack/scripts are not a standalone prerequisite. Control metadata is never a worker application database. Verify target-specific resource integration only in the later authorized target audit/cutover.
 
 Launch and supervise actual worker processes, recording PID plus process-start identity, host session/thread ID and attempt capability. Distinguish startup, liveness, progress and exit. A heartbeat is not progress; a worker message is not proof of success. The startup handshake must prevent task execution before the task and remote assignment are confirmed.
