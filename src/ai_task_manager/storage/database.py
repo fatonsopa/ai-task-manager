@@ -96,6 +96,10 @@ class Database:
                     from ai_task_manager.storage.scheduling_schema import require_quiescent
 
                     require_quiescent(conn)
+                if rows[0][0] < 5:
+                    from ai_task_manager.storage.core_migration_image import preserve
+
+                    preserve(conn, self.path, rows[0][0])
                 if rows[0][0] == 1:
                     conn.execute("ALTER TABLE outbox ADD COLUMN fenced_by TEXT")
                     conn.execute(

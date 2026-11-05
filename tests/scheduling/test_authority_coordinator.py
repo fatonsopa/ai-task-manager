@@ -1,5 +1,6 @@
 """Production dependency reader plus authored native continuity, no external calls."""
 
+from contextlib import contextmanager
 from threading import Event
 from types import SimpleNamespace
 
@@ -11,13 +12,48 @@ from ai_task_manager.supervisor.authority import WorkAuthorities
 from tests.scheduling.provider_fixture import ProviderFixture
 
 
+class AuthoredObservationGuard:
+    """Mechanical observation boundaries only, never model authentication evidence."""
+
+    def __init__(self, native, clock):
+        self.native, self.clock = native, clock
+        self.deadline = native.binding.deadline
+
+    @contextmanager
+    def observation_boundary(self, *, cancelled=None, not_after=None):
+        if (
+            self.native.stopped.is_set()
+            or (cancelled is not None and cancelled.is_set())
+            or self.clock() >= min(self.deadline, not_after or self.deadline)
+        ):
+            raise AccessDenied("Authored observation stopped or expired")
+        yield
+
+    def prepare_effect(self):
+        # No model receipt is produced by this mechanical fixture.
+        with self.observation_boundary():
+            return None
+
+    @contextmanager
+    def current_boundary(self, prepared):
+        if prepared is not None:
+            raise AccessDenied("Authored observation has no model receipt")
+        with self.observation_boundary():
+            yield
+
+
 class AuthoredContinuity:
     """Only a mechanical observation port, never native startup/auth proof."""
 
     def __init__(self, native, clock):
         self.native, self.clock = native, clock
+        self._execution_not_after = native.binding.deadline
         self.expires_at = clock() + 30
         self.closed = False
+
+    @property
+    def execution_not_after(self):
+        return self._execution_not_after
 
     def prepare(self):
         if self.closed or self.clock() >= self.expires_at:
@@ -51,6 +87,7 @@ def graph(tmp_path):
     r.now += 1
     sid, scope = r.core.session_binding(r.handle)
     native = SimpleNamespace(
+        identity=None,  # Mechanical continuity only; no native identity refresh authority.
         binding=SimpleNamespace(
             scope=scope,
             core_session=sid,
@@ -64,6 +101,7 @@ def graph(tmp_path):
     )
     native.stopped = Event()
     native.stop = native.stopped.set
+    native.startup = SimpleNamespace(model_guard=AuthoredObservationGuard(native, lambda: r.now))
     continuity = AuthoredContinuity(native, lambda: r.now)
     registry = WorkAuthorities(r.core, p.source)
     r.core.scheduling.renewals = registry
