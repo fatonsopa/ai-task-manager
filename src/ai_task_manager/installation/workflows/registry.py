@@ -102,12 +102,25 @@ class NativeRegistration:
 
 
 class NativeRegistry:
-    def __init__(self, registrations=(), *, service_options=None, reviewer_factory=None):
+    def __init__(
+        self,
+        registrations=(),
+        *,
+        service_options=None,
+        reviewer_factory=None,
+        code_registrations=(),
+    ):
         values = {r.reference: r for r in registrations if type(r) is NativeRegistration}
         if len(values) != len(registrations):
             raise AccessDenied("Distinct typed native registrations are required")
         if reviewer_factory is not None and not callable(reviewer_factory):
             raise AccessDenied("Trusted reviewer factory must be code-bound")
+        from .code_registration import CodeRegistration
+
+        code = {r.reference: r for r in code_registrations if type(r) is CodeRegistration}
+        if len(code) != len(code_registrations):
+            raise AccessDenied("Distinct typed installed code registrations required")
+        self.code = MappingProxyType(code)
         self.reviewer_factory = reviewer_factory
         self.values = MappingProxyType(values)
         self.service_options = MappingProxyType(dict(service_options or {}))
@@ -116,5 +129,12 @@ class NativeRegistry:
         if reference not in self.values:
             raise Unavailable("The trusted installed native registration is unavailable")
         value = self.values[reference]
+        value.check()
+        return value
+
+    def require_code(self, reference):
+        if reference not in self.code:
+            raise Unavailable("Installed code delivery policy is unavailable")
+        value = self.code[reference]
         value.check()
         return value

@@ -200,7 +200,7 @@ class ClaudeTransport(Transport):
         await anyio.to_thread.run_sync(self.process.end_input)
 
     def is_ready(self):
-        return self.connected and not self.process._closed
+        return self.connected and not self.process._closed and not self.process.stopping
 
     async def read_messages(self):
         started = diagnostic_clock()
@@ -210,6 +210,8 @@ class ClaudeTransport(Transport):
                 if frame is not None:
                     yield frame
         except BaseException as error:
+            if self.process.stopping:
+                return
             _record_failure(
                 self,
                 self.transcript,

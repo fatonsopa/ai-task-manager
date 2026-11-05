@@ -58,9 +58,9 @@ class ProviderFixture:
 
         self.rig.db.transaction = observed_transaction
 
-    def task(self, *, handle=None):
+    def task(self, *, handle=None, code=False):
         r = self.rig
-        prose = TaskProse("Verify dependency scope", "Retain the exact scoped result.", False)
+        prose = TaskProse("Verify dependency scope", "Retain the exact scoped result.", code)
         handle = handle or r.handle
         task = r.core.intake.submit(handle, prose, r.approval(prose), r.key())
         operation = r.core.sync.list_operations(handle)[-1]

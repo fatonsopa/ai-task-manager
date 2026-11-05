@@ -419,6 +419,11 @@ class ManagedWorkers:
         outcomes = []
         collectors = []
         components = {}
+        # End transport observations before fencing their work authority. This
+        # cancels readers; it grants no terminal frame or new effect permission.
+        cancel_reads = getattr(native, "begin_shutdown", None)
+        if callable(cancel_reads):
+            cancel_reads()
         if attempt_id in self._startup_freshness:
             collectors.append(("startup_collector", self._startup_freshness[attempt_id]))
         if attempt_id in self._freshness:

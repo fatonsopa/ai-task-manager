@@ -7,7 +7,16 @@ from .registry import CommandDefinition, InstalledCommands
 __all__ = ["CommandDefinition", "InstalledCommands", "build"]
 
 
-def build(context, *, docker_executable, docker_endpoint, image_id, definitions, check_sources):
+def build(
+    context,
+    *,
+    docker_executable,
+    docker_endpoint,
+    image_id,
+    definitions,
+    check_sources,
+    maximum_jobs=4,
+):
     plans = {definition.reference: definition.plan(image_id) for definition in definitions}
     runner = DockerCommands(
         context.host_journal,
@@ -16,5 +25,6 @@ def build(context, *, docker_executable, docker_endpoint, image_id, definitions,
         docker_endpoint,
         plans,
         deadline=context.deadline,
+        maximum_jobs=maximum_jobs,
     )
     return InstalledCommands(context, runner, definitions, check_sources=check_sources)

@@ -83,7 +83,15 @@ class AuthoredDependencyCollection:
             raise AccessDenied("Authored dependency collection failure")
         self.calls += 1
         current = snapshot(self.core, self.handle, task, self.core.context.clock())
-        return SimpleNamespace(snapshot_ref=self.core.scheduling.sources.issue(current))
+        from ai_task_manager.adapters.linear.dependencies.source import Preparation
+
+        return Preparation(
+            task.id,
+            task.version,
+            task.decision_revision,
+            self.core.scheduling.sources.issue(current),
+            operation_key,
+        )
 
     def refresh_for_start(self, task_id, operation_key, *, expected_version, decision_revision):
         value = self.prepare(

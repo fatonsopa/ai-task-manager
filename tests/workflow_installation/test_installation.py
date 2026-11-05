@@ -45,7 +45,7 @@ def installed(tmp_path, request):
     limit = time.monotonic() + 12
     while not (root / "ready.json").exists() and child.poll() is None and time.monotonic() < limit:
         time.sleep(0.03)
-    if mode == "valid":
+    if mode in {"valid", "code", "code-restart"}:
         assert (root / "ready.json").exists(), (root / "stderr").read_text()
     else:
         child.wait(timeout=5)
@@ -91,7 +91,7 @@ def cli(fixture, group, action, data=None, extra=()):
         input=json.dumps(data) if data is not None else None,
         capture_output=True,
         text=True,
-        timeout=25,
+        timeout=100 if (root / "code-policy.json").exists() else 25,
         env={"PATH": os.defpath},
     )
 

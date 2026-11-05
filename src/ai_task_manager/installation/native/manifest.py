@@ -52,7 +52,7 @@ class NativeManifest:
         if (
             type(d) is not dict
             or not FIELDS <= set(d)
-            or set(d) - FIELDS - {"commands_manifest", "authority_store"}
+            or set(d) - FIELDS - {"commands_manifest", "authority_store", "code_manifest"}
             or type(d["version"]) is not int
             or d["version"] != 1
         ):
@@ -78,7 +78,14 @@ class NativeManifest:
             or any(type(d[k]) is not str or not d[k] for k in ("native_ref", "authorization_ref"))
         ):
             raise AccessDenied("Exact authorized account/model/High profile is required")
-        pointer = d.get("commands_manifest")
+        for name in ("commands_manifest", "code_manifest"):
+            self._pointer(d.get(name))
+        self.data = d
+        self.profile = NativeProfile(d["model"], d["effort"])
+        self._paths(d)
+
+    @staticmethod
+    def _pointer(pointer):
         if pointer is not None and (
             type(pointer) is not dict
             or set(pointer) != {"path", "sha256"}
@@ -86,8 +93,8 @@ class NativeManifest:
             or type(pointer["sha256"]) is not str
         ):
             raise ValidationError("Exact installed command manifest reference required")
-        self.data = d
-        self.profile = NativeProfile(d["model"], d["effort"])
+
+    def _paths(self, d):
         for name in ("home", "profile", "executable"):
             p = Path(d[name])
             if not p.is_absolute() or p.resolve() != p or p.is_symlink():

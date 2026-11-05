@@ -11,6 +11,7 @@ import tempfile
 import time
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
+from threading import Event, Lock
 
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup, require_group_monitoring
 from ai_task_manager.config.files import MAX_JSON_BYTES, strict_json
@@ -54,6 +55,8 @@ class HostProcess:
         if self.directory.is_symlink() or self.directory.stat().st_mode & 0o077:
             raise AccessDenied("Host output needs an owned private directory")
         self._buffer, self._closed = b"", False
+        self._stopping, self._stop_lock = Event(), Lock()
+        self.stop_evidence = None
         self.process = self.group = self.identity = self.native_exit = None
         self.invocation = invocation
         self._bound_invocation = invocation
@@ -303,6 +306,8 @@ class HostProcess:
 
     @contextmanager
     def _input_boundary(self):
+        if self.stopping:
+            raise AccessDenied("Native transport is stopping")
         permit = self._active_invocation
         if self.invocation is None:
             yield
@@ -369,6 +374,8 @@ class HostProcess:
         self._pending_completion, self._pending_submitted = None, False
 
     def write(self, text):
+        if self.stopping:
+            raise AccessDenied("Native transport is stopping")
         self._deadline()
         self.boundary()
         self.verify_identity()
@@ -416,10 +423,14 @@ class HostProcess:
         self.native_input.close()
 
     def read(self, timeout=0.2):
+        if self.stopping:
+            return None
         self._deadline()
         self.boundary()
         end = time.monotonic() + timeout
         while True:
+            if self.stopping:
+                return None
             if b"\n" in self._buffer:
                 line, self._buffer = self._buffer.split(b"\n", 1)
                 try:
@@ -438,6 +449,8 @@ class HostProcess:
                 selected.register(self.process.stdout, selectors.EVENT_READ)
                 if not selected.select(remaining):
                     return None
+                if self.stopping:
+                    return None
                 part = os.read(self.process.stdout.fileno(), 65536)
             if not part:
                 if self._buffer:
@@ -445,9 +458,22 @@ class HostProcess:
                 raise RuntimeUncertain("Host transport disconnected")
             self._buffer += part
 
+    @property
+    def stopping(self):
+        return self._stopping.is_set()
+
+    def begin_shutdown(self):
+        # Cancellation only: no frame, current-work permission or stop proof.
+        self._stopping.set()
+
     def stop(self):
-        if self._closed:
-            return self.stop_evidence
+        self.begin_shutdown()
+        with self._stop_lock:
+            if self.stop_evidence is not None:
+                return self.stop_evidence
+            return self._stop_once()
+
+    def _stop_once(self):
         if self.group is None:
             raise RuntimeUncertain("A process without an ownership anchor cannot be released")
         result = self.group.stop()

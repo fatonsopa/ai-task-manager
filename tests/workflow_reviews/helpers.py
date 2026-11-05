@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from ai_task_manager.adapters.proofs.router import EvidenceRoute, EvidenceRouter
 from ai_task_manager.adapters.proofs.store import RUNTIME_KINDS
 from ai_task_manager.adapters.workflow_reviews import (
-    KINDS,
-    PREFIX,
     CurrentArtifacts,
     InstalledReviews,
     ReviewBinding,
@@ -102,18 +100,24 @@ class HistoricalControl:
 
 
 class ReviewRig:
-    def __init__(self, root):
+    def __init__(self, root, *, code=False):
         root.mkdir(mode=0o700)
         self.root = root
         self.runtime = RuntimeRig(root)
         self.r = self.runtime.rig
-        task = self.r.queued(code=False)
+        task = self.r.queued(code=code)
         self.dispatch = self.runtime.start(task)
         self.runtime.admit(self.dispatch)
         command = self.runtime.command(
             self.dispatch,
             "from pathlib import Path; "
-            "Path('report.txt').write_text('Authored report artifact.\\n')",
+            "Path('report.txt').write_text('Authored report artifact.\\n')"
+            + (
+                "; import subprocess; subprocess.run(['git','add','report.txt'],check=True); "
+                "subprocess.run(['git','commit','-qm','Owned worker artifact'],check=True)"
+                if code
+                else ""
+            ),
         )
         self.runtime.supervisor.execute(
             self.r.handle, self.dispatch, command, operation_key=self.r.key()
@@ -127,7 +131,13 @@ class ReviewRig:
         self.inspector = InspectionContractControl(self.view)
         self.saved = self.inspector.inspect(self.task, self.attempt, self.plan)
         self.store = HistoricalControl(root / "inspection.json", self.scope, self.saved)
-        self.artifacts = CurrentArtifacts(
+        from ai_task_manager.adapters.workflow_reviews.code_worker_artifacts import (
+            CodeWorkerArtifacts,
+        )
+
+        self.code = code
+        artifact_type = CodeWorkerArtifacts if code else CurrentArtifacts
+        self.artifacts = artifact_type(
             self.r.core,
             self.r.handle,
             self.store,
@@ -199,12 +209,17 @@ class ReviewRig:
             tuple(prior) + (self.binding,),
             selected={self.inspection.digest: self.binding.reference},
         )
-        self.issuer = WorkflowReviews(
+        from ai_task_manager.adapters.workflow_reviews.code_worker_units import (
+            CodeWorkerUnitIssuer,
+        )
+
+        issuer_type = CodeWorkerUnitIssuer if self.code else WorkflowReviews
+        self.issuer = issuer_type(
             self.artifacts, self.issuer_key, self.source, clock=lambda: self.r.now
         )
         self.r.core.context.evidence = EvidenceRouter(
             [
-                EvidenceRoute(PREFIX, KINDS, self.issuer),
+                EvidenceRoute(self.issuer.prefix, self.issuer.kinds, self.issuer),
                 EvidenceRoute("runtime-proof:", RUNTIME_KINDS, self.runtime.proofs),
                 EvidenceRoute(
                     "fixture:",

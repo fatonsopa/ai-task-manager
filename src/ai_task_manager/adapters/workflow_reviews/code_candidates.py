@@ -24,6 +24,7 @@ class CodeCandidateReviews:
         self._prepared = None
 
     def read(self, task, candidate):
+        self._prepared = None
         if any(
             a is not b
             for a, b in zip(
@@ -51,6 +52,8 @@ class CodeCandidateReviews:
             or (binding.task_id, binding.principal_id, binding.project_id, binding.session_id)
             != (task.id, scope.principal, scope.project, scope.logical_session)
             or binding.prose_digest != task.prose_digest
+            or (task.version, attempt.version, task.decision_revision)
+            != (grant.task_version, grant.attempt_version, grant.decision_revision)
         ):
             raise EvidenceRequired("Exact current completed code-task authority is required")
         observed = self.candidates.reconcile(candidate.operation_ref)
@@ -66,7 +69,7 @@ class CodeCandidateReviews:
             FileWitness.capture(root, identity_only=True),
             FileWitness.capture(root / ".git"),
         ]
-        artifacts = {}
+        artifacts, artifact_facts = {}, {}
         for name in self.files:
             path = confined(root, name)
             witness = FileWitness.capture(path)
@@ -83,6 +86,13 @@ class CodeCandidateReviews:
             if len(raw) > 262144:
                 raise EvidenceRequired("Candidate review artifact exceeds its bounded size")
             artifacts[name] = hashlib.sha256(raw).hexdigest()
+            artifact_facts[name] = {
+                "path": str(path),
+                "device": info.st_dev,
+                "inode": info.st_ino,
+                "size": len(raw),
+                "sha256": artifacts[name],
+            }
             witness.check()
             witnesses.append(witness)
         common = Path(self.candidates.profile.source["common"])
@@ -96,6 +106,7 @@ class CodeCandidateReviews:
             witnesses.append(FileWitness.capture(common / reference))
         context = {
             "scope": asdict(scope),
+            "review_kind": "code_candidate",
             "task_id": task.id,
             "prose_digest": task.prose_digest,
             "required_work": list(task.required_work),
@@ -107,12 +118,16 @@ class CodeCandidateReviews:
             "inspection": {
                 "candidate": asdict(candidate),
                 "artifacts": artifacts,
+                "artifact_facts": artifact_facts,
                 "worktree": {"path": str(root), "common": str(common)},
             },
             "source_version": {
                 "head": candidate.commit,
                 "tree": candidate.tree,
                 "grant_digest": grant.digest,
+                "task_version": task.version,
+                "attempt_version": attempt.version,
+                "decision_revision": task.decision_revision,
             },
             "criteria": [[unit, task.title + "\n\n" + task.body] for unit in task.required_work],
         }
@@ -131,6 +146,13 @@ class CodeCandidateReviews:
             or not captured.accepted(tuple(task.required_work), self.core.context.clock())
         ):
             raise EvidenceRequired("Independent exact-candidate captured acceptance is required")
+        _, current_scope = self.core.session_binding(self.handle)
+        if (
+            self.core.get_task(self.handle, task.id) != task
+            or self.core.get_attempt(self.handle, attempt.id) != attempt
+            or current_scope != scope
+        ):
+            raise EvidenceRequired("Code-candidate review authority changed during capture")
         sha(captured.trace_sha256)
         sha(captured.source_digest)
         inspection.check()

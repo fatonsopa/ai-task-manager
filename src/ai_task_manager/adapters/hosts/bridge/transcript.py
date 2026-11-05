@@ -47,9 +47,11 @@ class OwnedTranscript:
             self._listeners.remove(listener)
 
     def read(self, timeout=0.2):
+        if self.process.stopping:
+            return None
         self.process.verify_identity()
         frame = self.process.read(timeout)
-        if frame is None:
+        if frame is None or self.process.stopping:
             return None
         method = (
             self._response_methods.pop(frame.get("id"), None) if "method" not in frame else None

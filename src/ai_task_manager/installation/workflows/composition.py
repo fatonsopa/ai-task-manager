@@ -66,6 +66,11 @@ class InstalledWorkflow:
         # This gate precedes provider authentication or resource/native effects.
         self.registry = registry or NativeRegistry()
         self.native = self.registry.require(spec.data["native_ref"])
+        self.code = (
+            self.registry.require_code(spec.data["code_ref"]) if "code_ref" in spec.data else None
+        )
+        if self.code is not None and self.code.fingerprint != spec.data["code_digest"]:
+            raise AccessDenied("Installed code policy digest differs")
         if self.native.fingerprint != spec.data["native_digest"]:
             raise AccessDenied("Native account/model/source registration differs")
         if reviews is not None:
@@ -118,6 +123,12 @@ class InstalledWorkflow:
                 if not task.code_bearing
                 else "Installed task, scope or approved prose differs"
             )
+        if task.code_bearing:
+            if self.code is None:
+                raise Unavailable("Code delivery requires an installed sealed code registration")
+            self.code.require(core, handle, task)
+        elif self.code is not None:
+            raise AccessDenied("Non-code work cannot select an installed merge policy")
         if provider is None or self.dependencies is None:
             raise Unavailable("Real provider/dependency ports required before native execution")
         if not isinstance(core.context.evidence, EvidenceRouter):
@@ -249,20 +260,21 @@ class InstalledWorkflow:
                 key.chmod(0o600)
                 stream.write(os.urandom(32))
         private_path(key)
-        reviewer = WorkflowReviews(
-            CurrentArtifacts(
-                core, handle, self.store, inspector, runtime, {task.id: plan}, criteria
-            ),
-            key,
-            self._review_source(root),
-        )
-        core.context.evidence = EvidenceRouter(
-            [
-                *core.context.evidence.routes,
-                EvidenceRoute("runtime-proof:", RUNTIME_KINDS, proofs),
-                EvidenceRoute(PREFIX, KINDS, reviewer),
-            ]
-        )
+        reviewer = None
+        routes = [
+            *core.context.evidence.routes,
+            EvidenceRoute("runtime-proof:", RUNTIME_KINDS, proofs),
+        ]
+        if not task.code_bearing:
+            reviewer = WorkflowReviews(
+                CurrentArtifacts(
+                    core, handle, self.store, inspector, runtime, {task.id: plan}, criteria
+                ),
+                key,
+                self._review_source(root),
+            )
+            routes.append(EvidenceRoute(PREFIX, KINDS, reviewer))
+        core.context.evidence = EvidenceRouter(routes)
         from ai_task_manager.config.files import read_private
 
         grant = read_private(self.spec.config_seal.path).get("grant_ref")
@@ -293,6 +305,45 @@ class InstalledWorkflow:
                 host=self.host_journal.path,
                 provider=provider_config["journal"],
             )
+
+        def decision_lookup(scope, current, target, action):
+            return decisions.decision(scope, current, target, action, grant_ref=grant)
+
+        code_delivery = None
+        if task.code_bearing:
+            from .code_delivery import InstalledCodeDelivery
+
+            code_delivery = InstalledCodeDelivery(
+                core,
+                handle,
+                self.store,
+                runtime,
+                self.resources,
+                self.code,
+                context,
+                self._review_source(root, deadline=d["deadline"]),
+                key,
+                decision_lookup,
+                provider,
+                criteria,
+                dependencies=self.dependencies,
+            )
+            from .worker_resources import ResourceWorkerCommits
+
+            commits = ResourceWorkerCommits(
+                commits, code_delivery.resources, code_delivery.freshness
+            )
+            core.context.evidence = EvidenceRouter(
+                [
+                    *core.context.evidence.routes,
+                    EvidenceRoute(
+                        "merge-publication:",
+                        frozenset({"merge", "publication_intent"}),
+                        code_delivery.evidence,
+                    ),
+                ]
+            )
+            inspector = code_delivery.inspector
         driver = WorkflowDriver(
             core,
             handle,
@@ -302,11 +353,10 @@ class InstalledWorkflow:
             repository=inspector,
             commits=commits,
             provider=provider,
-            reviews=ReviewedEvidence(core, reviewer.lookup),
+            reviews=ReviewedEvidence(core, reviewer.lookup) if reviewer is not None else None,
+            code_delivery=code_delivery,
             recovery_history=history,
-            decisions=lambda scope, current, target, action: decisions.decision(
-                scope, current, target, action, grant_ref=grant
-            ),
+            decisions=decision_lookup,
         )
         from ai_task_manager.installation.native.reviewer import NormalReviewerFactory
 
@@ -319,7 +369,7 @@ class InstalledWorkflow:
             reviewer_owner=factory if isinstance(factory, NormalReviewerFactory) else None,
         )
 
-    def _review_source(self, root):
+    def _review_source(self, root, *, deadline=None):
         from ai_task_manager.adapters.workflow_reviews.capture_store import (
             CaptureStore,
             NativeReviewSource,
@@ -327,7 +377,27 @@ class InstalledWorkflow:
 
         # Only trusted native registration supplies a producer. A model request
         # cannot choose an implementation or manufacture a verdict.
-        return NativeReviewSource(CaptureStore(root / "reviews"), self.registry.reviewer_factory)
+        factory = self.registry.reviewer_factory
+        if deadline is not None and factory is not None:
+            original = factory
+
+            def bounded(inspection):
+                import time
+
+                from ai_task_manager.adapters.workflow_reviews.native import NativeReviewCapture
+
+                if time.time() >= deadline:
+                    raise AccessDenied("Original installed review deadline expired")
+                producer = original(inspection)
+                if (
+                    type(producer) is not NativeReviewCapture
+                    or producer.workers.deadline > deadline
+                ):
+                    raise AccessDenied("Independent review outlives its original parent workflow")
+                return producer
+
+            factory = bounded
+        return NativeReviewSource(CaptureStore(root / "reviews"), factory)
 
     def serve(self, stop=None, ready=None):
         return self.owner.serve(stop, ready)

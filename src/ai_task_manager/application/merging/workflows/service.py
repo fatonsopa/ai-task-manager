@@ -67,10 +67,12 @@ class MergeWorkflowService(WorkflowService):
         clock=time.time,
         faults=None,
         candidate_reviews=None,
+        publication_lifecycle=None,
     ):
         self.core, self.handle, self.plan = core, handle, plan
         self.candidate_reviews = candidate_reviews
         self._candidate_reviews_bound = candidate_reviews
+        self.publication_lifecycle = self._publication_lifecycle_bound = publication_lifecycle
         self.candidate, self.check_inputs, self.provider, self.evidence = (
             candidate,
             checks,
@@ -87,6 +89,8 @@ class MergeWorkflowService(WorkflowService):
             raise AccessDenied("Installed merge plan outlives the current owner admission")
 
     def _scope(self):
+        if self.publication_lifecycle is not self._publication_lifecycle_bound:
+            raise AccessDenied("Installed publication lifecycle owner changed")
         if self.candidate_reviews is not self._candidate_reviews_bound:
             raise AccessDenied("Installed code-candidate review port changed")
         if self.core.session_binding(self.handle) != (self.session_id, self.scope):
@@ -232,6 +236,21 @@ class MergeWorkflowService(WorkflowService):
         ref = workflow_ref
         try:
             steps = row["steps"]
+            if self.publication_lifecycle is not None:
+                saved_fence = steps.get("publication_fence")
+                if saved_fence is None:
+                    self.publication_lifecycle.start()
+                elif saved_fence["result"] is not None:
+                    candidate = CandidateResult(**steps["candidate"]["result"])
+                    binding = replace(self.plan.grant.binding, operation_key=ref + ":publication")
+                    self.publication_lifecycle.adopt_fence(
+                        self.plan,
+                        PublicationContext(**saved_fence["result"]),
+                        binding.fingerprint,
+                        candidate.commit,
+                    )
+                else:
+                    self.publication_lifecycle.before_fence(self.plan)
             if (
                 task.delivered_once
                 and task.observed_status == IssueStatus.IN_DEV
@@ -347,6 +366,8 @@ class MergeWorkflowService(WorkflowService):
                 g = self.plan.grant
 
                 def begin_context():
+                    if self.publication_lifecycle is not None:
+                        self.publication_lifecycle.before_fence(self.plan)
                     args = (
                         self.handle,
                         g.binding.task_id,
@@ -378,11 +399,30 @@ class MergeWorkflowService(WorkflowService):
                     ref, owner, "publication_fence", {"intent_ref": intent["ref"]}, begin_context
                 )
                 context = PublicationContext(**context)
+                if self.publication_lifecycle is not None:
+                    binding = replace(g.binding, operation_key=ref + ":publication")
+                    self.publication_lifecycle.adopt_fence(
+                        self.plan, context, binding.fingerprint, candidate.commit
+                    )
                 consumer = self._publication(ref, candidate, check_ref, context)
                 pub_ref = consumer.registration["ref"]
 
                 def publish():
-                    if self.candidate_reviews is not None:
+                    prior_actual = (
+                        self.store.journal.current(pub_ref)["facts"]
+                        .get("local_git", {})
+                        .get("result")
+                    )
+                    committed_replay = bool(
+                        prior_actual
+                        and prior_actual.get("publication") == "committed"
+                        and prior_actual.get("quiescent") is True
+                        and not prior_actual.get("repair_required")
+                    )
+                    # An exact saved successful publication is reconciled by the
+                    # existing scoped publisher; reviewing it cannot authorize
+                    # another Git effect or reinterpret the committed history.
+                    if self.candidate_reviews is not None and not committed_replay:
                         review = self.candidate_reviews.read(self._scope(), candidate)
                         saved = self.store.read(ref)["steps"].get("candidate_review")
                         if review is None or saved is None or saved["result"] != review:

@@ -121,12 +121,15 @@ def test_stop_requests_identity_before_transport_and_joins_after():
     from ai_task_manager.adapters.process.groups import GroupObservation, GroupStop
 
     result = GroupStop(True, GroupObservation(True))
-    host.process = SimpleNamespace(stop=lambda: events.append("process") or result)
+    host.process = SimpleNamespace(
+        begin_shutdown=lambda: events.append("cancel_reads"),
+        stop=lambda: events.append("process") or result,
+    )
     host.permits = SimpleNamespace(record_host_stop=lambda *a: events.append("record"))
     host.binding = SimpleNamespace(attempt_id="authored")
     host.journal = SimpleNamespace(_append=lambda *a: pytest.fail("unexpected failure record"))
     assert host._stop_owned() is result
-    assert events == ["request", "session", "process", "join", "record"]
+    assert events == ["cancel_reads", "request", "session", "process", "join", "record"]
 
 
 def test_required_identity_window_wait_is_cancelled_before_another_auth(
@@ -229,7 +232,9 @@ def test_unstopped_identity_still_downgrades_confirmed_native_stop():
     host._source_audit_boundary = nothing
     host._session_close_attempted = True
     host.session = host.portal = host._portal_context = None
-    host.process = SimpleNamespace(stop=lambda: GroupStop(True, GroupObservation(True)))
+    host.process = SimpleNamespace(
+        begin_shutdown=lambda: None, stop=lambda: GroupStop(True, GroupObservation(True))
+    )
     records = []
     host.permits = SimpleNamespace(record_host_stop=lambda binding, stop: records.append(stop))
     host.binding = SimpleNamespace(attempt_id="authored")

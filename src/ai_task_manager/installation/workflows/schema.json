@@ -159,55 +159,170 @@
       ]
     },
     "reviewer_installation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "path",
-        "device",
-        "inode",
-        "sha256"
-      ],
-      "properties": {
-        "path": {
-          "type": "string"
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "device",
+            "inode",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "device": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "inode": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
         },
-        "device": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "inode": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "sha256": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code_worker",
+            "code_candidate"
+          ],
+          "properties": {
+            "code_worker": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "device",
+                "inode",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "device": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "inode": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            },
+            "code_candidate": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "device",
+                "inode",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "device": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "inode": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          }
         }
-      }
+      ]
     },
     "review_target": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "task_id",
-        "prose_digest",
-        "source_head"
-      ],
-      "properties": {
-        "task_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "task_id",
+            "prose_digest",
+            "source_head"
+          ],
+          "properties": {
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "prose_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "source_head": {
+              "type": "string",
+              "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+            }
+          }
         },
-        "prose_digest": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
-        },
-        "source_head": {
-          "type": "string",
-          "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "task_id",
+            "prose_digest",
+            "stage"
+          ],
+          "properties": {
+            "task_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "prose_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "stage": {
+              "enum": [
+                "code_worker",
+                "code_candidate"
+              ]
+            }
+          }
         }
-      }
+      ]
+    },
+    "code_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "code_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     }
+  },
+  "dependentRequired": {
+    "code_ref": [
+      "code_digest"
+    ],
+    "code_digest": [
+      "code_ref"
+    ]
   }
 }

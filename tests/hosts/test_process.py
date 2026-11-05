@@ -76,6 +76,8 @@ def test_normal_native_exit_does_not_establish_model_success(native):
 
 
 def test_unknown_group_never_returns_confirmed_stop(native, monkeypatch):
+    import os
+
     from ai_task_manager.adapters.process.groups import GroupObservation
 
     process, _, _ = native()
@@ -83,5 +85,17 @@ def test_unknown_group_never_returns_confirmed_stop(native, monkeypatch):
     with monkeypatch.context() as patch:
         patch.setattr(group, "observe", lambda: GroupObservation(False, reason="unavailable"))
         patch.setattr(group, "_signal", lambda *_: False)
-        assert not process.stop().confirmed
-    assert process.stop().confirmed
+        first = process.stop()
+        assert not first.confirmed
+    # An implicit second close cannot re-signal or reclassify unknown ownership.
+    assert process.stop() is first
+    # Separate trusted fixture cleanup uses the retained original group anchor;
+    # it does not rewrite the original transport stop result.
+    assert group.stop().confirmed
+    process.native_input.close()
+    process.native_exit.close()
+    group.reap_exited_leader()
+    process.process.stdout.close()
+    os.close(process._relay_ready_fd)
+    process._relay_ready_fd = None
+    assert process.stop() is first and not first.confirmed
