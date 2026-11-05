@@ -321,7 +321,7 @@ class InstalledWorkflow:
                 self.resources,
                 self.code,
                 context,
-                self._review_source(root),
+                self._review_source(root, deadline=d["deadline"]),
                 key,
                 decision_lookup,
                 provider,
@@ -363,7 +363,7 @@ class InstalledWorkflow:
             reviewer_owner=factory if isinstance(factory, NormalReviewerFactory) else None,
         )
 
-    def _review_source(self, root):
+    def _review_source(self, root, *, deadline=None):
         from ai_task_manager.adapters.workflow_reviews.capture_store import (
             CaptureStore,
             NativeReviewSource,
@@ -371,7 +371,27 @@ class InstalledWorkflow:
 
         # Only trusted native registration supplies a producer. A model request
         # cannot choose an implementation or manufacture a verdict.
-        return NativeReviewSource(CaptureStore(root / "reviews"), self.registry.reviewer_factory)
+        factory = self.registry.reviewer_factory
+        if deadline is not None and factory is not None:
+            original = factory
+
+            def bounded(inspection):
+                import time
+
+                from ai_task_manager.adapters.workflow_reviews.native import NativeReviewCapture
+
+                if time.time() >= deadline:
+                    raise AccessDenied("Original installed review deadline expired")
+                producer = original(inspection)
+                if (
+                    type(producer) is not NativeReviewCapture
+                    or producer.workers.deadline > deadline
+                ):
+                    raise AccessDenied("Independent review outlives its original parent workflow")
+                return producer
+
+            factory = bounded
+        return NativeReviewSource(CaptureStore(root / "reviews"), factory)
 
     def serve(self, stop=None, ready=None):
         return self.owner.serve(stop, ready)

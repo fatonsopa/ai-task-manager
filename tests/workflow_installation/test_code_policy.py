@@ -103,3 +103,29 @@ def test_resource_reads_preserve_original_finite_wait_recheck_callback():
     wrapper = ResourceReads(Reads(), resources, object())
     assert wrapper.read("ref", "scope", after_wait=lambda: order.append("source")) == "record"
     assert order == ["resource", "wait", "resource", "source", "resource", "resource"]
+
+
+def test_delivery_resource_budget_refuses_expiry_during_wait_before_consumption():
+    from contextlib import contextmanager
+
+    from ai_task_manager.installation.workflows.code_delivery import DeliveryResources
+
+    now = [1.0]
+
+    class Resources:
+        git = object()
+
+        @contextmanager
+        def use(self, pair):
+            yield
+
+        def verify(self, pair):
+            return "physical"
+
+    resources = DeliveryResources(Resources(), lambda: now[0], 2.0)
+    with resources.use(object()):
+        assert resources.verify(object()) == "physical"
+    with pytest.raises(AccessDenied, match="deadline"):
+        with resources.use(object()):
+            now[0] = 2.0
+            resources.verify(object())

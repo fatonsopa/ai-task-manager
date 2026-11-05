@@ -1,5 +1,6 @@
 """Connect saved committed work, code units and one installed merge authority."""
 
+from contextlib import contextmanager
 from dataclasses import asdict, replace
 from pathlib import Path
 
@@ -25,6 +26,31 @@ from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.storage.merging.journal import Journal
 
 from .code_registration import CodeCapabilities
+
+
+class DeliveryResources:
+    """Original parent budget accompanies every physical merge consumer."""
+
+    def __init__(self, resources, clock, deadline):
+        self.owner, self.clock, self.deadline = resources, clock, deadline
+        self.git = resources.git
+
+    def _current(self):
+        if self.clock() >= self.deadline:
+            raise AccessDenied("Original installed code-delivery deadline expired")
+
+    def verify(self, pair):
+        self._current()
+        observed = self.owner.verify(pair)
+        self._current()
+        return observed
+
+    @contextmanager
+    def use(self, pair):
+        self._current()
+        with self.owner.use(pair):
+            yield self.verify(pair)
+            self._current()
 
 
 class ResourceReviews:
@@ -121,7 +147,8 @@ class InstalledCodeDelivery:
         criteria,
     ):
         self.core, self.handle, self.store, self.runtime = core, handle, store, runtime
-        self.resources, self.registration, self.context = resources, registration, context
+        self.resources = DeliveryResources(resources, core.context.clock, context.deadline)
+        self.registration, self.context = registration, context
         self.review_source, self.issuer_key = review_source, issuer_key
         self.decisions, self.provider, self.criteria = decisions, provider, criteria
         self._bound = tuple(self.__dict__.values())
@@ -149,6 +176,7 @@ class InstalledCodeDelivery:
             value = self.registration.prepare(
                 replace(self.context, task=self.core.get_task(self.handle, attempt.task_id))
             )
+            self.resources.verify(pair)
             if type(value) is not CodeCapabilities:
                 raise EvidenceRequired("Typed installed code Git/check capabilities required")
             value.require()
@@ -202,6 +230,7 @@ class InstalledCodeDelivery:
             required_hooks=capability.required_hooks,
         )
         task = self.core.get_task(self.handle, row["task_id"])
+        self.resources.verify(pair)
         if retained is None:
             binding = Binding(
                 task.id,
