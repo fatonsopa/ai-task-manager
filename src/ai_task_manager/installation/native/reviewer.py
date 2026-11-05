@@ -1,4 +1,4 @@
-"""Default installed composition for one separately enrolled native reviewer."""
+"""Default installed composition for separately enrolled native review stages."""
 
 from dataclasses import asdict
 from pathlib import Path
@@ -43,15 +43,62 @@ class NormalReviewerFactory:
         self.author.check()
         if self.pointer != read_private(self.author.installation.path).get("reviewer_installation"):
             raise AccessDenied("Reviewer pointer differs from sealed author installation")
-        if type(self.pointer) is not dict or set(self.pointer) != {
-            "path",
-            "device",
-            "inode",
-            "sha256",
-        }:
-            raise AccessDenied("Exact physical reviewer installation required")
-        if file_binding(self.pointer["path"]) != self.pointer:
-            raise AccessDenied("Reviewer installation changed or was replaced")
+        stages = type(self.pointer) is dict and set(self.pointer) == {
+            "code_worker",
+            "code_candidate",
+        }
+        pointers = self.pointer.values() if stages else (self.pointer,)
+        specs = []
+        author = read_private(self.author.installation.path)
+        for pointer in pointers:
+            if type(pointer) is not dict or set(pointer) != {"path", "device", "inode", "sha256"}:
+                raise AccessDenied("Exact physical reviewer installation required")
+            if file_binding(pointer["path"]) != pointer:
+                raise AccessDenied("Reviewer installation changed or was replaced")
+            if stages:
+                specs.append(Installation(pointer["path"], self.author.config.path).data)
+        if stages and (
+            len({s["task_id"] for s in specs}) != 2 or len({s["state_root"] for s in specs}) != 2
+        ):
+            raise AccessDenied("Code stages require distinct reviewer tasks and state roots")
+        if stages:
+            roots = [Path(author["state_root"]), *(Path(spec["state_root"]) for spec in specs)]
+            if any(
+                a == b or a in b.parents or b in a.parents
+                for i, a in enumerate(roots)
+                for b in roots[i + 1 :]
+            ):
+                raise AccessDenied("Code reviewer state roots cannot overlap")
+            for stage, spec in zip(self.pointer, specs):
+                if (
+                    spec.get("role") != "reviewer"
+                    or spec.get("reviewer_installation") is not None
+                    or spec.get("review_target")
+                    != {
+                        "task_id": author["task_id"],
+                        "prose_digest": author["prose_digest"],
+                        "stage": stage,
+                    }
+                    or spec["task_id"] == author["task_id"]
+                    or spec["scope"] != author["scope"]
+                    or spec["deadline"] > author["deadline"]
+                    or spec["repository"] != author["repository"]
+                    or spec["source_head"] != author["source_head"]
+                ):
+                    raise AccessDenied(
+                        "Code stage reviewer installation differs from original authority"
+                    )
+
+    def _selected(self, inspection):
+        stage = inspection.context.get("review_kind")
+        stages = set(self.pointer) == {"code_worker", "code_candidate"}
+        if stages:
+            if stage not in self.pointer:
+                raise AccessDenied("A configured code stage is required")
+            return self.pointer[stage], stage
+        if stage in {"code_worker", "code_candidate"}:
+            raise AccessDenied("Both independent code reviewer stages must be installed")
+        return self.pointer, None
 
     def __call__(self, inspection):
         with self._lifecycle_lock:
@@ -67,17 +114,17 @@ class NormalReviewerFactory:
         self._check_pointer()
         inspection.check()
         author = read_private(self.author.installation.path)
-        spec = Installation(self.pointer["path"], self.author.config.path)
+        pointer, stage = self._selected(inspection)
+        spec = Installation(pointer["path"], self.author.config.path)
         d, context = spec.data, inspection.context
+        target = {"task_id": context["task_id"], "prose_digest": context["prose_digest"]}
+        target.update(
+            {"stage": stage} if stage else {"source_head": context["source_version"]["head"]}
+        )
         if (
             d.get("role") != "reviewer"
             or d.get("reviewer_installation") is not None
-            or d.get("review_target")
-            != {
-                "task_id": context["task_id"],
-                "prose_digest": context["prose_digest"],
-                "source_head": context["source_version"]["head"],
-            }
+            or d.get("review_target") != target
             or context["task_id"] != author["task_id"]
             or context["prose_digest"] != author["prose_digest"]
             or d["task_id"] == author["task_id"]
@@ -98,12 +145,19 @@ class NormalReviewerFactory:
             raise AccessDenied("Independent native review requires a supported managed host")
         service = load_service(self.author.config.path, **self.options)
         core, handle = service.core, service.handle
+        code_source = None
+        if stage is not None:
+            from .review_stages import CodeStageSource
+
+            code_source = CodeStageSource(self.author, service, inspection)
 
         def current_author(connection=None):
             if connection is None:
                 self._check_pointer()
                 spec.check()
                 inspection.check()
+            if code_source is not None:
+                code_source.check(connection)
             current = core.get_task(handle, author["task_id"], connection=connection)
             require_owned(service, current, connection=connection)
             if (

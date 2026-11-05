@@ -237,7 +237,7 @@ class Provisioned:
         write_private(b.manifest, b.data, replace=True)
         refresh_digest(b.installation, b.manifest, b.data)
 
-    def prepare(self):
+    def prepare(self, *, operation_key="provisioned-candidate"):
         code = self.resolve()
         self.capability = cap = code.prepare(self.context)
         tree_id = resource_alias("worktree", self.pair.worktree_id)
@@ -260,7 +260,7 @@ class Provisioned:
             repo_id,
             resource_alias("database", self.pair.database_id),
             record["configuration_digest"],
-            "provisioned-candidate",
+            operation_key,
         )
         self.grant = CandidateGrant(
             binding,
