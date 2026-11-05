@@ -1,7 +1,7 @@
 """Connect saved committed work, code units and one installed merge authority."""
 
 from contextlib import contextmanager
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from ai_task_manager.adapters.git.candidates import CandidateProfile
@@ -28,12 +28,17 @@ from ai_task_manager.storage.merging.journal import Journal
 from .code_registration import CodeCapabilities
 
 
+@dataclass(frozen=True)
 class DeliveryResources:
     """Original parent budget accompanies every physical merge consumer."""
 
-    def __init__(self, resources, clock, deadline):
-        self.owner, self.clock, self.deadline = resources, clock, deadline
-        self.git = resources.git
+    owner: object
+    clock: object
+    deadline: float
+
+    @property
+    def git(self):
+        return self.owner.git
 
     def _current(self):
         if self.clock() >= self.deadline:
