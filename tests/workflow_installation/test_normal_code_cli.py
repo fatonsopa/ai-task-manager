@@ -12,7 +12,33 @@ from pathlib import Path
 
 import pytest
 
-from tests.workflow_installation.test_installation import cli
+
+def cli(fixture, group, action, data=None, extra=()):
+    root, package, _ = fixture
+    command = [
+        sys.executable,
+        "-I",
+        "-c",
+        "import sys;sys.path.insert(0,sys.argv.pop(1));"
+        "from ai_task_manager.presentation.cli.main import main;raise SystemExit(main())",
+        str(package),
+        "--config",
+        str(root / "service.json"),
+        "--json",
+        group,
+        action,
+        *extra,
+    ]
+    if data is not None:
+        command += ["--input", "-"]
+    return subprocess.run(
+        command,
+        input=json.dumps(data) if data is not None else None,
+        capture_output=True,
+        text=True,
+        timeout=240,
+        env={"PATH": os.defpath},
+    )
 
 
 @pytest.fixture
