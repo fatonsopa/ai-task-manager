@@ -96,6 +96,15 @@ DONE - Verified on 5 November 2026 through actual installed CLI processes and MC
 
 DONE - Verified on 5 November 2026. One final invocation of the complete required P02 pure gate passed 1,670 tests with zero failures, errors or skips in 98.279 seconds wall time (JUnit 94.595 seconds). All original selector entries, sixteen storage controls and every one of the prior nine failing nodes executed. It supports current canonical claim/capacity concurrency, exact-key replay, denied scope and durable Core recovery together with the API proof. Independent source acceptance closed the hard-link finding and retained the earlier needs-changes review. No previous pass was substituted for this final run; earlier setup, fixture and red attempts remain unchanged. Full private records bind source/package/test inputs, review, results and owned cleanup.
 
+<a id="p03-current-joins"></a>
+### P03 delivery connections on 5 November 2026
+
+All seven required P03 items remain open. Local resource controls and independent review support the cleanup authorization reorder and worker-commit consumer fence, including verification after command waits. The exact prepared-candidate inspection/prompt correction has independent source acceptance. These results do not establish complete installed delivery or genuine provider/model acceptance.
+
+Source `6b714ff90ae7729beb94cf43f79d90f46ba64672` contains the corrected dependency-observation/publication handoff and focused controls; independent review is pending. Earlier installed controls required an injected trusted registry. Source `ecbfe9a1cd47fd147fa427f9e96ee1bcf3fe6c2d` adds normal sealed provisioning and demonstrates a direct resolver/capability/check/merge control without an injected code registry. Its configuration bounds are 1–16 mapped commands and 1–4 declared attempts, with a stable per-phase retained-job limit of commands times attempts, at most 64; this does not enable automatic retry. The combined final installed package has not yet been qualified or integrated.
+
+Retain the earlier ordinary installed refusal caused by dependency expiry: one failed and seven passed cases at `d6df2fcc7f6930305c96f88f0315a38bb1c994c4`. The subsequent generic freshness guard at `1a9a43c6386a130c35eec940b4a678989d2b26ca` incorrectly rejected its own pending publication fence; that source remains unaccepted. Four pre-publication controls cannot substitute for publication compatibility. Full private records retain source/package hashes, timing, failed fixture assertions, review findings and owned cleanup. Required actual-host, real Linear, recovery and workload evidence remains separate.
+
 <a id="p03-resource-alias"></a>
 ### P03 resource alias refusal component
 
