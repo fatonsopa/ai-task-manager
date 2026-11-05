@@ -184,11 +184,11 @@ Build and run independently authored product fixtures and test procedures in own
 
 | Required item | Deliverable | Kind | Completion evidence | Status / evidence |
 | --- | --- | --- | --- | --- |
-| P02.1 | Typed task records and scoped application API | Implementation | Implement and verify task/domain records, canonical claims and one shared policy through supported operations. | Not assessed |
-| P02.2 | Durable metadata, migrations and enrollment | Implementation | Verify transactional history, identity-preserving schema changes, enrolled-store checks and refusal of copied/replaced stores. | Not assessed |
-| P02.3 | Lifecycle, writing and authority guards | Implementation | Enforce all required transitions, human holds, delivered/terminal fences and exact approved prose without an alternate writer. | Not assessed |
-| P02.4 | Core CLI and MCP operations | Implementation | Exercise supported create/read/admit/queue and policy operations against the same API; declared external fixtures remain limited to their stated scope. | Not assessed |
-| P02.5 | Atomic admission, idempotence and core recovery | Implementation | Verify concurrent canonical claims/capacity, exact-key replay, denied scope and restart without lost or duplicate core operations. | Not assessed |
+| P02.1 | DONE - Typed task records and scoped application API | Implementation | Implement and verify task/domain records, canonical claims and one shared policy through supported operations. | 2026-11-05 — [Verified Core completion](test_status_report.md#p02-1) |
+| P02.2 | DONE - Durable metadata, migrations and enrollment | Implementation | Verify transactional history, identity-preserving schema changes, enrolled-store checks and refusal of copied/replaced stores. | 2026-11-05 — [Verified Core completion](test_status_report.md#p02-2) |
+| P02.3 | DONE - Lifecycle, writing and authority guards | Implementation | Enforce all required transitions, human holds, delivered/terminal fences and exact approved prose without an alternate writer. | 2026-11-05 — [Verified Core completion](test_status_report.md#p02-3) |
+| P02.4 | DONE - Core CLI and MCP operations | Implementation | Exercise supported create/read/admit/queue and policy operations against the same API; declared external fixtures remain limited to their stated scope. | 2026-11-05 — [Verified Core completion](test_status_report.md#p02-4) |
+| P02.5 | DONE - Atomic admission, idempotence and core recovery | Implementation | Verify concurrent canonical claims/capacity, exact-key replay, denied scope and restart without lost or duplicate core operations. | 2026-11-05 — [Verified Core completion](test_status_report.md#p02-5) |
 
 
 Implement pure domain rules and one application API. Separate task intent, execution attempt, worker identity, resource owner, delivery evidence, human decision and synchronization operation. Keep domain imports independent of providers and presentation. Enforce boundaries with executable import checks.

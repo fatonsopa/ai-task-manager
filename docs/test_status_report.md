@@ -1,15 +1,15 @@
 # AI task manager development and testing status
 
-Reporting period: 3 November 2026 04:17 UTC through 05 November 2026 02:06 UTC. Earlier results retain their original candidate and scope.
-Build: Runtime unchanged from `bd532fc32c96d256604c1051f212e802229144eb`; integrated P01 contract/traceability changes are pinned in private review and integration records. Earlier results retain their recorded runtime.
+Reporting period: 3 November 2026 04:17 UTC through 05 November 2026 03:00 UTC. Earlier results retain their original candidate and scope.
+Build: Core candidate `c176ed9e3a83c5cbd3fef822f540745261ae658e`, integrated at `d250da88d9947ef6d3063174aaf174dd53ff4005`. Earlier results retain their recorded source/runtime.
 Environment: macOS arm64, Python 3.13.13, SQLite 3.50.4, isolated Git repositories and owned disposable databases/processes. Seven receiver socket lifecycle checks also passed on Linux; full Linux acceptance remains incomplete.
-Status: All five P00 readiness items are verified within their stated scope. P00 exit is accepted and all five P01 contract/baseline items are verified; P01 exit reconciliation precedes P02 admission. Existing implementation is retained. Full product and live acceptance remain incomplete.
+Status: P00 and P01 exits are accepted. All five exact P02 Core items are verified and integrated; phase exit reconciliation precedes P03 admission. Existing implementation and all failures are retained. Full product/live acceptance remains incomplete.
 
 ## Progress and results
 
 ### Current phase delivery
 
-P00 and P01 each have all five exact required items verified (100%). These are preparation outputs, not product implementation or live acceptance points. The plan marks each completed item DONE - and links to this evidence. Complete live Linear acceptance remains 16/18 and full required host/model acceptance remains 0/4.
+P00, P01 and P02 each have all five exact required items verified (100%). P00/P01 are preparation outputs. P02 contributes five verified implementation units; other implementation units remain unassessed under the new phase inventory, so 5/39 is a verified lower bound rather than an estimate that the remaining code is absent. Live acceptance is separate. The plan marks each completed item DONE - and links to this evidence. Complete live Linear acceptance remains 16/18 and full required host/model acceptance remains 0/4.
 
 <a id="p00-1"></a>
 ### P00.1 — Repository and isolated workspace access
@@ -70,6 +70,31 @@ DONE - Verified on 5 November 2026. The explicit crosswalk maps all 38 approved 
 ### P01.5 — Consistent maintained instructions and delivery contracts
 
 DONE - Verified on 5 November 2026. Current merge instructions now supersede legacy shell/algorithm preservation, retain historical outcomes and point to the standalone contract. Maintained next-work guidance follows the exact phase order. The existing merge diagram metadata/source/export were updated together and passed parser, render, browser and visual checks. The independent accepted candidate is `195a2472361026004ce1631408b731081c328db5`; its closure assessment has SHA-256 `526a54638e4cfa9c7eb9ec8e059e6f30255239e811deaba05d4ba63fab405600`. Accepted unchanged review domains were reused. The earlier needs-changes review, original evidence, Root’s P01.1 summary and unrelated product bytes are retained. Full records remain private.
+
+<a id="p02-1"></a>
+### P02.1 — Typed task records and scoped application API
+
+DONE - Verified on 5 November 2026 against candidate `c176ed9e3a83c5cbd3fef822f540745261ae658e` and integrated source `d250da88d9947ef6d3063174aaf174dd53ff4005`. Existing typed records, canonical task claims and shared application policy are retained. Seven current API observations verify submission/read, exact replay, explicit queue history, denied foreign scope and premature action without unauthorized effects, atomic reservation and cold reopening. API proof took 0.473 seconds. No physical worker was launched by these local controls.
+
+<a id="p02-2"></a>
+### P02.2 — Durable metadata, migrations and enrollment
+
+DONE - Verified on 5 November 2026. Existing transactional history, schema/enrollment and replaced-store refusals pass the current required gate. A reproduced missing-before-image gap is repaired: legacy Core migrations retain a private serialized image and receipt before schema changes, preserving the source inode. Independent review exposed a matching-receipt hard-link collision; its red reproduction and correction are retained. Source/image/receipt link counts and distinct physical identities are checked, including final rechecks; collision refusal preserves schema/data/inode. Valid independent image reuse remains supported. Automatic retention is bounded to DELETE journaling and 64 MiB; larger/unsupported stores are refused rather than claimed supported. This adds no committed-state restore, replacement or enrollment authority.
+
+<a id="p02-3"></a>
+### P02.3 — Lifecycle, writing and authority guards
+
+DONE - Verified on 5 November 2026. The exact current policy, scope, transition-pair and authority controls pass without changing their required outcomes. The nine stale renewal fixtures now implement their declared mechanical identity/deadline/observation ports; their assertions and parameters remain unchanged and no native/model authority is fabricated. The rendered-provider fixture uses the approved representation rather than weakening exact-prose comparison. Human holds, terminal/delivered fences and premature/foreign actions remain guarded.
+
+<a id="p02-4"></a>
+### P02.4 — Core CLI and MCP operations
+
+DONE - Verified on 5 November 2026 through actual installed CLI processes and MCP SDK stdio against declared authored external fixtures. One current wheel has SHA-256 `f6e381e7c20a5dcf41ab085b83f71663d4e617fb2a4de4c6f15833c1fef04a64`; all 319 source/wheel/installed runtime members match, and all 44 installed distributions match the lock. The supported create/read/admit/queue/policy, refusal and replay procedures retain 34 operation/effect records. The module scenario took 17.923 seconds; CLI/MCP admission took 6.628/4.791 seconds. Provider threads and owned MCP processes stopped. This is installed Core boundary evidence, not actual Linear, model, lead or terminal acceptance.
+
+<a id="p02-5"></a>
+### P02.5 — Atomic admission, idempotence and core recovery
+
+DONE - Verified on 5 November 2026. One final invocation of the complete required P02 pure gate passed 1,670 tests with zero failures, errors or skips in 98.279 seconds wall time (JUnit 94.595 seconds). All original selector entries, sixteen storage controls and every one of the prior nine failing nodes executed. It supports current canonical claim/capacity concurrency, exact-key replay, denied scope and durable Core recovery together with the API proof. Independent source acceptance closed the hard-link finding and retained the earlier needs-changes review. No previous pass was substituted for this final run; earlier setup, fixture and red attempts remain unchanged. Full private records bind source/package/test inputs, review, results and owned cleanup.
 
 ### Retained connected-workflow results through 4 November 17:42 UTC
 
@@ -258,7 +283,7 @@ The retained merge-history review covers 143 project descriptions and 700 commen
 
 ## Next work
 
-Verify the accepted P01 contract/traceability checkpoint and phase exit, then assemble the exact P02 Core records and admission items from existing implementation. Reuse accepted code, fixtures and source-bound results; implement only actual missing or defective work. No later phase is admitted before its predecessor exits.
+Verify the accepted P02 source, required gate, installed boundary and phase exit, then assemble the exact P03 worker/resource/delivery outputs from existing implementation. Preserve the current Core source and accepted evidence. Implement only actual missing or defective work; do not repeat the unchanged successful Core gate.
 
 Earlier M2 repair, host qualification, LP17 task-cycle and LP18 endurance work remains retained later-phase work. Resume each only when its chronological phase, current source/account authority and finite effect packet are admitted. The former M2-first continuation is superseded by the current P00–P10 order; no previous grant or capture becomes current for changed source. Reuse accepted LP01–LP16 at their exact scope.
 
