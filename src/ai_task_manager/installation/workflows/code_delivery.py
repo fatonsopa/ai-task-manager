@@ -324,6 +324,7 @@ class InstalledCodeDelivery:
             clock=self.core.context.clock,
             candidate_reviews=reviews,
             publication_lifecycle=self.freshness,
+            maximum_attempts=capability.maximum_attempts,
         )
         self.components[row["id"]] = component
         return component

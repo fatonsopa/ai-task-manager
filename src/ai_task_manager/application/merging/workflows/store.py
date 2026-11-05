@@ -12,7 +12,7 @@ class MergeWorkflowStore:
     def __init__(self, journal):
         self.journal = journal
 
-    def create(self, plan, profile, operation_key):
+    def create(self, plan, profile, operation_key, *, maximum_attempts=1):
         binding = plan.grant.binding
         key = "merge-workflow:" + digest(
             [
@@ -37,6 +37,8 @@ class MergeWorkflowStore:
             "grant": asdict(plan.grant),
             "profile": profile.digest,
         }
+        if maximum_attempts != 1:
+            request["maximum_attempts"] = maximum_attempts
         if "merge_workflow" in row["facts"]:
             if row["facts"]["merge_workflow"]["request"] != request:
                 raise IdempotencyConflict("Task has a different installed merge workflow")

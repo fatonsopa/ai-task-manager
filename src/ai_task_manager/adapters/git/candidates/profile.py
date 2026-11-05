@@ -1,7 +1,10 @@
 """Candidate-only guarded Git configuration; final publication keeps its own policy."""
 
+import fcntl
 import os
 import threading
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from ai_task_manager.adapters.git.profile import file_digest, physical
@@ -29,6 +32,7 @@ class CandidateProfile:
         self._hooks = self._manifest()
         self._lock = threading.RLock()
         self.records = {}
+        self._turn_descriptor = None
         self.digest = digest(
             {
                 "source": self.source,
@@ -60,6 +64,50 @@ class CandidateProfile:
                 raise AccessDenied("Candidate root or commit guards changed")
             if self.profile.validate(self.worktree_id, self.repository_id) != self.source:
                 raise AccessDenied("Configured source repository changed")
+
+    @contextmanager
+    def merge_turn(self, *, deadline, clock, check):
+        """Bound contenders on the existing verified common-directory inode."""
+        self.validate()
+        common = Path(self.source["common"])
+        descriptor = os.open(common, os.O_RDONLY | os.O_NOFOLLOW)
+        started = time.monotonic()
+        end = started + min(120.0, max(0.0, deadline - clock()))
+        try:
+            while True:
+                opened, current = os.fstat(descriptor), common.stat()
+                expected = tuple(self.source["common_identity"])
+                if (opened.st_dev, opened.st_ino) != expected or (
+                    current.st_dev,
+                    current.st_ino,
+                ) != expected:
+                    raise AccessDenied("Repository turn physical ownership changed")
+                check()
+                if time.monotonic() >= end or clock() >= deadline:
+                    raise AccessDenied("Original repository turn wait budget expired")
+                try:
+                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    time.sleep(min(0.5, max(0.0, end - time.monotonic())))
+            self.validate()
+            check()
+            self._turn_descriptor = descriptor
+            yield time.monotonic() - started
+        finally:
+            if self._turn_descriptor == descriptor:
+                self._turn_descriptor = None
+            os.close(descriptor)
+
+    def inherited_turn(self):
+        descriptor = self._turn_descriptor
+        if descriptor is None:
+            return None
+        info = os.fstat(descriptor)
+        expected = tuple(self.source["common_identity"])
+        if (info.st_dev, info.st_ino) != expected:
+            raise AccessDenied("Inherited repository turn identity changed")
+        return descriptor, expected
 
     def query(self, path, *args, ok=(0,)):
         with self._lock:
