@@ -117,6 +117,16 @@ def test_normal_default_code_plan_delivers_and_replays(installed):  # noqa: F811
     assert extra.returncode == 2, extra.stdout
     first = cli(installed, "workflow", "run", request)
     result = json.loads(first.stdout or first.stderr)
+    if first.returncode == 6:
+        assert result["error"]["category"] == "uncertain", result
+        # The production client has a fixed 120-second reply bound. Explicit
+        # same-key recovery consumes its durable operation; it must not launch
+        # another attempt or extend the original installation deadline.
+        report = root / "initial-uncertain-reply.json"
+        report.write_text(json.dumps({"exit_code": first.returncode, "response": result}))
+        report.chmod(0o600)
+        first = cli(installed, "workflow", "run", request)
+        result = json.loads(first.stdout or first.stderr)
     if (root / "lost-reply.json").exists():
         assert first.returncode == 4 and result["data"]["reason"] == "RuntimeError", result
         first = cli(installed, "workflow", "resume", {"workflow_ref": result["data"]["workflow"]})
@@ -157,9 +167,8 @@ def test_normal_default_code_plan_delivers_and_replays(installed):  # noqa: F811
         with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as db:
             calls = db.execute("SELECT purpose,status,process_stopped FROM native_calls").fetchall()
             assert calls and all(row[2] == 1 for row in calls), (role, calls)
-        if role != "author":
-            with sqlite3.connect(root / role / "state/runtime.sqlite") as db:
-                assert db.execute("SELECT COUNT(*) FROM runtime_attempts").fetchone()[0] == 1
+        with sqlite3.connect(root / role / "state/runtime.sqlite") as db:
+            assert db.execute("SELECT COUNT(*) FROM runtime_attempts").fetchone()[0] == 1
     import os
     import sys
 
