@@ -62,11 +62,27 @@ def resolve(
         raise AccessDenied("Native authority is not a trusted permission capability")
     permission.check(manifest, installation["task_id"], installation["deadline"])
     d = manifest.data
+    custom_commands = commands is not None
     if commands is None and d.get("commands_manifest"):
         from ai_task_manager.installation.commands.manifest import CommandManifest
 
         pointer = d["commands_manifest"]
         commands = CommandManifest(pointer["path"], pointer["sha256"]).prepare
+    code_registrations = ()
+    if "code_ref" in installation or d.get("code_manifest") is not None:
+        if role != "worker" or not {"code_ref", "code_digest"} <= set(installation):
+            raise AccessDenied("Code provisioning requires an exact worker installation")
+        if custom_commands:
+            raise AccessDenied("Code provisioning requires its declared command manifest")
+        if d.get("code_manifest") is None or d.get("commands_manifest") is None:
+            raise AccessDenied("Declared code and command provisioning sources are required")
+        from .code_provisioning import CodeProvisioning
+
+        provisioning = CodeProvisioning(
+            d["code_manifest"], d["commands_manifest"], installation, parent_check=manifest.check
+        )
+        code_registrations = (provisioning.registration,)
+        commands = provisioning.prepare_commands
     policy = policy_builder(manifest)
 
     def prepare(context):
@@ -130,7 +146,10 @@ def resolve(
 
         reviewer_factory = NormalReviewerFactory(manifest, service_options=service_options)
     return NativeRegistry(
-        (registration,), service_options=service_options, reviewer_factory=reviewer_factory
+        (registration,),
+        service_options=service_options,
+        reviewer_factory=reviewer_factory,
+        code_registrations=code_registrations,
     )
 
 

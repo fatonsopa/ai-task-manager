@@ -33,7 +33,11 @@ class VerifiedContainerResult:
 
 
 class DockerCommands:
-    def __init__(self, journal, root, docker_executable, docker_endpoint, plans, *, deadline):
+    def __init__(
+        self, journal, root, docker_executable, docker_endpoint, plans, *, deadline, maximum_jobs=4
+    ):
+        if type(maximum_jobs) is not int or not 1 <= maximum_jobs <= 64:
+            raise AccessDenied("Retained command budget must be an integer from 1 to 64")
         self.journal, self.root = journal, Path(root).absolute()
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.root.is_symlink() or self.root.stat().st_mode & 0o077:
@@ -56,7 +60,7 @@ class DockerCommands:
             "DOCKER_HOST": "unix://" + str(endpoint),
         }
         self.plans, self.deadline, self.jobs = dict(plans), deadline, {}
-        self.maximum_jobs = 4
+        self.maximum_jobs = maximum_jobs
         self.admissions = ContainerAdmissions(journal, self.root)
 
     def _command(self, plan, pair, directory, name, owner):

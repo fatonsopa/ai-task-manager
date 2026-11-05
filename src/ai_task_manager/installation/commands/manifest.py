@@ -97,7 +97,7 @@ class CommandManifest:
         ):
             raise AccessDenied("Container endpoint identity changed")
 
-    def prepare(self, context):
+    def prepare(self, context, *, maximum_jobs=4):
         self.check()
         if (context.task.id, context.task.prose_digest) != (
             self.data["task_id"],
@@ -111,4 +111,5 @@ class CommandManifest:
             image_id=self.data["image_id"],
             definitions=self.definitions,
             check_sources=self.check,
+            maximum_jobs=maximum_jobs,
         )

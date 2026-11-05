@@ -25,7 +25,7 @@ class CodeCapabilities:
 
 
 class CodeRegistration:
-    def __init__(self, policy_file, prepare):
+    def __init__(self, policy_file, prepare, *, sources=()):
         self.seal = BoundFile(policy_file)
         self.data = read_private(policy_file)
         if set(self.data) != {
@@ -41,8 +41,14 @@ class CodeRegistration:
         refname(self.data["target_ref"])
         if type(self.data["require_human_acceptance"]) is not bool:
             raise AccessDenied("Human acceptance policy must be explicit")
-        self.prepare = prepare
-        self._bound = (self.seal, self.prepare)
+        if (
+            type(sources) is not tuple
+            or any(type(source) is not BoundFile for source in sources)
+            or len({source.path for source in sources}) != len(sources)
+        ):
+            raise AccessDenied("Distinct sealed installed code sources required")
+        self.prepare, self.sources = prepare, sources
+        self._bound = (self.seal, self.prepare, self.sources)
 
     @property
     def reference(self):
@@ -50,12 +56,17 @@ class CodeRegistration:
 
     @property
     def fingerprint(self):
-        return digest({"policy": self.seal.original, "data": self.data})
+        value = {"policy": self.seal.original, "data": self.data}
+        if self.sources:
+            value["sources"] = [source.original for source in self.sources]
+        return digest(value)
 
     def check(self):
-        if (self.seal, self.prepare) != self._bound:
+        if (self.seal, self.prepare, self.sources) != self._bound:
             raise AccessDenied("Installed code policy implementation changed")
         self.seal.check()
+        for source in self.sources:
+            source.check()
         if read_private(self.seal.path) != self.data:
             raise AccessDenied("Installed code policy changed")
 
