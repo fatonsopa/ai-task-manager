@@ -89,6 +89,21 @@ def test_own_unit_progress_during_collection_keeps_exact_scope_and_graph(tmp_pat
         source = AuthoredDependencyCollection(r.core, r.handle)
         original = source.prepare
         before = r.core.scheduling.explain(r.handle, row["task_id"])
+        from ai_task_manager.adapters.proofs.router import EvidenceRoute, EvidenceRouter
+
+        # Authored unit fact exercises version progress only, not semantic acceptance.
+        r.core.context.evidence = EvidenceRouter(
+            [
+                EvidenceRoute(
+                    route.prefix,
+                    route.kinds | {"work_unit_complete"}
+                    if route.prefix == "fixture:"
+                    else route.kinds,
+                    route.verifier,
+                )
+                for route in r.core.context.evidence.routes
+            ]
+        )
 
         def complete_during_read(*args, **kwargs):
             value = original(*args, **kwargs)
