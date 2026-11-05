@@ -14,9 +14,10 @@ from ai_task_manager.adapters.resources.manager import ResourceManager
 from ai_task_manager.adapters.workflow_control.identity import file_binding
 from ai_task_manager.adapters.workflow_reviews.native import NativeReviewCapture, review_prompt
 from ai_task_manager.application.service.projection import require_owned
-from ai_task_manager.config.files import read_private
+from ai_task_manager.config.files import digest, read_private
 from ai_task_manager.config.service import load_service
 from ai_task_manager.domains.work.errors import AccessDenied
+from ai_task_manager.domains.work.models import ACTIVE_ATTEMPTS
 from ai_task_manager.installation.workflows.spec import Installation
 from ai_task_manager.supervisor.journal import RuntimeJournal
 from ai_task_manager.supervisor.managed import ManagedWorkers
@@ -47,10 +48,26 @@ class NormalReviewerFactory:
             "code_worker",
             "code_candidate",
         }
-        pointers = self.pointer.values() if stages else (self.pointer,)
+        selected = []
+        if stages:
+            for stage, value in self.pointer.items():
+                if type(value) is list:
+                    if stage != "code_candidate" or not 1 <= len(value) <= 4:
+                        raise AccessDenied("Only a bounded candidate reviewer pool is supported")
+                    from .code_provisioning import sealed
+
+                    source = sealed(self.author.data.get("code_manifest"))
+                    maximum = read_private(source.path).get("attempts")
+                    if type(maximum) is not int or not 1 <= maximum <= 4 or len(value) > maximum:
+                        raise AccessDenied("Candidate reviewer pool exceeds sealed attempt budget")
+                    selected.extend((stage, pointer) for pointer in value)
+                else:
+                    selected.append((stage, value))
+        else:
+            selected.append((None, self.pointer))
         specs = []
         author = read_private(self.author.installation.path)
-        for pointer in pointers:
+        for stage, pointer in selected:
             if type(pointer) is not dict or set(pointer) != {"path", "device", "inode", "sha256"}:
                 raise AccessDenied("Exact physical reviewer installation required")
             if file_binding(pointer["path"]) != pointer:
@@ -58,7 +75,8 @@ class NormalReviewerFactory:
             if stages:
                 specs.append(Installation(pointer["path"], self.author.config.path).data)
         if stages and (
-            len({s["task_id"] for s in specs}) != 2 or len({s["state_root"] for s in specs}) != 2
+            len({s["task_id"] for s in specs}) != len(specs)
+            or len({s["state_root"] for s in specs}) != len(specs)
         ):
             raise AccessDenied("Code stages require distinct reviewer tasks and state roots")
         if stages:
@@ -69,7 +87,7 @@ class NormalReviewerFactory:
                 for b in roots[i + 1 :]
             ):
                 raise AccessDenied("Code reviewer state roots cannot overlap")
-            for stage, spec in zip(self.pointer, specs):
+            for (stage, _), spec in zip(selected, specs):
                 if (
                     spec.get("role") != "reviewer"
                     or spec.get("reviewer_installation") is not None
@@ -89,16 +107,98 @@ class NormalReviewerFactory:
                         "Code stage reviewer installation differs from original authority"
                     )
 
-    def _selected(self, inspection):
+    def _selected(self, inspection, *, service=None):
         stage = inspection.context.get("review_kind")
         stages = set(self.pointer) == {"code_worker", "code_candidate"}
         if stages:
             if stage not in self.pointer:
                 raise AccessDenied("A configured code stage is required")
-            return self.pointer[stage], stage
+            value = self.pointer[stage]
+            if type(value) is list:
+                return self._candidate_slot(inspection, value, service), stage
+            return value, stage
         if stage in {"code_worker", "code_candidate"}:
             raise AccessDenied("Both independent code reviewer stages must be installed")
         return self.pointer, None
+
+    def _candidate_slot(self, inspection, pointers, service):
+        if service is None:
+            raise AccessDenied("Current scoped code authority is required before slot reservation")
+        author = read_private(self.author.installation.path)
+        task = service.core.get_task(service.handle, author["task_id"])
+        require_owned(service, task)
+        if (
+            asdict(service.scope) != author["scope"]
+            or task.prose_digest != author["prose_digest"]
+            or not task.code_bearing
+            or task.human_hold
+            or task.delivered_once
+            or task.observed_status != "In Progress"
+            or task.sync_state != "confirmed"
+            or inspection.context.get("task_id") != task.id
+            or inspection.context.get("prose_digest") != task.prose_digest
+            or inspection.context.get("scope") != author["scope"]
+            or service.core.context.clock() >= author["deadline"]
+        ):
+            raise AccessDenied("Current author cannot reserve a candidate reviewer")
+        root = Path(author["state_root"])
+        journal = HostJournal.open_existing(root / "host.sqlite", root / "host.key")
+        binding = file_binding(self.author.installation.path)
+        for index, pointer in enumerate(pointers):
+            key = "code-candidate-slot:" + digest([binding, index])
+            expected = {
+                "version": 1,
+                "author": binding,
+                "pool": digest(pointers),
+                "context_digest": inspection.digest,
+                "pointer": pointer,
+            }
+            prior = journal.intent(key)
+            if prior is not None:
+                if prior == expected:
+                    return pointer
+                if (
+                    type(prior) is not dict
+                    or set(prior) != set(expected)
+                    or any(prior[k] != expected[k] for k in expected if k != "context_digest")
+                ):
+                    raise AccessDenied("Retained candidate reviewer slot binding changed")
+                occupied = Installation(pointer["path"], self.author.config.path)
+                previous = service.core.get_task(service.handle, occupied.data["task_id"])
+                require_owned(service, previous)
+                if previous.execution_state in ACTIVE_ATTEMPTS:
+                    raise AccessDenied("Prior candidate reviewer is active or unresolved")
+                continue
+            spec = Installation(pointer["path"], self.author.config.path)
+            reviewer = service.core.get_task(service.handle, spec.data["task_id"])
+            require_owned(service, reviewer)
+            if (
+                reviewer.prose_digest != spec.data["prose_digest"]
+                or reviewer.code_bearing
+                or reviewer.human_hold
+                or reviewer.sync_state != "confirmed"
+                or reviewer.observed_status != "Todo"
+            ):
+                raise AccessDenied(
+                    "New candidate slot requires its original approved Todo reviewer"
+                )
+            try:
+                journal.intend(key, expected)
+            except AccessDenied:
+                # Another exact owner may have atomically claimed this slot.
+                # Re-read its signed binding; never overwrite or reuse it.
+                current = journal.intent(key)
+                if type(current) is not dict or (
+                    set(current) != set(expected)
+                    or any(current[k] != expected[k] for k in expected if k != "context_digest")
+                ):
+                    raise
+                if current != expected:
+                    continue
+            if journal.intent(key) != expected:
+                raise AccessDenied("Candidate reviewer reservation was not retained")
+            return pointer
+        raise AccessDenied("Preapproved candidate reviewer capacity is exhausted")
 
     def __call__(self, inspection):
         with self._lifecycle_lock:
@@ -114,7 +214,16 @@ class NormalReviewerFactory:
         self._check_pointer()
         inspection.check()
         author = read_private(self.author.installation.path)
-        pointer, stage = self._selected(inspection)
+        service = code_source = None
+        if (
+            inspection.context.get("review_kind") == "code_candidate"
+            and type(self.pointer.get("code_candidate")) is list
+        ):
+            from .review_stages import CodeStageSource
+
+            service = load_service(self.author.config.path, **self.options)
+            code_source = CodeStageSource(self.author, service, inspection)
+        pointer, stage = self._selected(inspection, service=service)
         spec = Installation(pointer["path"], self.author.config.path)
         d, context = spec.data, inspection.context
         target = {"task_id": context["task_id"], "prose_digest": context["prose_digest"]}
@@ -143,10 +252,9 @@ class NormalReviewerFactory:
         registration = registry.require(d["native_ref"])
         if registration.host not in {"claude", "codex"}:
             raise AccessDenied("Independent native review requires a supported managed host")
-        service = load_service(self.author.config.path, **self.options)
+        service = service or load_service(self.author.config.path, **self.options)
         core, handle = service.core, service.handle
-        code_source = None
-        if stage is not None:
+        if stage is not None and code_source is None:
             from .review_stages import CodeStageSource
 
             code_source = CodeStageSource(self.author, service, inspection)

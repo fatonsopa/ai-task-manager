@@ -15,8 +15,7 @@ from ai_task_manager.application.merging.candidates import CandidateService, Cor
 from ai_task_manager.application.workflows.models import WorkflowPlan
 from ai_task_manager.config.files import digest, private_path
 from ai_task_manager.domains.checks.models import canonical, fingerprint
-from ai_task_manager.domains.merging.candidates import CandidateGrant, CandidateResult
-from ai_task_manager.domains.merging.contracts import Binding
+from ai_task_manager.domains.merging.candidates import CandidateResult
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.installation.commands.manifest import CommandManifest
 from ai_task_manager.installation.workflows.composition import NativeContext
@@ -188,6 +187,8 @@ class CodeStageSource:
         self.check()
 
     def _candidate(self, root):
+        from ai_task_manager.application.merging.workflows.recovery import current_plan, restore
+
         from .code_provisioning import CodeProvisioning
 
         for unit in self.task.required_work:
@@ -205,9 +206,8 @@ class CodeStageSource:
             or saved["commit"] != self.receipt
         ):
             raise AccessDenied("Original installed candidate plan is required")
-        selected = dict(saved["plan"]["grant"])
-        selected["binding"] = Binding(**selected["binding"])
-        grant = CandidateGrant(**selected)
+        original = restore(saved["plan"])
+        grant = original.grant
         pointer = self.author.data.get("code_manifest")
         source = CodeProvisioning(
             pointer,
@@ -254,13 +254,38 @@ class CodeStageSource:
             required_hooks=capability.required_hooks,
         )
         private_path(root / "merge/journal.sqlite")
+        journal = Journal(root / "merge/journal.sqlite")
+        matches = [
+            op
+            for op in journal.for_attempt(self.attempt.id)
+            if op["facts"].get("merge_workflow", {}).get("request", {}).get("operation_key")
+            == self.row["id"] + ":merge"
+        ]
+        if len(matches) != 1:
+            raise AccessDenied("One exact canonical merge workflow is required for review")
+        merge_row = matches[0]["facts"]["merge_workflow"]
+        if (merge_row["request"]["plan"], merge_row["request"]["grant"]) != (
+            original.digest,
+            asdict(original.grant),
+        ):
+            raise AccessDenied("Canonical merge request differs from the original code plan")
+        maximum = source.data["attempts"]
+        selected = current_plan(original, merge_row, maximum_attempts=maximum)
+        if merge_row["request"]["profile"] != profile.digest:
+            raise AccessDenied("Canonical merge profile differs from installed code authority")
+        self.original_merge_plan, self.merge_plan = original, selected
+        self.merge_workflow_ref, self.maximum_attempts = matches[0]["ref"], maximum
+        self.merge_request = merge_row["request"]
+        grant = selected.grant
         self.candidates = CandidateService(
-            Journal(root / "merge/journal.sqlite"),
+            journal,
             profile,
             CoreCandidateAuthority(self.core, self.handle, self.resources, self.pair),
             process_factory=CandidateProcesses,
         )
         observed = CandidateResult(**self.inspection.context["inspection"]["candidate"])
+        if merge_row["steps"].get("candidate", {}).get("result") != asdict(observed):
+            raise AccessDenied("Review candidate differs from the canonical current merge stage")
         self.candidates.grants[observed.operation_ref] = grant
         recorder = InspectionOnly()
         CodeCandidateReviews(
@@ -345,6 +370,22 @@ class CodeStageSource:
                 raise AccessDenied("Canonical code units changed during review")
             if current["steps"].get("code-plan") != self.row["steps"]["code-plan"]:
                 raise AccessDenied("Canonical candidate plan changed during review")
+            from ai_task_manager.application.merging.workflows.recovery import current_plan
+
+            merge_row = self.candidates.store.journal.current(self.merge_workflow_ref)["facts"][
+                "merge_workflow"
+            ]
+            if (
+                merge_row["request"] != self.merge_request
+                or current_plan(
+                    self.original_merge_plan, merge_row, maximum_attempts=self.maximum_attempts
+                )
+                != self.merge_plan
+                or merge_row["steps"].get("candidate", {}).get("result") != asdict(self.candidate)
+            ):
+                raise AccessDenied(
+                    "Canonical current merge target or candidate changed during review"
+                )
             observed = self.candidates.reconcile(self.candidate.operation_ref)
             if observed != self.candidate:
                 raise AccessDenied("Prepared candidate changed during review")
