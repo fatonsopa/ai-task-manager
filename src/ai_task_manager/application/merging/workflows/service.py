@@ -22,12 +22,25 @@ from .store import MergeWorkflowStore
 
 
 class _CandidatePublicationAuthority(CoreAuthority):
-    def __init__(self, *args, candidate_store, candidate_ref, candidate_profile, source_grant):
+    def __init__(
+        self,
+        *args,
+        candidate_store,
+        candidate_ref,
+        candidate_profile,
+        source_grant,
+        candidate_reviews=None,
+    ):
         super().__init__(*args)
         self.candidate_store, self.candidate_ref = candidate_store, candidate_ref
         self.candidate_profile, self.source_grant = candidate_profile, source_grant
+        self.candidate_reviews = candidate_reviews
 
     def check_current(self, binding):
+        if self.candidate_reviews is not None:
+            self.candidate_reviews.check_prepared(
+                self.candidate_store.get(self.candidate_ref)["result"]["commit"]
+            )
         self.candidate_store.owner(self.candidate_ref)
         if self.candidate_profile.refs(self.source_grant) != (
             self.source_grant.source_head,
@@ -53,8 +66,11 @@ class MergeWorkflowService(WorkflowService):
         publisher_factory=LocalGit,
         clock=time.time,
         faults=None,
+        candidate_reviews=None,
     ):
         self.core, self.handle, self.plan = core, handle, plan
+        self.candidate_reviews = candidate_reviews
+        self._candidate_reviews_bound = candidate_reviews
         self.candidate, self.check_inputs, self.provider, self.evidence = (
             candidate,
             checks,
@@ -71,6 +87,8 @@ class MergeWorkflowService(WorkflowService):
             raise AccessDenied("Installed merge plan outlives the current owner admission")
 
     def _scope(self):
+        if self.candidate_reviews is not self._candidate_reviews_bound:
+            raise AccessDenied("Installed code-candidate review port changed")
         if self.core.session_binding(self.handle) != (self.session_id, self.scope):
             raise AccessDenied("Merge controller session binding changed")
         b = self.plan.grant.binding
@@ -164,6 +182,7 @@ class MergeWorkflowService(WorkflowService):
             candidate_ref=self._candidate_ref(ref),
             candidate_profile=self.candidate.profile,
             source_grant=self.plan.grant,
+            candidate_reviews=self.candidate_reviews,
         )
         consumer.service.authority = consumer.authority
         self.consumers[ref] = consumer
@@ -257,6 +276,19 @@ class MergeWorkflowService(WorkflowService):
                     self.candidate.store.owner(candidate.operation_ref)
                     self.candidate.reconcile(candidate.operation_ref)
                     self._ready()
+                    if self.candidate_reviews is not None:
+                        review = self.candidate_reviews.read(task, candidate)
+                        if review is None:
+                            return self._envelope(
+                                ref, "awaiting_review", "candidate_review_unavailable"
+                            )
+                        self._step(
+                            ref,
+                            owner,
+                            "candidate_review",
+                            {"commit": candidate.commit},
+                            lambda: review,
+                        )
                     check_plan = self._step(
                         ref,
                         owner,
@@ -350,6 +382,13 @@ class MergeWorkflowService(WorkflowService):
                 pub_ref = consumer.registration["ref"]
 
                 def publish():
+                    if self.candidate_reviews is not None:
+                        review = self.candidate_reviews.read(self._scope(), candidate)
+                        saved = self.store.read(ref)["steps"].get("candidate_review")
+                        if review is None or saved is None or saved["result"] != review:
+                            raise EvidenceRequired(
+                                "Current exact-candidate review differs from saved acceptance"
+                            )
                     observed = consumer.publish(
                         self.store.journal.current(pub_ref)["version"], ref + ":publish"
                     )
