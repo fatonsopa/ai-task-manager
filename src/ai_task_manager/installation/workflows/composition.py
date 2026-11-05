@@ -327,6 +327,9 @@ class InstalledWorkflow:
                 provider,
                 criteria,
             )
+            from .worker_resources import ResourceWorkerCommits
+
+            commits = ResourceWorkerCommits(commits, code_delivery.resources)
             core.context.evidence = EvidenceRouter(
                 [
                     *core.context.evidence.routes,
