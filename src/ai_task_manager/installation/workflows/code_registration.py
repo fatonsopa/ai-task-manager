@@ -16,10 +16,13 @@ class CodeCapabilities:
     profile: GitProfile
     checks: CandidateChecks
     required_hooks: tuple[str, ...] = ()
+    maximum_attempts: int = 1
 
     def require(self):
         if type(self.profile) is not GitProfile or type(self.checks) is not CandidateChecks:
             raise AccessDenied("Actual installed Git profile and candidate checks are required")
+        if type(self.maximum_attempts) is not int or not 1 <= self.maximum_attempts <= 4:
+            raise AccessDenied("Installed candidate attempts must be an integer from 1 to 4")
         if type(self.required_hooks) is not tuple:
             raise AccessDenied("Immutable installed commit guard selection required")
 

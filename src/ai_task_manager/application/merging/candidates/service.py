@@ -1,9 +1,11 @@
 """Prepare isolated guarded candidates; no checks, database allocation or publication."""
 
 from contextlib import contextmanager
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
+from uuid import UUID
 
+from ai_task_manager.config.files import digest
 from ai_task_manager.domains.merging.candidates import CandidateResult
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired, IdempotencyConflict
 
@@ -70,7 +72,7 @@ class CandidateService:
             return False
         return result["returncode"] == 0
 
-    def prepare(self, grant):
+    def prepare(self, grant, *, _predecessor=None):
         grant.validate()
         self.authority.registration(grant)
         self.authority.check_current(grant)
@@ -87,7 +89,7 @@ class CandidateService:
         ):
             raise AccessDenied("Candidate binding differs from configured repository")
         self.profile.refs(grant)
-        ref, created = self.store.create(grant, self.profile)
+        ref, created = self.store.create(grant, self.profile, predecessor=_predecessor)
         self.grants[ref] = grant
         data = self.store.get(ref)
         if data.get("result") and data["result"]["status"] in {
@@ -198,6 +200,107 @@ class CandidateService:
         except Exception as error:
             self.runner.reconcile(ref)
             return self._result(ref, "uncertain", type(error).__name__)
+
+    def target_successor(self, previous, selected, *, validate_only=False):
+        """Transfer only a known quiescent pre-publication candidate claim."""
+        expected = replace(
+            previous,
+            target_head=selected.target_head,
+            binding=replace(previous.binding, operation_key=selected.binding.operation_key),
+        )
+        selected_key = "candidate-target:" + digest(
+            [asdict(previous.binding), selected.target_head]
+        )
+        if (
+            selected != expected
+            or selected.target_head == previous.target_head
+            or selected.binding.operation_key != selected_key
+        ):
+            raise AccessDenied("Target successor cannot change original worker authority")
+        self.authority.check_current(previous)
+        self.profile.validate()
+        self.authority.check_source(previous, self.profile.source)
+        if self.profile.refs(previous) != (previous.source_head, selected.target_head):
+            raise AccessDenied("Successor target must be the currently observed trusted target")
+        if self.profile.query(
+            self.profile.source["path"],
+            "merge-base",
+            "--is-ancestor",
+            previous.target_head,
+            selected.target_head,
+            ok=(0, 1),
+        ).returncode:
+            raise AccessDenied("Target recovery requires forward descendant lineage")
+        operations = self.store.journal.for_attempt(previous.binding.attempt_id)
+        if any(
+            op["facts"].get("publication_intent") or op["facts"].get("local_git")
+            for op in operations
+        ):
+            raise AccessDenied("Publication intent or unknown publication forbids target replan")
+        existing = [
+            op["ref"]
+            for op in operations
+            if op["facts"].get("candidate", {}).get("request")
+            == {"grant": asdict(selected), "profile": self.profile.digest}
+        ]
+        if existing:
+            if len(existing) != 1:
+                raise AccessDenied("Candidate successor ownership is ambiguous")
+            return None if validate_only else self.prepare(selected)
+        prior = [
+            op["ref"]
+            for op in operations
+            if op["facts"].get("candidate", {}).get("request")
+            == {"grant": asdict(previous), "profile": self.profile.digest}
+        ]
+        if len(prior) > 1:
+            raise AccessDenied("Candidate predecessor ownership is ambiguous")
+        predecessor = prior[0] if prior else None
+        if predecessor is not None:
+            data = self.store.get(predecessor)
+            if any(
+                not effect.get("result", {}).get("group", {}).get("confirmed_stop")
+                for effect in data["effects"].values()
+            ):
+                raise AccessDenied("Unresolved predecessor work retains candidate ownership")
+            pending = [
+                op
+                for op in operations
+                if op["binding"] == asdict(selected.binding)
+                and op["fingerprint"] == selected.binding.fingerprint
+                and not op["facts"]
+            ]
+            claim = self.store.journal.current(data["claim"])["facts"]
+            owner = claim.get("candidate_owner", {})
+            if pending and owner.get("operation") == pending[0]["ref"]:
+                prior_owner = {
+                    "operation": predecessor,
+                    "generation": data["generation"],
+                    "owner_ref": previous.owner_ref,
+                }
+                try:
+                    generation_ok = str(UUID(owner["generation"])) == owner["generation"]
+                except (KeyError, ValueError, TypeError):
+                    generation_ok = False
+                if (
+                    len(pending) != 1
+                    or not generation_ok
+                    or set(owner) != {"operation", "owner_ref", "generation"}
+                    or owner["owner_ref"] != selected.owner_ref
+                    or claim.get("candidate_owner_history", [])[-1:] != [prior_owner]
+                    or data.get("result", {}).get("status") != "target_moved"
+                ):
+                    raise AccessDenied("Pending candidate successor ownership differs")
+                if "resource" in data:
+                    self._verify_resource(predecessor)
+                return None if validate_only else self.prepare(selected)
+            self.store.owner(predecessor)
+            observed = self.reconcile(predecessor, previous)
+            if observed.status != "target_moved":
+                raise AccessDenied("Only a known target-moved candidate permits successor")
+        if validate_only:
+            return None
+        return self.prepare(selected, _predecessor=predecessor)
 
     def _verify_resource(self, ref):
         data = self.store.get(ref)

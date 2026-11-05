@@ -90,13 +90,21 @@ class _Child:
 
 class LocalGit:
     def __init__(
-        self, journal, profile: GitProfile, operations=None, *, observation_seconds=5, faults=None
+        self,
+        journal,
+        profile: GitProfile,
+        operations=None,
+        *,
+        observation_seconds=5,
+        faults=None,
+        inherited_turn=None,
     ):
         if type(observation_seconds) not in {int, float} or not 0 < observation_seconds <= 30:
             raise ValueError("A finite observation window of at most30 seconds is required")
         self.journal, self.profile, self.operations = journal, profile, operations
         self.observation_seconds, self.faults = observation_seconds, faults
         self._live = {}
+        self.inherited_turn = inherited_turn
         self.python = str(Path(sys.executable).resolve())
         self.python_binding = (physical(self.python, directory=False), file_digest(self.python))
 
@@ -292,6 +300,15 @@ class LocalGit:
         if child.process.stdin and not child.process.stdin.closed:
             child.process.stdin.close()
 
+    def _turn_fds(self):
+        if self.inherited_turn is None:
+            return ()
+        descriptor, expected = self.inherited_turn
+        observed = os.fstat(descriptor)
+        if (observed.st_dev, observed.st_ino) != tuple(expected):
+            raise AccessDenied("Publication repository turn identity changed")
+        return (descriptor,)
+
     def _spawn(self, ref, kind, args, *, interactive=False):
         data = self.journal.current(ref)["facts"]["local_git"]
         repo = Path(data["repository"]["path"])
@@ -315,7 +332,7 @@ class LocalGit:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 bufsize=0,
-                pass_fds=(readfd,),
+                pass_fds=(readfd, *self._turn_fds()),
                 start_new_session=True,
             )
             # Retain the waitable handle before any observer/thread/journal can fail.

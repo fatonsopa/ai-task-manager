@@ -18,6 +18,7 @@ from ai_task_manager.domains.merging.contracts import Publication
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.domains.work.models import Cause, IssueStatus
 
+from .recovery import current_plan, restore, successor
 from .store import MergeWorkflowStore
 
 
@@ -68,8 +69,13 @@ class MergeWorkflowService(WorkflowService):
         faults=None,
         candidate_reviews=None,
         publication_lifecycle=None,
+        maximum_attempts=1,
     ):
         self.core, self.handle, self.plan = core, handle, plan
+        self.original_plan = plan
+        if type(maximum_attempts) is not int or not 1 <= maximum_attempts <= 4:
+            raise AccessDenied("Installed candidate attempts must be an integer from 1 to 4")
+        self.maximum_attempts = self._maximum_attempts = maximum_attempts
         self.candidate_reviews = candidate_reviews
         self._candidate_reviews_bound = candidate_reviews
         self.publication_lifecycle = self._publication_lifecycle_bound = publication_lifecycle
@@ -89,6 +95,8 @@ class MergeWorkflowService(WorkflowService):
             raise AccessDenied("Installed merge plan outlives the current owner admission")
 
     def _scope(self):
+        if self.maximum_attempts != self._maximum_attempts:
+            raise AccessDenied("Installed candidate attempt budget changed")
         if self.publication_lifecycle is not self._publication_lifecycle_bound:
             raise AccessDenied("Installed publication lifecycle owner changed")
         if self.candidate_reviews is not self._candidate_reviews_bound:
@@ -123,7 +131,12 @@ class MergeWorkflowService(WorkflowService):
         self._scope()
         if (task_id, plan_ref) != (self.plan.grant.binding.task_id, self.plan.id):
             raise AccessDenied("The installed merge plan is not assigned to this task")
-        ref = self.store.create(self.plan, self.candidate.profile, operation_key)
+        ref = self.store.create(
+            self.original_plan,
+            self.candidate.profile,
+            operation_key,
+            maximum_attempts=self.maximum_attempts,
+        )
         return self.resume(ref)
 
     def _step(self, ref, owner, name, payload, action):
@@ -142,6 +155,13 @@ class MergeWorkflowService(WorkflowService):
             self.faults.hit("after_" + name)
         self.store.finish(ref, owner, name, observed)
         return observed
+
+    def _publisher(self, journal, profile, operations):
+        if self.publisher_factory is LocalGit:
+            return LocalGit(
+                journal, profile, operations, inherited_turn=self.candidate.profile.inherited_turn()
+            )
+        return self.publisher_factory(journal, profile, operations)
 
     def _publication(self, ref, candidate, check_ref, publication_context=None):
         grant = self.plan.grant
@@ -173,7 +193,7 @@ class MergeWorkflowService(WorkflowService):
             self.store.journal,
             self.check_inputs.checks,
             check_ref,
-            publisher_factory=self.publisher_factory,
+            publisher_factory=self._publisher,
         )
         consumer.authority = _CandidatePublicationAuthority(
             self.core,
@@ -191,6 +211,14 @@ class MergeWorkflowService(WorkflowService):
         consumer.service.authority = consumer.authority
         self.consumers[ref] = consumer
         return consumer
+
+    def _prepare_candidate(self, row):
+        history = row.get("target_lineage", [])
+        if history:
+            return self.candidate.target_successor(
+                restore(history[-1]["plan"]).grant, self.plan.grant
+            )
+        return self.candidate.prepare(self.plan.grant)
 
     def _candidate_ref(self, ref):
         return self.store.read(ref)["steps"]["candidate"]["result"]["operation_ref"]
@@ -223,34 +251,176 @@ class MergeWorkflowService(WorkflowService):
             for event in self.core.notifications.list_events(self.handle)
         )
 
+    def _observed_publication(self, ref, row, task):
+        saved = row["steps"].get("publication_fence")
+        if saved is None:
+            return None
+        if saved["result"] is not None:
+            fact = self.core.publications.inspect(
+                self.handle, task.id, PublicationContext(**saved["result"])
+            )
+        else:
+            from ai_task_manager.storage import issue_claims, merging_fences, sessions, work
+
+            with self.core.context.db.transaction() as conn:
+                sid, scope = sessions.resolve(conn, self.handle)
+                current = work.get(conn, sid, task.id)
+                if (sid, scope) != (self.session_id, self.scope) or current != task:
+                    raise AccessDenied("Publication readback task or scope changed")
+                fact = merging_fences.current(conn, issue_claims.identity(scope, task.issue_id))
+        if fact is None:
+            return None
+        g = self.plan.grant
+        candidate = CandidateResult(**row["steps"]["candidate"]["result"])
+        expected = {
+            "task_id": task.id,
+            "attempt_id": g.binding.attempt_id,
+            "issue_id": task.issue_id,
+            "prose_digest": g.binding.prose_digest,
+            "task_version": g.task_version,
+            "attempt_version": g.attempt_version,
+            "decision_revision": g.decision_revision,
+            "decision_ref": g.decision_ref,
+            "operation_ref": row["steps"]["publication_intent"]["payload"]["ref"],
+            "binding_digest": replace(g.binding, operation_key=ref + ":publication").fingerprint,
+            "commit": candidate.commit,
+            "old": g.target_head,
+            "source_ref": g.source_ref,
+            "source_head": g.source_head,
+            "target_ref": self.candidate.profile.source["target_ref"],
+            "candidate_ref": candidate.candidate_ref,
+            "checks_ref": row["steps"]["check_plan"]["result"]["ref"],
+        }
+        if fact["intent"] != expected:
+            raise AccessDenied("Unrecorded fence result belongs to another publication context")
+        return PublicationContext(**fact["context"])
+
+    def _prepare_lifecycle(self, ref, row):
+        if self.publication_lifecycle is None:
+            return
+        steps = row["steps"]
+        saved = steps.get("publication_fence")
+        if saved is None:
+            self.publication_lifecycle.start()
+        elif (context := self._observed_publication(ref, row, self._scope())) is not None:
+            candidate = CandidateResult(**steps["candidate"]["result"])
+            binding = replace(self.plan.grant.binding, operation_key=ref + ":publication")
+            self.publication_lifecycle.adopt_fence(
+                self.plan,
+                context,
+                binding.fingerprint,
+                candidate.commit,
+            )
+        else:
+            self.publication_lifecycle.before_fence(self.plan)
+
     def resume(self, workflow_ref):
         task = self._scope()
         row = self.store.read(workflow_ref)
         if (row["request"]["plan"], row["request"]["grant"]) != (
-            self.plan.digest,
-            asdict(self.plan.grant),
+            self.original_plan.digest,
+            asdict(self.original_plan.grant),
         ):
             raise AccessDenied("Merge workflow is not the current installed context")
+        self.plan = current_plan(self.original_plan, row, maximum_attempts=self.maximum_attempts)
+        self._prepare_lifecycle(workflow_ref, row)
+        if task.delivered_once:
+            return self._resume(workflow_ref)
+        authority = self.candidate.authority
+
+        def current():
+            task = self._scope()
+            if task.human_hold or self.clock() >= self.plan.deadline:
+                raise AccessDenied("Original merge authority changed while waiting")
+            authority.resources.verify(authority.pair)
+            context = self._observed_publication(workflow_ref, row, task)
+            if context is None:
+                self._ready()
+            else:
+                g = self.plan.grant
+                fact = self.core.publications.inspect(self.handle, task.id, context)
+                if fact["state"] == "pending":
+                    with self.core.execution.merge_snapshot_boundary(
+                        self.handle,
+                        task.id,
+                        g.binding.attempt_id,
+                        g.task_version,
+                        g.attempt_version,
+                        g.decision_revision,
+                        g.decision_ref,
+                        publication_context=context,
+                    ):
+                        pass
+                # A committed exact Core fact permits receipt consumption only;
+                # the retained LocalGit publication cannot spawn another effect.
+
+        with authority.resources.use(authority.pair):
+            with self.candidate.profile.merge_turn(
+                deadline=self.plan.deadline, clock=self.clock, check=current
+            ) as waited:
+                self.timings.append({"stage": "repository_wait", "seconds": waited})
+                return self._resume(workflow_ref)
+
+    def _resume(self, workflow_ref):
+        task = self._scope()
+        row = self.store.read(workflow_ref)
+        if (row["request"]["plan"], row["request"]["grant"]) != (
+            self.original_plan.digest,
+            asdict(self.original_plan.grant),
+        ):
+            raise AccessDenied("Merge workflow is not the current installed context")
+        self.plan = current_plan(self.original_plan, row, maximum_attempts=self.maximum_attempts)
         self.references.add(workflow_ref)
         owner = self.store.claim(workflow_ref)
         ref = workflow_ref
         try:
             steps = row["steps"]
-            if self.publication_lifecycle is not None:
-                saved_fence = steps.get("publication_fence")
-                if saved_fence is None:
-                    self.publication_lifecycle.start()
-                elif saved_fence["result"] is not None:
-                    candidate = CandidateResult(**steps["candidate"]["result"])
-                    binding = replace(self.plan.grant.binding, operation_key=ref + ":publication")
-                    self.publication_lifecycle.adopt_fence(
-                        self.plan,
-                        PublicationContext(**saved_fence["result"]),
-                        binding.fingerprint,
-                        candidate.commit,
+            if not task.delivered_once and not any(
+                name in steps for name in ("publication_intent", "publication_fence", "publication")
+            ):
+                self._ready()
+                source, target = self.candidate.profile.refs(self.plan.grant)
+                if source != self.plan.grant.source_head:
+                    raise AccessDenied("Completed worker source changed before target recovery")
+                if target != self.plan.grant.target_head:
+                    history = row.get("target_lineage", [])
+                    if len(history) >= self.maximum_attempts - 1:
+                        raise AccessDenied("Original merge target-advance budget exhausted")
+                    previous_checks = steps.get("check_plan", {}).get("result")
+                    if previous_checks:
+                        b = self.plan.grant.binding
+                        check_scope = Scope(b.principal_id, b.project_id, b.session_id, b.task_id)
+                        snapshot = self.check_inputs.checks.store.read(
+                            previous_checks["ref"], check_scope
+                        )
+                        if any(
+                            group["state"] not in {"pending", "complete"}
+                            or (
+                                group["state"] == "complete"
+                                and group["result"]["outcome"]
+                                not in {"passed", "skipped", "assertion", "dev_red"}
+                            )
+                            for group in snapshot["groups"].values()
+                        ):
+                            raise AccessDenied("Unresolved checks retain original target ownership")
+                    selected = successor(self.plan, target)
+                    self.candidate.target_successor(
+                        self.plan.grant, selected.grant, validate_only=True
                     )
-                else:
-                    self.publication_lifecycle.before_fence(self.plan)
+                    # Preserve every prior step before the new candidate's first effect.
+                    self.store.update(
+                        ref,
+                        owner,
+                        active_plan=asdict(selected),
+                        steps={},
+                        target_lineage=[
+                            *history,
+                            {"plan": asdict(self.plan), "target": target, "steps": steps},
+                        ],
+                    )
+                    self.plan = selected
+                    row = self.store.read(ref)
+                    steps = row["steps"]
             if (
                 task.delivered_once
                 and task.observed_status == IssueStatus.IN_DEV
@@ -283,7 +453,7 @@ class MergeWorkflowService(WorkflowService):
                         owner,
                         "candidate",
                         {"grant": self.plan.digest},
-                        lambda: asdict(self.candidate.prepare(self.plan.grant)),
+                        lambda: asdict(self._prepare_candidate(row)),
                     )
                     candidate = CandidateResult(**value)
                     if candidate.status != "ready":
@@ -315,7 +485,10 @@ class MergeWorkflowService(WorkflowService):
                         {"candidate": candidate.commit},
                         lambda: {
                             "ref": self.check_inputs.prepare(
-                                self.candidate.profile, self.plan.grant, candidate, ref + ":checks"
+                                self.candidate.profile,
+                                self.plan.grant,
+                                candidate,
+                                ref + ":checks:" + self.plan.grant.digest,
                             )
                         },
                     )

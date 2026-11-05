@@ -244,7 +244,10 @@ class CodeProvisioning:
             CheckStore(owner.root / "results.sqlite"), owner, owner, catalogs=catalogs
         )
         return CodeCapabilities(
-            profile, CandidateChecks(checks, owner.discover), tuple(self.data["required_hooks"])
+            profile,
+            CandidateChecks(checks, owner.discover),
+            tuple(self.data["required_hooks"]),
+            self.data["attempts"],
         )
 
     def _configured_catalogs(self, project):
@@ -481,12 +484,22 @@ class CandidateCheckOwner:
     def _published(self, candidate, grant, cp, store):
         """Observe only the exact canonical workflow's recorded quiescent CAS."""
         operations = store.journal.for_attempt(grant.binding.attempt_id)
+
+        def current_grant(op):
+            row = op["facts"].get("merge_workflow", {})
+            if row.get("target_lineage"):
+                from ai_task_manager.application.merging.workflows.recovery import recorded_plan
+
+                return asdict(
+                    recorded_plan(row, maximum_attempts=self.source.data["attempts"]).grant
+                )
+            return row.get("request", {}).get("grant")
+
         workflows = [
             op
             for op in operations
             if (
-                op["facts"].get("merge_workflow", {}).get("request", {}).get("grant")
-                == asdict(grant)
+                current_grant(op) == asdict(grant)
                 and op["facts"]["merge_workflow"]["request"]["profile"] == cp.digest
                 and op["facts"]["merge_workflow"]["steps"].get("candidate", {}).get("result")
                 == asdict(candidate)

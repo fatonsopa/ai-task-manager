@@ -11,7 +11,7 @@ class CandidateStore:
     def __init__(self, journal):
         self.journal = journal
 
-    def create(self, grant, profile):
+    def create(self, grant, profile, *, predecessor=None):
         profile.validate()
         binding = grant.binding
         row = self.journal.register(asdict(binding), binding.fingerprint)
@@ -49,8 +49,32 @@ class CandidateStore:
         state = self.journal.current(claim)
         owner = state["facts"].get("candidate_owner")
         if owner and owner["operation"] != ref:
-            raise AccessDenied("A different or unresolved candidate owns this task")
-        generation = str(uuid4())
+            if predecessor is None or owner["operation"] != predecessor:
+                raise AccessDenied("A different or unresolved candidate owns this task")
+            prior = self.get(predecessor)
+            if prior["claim"] != claim or prior["generation"] != owner["generation"]:
+                raise AccessDenied("Candidate successor lost its exact predecessor claim")
+            generation = str(uuid4())
+            self.journal.commit(
+                claim,
+                state["version"],
+                "candidate-successor:" + ref,
+                "candidate_successor",
+                dict(
+                    state["facts"],
+                    candidate_owner={
+                        "operation": ref,
+                        "owner_ref": grant.owner_ref,
+                        "generation": generation,
+                    },
+                    candidate_owner_history=[
+                        *state["facts"].get("candidate_owner_history", []),
+                        owner,
+                    ],
+                ),
+            )
+            owner = {"operation": ref, "owner_ref": grant.owner_ref, "generation": generation}
+        generation = str(uuid4()) if not owner else owner["generation"]
         if not owner:
             self.journal.commit(
                 claim,
