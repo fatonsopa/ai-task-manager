@@ -83,6 +83,29 @@ def resolve(
             admissions=permission.admissions,
         )
         runner = commands(context) if commands is not None else None
+        worker_git = None
+        if context.task.code_bearing:
+            from ai_task_manager.adapters.git.commits import ConfinedWorkerGit, WorkerGitContainer
+            from ai_task_manager.installation.commands.registry import InstalledCommands
+
+            if type(runner) is not InstalledCommands:
+                raise AccessDenied("Code work requires installed confined verification commands")
+            images = {plan.image_id for plan in runner.runner.plans.values()}
+            if len(images) != 1:
+                raise AccessDenied("One exact installed worker Git image is required")
+            runner.check_sources()
+            container = WorkerGitContainer(
+                context.runtime_journal,
+                context.runtime_journal.path.parent / "worker-git-containers",
+                docker=runner.runner.docker,
+                docker_sha256=runner.runner.docker_hash,
+                endpoint=runner.runner.environment["DOCKER_HOST"],
+                image=next(iter(images)),
+                resource_root=context.resources.root,
+                deadline=context.deadline,
+                run_id=manifest.data["authorization_ref"],
+            )
+            worker_git = ConfinedWorkerGit(context.runtime_journal, container)
         return NativeAuthorities(
             policy,
             accounting,
@@ -91,6 +114,7 @@ def resolve(
             permission.decision_preparation,
             confined_commands=runner,
             command_refs=tuple(runner.references) if runner is not None else (),
+            worker_git=worker_git,
         )
 
     registration = NativeRegistration(

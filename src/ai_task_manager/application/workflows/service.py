@@ -39,6 +39,8 @@ class WorkflowService:
                 "artifact_digest",
                 "required_units",
                 "commit",
+                "cleanup",
+                "merge_workflow",
             }
         }
         envelope = result(
@@ -230,6 +232,11 @@ class WorkflowService:
             finally:
                 if claimed:
                     driver.store.release(reference, owner)
+        if getattr(driver, "code_delivery", None) is not None:
+            try:
+                outcomes.extend(driver.code_delivery.close())
+            except Exception as error:
+                outcomes.append({"state": "uncertain", "reason": type(error).__name__})
         if self.reviewer_owner is not None:
             try:
                 outcomes.extend(self.reviewer_owner.close())

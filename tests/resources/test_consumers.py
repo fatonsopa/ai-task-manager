@@ -177,3 +177,20 @@ def test_same_inode_changed_database_owner_refuses_resume(rr):
             pytest.fail("Wrong database owner must not be admitted")
     assert pair.database.stat().st_ino == before
     assert pair.database.read_bytes() == data and pair.worktree.exists()
+
+
+def test_foreign_session_cleanup_cannot_create_consumer_metadata(rr):
+    from dataclasses import replace
+
+    from ai_task_manager.domains.work.errors import WorkError
+
+    dispatch = stopped(rr)
+    foreign = rr.rig.session(replace(rr.rig.scope, logical_session="foreign-session"))
+    directory = rr.resources.root / "consumers"
+    before = tuple(directory.iterdir()) if directory.exists() else ()
+    observations = rr.journal.observations(dispatch.attempt_id, "consumer_fence")
+    with pytest.raises(WorkError):
+        rr.resources.cleanup(rr.rig.core, foreign, dispatch.attempt_id)
+    assert (tuple(directory.iterdir()) if directory.exists() else ()) == before
+    assert rr.journal.observations(dispatch.attempt_id, "consumer_fence") == observations
+    assert dispatch.resources.worktree.exists() and dispatch.resources.database.exists()

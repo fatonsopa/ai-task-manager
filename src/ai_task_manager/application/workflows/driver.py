@@ -23,11 +23,13 @@ class WorkflowDriver:
         clock=None,
         faults=None,
         recovery_history=None,
+        code_delivery=None,
     ):
         self.core, self.handle, self.store, self.plans = core, handle, store, plans
         self.runtime, self.repository, self.provider = runtime, repository, provider
         self.decisions, self.reviews, self.faults = decisions, reviews, faults
         self.commits = commits
+        self.code_delivery = code_delivery
         self.recovery_history = recovery_history
         self.clock = clock or core.context.clock
         self.session_id, self.scope = core.session_binding(handle)
@@ -243,6 +245,15 @@ class WorkflowDriver:
                     }
                 if plan.deadline <= self.clock():
                     return {"state": "checkpoint", "reason": "invocation_deadline", "workflow": ref}
+                if (
+                    task.code_bearing
+                    and self.code_delivery is not None
+                    and any(
+                        name in {"verify", "code-plan", "code-merge"} or name.startswith("unit:")
+                        for name in row["steps"]
+                    )
+                ):
+                    return self.code_delivery.advance(row, plan, owner)
                 pending = [(n, s) for n, s in row["steps"].items() if s["result"] is None]
                 if pending:
                     name, intent = pending[0]
@@ -318,6 +329,8 @@ class WorkflowDriver:
                     prior = row["steps"].get("worker-commit")
                     if prior is not None:
                         actual = self.commits.reconcile(row, plan, prior["payload"])
+                        if self.code_delivery is not None:
+                            return self.code_delivery.advance(row, plan, owner)
                         return {
                             "state": "awaiting_review",
                             "reason": "worker_commit_ready",

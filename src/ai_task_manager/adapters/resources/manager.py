@@ -113,6 +113,8 @@ class ResourceManager:
             yield self.verify(pair)
 
     def cleanup(self, core, handle, attempt_id):
+        # Scope denial must precede creating any physical or journal fence.
+        core.get_attempt(handle, attempt_id)
         self.journal.attempt(attempt_id)
         with self._consumer_boundary(attempt_id, exclusive=True):
             return self._cleanup(core, handle, attempt_id)

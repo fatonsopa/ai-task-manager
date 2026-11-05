@@ -208,6 +208,23 @@
           "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
         }
       }
+    },
+    "code_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "code_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     }
+  },
+  "dependentRequired": {
+    "code_ref": [
+      "code_digest"
+    ],
+    "code_digest": [
+      "code_ref"
+    ]
   }
 }
