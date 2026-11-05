@@ -27,6 +27,8 @@ class SQLiteFixtures:
         if path.resolve() in self.forbidden:
             raise RuntimeRefused("A control database cannot be an application resource")
         physical = identity(path)
+        if path.lstat().st_nlink != 1:
+            raise RuntimeRefused("Application database must have exactly one physical link")
         try:
             with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as conn:
                 rows = conn.execute("SELECT attempt_id FROM fixture_owner").fetchall()
@@ -43,4 +45,6 @@ class SQLiteFixtures:
             conn.execute("BEGIN EXCLUSIVE")
             if any(Path(str(path) + suffix).exists() for suffix in ("-wal", "-shm", "-journal")):
                 raise RuntimeRefused("Database sidecars require explicit recovery before removal")
+        self.inspect(path, receipt["owner"])
+        unchanged(path, receipt["physical"])
         path.unlink()
