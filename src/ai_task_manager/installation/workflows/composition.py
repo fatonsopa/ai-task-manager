@@ -326,10 +326,13 @@ class InstalledWorkflow:
                 decision_lookup,
                 provider,
                 criteria,
+                dependencies=self.dependencies,
             )
             from .worker_resources import ResourceWorkerCommits
 
-            commits = ResourceWorkerCommits(commits, code_delivery.resources)
+            commits = ResourceWorkerCommits(
+                commits, code_delivery.resources, code_delivery.freshness
+            )
             core.context.evidence = EvidenceRouter(
                 [
                     *core.context.evidence.routes,

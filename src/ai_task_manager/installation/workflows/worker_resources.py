@@ -30,10 +30,11 @@ class ResourceCommitChecks:
 
 
 class ResourceWorkerCommits:
-    def __init__(self, commits, resources):
+    def __init__(self, commits, resources, freshness=None):
         if type(commits) is not WorkerCommits:
             raise AccessDenied("Actual current Core worker commit service required")
         self.commits, self.resources = commits, resources
+        self.freshness = freshness
         self.checks = ResourceCommitChecks(commits.checks, resources, commits.runtime)
         commits.checks = self.checks
         self._bound = (commits, resources, self.checks)
@@ -47,6 +48,8 @@ class ResourceWorkerCommits:
             raise AccessDenied("Installed worker commit resource owner changed")
         # The existing full scope/task/attempt check must precede creating a fence.
         _, _, pair, _ = self.commits._current(row, plan)
+        if self.freshness is not None:
+            self.freshness.start(row)
         with self.resources.use(pair):
             self.resources.verify(pair)
             yield

@@ -35,12 +35,15 @@ class DeliveryResources:
     owner: object
     clock: object
     deadline: float
+    freshness: object = None
 
     @property
     def git(self):
         return self.owner.git
 
     def _current(self):
+        if self.freshness is not None:
+            self.freshness.check()
         if self.clock() >= self.deadline:
             raise AccessDenied("Original installed code-delivery deadline expired")
 
@@ -150,13 +153,32 @@ class InstalledCodeDelivery:
         decisions,
         provider,
         criteria,
+        dependencies=None,
     ):
         self.core, self.handle, self.store, self.runtime = core, handle, store, runtime
-        self.resources = DeliveryResources(resources, core.context.clock, context.deadline)
+        from .delivery_dependencies import DeliveryDependencies
+
+        self.freshness = DeliveryDependencies(core, handle, dependencies, context.deadline)
+        self.resources = DeliveryResources(
+            resources, core.context.clock, context.deadline, self.freshness
+        )
         self.registration, self.context = registration, context
         self.review_source, self.issuer_key = review_source, issuer_key
         self.decisions, self.provider, self.criteria = decisions, provider, criteria
-        self._bound = tuple(self.__dict__.values())
+        self._bound = (
+            core,
+            handle,
+            store,
+            runtime,
+            self.resources,
+            registration,
+            context,
+            review_source,
+            issuer_key,
+            decisions,
+            provider,
+            criteria,
+        )
         self._receipts, self.components, self.capabilities = {}, {}, {}
         self.inspector = CommittedRepositoryInspector(runtime, self._receipt)
         self.evidence = MergeEvidence(clock=core.context.clock)
@@ -306,6 +328,7 @@ class InstalledCodeDelivery:
         return component
 
     def advance(self, row, plan, owner):
+        self.freshness.start(row)
         current = (
             self.core,
             self.handle,
@@ -422,5 +445,9 @@ class InstalledCodeDelivery:
                 self._step(row, owner, "code-merge", selected, lambda: body)
             return body
 
+    def end_call(self):
+        self.freshness.close()
+
     def close(self):
+        self.freshness.close()
         return [row for component in self.components.values() for row in component.close()]

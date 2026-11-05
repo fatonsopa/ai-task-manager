@@ -455,4 +455,8 @@ class WorkflowDriver:
                 "workflow": ref,
             }
         finally:
-            self.store.release(ref, owner)
+            try:
+                if self.code_delivery is not None:
+                    self.code_delivery.end_call()
+            finally:
+                self.store.release(ref, owner)
