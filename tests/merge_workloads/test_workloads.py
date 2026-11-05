@@ -120,24 +120,35 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
         "publication_children": 0,
     }
     active_controllers = 0
+    observer_errors = []
 
     def observe():
-        while not stop_monitor.is_set():
-            docker = candidates = publication = 0
-            for owner in owners:
-                jobs = list(owner.capability.checks.checks.source_guard.runner.jobs.values())
-                docker += sum(not getattr(job.get("stop"), "confirmed", False) for job in jobs)
-                candidates += len(owner.candidates.runner.live)
-                if owner.workflow:
-                    publication += sum(
-                        sum(len(children) for children in value.service.publisher._live.values())
-                        for value in list(owner.workflow.consumers.values())
+        try:
+            while not stop_monitor.is_set():
+                docker = candidates = publication = 0
+                for owner in owners:
+                    jobs = list(owner.capability.checks.checks.source_guard.runner.jobs.values())
+                    docker += sum(not getattr(job.get("stop"), "confirmed", False) for job in jobs)
+                    candidates += len(owner.candidates.runner.live)
+                    if owner.workflow:
+                        publication += sum(
+                            sum(
+                                len(children)
+                                for children in list(value.service.publisher._live.values())
+                            )
+                            for value in list(owner.workflow.consumers.values())
+                        )
+                with lock:
+                    peaks["docker_watchers"] = max(peaks["docker_watchers"], docker)
+                    peaks["candidate_git_children"] = max(
+                        peaks["candidate_git_children"], candidates
                     )
+                    peaks["publication_children"] = max(peaks["publication_children"], publication)
+                stop_monitor.wait(0.02)
+        except BaseException as error:
             with lock:
-                peaks["docker_watchers"] = max(peaks["docker_watchers"], docker)
-                peaks["candidate_git_children"] = max(peaks["candidate_git_children"], candidates)
-                peaks["publication_children"] = max(peaks["publication_children"], publication)
-            stop_monitor.wait(0.02)
+                observer_errors.append({"type": type(error).__name__, "message": str(error)})
+            stop_monitor.set()
 
     monitor = None
     try:
@@ -205,8 +216,10 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
             assert len(owner.runtime.runtime.workers) == 1
             git(project.repo, "merge-base", "--is-ancestor", owner.grant.source_head, "integration")
         assert peaks["merge_controllers"] == count
-        assert peaks["docker_watchers"] <= 4
-        assert peaks["publication_children"] <= 1
+        assert not observer_errors, observer_errors
+        assert 1 <= peaks["docker_watchers"] <= 4
+        assert 1 <= peaks["publication_children"] <= 1
+        assert peaks["candidate_git_children"] >= 1
         assert len({owner.pair.database.stat().st_ino for owner in owners}) == count
         assert len({owner.task.id for owner in owners}) == count
         assert time.monotonic() - started <= 600
@@ -214,7 +227,6 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
         stop_monitor.set()
         if monitor is not None:
             monitor.join(2)
-            assert not monitor.is_alive()
         (tmp_path / f"contenders-{count}-timings.json").write_text(
             json.dumps(
                 {
@@ -223,6 +235,7 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
                     "completed": completed,
                     "errors": errors,
                     "observed_peaks": peaks,
+                    "observer_errors": observer_errors,
                     "sampling_seconds": 0.02,
                     "peak_definition": (
                         "Started owned Docker watchers until confirmed stop; "
@@ -235,6 +248,8 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_pa
         )
         for owner in owners:
             owner.close()
+        assert monitor is None or not monitor.is_alive()
+        assert not observer_errors, observer_errors
 
 
 def test_last_consumer_wait_reacquires_owned_database_and_invalidates_old_receipt(tmp_path):
@@ -303,3 +318,31 @@ def test_last_consumer_wait_reacquires_owned_database_and_invalidates_old_receip
         )
     finally:
         owner.close()
+
+
+def test_observer_failure_is_retained_and_never_counts_as_peak_success(tmp_path, monkeypatch):
+    import threading
+
+    from tests.merge_workloads import test_workloads as module
+
+    original = module.Owner
+
+    class BrokenObserver(dict):
+        def values(self):
+            if threading.current_thread().name == "owned-workload-observer":
+                raise RuntimeError("Authored monitor failure")
+            return super().values()
+
+    class OwnerWithObserverFault(original):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            runner = self.capability.checks.checks.source_guard.runner
+            runner.jobs = BrokenObserver(runner.jobs)
+
+    monkeypatch.setattr(module, "Owner", OwnerWithObserverFault)
+    with pytest.raises(AssertionError, match="Authored monitor failure"):
+        module.test_successful_ordered_contenders_keep_every_owned_eight_line_change(tmp_path, 1)
+    result = json.loads((tmp_path / "contenders-1-timings.json").read_text())
+    assert result["observer_errors"][0]["message"] == "Authored monitor failure"
+    assert result["completed"][0]["result"]["data"]["state"] == "done"
+    assert result["observed_peaks"]["docker_watchers"] == 0

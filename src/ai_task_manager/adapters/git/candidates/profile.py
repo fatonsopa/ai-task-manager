@@ -89,7 +89,7 @@ class CandidateProfile:
                     fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     break
                 except BlockingIOError:
-                    time.sleep(min(0.5, max(0.0, end - time.monotonic())))
+                    time.sleep(min(2.0, max(0.0, end - time.monotonic())))
             self.validate()
             check()
             self._turn_descriptor = descriptor

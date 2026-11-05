@@ -251,6 +251,50 @@ class MergeWorkflowService(WorkflowService):
             for event in self.core.notifications.list_events(self.handle)
         )
 
+    def _observed_publication(self, ref, row, task):
+        saved = row["steps"].get("publication_fence")
+        if saved is None:
+            return None
+        if saved["result"] is not None:
+            fact = self.core.publications.inspect(
+                self.handle, task.id, PublicationContext(**saved["result"])
+            )
+        else:
+            from ai_task_manager.storage import issue_claims, merging_fences, sessions, work
+
+            with self.core.context.db.transaction() as conn:
+                sid, scope = sessions.resolve(conn, self.handle)
+                current = work.get(conn, sid, task.id)
+                if (sid, scope) != (self.session_id, self.scope) or current != task:
+                    raise AccessDenied("Publication readback task or scope changed")
+                fact = merging_fences.current(conn, issue_claims.identity(scope, task.issue_id))
+        if fact is None:
+            return None
+        g = self.plan.grant
+        candidate = CandidateResult(**row["steps"]["candidate"]["result"])
+        expected = {
+            "task_id": task.id,
+            "attempt_id": g.binding.attempt_id,
+            "issue_id": task.issue_id,
+            "prose_digest": g.binding.prose_digest,
+            "task_version": g.task_version,
+            "attempt_version": g.attempt_version,
+            "decision_revision": g.decision_revision,
+            "decision_ref": g.decision_ref,
+            "operation_ref": row["steps"]["publication_intent"]["payload"]["ref"],
+            "binding_digest": replace(g.binding, operation_key=ref + ":publication").fingerprint,
+            "commit": candidate.commit,
+            "old": g.target_head,
+            "source_ref": g.source_ref,
+            "source_head": g.source_head,
+            "target_ref": self.candidate.profile.source["target_ref"],
+            "candidate_ref": candidate.candidate_ref,
+            "checks_ref": row["steps"]["check_plan"]["result"]["ref"],
+        }
+        if fact["intent"] != expected:
+            raise AccessDenied("Unrecorded fence result belongs to another publication context")
+        return PublicationContext(**fact["context"])
+
     def _prepare_lifecycle(self, ref, row):
         if self.publication_lifecycle is None:
             return
@@ -258,12 +302,12 @@ class MergeWorkflowService(WorkflowService):
         saved = steps.get("publication_fence")
         if saved is None:
             self.publication_lifecycle.start()
-        elif saved["result"] is not None:
+        elif (context := self._observed_publication(ref, row, self._scope())) is not None:
             candidate = CandidateResult(**steps["candidate"]["result"])
             binding = replace(self.plan.grant.binding, operation_key=ref + ":publication")
             self.publication_lifecycle.adopt_fence(
                 self.plan,
-                PublicationContext(**saved["result"]),
+                context,
                 binding.fingerprint,
                 candidate.commit,
             )
@@ -289,11 +333,26 @@ class MergeWorkflowService(WorkflowService):
             if task.human_hold or self.clock() >= self.plan.deadline:
                 raise AccessDenied("Original merge authority changed while waiting")
             authority.resources.verify(authority.pair)
-            saved = row["steps"].get("publication_fence", {}).get("result")
-            if saved is None:
+            context = self._observed_publication(workflow_ref, row, task)
+            if context is None:
                 self._ready()
             else:
-                self.core.publications.inspect(self.handle, task.id, PublicationContext(**saved))
+                g = self.plan.grant
+                fact = self.core.publications.inspect(self.handle, task.id, context)
+                if fact["state"] == "pending":
+                    with self.core.execution.merge_snapshot_boundary(
+                        self.handle,
+                        task.id,
+                        g.binding.attempt_id,
+                        g.task_version,
+                        g.attempt_version,
+                        g.decision_revision,
+                        g.decision_ref,
+                        publication_context=context,
+                    ):
+                        pass
+                # A committed exact Core fact permits receipt consumption only;
+                # the retained LocalGit publication cannot spawn another effect.
 
         with authority.resources.use(authority.pair):
             with self.candidate.profile.merge_turn(
