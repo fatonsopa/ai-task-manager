@@ -81,3 +81,24 @@ def test_inventory_change_during_initial_hash_refuses(tmp_path, monkeypatch):
     monkeypatch.setattr(Executable, "_manifest", changed)
     with pytest.raises(AccessDenied, match="during initial hashing"):
         capture(tmp_path, monkeypatch)
+
+
+def test_intermediate_symlink_component_cannot_redirect_unchanged_root_entry(tmp_path, monkeypatch):
+    helpers, _ = capture(tmp_path, monkeypatch)
+    outside = tmp_path / "outside"
+    outside.mkdir(mode=0o700)
+    for version, raw in (("v1", b"original helper"), ("v2", b"redirected helper")):
+        directory = outside / version
+        directory.mkdir(mode=0o700)
+        (directory / "tool").write_bytes(raw)
+        (directory / "tool").chmod(0o700)
+    current = outside / "current"
+    current.symlink_to("v1")
+    (helpers / "git-through-directory").symlink_to(current / "tool")
+    selected = Executable.capture("/usr/bin/git", GitProfile.environment(tmp_path / "home"))
+    root_before = (helpers / "git-through-directory").lstat()
+    current.unlink()
+    current.symlink_to("v2")
+    assert (helpers / "git-through-directory").lstat().st_ino == root_before.st_ino
+    with pytest.raises(AccessDenied):
+        selected.validate()

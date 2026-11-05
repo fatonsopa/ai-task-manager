@@ -162,48 +162,6 @@ class Executable:
         object.__setattr__(selected, "_exec_witness", (str(ep), before, manifest))
         return selected
 
-    @staticmethod
-    def _inventory_unchanged(path, inventory):
-        """Check the captured routing without resolving unchanged aliases again."""
-
-        def stamp(info):
-            return (
-                info.st_dev,
-                info.st_ino,
-                info.st_uid,
-                info.st_mode,
-                info.st_nlink,
-                info.st_size,
-                info.st_mtime_ns,
-                info.st_ctime_ns,
-            )
-
-        try:
-            root = Path(path)
-            physical(root)
-            root_stamp, entries, parents = inventory
-            if stamp(root.stat()) != root_stamp:
-                return False
-            if tuple(p.name for p in sorted(root.iterdir())) != tuple(e[0] for e in entries):
-                return False
-            targets = {}
-            for name, metadata, routing in entries:
-                if stamp((root / name).lstat()) != metadata:
-                    return False
-                if routing is not None:
-                    resolved, expected = routing
-                    if resolved not in targets:
-                        targets[resolved] = stamp(Path(resolved).lstat())
-                    if targets[resolved] != expected:
-                        return False
-            for parent, expected in parents:
-                info = Path(parent).lstat()
-                if (info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_nlink) != expected:
-                    return False
-            return True
-        except OSError:
-            return False
-
     def _valid_inventory(self):
         witness = getattr(self, "_exec_witness", None)
         if witness is None:
@@ -212,7 +170,7 @@ class Executable:
         return (
             path == self.exec_path
             and manifest == self.exec_manifest
-            and self._inventory_unchanged(path, inventory)
+            and self._inventory_witness(path) == inventory
         )
 
     def validate(self):
