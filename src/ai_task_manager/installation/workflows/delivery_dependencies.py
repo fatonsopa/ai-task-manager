@@ -2,9 +2,11 @@
 
 import threading
 import time
+from dataclasses import replace
 from uuid import uuid4
 
-from ai_task_manager.domains.work.errors import AccessDenied
+from ai_task_manager.adapters.linear.dependencies.source import Preparation
+from ai_task_manager.domains.work.errors import AccessDenied, StaleVersion
 from ai_task_manager.supervisor.models import RuntimeUncertain
 
 
@@ -60,29 +62,54 @@ class DeliveryDependencies:
         if before["state"] != "ready" or not before["expires_at"] or before["expires_at"] <= now:
             raise AccessDenied("Expired or unknown dependency authority cannot be revived")
         started = time.monotonic()
-        key = "delivery-dependencies:" + str(uuid4())
-        prepared = self.source.prepare(
-            task.id, key, expected_version=task.version, decision_revision=task.decision_revision
-        )
-        if self._stop.is_set():
-            return
-        current, _ = self._facts()
-        if current.observed_status != "In Progress" or current.sync_state != "confirmed":
-            raise AccessDenied("Task synchronization changed during dependency collection")
-        now = self.core.context.clock()
-        if time.monotonic() - started > 20 or now >= min(before["expires_at"], self.deadline):
-            raise AccessDenied("Dependency collection outlived its prior current authority")
-        latest = self.core.scheduling.explain(self.handle, task.id)
-        if latest["state"] != "ready" or latest["graph_version"] != before["graph_version"]:
-            raise AccessDenied("Dependency graph changed while collecting delivery facts")
-        after = self.core.scheduling.observe(
-            self.handle,
-            task.id,
-            current.version,
-            task.decision_revision,
-            prepared.snapshot_ref,
-            key,
-        )
+        collection_end = min(before["expires_at"], self.deadline)
+        after = None
+        for _ in range(3):
+            task, _ = self._facts()
+            self._collection_current(before, started, collection_end)
+            key = "delivery-dependencies:" + str(uuid4())
+            try:
+                prepared = self.source.prepare(
+                    task.id,
+                    key,
+                    expected_version=task.version,
+                    decision_revision=task.decision_revision,
+                )
+                if self._stop.is_set():
+                    return
+                self._collection_current(before, started, collection_end)
+                if type(prepared) is not Preparation or (
+                    prepared.task_id,
+                    prepared.task_version,
+                    prepared.decision_revision,
+                    prepared.operation_key,
+                ) != (task.id, task.version, task.decision_revision, key):
+                    raise AccessDenied("Dependency receipt has another exact preparation context")
+                after = self.core.scheduling.observe(
+                    self.handle,
+                    prepared.task_id,
+                    prepared.task_version,
+                    prepared.decision_revision,
+                    prepared.snapshot_ref,
+                    prepared.operation_key,
+                )
+                break
+            except StaleVersion:
+                if self._stop.is_set():
+                    return
+                current, _ = self._facts()
+                # Only this workflow's monotonic unit progress permits a new
+                # collection. The old-version receipt is never rebound/reused.
+                if (
+                    current == task
+                    or replace(task, version=current.version, completed_work=current.completed_work)
+                    != current
+                    or not set(task.completed_work) < set(current.completed_work)
+                ):
+                    raise AccessDenied("Foreign task or dependency changes cannot be recollected")
+                self._collection_current(before, started, collection_end)
+        if after is None:
+            raise AccessDenied("Bounded own-unit dependency recollection was exhausted")
         if after["state"] != "ready" or after["graph_version"] != before["graph_version"]:
             raise AccessDenied("Changed dependency facts require guarded reconciliation")
         # Observe can race an expiring prior graph while waiting for SQLite.
@@ -98,6 +125,16 @@ class DeliveryDependencies:
             current.decision_revision,
         ):
             pass
+
+    def _collection_current(self, before, started, end):
+        current, _ = self._facts()
+        if current.observed_status != "In Progress" or current.sync_state != "confirmed":
+            raise AccessDenied("Task synchronization changed during dependency collection")
+        if time.monotonic() - started > 20 or self.core.context.clock() >= end:
+            raise AccessDenied("Dependency collection outlived its original current authority")
+        latest = self.core.scheduling.explain(self.handle, current.id)
+        if latest["state"] != "ready" or latest["graph_version"] != before["graph_version"]:
+            raise AccessDenied("Dependency graph changed while collecting delivery facts")
 
     def bind(self, row):
         assignment = (

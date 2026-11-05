@@ -105,9 +105,13 @@ def test_own_unit_progress_during_collection_keeps_exact_scope_and_graph(tmp_pat
             ]
         )
 
+        progressed = []
+
         def complete_during_read(*args, **kwargs):
             value = original(*args, **kwargs)
-            r.complete(r.core.get_task(r.handle, row["task_id"]))
+            if not progressed:
+                progressed.append(True)
+                r.complete(r.core.get_task(r.handle, row["task_id"]))
             return value
 
         source.prepare = complete_during_read
