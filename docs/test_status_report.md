@@ -116,6 +116,15 @@ Source `6b714ff90ae7729beb94cf43f79d90f46ba64672` contains the corrected depende
 
 Retain the earlier ordinary installed refusal caused by dependency expiry: one failed and seven passed cases at `d6df2fcc7f6930305c96f88f0315a38bb1c994c4`. The subsequent generic freshness guard at `1a9a43c6386a130c35eec940b4a678989d2b26ca` incorrectly rejected its own pending publication fence; that source remains unaccepted. Four pre-publication controls cannot substitute for publication compatibility. Full private records retain source/package hashes, timing, failed fixture assertions, review findings and owned cleanup. Required actual-host, real Linear, recovery and workload evidence remains separate.
 
+<a id="p03-recovery-review-components"></a>
+### P03 recovery and review component completion
+
+DONE - Integrated on 5 November 2026 at `2959bded75e2ce61b27e66830c3cbcc0e3b75906`: reviewed merge source `b662745` contributes 17 paths, and native source `302547e` contributes five authored paths. Independent review closed MR-F1 through MR-F4, preserving the interrupted-claim, lost-response, observer and intermediate-symlink failures. Unsafe routing shortcuts are absent from the integrated source. This is source/component completion, not full P03 acceptance.
+
+The exact integrated connection passes both current-successor reconstruction and active-prior-reviewer refusal controls in 27.35 seconds. All 22 reviewed paths match their accepted hashes; imports bind the actual current source. Nine recorded PIDs and nine groups are absent, terminal stop/quiescence facts are retained and read-only journal hashes are unchanged. The worktree and disposable fixture are clean.
+
+Four distinct controlled tasks reached delivery with separate attempts, worker branches and databases; all worker commits remain ancestors of the final target. The measured workload took 222.79 seconds. One task required exact-key recovery after a known no-effect turn refusal. Its cumulative wait of 156.03 seconds exceeds the frozen 120-second queue budget, so latency acceptance remains failed. These declared controls do not establish genuine CLI/model or live Linear acceptance. Normal stopped-owner continuation and the current genuine managed-worker chain remain required.
+
 <a id="p03-current-blockers-20261105"></a>
 ### P03 current delivery blockers on 5 November 2026
 

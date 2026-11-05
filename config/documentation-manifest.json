@@ -151,7 +151,7 @@
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "c66361aa4464b9c1aa275266097a283c02297be728f4df2feba07749f30319b7",
+      "sha256": "8354f9c36f94faf67ebf4dd666c75be5975d45981f109dced0859839821cf82c",
       "previous_sha256": "1d38954824689b0ac158f16edfc8614e3e01c9bf5f1a40b9afe58b6966832924"
     },
     {
@@ -207,7 +207,7 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "47f0d1ed5fbf2c809574cd36b31c5b6c3369875ba31342b4b669e612e65fef64",
+      "sha256": "19a49242b7dfe16febb39dc0b314cf845ecc5deb9c89f0c3d3b7e2046f9642f8",
       "previous_sha256": "ab67969620aab307f96cf3b33fb75aa20223a2904374a7e9e5ba0446a4390015"
     },
     {
