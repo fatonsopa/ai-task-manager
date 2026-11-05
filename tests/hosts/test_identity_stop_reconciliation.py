@@ -27,7 +27,7 @@ def owned():
     host.journal = SimpleNamespace(_append=lambda *args: "host-record:authored-stop")
     records, effects = [], []
     host.permits = SimpleNamespace(record_host_stop=lambda binding, stop: records.append(stop))
-    host.process = SimpleNamespace(_closed=False, identity=object())
+    host.process = SimpleNamespace(_closed=False, identity=object(), begin_shutdown=lambda: None)
 
     def stop():
         effects.append("physical-stop")

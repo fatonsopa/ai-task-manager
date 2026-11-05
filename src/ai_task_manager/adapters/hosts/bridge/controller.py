@@ -391,6 +391,10 @@ class ManagedNativeHost:
         # accepts this reset to the immutable host deadline.
         self.process.complete_invocation(permit)
 
+    def begin_shutdown(self):
+        if self.process is not None:
+            self.process.begin_shutdown()
+
     def stop(self):
         if not self._stop_lock.acquire(blocking=False):
             raise AccessDenied("Owned native stopping is already in progress")
@@ -418,8 +422,12 @@ class ManagedNativeHost:
         if prior is None:
             raise AccessDenied("Original physical native stop proof is unavailable")
         process, identity, stopped = prior
-        if (process is not self.process or process.identity != identity
-                or not process._closed or self.identity is not self._identity_bound):
+        if (
+            process is not self.process
+            or process.identity != identity
+            or not process._closed
+            or self.identity is not self._identity_bound
+        ):
             raise AccessDenied("Original stopped native process or helper owner changed")
         return stopped
 
@@ -435,9 +443,12 @@ class ManagedNativeHost:
             identity_stopped = self.identity is None or self.identity.close()
         if not identity_stopped:
             self.journal._append(
-                "trace", {"effect": "identity_helper_stop_unknown",
-                          "attempt_id": self.binding.attempt_id,
-                          "native_group_stop": asdict(stopped)},
+                "trace",
+                {
+                    "effect": "identity_helper_stop_unknown",
+                    "attempt_id": self.binding.attempt_id,
+                    "native_group_stop": asdict(stopped),
+                },
             )
             stopped = replace(stopped, confirmed=False, reason="identity_helper_stop_unknown")
         self.permits.record_host_stop(self.binding, stopped)
@@ -447,6 +458,7 @@ class ManagedNativeHost:
         with self._source_audit_boundary(before=False):
             if self.process is None:
                 raise AccessDenied("Native startup outcome is unresolved")
+            self.begin_shutdown()
             errors = []
             if self.identity is not self._identity_bound:
                 raise AccessDenied("The installed identity helper owner changed")
