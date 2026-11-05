@@ -116,6 +116,15 @@ Source `6b714ff90ae7729beb94cf43f79d90f46ba64672` contains the corrected depende
 
 Retain the earlier ordinary installed refusal caused by dependency expiry: one failed and seven passed cases at `d6df2fcc7f6930305c96f88f0315a38bb1c994c4`. The subsequent generic freshness guard at `1a9a43c6386a130c35eec940b4a678989d2b26ca` incorrectly rejected its own pending publication fence; that source remains unaccepted. Four pre-publication controls cannot substitute for publication compatibility. Full private records retain source/package hashes, timing, failed fixture assertions, review findings and owned cleanup. Required actual-host, real Linear, recovery and workload evidence remains separate.
 
+<a id="p03-current-blockers-20261105"></a>
+### P03 current delivery blockers on 5 November 2026
+
+Source `0ff09aacca0ad5cc715480adc81c791d919430d0` contains the independently reviewed installed local code-delivery control described below. Its completed portions retain their DONE markers. All seven complete P03 required items remain open.
+
+A distinct-process restart evaluation stopped the original owner and its ten native calls, then started a new process under the same configuration and original deadline. Startup refused with `Existing owner state requires verified recovery, never replacement`. Finding OS-OWNER-TAKEOVER-1 prevents normal continuation; the expired zero-effect recovery path does not recover executed work. Eleven recorded PIDs, five groups and three owned containers were confirmed absent, and the original owner descriptor and read-only journal hashes were retained. This is a failed restart case, not successful owner recovery.
+
+The merge workload lane measured small cold/warm checks at 24.27 and 13.62 seconds. The eight-line broad configuration case selected all four groups and passed in 100.61 seconds. Two simultaneous default-port contenders reproduced an uncertain publication after both prepared against the same old target. These observations are controlled workload evidence on the worker candidate, not integrated fixes or genuine model acceptance. The merge worker is correcting physical merge-turn ownership and moving-target recovery; the native worker is correcting successor-candidate review selection before normal owner continuation. Required independent review, integration and affected demonstrations remain pending.
+
 <a id="p03-resource-alias"></a>
 ### P03 resource alias refusal component
 
