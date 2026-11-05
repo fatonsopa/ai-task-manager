@@ -14,6 +14,7 @@ from mcp.client.stdio import StdioServerParameters
 
 from ai_task_manager.application.service.models import SCHEMAS
 from ai_task_manager.config.files import write_private
+from ai_task_manager.domains.work.models import TaskProse
 from tests.application.helpers import FEATURE_BODY
 
 from .service_support import approve, compose, configuration
@@ -81,7 +82,11 @@ def installed():
 def configured(rig, provider):
     service = compose(rig)
     issue = provider.seed("Todo")
-    provider.issues[issue]["description"] = FEATURE_BODY
+    # Seed the provider's actual representation before approval; the current
+    # renderer removes terminal document LF, as the real provider does.
+    provider.issues[issue]["description"] = rig.renderer.render(
+        TaskProse(provider.issues[issue]["title"], FEATURE_BODY)
+    ).body
     approval = approve(service, provider.issues[issue]["title"], FEATURE_BODY)
     inspected = rig.intake.inspect(issue)
     selection = rig.select(inspected["discovery_ref"])
