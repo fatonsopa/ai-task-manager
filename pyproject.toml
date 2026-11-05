@@ -27,6 +27,8 @@ packages = ["src/ai_task_manager"]
 
 [dependency-groups]
 dev = [
+    "coverage==7.14.2",
+    "mypy==2.4.1",
     "hypothesis>=6.100,<7",
     "pyte==0.8.2",
     "pytest>=8.3,<10",
@@ -44,3 +46,18 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/ai_task_manager"]
+cache_dir = ".local/mypy-cache"
+check_untyped_defs = true
+warn_unused_ignores = true
+
+[tool.coverage.run]
+branch = true
+data_file = ".local/coverage/.coverage"
+source = ["ai_task_manager"]
+
+[tool.coverage.report]
+show_missing = true
