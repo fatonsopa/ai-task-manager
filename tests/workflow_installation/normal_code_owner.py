@@ -84,7 +84,16 @@ def owner_main(root, sockets, mode="ordinary"):
 
     def provider(core, handle, decisions, writer):
         r.core = core
-        return ProviderFixture(r)
+
+        class CurrentProviderFixture(ProviderFixture):
+            def confirm_pending(self, handle, task_id):
+                # This process fixture uses a real clock. Every new authored
+                # confirmation/dependency observation must use its current time;
+                # the shared deterministic fake-clock fixture stays unchanged.
+                r.now = core.context.clock()
+                return super().confirm_pending(handle, task_id)
+
+        return CurrentProviderFixture(r)
 
     options = {
         "observations": observations,
