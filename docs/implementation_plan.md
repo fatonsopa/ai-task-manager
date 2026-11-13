@@ -85,7 +85,7 @@ Use the explicitly selected Claude account in `config/execution-policy.json`. La
 
 ## Work sequence
 
-Complete P00 → P01 → P02 → P03 → P04 → P05 → P06 → P07 → P08 → P09 → P10 in that exact order. Finish the merge work inside P03 before advancing to P04. Only one phase is active. Parallel workers may own independent items within that phase; they may not open a later phase objective.
+The user adopted the [delivery roadmap](plans/incremental-delivery-proposal.md) and approved [DP01 — Install and prepare approved tasks](plans/deliveries/DP01.md), version 2, on 13 November 2026. DP01 is the only active delivery objective. Its stories and task dependencies govern current admission; no DP02 work is authorized. The P00–P10 phase tables below retain their original requirements, case identities and exit obligations as acceptance references. Their earlier chronological schedule is superseded by the adopted roadmap, without marking later phase obligations complete.
 
 This is incremental assembly of the existing product. For each phase, inspect its exact required items and reuse valid code, packages and source-bound evidence. Mark each item complete, partial, blocked or not yet assessed. Implement only missing or defective work. Do not reset the repository, erase failures or rebuild accepted components merely because the scheduling method changed.
 

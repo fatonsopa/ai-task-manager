@@ -4,6 +4,8 @@ This directory is the maintained documentation for the standalone task coordinat
 
 ## Start
 
+Current delivery authority: the adopted [delivery roadmap](plans/incremental-delivery-proposal.md), [learning protocol](plans/delivery-learning-loop.md) and approved [DP01 plan](plans/deliveries/DP01.md), version 2. Deliver DP01 only; retain the original phase acceptance obligations.
+
 Work from the repository root with Git and Python 3 available. Paths in code spans are relative to that root. Read the Policy (POL), [policy.md](policy.md), then the Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), and the Implementation Plan (IP), [implementation_plan.md](implementation_plan.md). Inspect `config/execution-policy.json`, requirements, work graph and acceptance inventory before acting. Documents describe approved work; they do not authorize production actions. The repository address stays in `config/execution-policy.json` so personal identifiers do not need to appear in Markdown.
 
 The user lifted the earlier total spending, elapsed-time and retry ceilings for this approved build. Preserve the original run and accounting, and use finite measured concurrency, reviewed batches and bounded invocations. Use the supplied public repository and the explicitly selected Claude account in `config/execution-policy.json`. Verify its identity before new effects and preserve earlier account-bound evidence. Use the current approved Technical Writer and Skill Builder, and audit affected work when the user supplies an update. Every task prose write needs the appropriate reference and Writing Style (WS) review. A missing second Linear identity blocks live two-user acceptance only; continue independent work.

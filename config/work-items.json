@@ -1338,5 +1338,153 @@
         "scope_note": "Current docs/config and docs/tools are legacy handoff placement, not the target product structure. Do not create network services solely for directory structure. Keep prose, editable/rendered diagrams and screenshots under docs/. Run T34 in normal dependency order before packaging, as directed by the user."
       }
     }
-  ]
+  ],
+  "delivery_schedule": {
+    "version": 1,
+    "active_plan": "DP01",
+    "plan_ref": "docs/plans/deliveries/DP01.md",
+    "roadmap_ref": "docs/plans/incremental-delivery-proposal.md",
+    "scope": "Only DP01; original phases/tasks/requirements/cases retain acceptance obligations.",
+    "stories": [
+      "DP01-S1",
+      "DP01-S2",
+      "DP01-S3"
+    ],
+    "tasks": [
+      {
+        "id": "DP01-T01",
+        "parent_story": "DP01-S1",
+        "story_criteria": [
+          "S1-A3"
+        ],
+        "epic_criteria": [
+          "E1-A4",
+          "E1-A5"
+        ],
+        "task_dependencies": [],
+        "story_dependencies": [],
+        "status": "accepted",
+        "evidence": "docs/test_status_report.md#dp01-t01"
+      },
+      {
+        "id": "DP01-T02",
+        "parent_story": "DP01-S1",
+        "story_criteria": [
+          "S1-A2",
+          "S1-A3"
+        ],
+        "epic_criteria": [
+          "E1-A1",
+          "E1-A4",
+          "E1-A5"
+        ],
+        "task_dependencies": [
+          "DP01-T01"
+        ],
+        "story_dependencies": []
+      },
+      {
+        "id": "DP01-T03",
+        "parent_story": "DP01-S1",
+        "story_criteria": [
+          "S1-A1",
+          "S1-A2"
+        ],
+        "epic_criteria": [
+          "E1-A1",
+          "E1-A5"
+        ],
+        "task_dependencies": [
+          "DP01-T02"
+        ],
+        "story_dependencies": []
+      },
+      {
+        "id": "DP01-T04",
+        "parent_story": "DP01-S2",
+        "story_criteria": [
+          "S2-A1",
+          "S2-A3"
+        ],
+        "epic_criteria": [
+          "E1-A2",
+          "E1-A4",
+          "E1-A5"
+        ],
+        "task_dependencies": [],
+        "story_dependencies": [
+          "DP01-S1"
+        ]
+      },
+      {
+        "id": "DP01-T05",
+        "parent_story": "DP01-S2",
+        "story_criteria": [
+          "S2-A2",
+          "S2-A3",
+          "S1-A2"
+        ],
+        "epic_criteria": [
+          "E1-A1",
+          "E1-A2",
+          "E1-A3",
+          "E1-A4",
+          "E1-A5"
+        ],
+        "task_dependencies": [
+          "DP01-T04"
+        ],
+        "story_dependencies": []
+      },
+      {
+        "id": "DP01-T06",
+        "parent_story": "DP01-S3",
+        "story_criteria": [
+          "S3-A1",
+          "S3-A2"
+        ],
+        "epic_criteria": [
+          "E1-A3",
+          "E1-A4",
+          "E1-A5"
+        ],
+        "task_dependencies": [],
+        "story_dependencies": [
+          "DP01-S2"
+        ]
+      },
+      {
+        "id": "DP01-T07",
+        "parent_story": "DP01-S3",
+        "story_criteria": [
+          "S3-A1",
+          "S3-A2",
+          "S3-A3"
+        ],
+        "epic_criteria": [
+          "E1-A3",
+          "E1-A4",
+          "E1-A5"
+        ],
+        "task_dependencies": [
+          "DP01-T06"
+        ],
+        "story_dependencies": []
+      },
+      {
+        "id": "DP01-T08",
+        "parent_story": "DP01-S3",
+        "story_criteria": [
+          "S3-A3"
+        ],
+        "epic_criteria": [
+          "E1-A5"
+        ],
+        "task_dependencies": [
+          "DP01-T07"
+        ],
+        "story_dependencies": []
+      }
+    ]
+  }
 }
