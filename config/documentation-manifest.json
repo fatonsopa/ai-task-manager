@@ -190,7 +190,7 @@
     },
     {
       "path": "docs/plans/deliveries/DP01.md",
-      "sha256": "7c3fea97073231b376977b0dd2a1c0f26c7e808717a829cb1b4a1caaf467d2ba"
+      "sha256": "6426bf47cc1b47d34a579ef75f71f4f7ed4abf145e14cbed5f7b7723c99b9d3f"
     },
     {
       "path": "docs/plans/delivery-learning-loop.md",
@@ -226,11 +226,11 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "8ec357f85c67ed46299c1f9eb2e6bcff7131bce2f94e112aba1af17f4e31e9eb"
+      "sha256": "89991ed8fb3c037e6113bc5fb2c051e05cdddca47fc4b4d244e3a04eae425dd6"
     },
     {
       "path": "docs/workflow_preparation/how_to_guide.md",
-      "sha256": "70ae308e3aa5e6d0219db96bb8c65b50c9f36f71128c5748fa61f5b3c39794c1"
+      "sha256": "6ece337babcfb9b42bb65f8f8807a1e448c3b9c1e10c3e8238350affd495d0a7"
     },
     {
       "path": "prototypes/terminal/session-task-management.html",
