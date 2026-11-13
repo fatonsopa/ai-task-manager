@@ -10,7 +10,7 @@
     },
     {
       "path": "AGENTS.md",
-      "sha256": "5ecfafe5c19b93fccdd19b0669a0f1c672a1a722ed96cbcf28ff5b38bdef923b"
+      "sha256": "62edfe44fa4ed3b4b242c873d2dc221d80c37d61e33043e659de9102e996bc1a"
     },
     {
       "path": "CLAUDE.md",
@@ -158,7 +158,7 @@
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "d077e10e637f4af94b7622956a1433ad8696eafd2f624c6e14ae6eb504c18ba6"
+      "sha256": "53e674c761ba1b5722250dc783492e4a78d0a1dbd27b9127a4700402f396e639"
     },
     {
       "path": "docs/independent_review/how_to_guide.md",
@@ -190,19 +190,23 @@
     },
     {
       "path": "docs/plans/deliveries/DP01.md",
-      "sha256": "6426bf47cc1b47d34a579ef75f71f4f7ed4abf145e14cbed5f7b7723c99b9d3f"
+      "sha256": "540fa19c8bf8e8ed4b711ad5af29a7f57c83974d4fde7b17d7fa72e52f7efb45"
     },
     {
       "path": "docs/plans/delivery-learning-loop.md",
-      "sha256": "29e9080a5cc98fcc2d323b36bb00195389d9a8586644182842fa8e02d90e821c"
+      "sha256": "826fe11322ae9f184c9b569aba702775c26424bc3c44cf58ba277f535f3bc04f"
     },
     {
       "path": "docs/plans/dp01-session-prompt.md",
-      "sha256": "9dcbb389a852af002cab8f96f7db377d21cc2c5045e27abb113d4ef0446bf8f4"
+      "sha256": "b003674449a3fde28159da4169f6f01785e72926b03298e1ee2ac2b7ccd1df26"
     },
     {
       "path": "docs/plans/incremental-delivery-proposal.md",
-      "sha256": "2f3e42921de44a2db9277e2a34f473d4a674b463fb078f6ce3887a7f070e5b8d"
+      "sha256": "733181306131e8243992e561528d56d1a01a27a141175d0168934550e1df46f0"
+    },
+    {
+      "path": "docs/plans/linear-tracking.md",
+      "sha256": "af38830f18c7af430d065c19d9bff9753aaabc882d1702558ce7a66c2d5a070d"
     },
     {
       "path": "docs/policy.md",
@@ -210,7 +214,7 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "1fbae1c09cf4a921952e8a2f20d8781848fb75eb993aa74837c561d14890eedf"
+      "sha256": "421de00441ca89579b7a0278b4ffa6e293350345591719ed666e5f84d5d5e7aa"
     },
     {
       "path": "docs/spec_driven_development.md",
@@ -226,7 +230,7 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "89991ed8fb3c037e6113bc5fb2c051e05cdddca47fc4b4d244e3a04eae425dd6"
+      "sha256": "3d7b3969b108aa07ee7683078234898fac47559ff37f556292ec460232a2eea4"
     },
     {
       "path": "docs/workflow_preparation/how_to_guide.md",

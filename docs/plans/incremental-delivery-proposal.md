@@ -34,7 +34,7 @@ Develop and deliver DP01, then DP02, continuing in numerical order through DP14.
 
 ### Complete proposed plan catalogue
 
-All rows are adopted delivery objectives. DP01 alone has an approved detailed plan for execution. A working result describes the required delivery, not an observed pass.
+DP01 has an approved detailed plan. DP02–DP14 are roadmap items awaiting their detailed plans and agreement. A working result describes the intended delivery, not an observed pass. Every plan is tracked in the [TST development project](linear-tracking.md); current state is confirmed from the owning session and Linear.
 
 | Order and exact plan title | Scope of the plan | Working result required for completion | Important inputs |
 | --- | --- | --- | --- |
@@ -74,6 +74,8 @@ Preserve the private sealed configuration, signed provider/operator authority, f
 Retain **product goal → epic → delivery story → engineering task**. Modules/domains identify architecture and ownership; they are not an additional mandatory planning level. The roadmap orders delivery plans. A detailed plan is the execution document for a bounded outcome epic, not another issue hierarchy. A small epic may have one story.
 
 Apply [work-item identity and traceability](../implementation_plan.md#work-item-identity-and-traceability) to every plan. Task IDs remain independent of story membership: retain `DP01-T01` through `DP01-T08`, record each parent story explicitly and link acceptance criteria separately. Future task registers use Task ID, Title, Parent story, Criteria supported and the actual Linear identifier/link when known. Reparenting changes the relationship, not the task ID or its history.
+
+Apply [Linear delivery tracking](../implementation_plan.md#linear-delivery-tracking) before admitting work. All plans, epics, stories and tasks must be represented in TST, with confirmed native parent relationships and actual identifier links. Create detailed child work only when it has been defined; roadmap visibility is not execution approval. Update records on each handoff and acceptance, preserving all reusable work when retiring an obsolete schedule.
 
 | Level | What it owns | Evidence needed to close it |
 | --- | --- | --- |

@@ -18,6 +18,8 @@ Use the existing Git, task, test, review and build records as primary evidence. 
 
 Follow [work-item identity and traceability](../implementation_plan.md#work-item-identity-and-traceability) for all records. Preserve independent task IDs and store their current parent story separately. Keep actual Linear identifiers/links distinct from planning IDs. A parent change appends its old/new relationship, reason and authority; it does not rename the task or rewrite earlier events, reviews or evidence.
 
+Follow [Linear delivery tracking](../implementation_plan.md#linear-delivery-tracking) for every plan, epic, story and task. Record each confirmed provider mapping and state transition with its readback, including handoffs, review, closure and recovery from a synchronization failure. An unknown Linear mapping is acceptable in a planning observation; it blocks work admission until reconciled. A supersession event links the original record, retained evidence, successor plan and reversible archival action. Tracking administration contributes no product acceptance credit.
+
 | Record | Location relative to the repository | Purpose |
 | --- | --- | --- |
 | Protocol | `docs/plans/delivery-learning-loop.md` | Common recording, completion and learning rules. |

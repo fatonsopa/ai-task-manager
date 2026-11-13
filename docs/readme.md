@@ -49,6 +49,8 @@ A successful check reports consistent requirements, cases, links and diagram pai
 | Approved sidebar interaction | Focused Spec Driven Development document (SDD), [terminal specification](terminal/spec_driven_development.md) |
 | Components, interfaces, data and trust boundaries | High Level Document (HLD), [high_level_document.md](high_level_document.md) |
 | Delivery phases, dependencies and rollout | Implementation Plan (IP), [implementation_plan.md](implementation_plan.md) |
+| Stable task IDs, parent stories and criterion/evidence links for all plans | [Work-item identity and traceability](implementation_plan.md#work-item-identity-and-traceability) |
+| Confirmed Linear records for delivery plans, stories and tasks | [Linear tracking map](plans/linear-tracking.md) and [tracking rules](implementation_plan.md#linear-delivery-tracking) |
 | Methods, environments, acceptance and exact cases | Test Plan (TP), [test_plan.md](test_plan.md), and `tests/acceptance/cases.json` |
 | Prepare initial approved work before owner activation | [Workflow preparation How-to Guide (HTG)](workflow_preparation/how_to_guide.md) |
 | Report a scoped lead event | [Lead reporting How-to Guide (HTG)](lead_reporting/how_to_guide.md) |
