@@ -1,6 +1,9 @@
 """Typed run-owned administration with independent fresh provider readback."""
 
+import json
 from dataclasses import asdict, dataclass
+from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 from ai_task_manager.adapters.linear.models import revision
@@ -232,6 +235,261 @@ class FixtureAdministration:
         return Observation(
             kind, candidate, s.workspace, s.team, s.project, s.owner, self.ledger.run_id, state
         )
+
+    def _product_issue(self, config_file, submit_key, task_id, writing_ref):
+        """Read actual installed product intent and approval; do not initialize its stores."""
+        from ai_task_manager.adapters.decisions.observations import identity
+        from ai_task_manager.adapters.linear.connections import AgentConnection
+        from ai_task_manager.adapters.workflow_control.identity import source_digest
+        from ai_task_manager.adapters.writing.journal import ApprovalView
+        from ai_task_manager.adapters.writing.package import WriterPackage
+        from ai_task_manager.adapters.writing.service import WritingService
+        from ai_task_manager.application.intake import submit_payload
+        from ai_task_manager.config.claim_store import file_identity
+        from ai_task_manager.config.files import FileSeal, read_private
+        from ai_task_manager.domains.work.models import SessionHandle, TaskProse
+        from ai_task_manager.installation.sessions.operator import (
+            ReadOnlyAuthority,
+            current_authority,
+            readonly,
+        )
+        from ai_task_manager.installation.sessions.recovery import (
+            installed_authority,
+            installed_provider_history,
+        )
+        from ai_task_manager.storage import sessions, work
+        from ai_task_manager.storage.database import Database
+        from ai_task_manager.storage.publication_schema import validate as publication
+        from ai_task_manager.storage.scheduling_schema import validate as scheduling
+
+        uuid(task_id)
+        seal = FileSeal(config_file)
+        config = read_private(config_file)
+        root = Path(config_file).parent
+        setup = read_private(root / "operator-intent.json")
+        complete = read_private(root / "operator-result.json")
+        if setup["source"] != source_digest() or complete["config"] != identity(
+            config_file, content=True
+        ):
+            raise DriverRefused("product_installation_changed")
+        installed_authority(config)
+        installed_provider_history(config)
+        journal = ReadOnlyAuthority(config["authority_database"], config["authority_key"])
+        enrollment = journal._get(config["grant_ref"], "session-enrollment:")
+        capability = read_private(config["session_file"])
+        with readonly(config["core_database"]) as conn:
+            scheduling(conn)
+            publication(conn)
+            if [tuple(row) for row in conn.execute("SELECT version FROM metadata")] != [(5,)]:
+                raise DriverRefused("current_product_schema_required")
+            claim = journal.claim_store()
+            if (
+                Database.identity(conn) != claim["store_id"]
+                or file_identity(config["core_database"]) != claim["file_identity"]
+            ):
+                raise DriverRefused("product_claim_store_changed")
+            sid, scope = sessions.resolve(conn, SessionHandle(capability["capability"]))
+            s = self.ledger.scope
+            if (
+                (scope.provider, scope.workspace, scope.principal, scope.project)
+                != ("linear", s.workspace, s.owner, s.project)
+                or capability["scope"] != asdict(scope)
+                or config["linear"]["expected"]["team_id"] != s.team
+            ):
+                raise DriverRefused("product_scope_mismatch")
+            task = work.get(conn, sid, task_id)
+            if (
+                task.approval_ref != writing_ref
+                or task.sync_state != "confirmed"
+                or task.observed_status != "Backlog"
+                or task.desired_status != "Backlog"
+                or task.queued_once
+                or task.execution_state != "idle"
+                or not task.issue_id
+            ):
+                raise DriverRefused("confirmed_product_backlog_required")
+            uuid(task.issue_id)
+            indexed = conn.execute(
+                "SELECT issue_id,version FROM tasks WHERE id=?", (task.id,)
+            ).fetchone()
+            binding = conn.execute(
+                "SELECT task_id FROM issue_bindings WHERE identity_key=?",
+                (
+                    digest(
+                        {
+                            "provider": scope.provider,
+                            "workspace": scope.workspace,
+                            "issue_id": task.issue_id,
+                        }
+                    ),
+                ),
+            ).fetchone()
+            if (
+                tuple(indexed) != (task.issue_id, task.version)
+                or not binding
+                or binding[0] != task.id
+            ):
+                raise DriverRefused("product_task_identity_changed")
+            values = config["writer"]
+            # Only verifier methods are used; WritingService.__init__ creates local state.
+            writer = object.__new__(WritingService)
+            writer.package = WriterPackage(Path(values["root"]), values["python"], values["pins"])
+            writer.journal = ReadOnlyAuthority(values["journal"], values["key"])
+            writer.root = Path(values["sessions_root"])
+            writer.reviewer_identity, writer.reviewer_model = "Current host self-review", None
+            approved = ApprovalView(writer, "task", scope).record(writing_ref)
+            if (
+                approved["digest"] != task.prose_digest
+                or approved["representation"] != task.representation
+                or approved["policy"] != config["approval_policy"]
+                or approved["prose"]
+                != {
+                    "title": task.title,
+                    "body": task.body,
+                    "code_bearing": task.code_bearing,
+                    "required_work": list(task.required_work),
+                }
+                or "Fixture run: " + self.ledger.run_id not in task.body.splitlines()
+            ):
+                raise DriverRefused("current_product_approval_required")
+            prose = TaskProse(task.title, task.body, task.code_bearing, task.required_work)
+            prior = work.replay(
+                conn, sid, submit_key, submit_payload(prose, writing_ref, None, None)
+            )
+            if (
+                prior is None
+                or prior["id"] != task.id
+                or prior["issue_id"] is not None
+                or prior["desired_status"] != "Backlog"
+            ):
+                raise DriverRefused("original_product_submit_required")
+            rows = conn.execute(
+                "SELECT * FROM outbox WHERE session_id=? AND task_id=? AND kind='create_backlog'",
+                (sid, task.id),
+            ).fetchall()
+            if len(rows) != 1 or rows[0]["state"] != "confirmed":
+                raise DriverRefused("confirmed_product_intent_required")
+            operation = dict(rows[0])
+            payload = json.loads(operation["payload"])
+            if (
+                payload["title"] != task.title
+                or payload["body"] != task.body
+                or payload["prose_digest"] != task.prose_digest
+                or payload["desired_status"] != "Backlog"
+                or payload["issue_id"] is not None
+                or payload["task_version"] != prior["version"]
+                or payload["decision_revision"] != prior["decision_revision"]
+            ):
+                raise DriverRefused("product_intent_changed")
+            event = conn.execute(
+                "SELECT kind FROM events WHERE id=? AND task_id=?", (payload["event_id"], task.id)
+            ).fetchone()
+            if not event or event[0] != "task_submitted":
+                raise DriverRefused("original_product_intent_required")
+            if conn.execute("SELECT 1 FROM attempts WHERE session_id=? LIMIT 1", (sid,)).fetchone():
+                raise DriverRefused("product_execution_not_allowed")
+        with readonly(config["linear"]["journal"]) as conn:
+            send = conn.execute(
+                "SELECT * FROM sends WHERE operation_id=? ORDER BY attempt DESC LIMIT 1",
+                (operation["id"],),
+            ).fetchone()
+            if (
+                not send
+                or send["state"] != "confirmed"
+                or send["candidate_id"] is not None
+                or send["attempt"] != operation["attempt_count"]
+                or json.loads(send["scope"]) != asdict(scope)
+            ):
+                raise DriverRefused("confirmed_server_assigned_product_send_required")
+            snapshot = json.loads(send["snapshot"])
+            selected = AgentConnection(**config["linear"]["agent_connection"])
+            if send["connection_digest"] != selected.digest or (
+                snapshot["id"],
+                snapshot["title"],
+                snapshot["body"],
+                snapshot["status"],
+                snapshot["team_id"],
+                snapshot["project_id"],
+                snapshot["assignee_id"],
+                snapshot["delegate_id"],
+            ) != (
+                task.issue_id,
+                task.title,
+                task.body,
+                "Backlog",
+                s.team,
+                s.project,
+                s.owner,
+                selected.agent_id,
+            ):
+                raise DriverRefused("product_confirmation_changed")
+            send_id = send["id"]
+        current_authority(
+            config_file,
+            config,
+            journal,
+            config["grant_ref"],
+            asdict(scope),
+            enrollment["expires_at"],
+        )
+        seal.check()
+        provenance = {
+            "config": identity(config_file, content=True),
+            "source": source_digest(),
+            "scope": asdict(scope),
+            "task_id": task.id,
+            "task_version": task.version,
+            "session_id": sid,
+            "claim_store": claim,
+            "issue_id": task.issue_id,
+            "submit_key": submit_key,
+            "writing_ref": writing_ref,
+            "outbox_id": operation["id"],
+            "request_fingerprint": digest(submit_payload(prose, writing_ref, None, None)),
+            "send_id": send_id,
+            "prose_digest": task.prose_digest,
+            "approval_output_sha256": approved["handoff"]["output_sha256"],
+            "state_id": snapshot["state_id"],
+            "title_sha256": digest(task.title),
+            "body_sha256": digest(task.body),
+        }
+        return SimpleNamespace(
+            provenance=provenance,
+            title=task.title,
+            body=task.body,
+            issue_id=task.issue_id,
+            state_id=snapshot["state_id"],
+        )
+
+    def observe_product_issue(self, config_file, submit_key, task_id, writing_ref):
+        """Bind confirmed default-CLI creation to cleanup using truthful post-effect provenance."""
+        try:
+            before = self._product_issue(config_file, submit_key, task_id, writing_ref)
+            self.ledger.resource(self.ledger.scope.project)
+            self.graphql.refresh_if_needed()
+            item, stamp = self._metadata("issue", before.issue_id, None)
+            marker = self._call("issue_marker", {"id": before.issue_id})["issue"]
+            if (
+                marker["id"] != before.issue_id
+                or revision(marker["updatedAt"]) != stamp
+                or marker["title"] != before.title
+                or marker["description"] != before.body
+                or item["state"]["id"] != before.state_id
+                or item["archivedAt"] is not None
+            ):
+                raise DriverRefused("product_fresh_readback_changed")
+            # Re-observe after I/O; local intent, approval or authority may have changed.
+            after = self._product_issue(config_file, submit_key, task_id, writing_ref)
+            if before.provenance != after.provenance:
+                raise DriverRefused("product_changed_during_readback")
+            provenance = {**after.provenance, "provider_revision": stamp}
+            return self.ledger.observe_product_issue(
+                "observed-product:" + submit_key, after.issue_id, provenance
+            )
+        except DriverRefused:
+            raise
+        except Exception:
+            raise DriverRefused("confirmed_product_observation_refused") from None
 
     def _create(self, key, kind, candidate, variables, *, endpoint_reference=None):
         row = self.ledger.begin(key, kind, candidate, digest(variables))
