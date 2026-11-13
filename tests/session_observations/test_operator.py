@@ -456,3 +456,78 @@ def test_OP13_missing_credential_is_explicit_and_sanitized(operator, monkeypatch
         for row in observed["data"]["checks"]
     )
     assert snapshot(config.parent) == before
+
+
+@pytest.mark.parametrize("crosses_deadline", [False, True])
+def test_OP14_doctor_requires_authority_current_after_provider_reads(
+    operator, monkeypatch, crosses_deadline
+):
+    config, request, _ = operator
+    setup(config, request)
+    current = [request["deadline"] - 1]
+    monkeypatch.setattr(time, "time", lambda: current[0])
+    successful_identity_responses = []
+    send = HttpTransport.send
+
+    def delayed_identity(self, query, variables, credentials):
+        response = send(self, query, variables, credentials)
+        if "query VerifyBinding" in query:
+            assert response.status == 200
+            successful_identity_responses.append(True)
+            if crosses_deadline:
+                # Model a successful response arriving after expiry without a timing race.
+                current[0] = request["deadline"] + 1
+        return response
+
+    monkeypatch.setattr(HttpTransport, "send", delayed_identity)
+    before = snapshot(config.parent)
+    observed = doctor(config)
+    assert successful_identity_responses
+    assert snapshot(config.parent) == before
+    assert observed["data"]["ready"] is not crosses_deadline
+    assert observed["ok"] is not crosses_deadline
+    if crosses_deadline:
+        assert observed["exit_code"] != 0
+
+
+@pytest.mark.parametrize("crosses_deadline", [False, True])
+def test_OP15_setup_requires_authority_current_before_completion(
+    operator, monkeypatch, crosses_deadline
+):
+    config, request, _ = operator
+    current = [request["deadline"] - 1]
+    monkeypatch.setattr(time, "time", lambda: current[0])
+    successful_connection_responses = []
+    send = HttpTransport.send
+
+    def delayed_final_connection(self, query, variables, credentials):
+        response = send(self, query, variables, credentials)
+        if "query AgentUsers" in query:
+            assert response.status == 200
+            successful_connection_responses.append(True)
+            # The first connection read is composition; the second completes establishment.
+            if crosses_deadline and len(successful_connection_responses) == 2:
+                current[0] = request["deadline"] + 1
+        return response
+
+    monkeypatch.setattr(HttpTransport, "send", delayed_final_connection)
+    if crosses_deadline:
+        with pytest.raises(AccessDenied):
+            setup(config, request)
+        assert len(successful_connection_responses) == 2
+        assert (config.parent / "operator-intent.json").exists()
+        assert not (config.parent / "operator-result.json").exists()
+        assert read_private(config)["grant_ref"]
+        assert (config.parent / "session.json").exists()
+        before = snapshot(config.parent)
+        assert not doctor(config)["ok"]
+        with pytest.raises(AccessDenied):
+            setup(config, request)
+        assert snapshot(config.parent) == before
+    else:
+        assert setup(config, request)["ok"]
+        assert len(successful_connection_responses) == 2
+        assert (config.parent / "operator-result.json").exists()
+        before = snapshot(config.parent)
+        assert doctor(config)["ok"]
+        assert snapshot(config.parent) == before

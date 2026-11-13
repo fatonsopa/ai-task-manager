@@ -15,7 +15,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_task_manager.adapters.decisions.journal import AuthorityJournal
-from ai_task_manager.adapters.decisions.observations import SessionObservations, identity, intent
+from ai_task_manager.adapters.decisions.observations import (
+    SessionObservations,
+    current_enrollment,
+    identity,
+    intent,
+)
 from ai_task_manager.adapters.linear.client import LinearClient
 from ai_task_manager.adapters.linear.connections import AgentConnection
 from ai_task_manager.adapters.linear.errors import LinearError
@@ -256,6 +261,16 @@ def setup(config_file, request):
             deadline=request["deadline"],
             operation_key=request["operation_key"],
         )
+        config = read_private(config_file)
+        installed_authority(config)
+        current_authority(
+            config_file,
+            config,
+            ReadOnlyAuthority(config["authority_database"], config["authority_key"]),
+            established["enrollment_ref"],
+            established["scope"],
+            request["deadline"],
+        )
         if not completed_path.exists():
             write_private(
                 completed_path,
@@ -306,6 +321,20 @@ class ReadOnlyAuthority(AuthorityJournal):
     def transaction(self):
         with readonly(self.path) as conn:
             yield conn
+
+
+def current_authority(config_file, config, journal, reference, scope, deadline):
+    """Observe signed local authority after provider I/O, without granting or renewing it."""
+    enrollment = current_enrollment(journal, reference, scope)
+    if (
+        config.get("grant_ref") != reference
+        or enrollment["config_path"] != str(Path(config_file).absolute())
+        or enrollment["config_intent"] != intent(config)
+        or enrollment["expires_at"] != deadline
+        or deadline <= time.time()
+    ):
+        raise AccessDenied("Current unchanged session delegation required before completion")
+    return True
 
 
 def provider_client(config):
@@ -490,6 +519,18 @@ def doctor(config_file):
     check("preparation", preparation, ("claim_store",))
     if "seal" in state:
         check("configuration_unchanged", state["seal"].check)
+    check(
+        "current_authority",
+        lambda: current_authority(
+            config_file,
+            state["config"],
+            state["journal"],
+            state["grant"].source_ref,
+            asdict(state["grant"].scope),
+            state["grant"].expires_at,
+        ),
+        ("session_authority",),
+    )
     ready = all(row["verdict"] == "pass" for row in checks)
     if ready:
         return result({"ready": True, "checks": checks})
