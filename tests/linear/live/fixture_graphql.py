@@ -181,6 +181,58 @@ ARGUMENTS = {
 }
 
 
+# Fixed DP01 administration slice. It does not establish product create capabilities.
+PREPARATION_REQUIRED = {
+    name: frozenset(REQUIRED[name])
+    for name in (
+        "Project",
+        "Issue",
+        "ProjectPayload",
+        "ProjectArchivePayload",
+        "IssueArchivePayload",
+    )
+}
+PREPARATION_REQUIRED.update(
+    Query=frozenset({"viewer", "organization", "team", "project", "issue"}),
+    Mutation=frozenset({"projectCreate", "projectArchive", "issueArchive"}),
+)
+PREPARATION_INPUTS = {"ProjectCreateInput": frozenset(INPUTS["ProjectCreateInput"])}
+PREPARATION_ARGUMENTS = {
+    ("Query", "team"): {"id"},
+    ("Query", "project"): {"id"},
+    ("Query", "issue"): {"id"},
+    ("Project", "teams"): {"first", "after"},
+    ("Mutation", "projectCreate"): {"input"},
+    ("Mutation", "projectArchive"): {"id", "trash"},
+    ("Mutation", "issueArchive"): {"id", "trash"},
+}
+PREPARATION_OPERATIONS = frozenset(
+    {
+        "identity",
+        "project_create",
+        "project_metadata",
+        "project_marker",
+        "project_archive",
+        "issue_metadata",
+        "issue_marker",
+        "issue_archive",
+    }
+)
+PREPARATION_SHAPE = (
+    "query FixturePreparationShape { "
+    + " ".join(
+        f't{i}: __type(name: "{name}") {{ name fields(includeDeprecated: true) {{ name args {{ name }} }} }}'  # noqa: E501
+        for i, name in enumerate(PREPARATION_REQUIRED)
+    )
+    + " "
+    + " ".join(
+        f'i{i}: __type(name: "{name}") {{ name inputFields {{ name type {{ kind name ofType {{ kind name }} }} }} }}'  # noqa: E501
+        for i, name in enumerate(PREPARATION_INPUTS)
+    )
+    + " }"
+)
+
+
 @dataclass(frozen=True)
 class Capabilities:
     schema_sha256: str
@@ -189,9 +241,21 @@ class Capabilities:
 
 class FixtureGraphQL:
     def __init__(
-        self, ledger, transport, credentials, *, team_key="TST", max_pages=8, clock=time.time
+        self,
+        ledger,
+        transport,
+        credentials,
+        *,
+        team_key="TST",
+        max_pages=8,
+        clock=time.time,
+        profile="full",
     ):
+        if type(profile) is not str or profile not in {"full", "preparation"}:
+            raise DriverRefused("unknown_fixture_profile")
+        self._profile = self._bound_profile = profile
         self.ledger, self.clock, self.max_pages = ledger, clock, max_pages
+        self._check_profile()
         if type(max_pages) is not int or not 0 < max_pages <= 32:
             raise DriverRefused("invalid_fixture_page_bound")
         self._credentials, self._pin = credentials, None
@@ -205,6 +269,18 @@ class FixtureGraphQL:
         self.capabilities = None
         self._shape = None
         self.actions = ActionJournal(ledger)
+
+    @property
+    def profile(self):
+        return self._profile
+
+    def _check_profile(self):
+        if self._profile != self._bound_profile:
+            raise DriverRefused("fixture_profile_changed")
+        if self._profile == "preparation" and (
+            self.ledger.limits.webhooks != 0 or self.ledger.limits.comments != 0
+        ):
+            raise DriverRefused("preparation_requires_zero_optional_resources")
 
     def _bound_credentials(self):
         credentials = self._credentials()
@@ -224,19 +300,25 @@ class FixtureGraphQL:
             raise DriverRefused("fixture_identity_mismatch")
 
     def preflight(self, *, cleanup_key=None, recovery_key=None, action_key=None):
+        self._check_profile()
+        preparation = self.profile == "preparation"
+        required = PREPARATION_REQUIRED if preparation else REQUIRED
+        inputs = PREPARATION_INPUTS if preparation else INPUTS
+        arguments = PREPARATION_ARGUMENTS if preparation else ARGUMENTS
+        query = PREPARATION_SHAPE if preparation else SHAPE
         self._pin = hashlib.sha256(self._bound_credentials().authorization().encode()).hexdigest()
         self._read_charge(cleanup_key, recovery_key, action_key)
-        shape = self.client.request(SHAPE, {})
+        shape = self.client.request(query, {})
         try:
-            for i, (name, fields) in enumerate(REQUIRED.items()):
+            for i, (name, fields) in enumerate(required.items()):
                 item = shape[f"t{i}"]
                 if item["name"] != name or not fields <= {f["name"] for f in item["fields"]}:
                     raise ValueError()
                 for field in item["fields"]:
-                    needed = ARGUMENTS.get((name, field["name"]), set())
+                    needed = arguments.get((name, field["name"]), set())
                     if not needed <= {a["name"] for a in field["args"]}:
                         raise ValueError()
-            for i, (name, fields) in enumerate(INPUTS.items()):
+            for i, (name, fields) in enumerate(inputs.items()):
                 item = shape[f"i{i}"]
                 actual = {f["name"]: f["type"] for f in item["inputFields"]}
                 if item["name"] != name or not fields <= actual.keys():
@@ -263,6 +345,10 @@ class FixtureGraphQL:
 
     def product_capabilities(self):
         self.require_ready()
+        if self.profile != "full":
+            raise DriverRefused("full_fixture_profile_required")
+        if self._shape is None:
+            raise DriverRefused("fixture_preflight_required")
         values = {self._shape[f"i{i}"]["name"]: self._shape[f"i{i}"] for i in range(len(INPUTS))}
         return (
             IssueCreateCapability.from_introspection(values["IssueCreateInput"]),
@@ -282,6 +368,7 @@ class FixtureGraphQL:
             self.ledger.request("read")
 
     def require_ready(self):
+        self._check_profile()
         if self.capabilities is None or not 0 <= self.clock() - self.capabilities.checked_at < 300:
             raise DriverRefused("fixture_preflight_required")
         self._bound_credentials()
@@ -291,6 +378,7 @@ class FixtureGraphQL:
             return self.preflight(
                 cleanup_key=cleanup_key, recovery_key=recovery_key, action_key=action_key
             )
+        self._check_profile()
         self._bound_credentials()
         return self.capabilities
 
@@ -307,6 +395,8 @@ class FixtureGraphQL:
         self.require_ready()
         if operation not in OPERATIONS:
             raise DriverRefused("unknown_fixture_operation")
+        if self.profile == "preparation" and operation not in PREPARATION_OPERATIONS:
+            raise DriverRefused("operation_outside_fixture_profile")
         mutation = OPERATIONS[operation].startswith("mutation ")
         if mutation:
             self.actions.consume(effect, operation, variables)
