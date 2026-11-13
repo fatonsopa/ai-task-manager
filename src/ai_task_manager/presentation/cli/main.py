@@ -45,6 +45,27 @@ def main(argv=None, *, workflow_registry=None):
     try:
         if not args.config:
             raise ValueError("A sealed configuration is required; cwd is not authority")
+        if args.group == "session" and args.action in {"setup", "doctor"}:
+            if args.installation or args.session_file:
+                raise ValueError("Session installation uses only its explicit configuration")
+            from ai_task_manager.installation.sessions import operator
+
+            if args.action == "doctor":
+                if args.input:
+                    raise ValueError("Session doctor accepts no input payload")
+                envelope = operator.doctor(args.config)
+            else:
+                if not args.input:
+                    raise ValueError("Session setup requires an explicit operator manifest")
+                if args.input == "-":
+                    raw = sys.stdin.buffer.read(MAX_JSON_BYTES + 1)
+                else:
+                    with open(args.input, "rb") as stream:
+                        raw = stream.read(MAX_JSON_BYTES + 1)
+                envelope = operator.setup(args.config, strict_json(raw))
+            output = sys.stdout if envelope["ok"] else sys.stderr
+            output.write(json.dumps(envelope, ensure_ascii=False, allow_nan=False) + "\n")
+            return exit_code(envelope)
         if args.group == "workflow" and args.action == "prepare":
             if args.installation or args.session_file or not args.input:
                 raise ValueError(
