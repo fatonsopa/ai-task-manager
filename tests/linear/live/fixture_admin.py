@@ -273,8 +273,9 @@ class FixtureAdministration:
         ):
             raise DriverRefused("product_installation_changed")
         installed_authority(config)
-        installed_provider_history(config)
+        # Reject WAL before the history helper can open SQLite and create sidecars.
         journal = ReadOnlyAuthority(config["authority_database"], config["authority_key"])
+        installed_provider_history(config)
         enrollment = journal._get(config["grant_ref"], "session-enrollment:")
         capability = read_private(config["session_file"])
         with readonly(config["core_database"]) as conn:

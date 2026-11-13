@@ -433,3 +433,60 @@ def test_DP01I04_observation_refuses_foreign_changed_or_unresolved_evidence(
     assert snapshot(p.config.parent) == before
     assert "product_observations" not in p.ledger.summary()
     assert sum(r["query"] == CREATE for r, _ in p.provider.requests) == effects == 1
+
+
+@pytest.mark.parametrize("authority_mode", ["delete", "wal"])
+def test_DP01I05_authority_journal_mode_is_checked_before_any_sqlite_open(
+    installed, authority_mode
+):
+    p = installed
+    writing = p.approved()
+    task = p.prepare(
+        "task_submit", {"writing_ref": writing["approval_ref"], "operation_key": "wal-guard-submit"}
+    )["data"]
+    authority = Path(read_private(p.config)["authority_database"])
+    connection = sqlite3.connect(authority)
+    try:
+        assert (
+            connection.execute("PRAGMA journal_mode=" + authority_mode).fetchone()[0]
+            == authority_mode
+        )
+    finally:
+        # A context manager commits but does not close a sqlite3 connection.
+        connection.close()
+    sidecars = [Path(str(authority) + suffix) for suffix in ("-wal", "-shm")]
+    assert all(not path.exists() for path in sidecars)
+    before = snapshot(p.config.parent)
+    reads_before = len(p.provider.requests)
+    if authority_mode == "wal":
+        with pytest.raises(DriverRefused):
+            p.admin.observe_product_issue(
+                p.config, "wal-guard-submit", task["id"], writing["approval_ref"]
+            )
+    else:
+        observed = p.admin.observe_product_issue(
+            p.config, "wal-guard-submit", task["id"], writing["approval_ref"]
+        )
+        assert observed["id"] == task["issue_id"]
+    after = snapshot(p.config.parent)
+    evidence = os.environ.get("DP01_PREPARATION_EVIDENCE")
+    if evidence:
+        target = Path(evidence)
+        target.mkdir(mode=0o700, parents=True, exist_ok=True)
+        write_private(
+            target / ("authority-mode-" + authority_mode + "-" + p.ledger.run_id + ".json"),
+            {
+                "scope": "Authored installed authority-mode control; no live provider effects",
+                "mode": authority_mode,
+                "before": before,
+                "after": after,
+                "state_unchanged": before == after,
+                "provider_reads": len(p.provider.requests) - reads_before,
+                "sidecars_present": [path.name for path in sidecars if path.exists()],
+            },
+        )
+    assert after == before
+    if authority_mode == "wal":
+        assert len(p.provider.requests) == reads_before
+        assert all(not path.exists() for path in sidecars)
+        assert "product_observations" not in p.ledger.summary()
