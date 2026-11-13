@@ -9,6 +9,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import cast
 from uuid import UUID
 
 from ai_task_manager.config.files import digest, private_path
@@ -40,6 +41,9 @@ class Limits:
     cleanup_seconds: float | None = None
 
     def check(self):
+        # The exact type guards below still reject None; casts only expose that contract to mypy.
+        started_at = cast(float, self.started_at)
+        cleanup_seconds = cast(float, self.cleanup_seconds)
         if (
             type(self.deadline) not in {int, float}
             or not math.isfinite(self.deadline)
@@ -55,12 +59,12 @@ class Limits:
                 raise DriverRefused("invalid_limit")
         if (
             type(self.started_at) not in {int, float}
-            or not math.isfinite(self.started_at)
-            or self.started_at < 0
+            or not math.isfinite(started_at)
+            or started_at < 0
             or type(self.cleanup_seconds) not in {int, float}
-            or not math.isfinite(self.cleanup_seconds)
-            or self.cleanup_seconds <= 0
-            or self.started_at + self.cleanup_seconds >= self.deadline
+            or not math.isfinite(cleanup_seconds)
+            or cleanup_seconds <= 0
+            or started_at + cleanup_seconds >= self.deadline
             or type(self.cleanup_requests) is not int
             or not 0 < self.cleanup_requests < self.requests
         ):
@@ -245,6 +249,13 @@ class RunLedger:
             count = conn.execute(
                 "SELECT COUNT(*) FROM operations WHERE kind=?", (kind,)
             ).fetchone()[0]
+            if (
+                kind == "issue"
+                and conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_observations'"
+                ).fetchone()
+            ):
+                count += conn.execute("SELECT COUNT(*) FROM product_observations").fetchone()[0]
             if count >= getattr(self.limits, KINDS[kind]):
                 raise DriverRefused("resource_budget_exhausted")
             if conn.execute("SELECT 1 FROM operations WHERE candidate=?", (candidate,)).fetchone():
@@ -331,6 +342,62 @@ class RunLedger:
             if (existing["kind"], existing["operation_key"]) != (kind, key):
                 raise DriverRefused("resource_already_owned")
             conn.execute("UPDATE operations SET state='confirmed' WHERE key=?", (key,))
+
+    def observe_product_issue(self, key, issue_id, provenance):
+        """Append verified post-effect ownership, never a fixture create/send reservation."""
+        uuid(issue_id)
+        if not isinstance(key, str) or not 1 <= len(key) <= 256 or type(provenance) is not dict:
+            raise DriverRefused("invalid_product_observation")
+        raw = json.dumps(provenance, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        if len(raw.encode()) > 262144:
+            raise DriverRefused("product_observation_too_large")
+        fingerprint = digest(
+            {
+                "run": self.run_id,
+                "scope": asdict(self.scope),
+                "issue": issue_id,
+                "provenance": provenance,
+            }
+        )
+        with self.transaction() as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS product_observations("
+                "key TEXT PRIMARY KEY,issue_id TEXT UNIQUE NOT NULL,"
+                "fingerprint TEXT NOT NULL,provenance TEXT NOT NULL,"
+                "observed_at REAL NOT NULL,origin TEXT NOT NULL)"
+            )
+            prior = conn.execute(
+                "SELECT * FROM product_observations WHERE key=?", (key,)
+            ).fetchone()
+            if prior:
+                if prior["fingerprint"] != fingerprint:
+                    raise DriverRefused("product_observation_changed")
+                resource = conn.execute(
+                    "SELECT * FROM resources WHERE id=?", (issue_id,)
+                ).fetchone()
+                if not resource or (resource["kind"], resource["operation_key"]) != ("issue", key):
+                    raise DriverRefused("observed_product_resource_changed")
+                return dict(resource)
+            self._ordinary(conn)
+            count = conn.execute("SELECT COUNT(*) FROM operations WHERE kind='issue'").fetchone()[0]
+            count += conn.execute("SELECT COUNT(*) FROM product_observations").fetchone()[0]
+            if count >= self.limits.issues:
+                raise DriverRefused("resource_budget_exhausted")
+            if (
+                conn.execute(
+                    "SELECT 1 FROM operations WHERE candidate=? OR key=?", (issue_id, key)
+                ).fetchone()
+                or conn.execute(
+                    "SELECT 1 FROM resources WHERE id=? OR operation_key=?", (issue_id, key)
+                ).fetchone()
+            ):
+                raise DriverRefused("resource_already_owned")
+            conn.execute(
+                "INSERT INTO product_observations VALUES(?,?,?,?,?,?)",
+                (key, issue_id, fingerprint, raw, self.clock(), "confirmed_product_post_effect"),
+            )
+            conn.execute("INSERT INTO resources VALUES(?,'issue',?,'active')", (issue_id, key))
+        return self.resource(issue_id)
 
     def resource(self, resource_id):
         with self.transaction() as conn:
@@ -541,13 +608,12 @@ class RunLedger:
 
     def summary(self):
         with self.transaction() as conn:
+            tables = ["operations", "resources", "requests", "observations", "cleanup_actions"]
+            if conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='product_observations'"
+            ).fetchone():
+                tables.append("product_observations")
             return {
                 table: [dict(row) for row in conn.execute(f"SELECT * FROM {table} ORDER BY rowid")]
-                for table in (
-                    "operations",
-                    "resources",
-                    "requests",
-                    "observations",
-                    "cleanup_actions",
-                )
+                for table in tables
             }
