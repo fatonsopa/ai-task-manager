@@ -2,7 +2,7 @@
 
 ## Before you begin
 
-Use this How-to Guide (HTG) to install a candidate and prepare approved work before the first task-bound owner starts. The trusted operator performs setup. Ordinary CLI and MCP calls retain their owner requirements. This procedure creates no product worker and does not activate normal sessions.
+Use this How-to Guide (HTG) to install a candidate and prepare approved work before the first task-bound owner starts. The trusted operator performs setup. Ordinary CLI and MCP calls retain their owner requirements. This trusted command is not a model tool or an automatic fallback. This procedure creates no product worker and does not activate normal sessions.
 
 Use the reviewed DP01 wheel, its locked runtime requirements and matching source/package manifest. Install them into a new CPython 3.12-or-later environment, then run its absolute `aitm` executable from an empty project with `PYTHONPATH` unset. The installer must provide the approved Technical Writer snapshot, its complete file inventory and an approved Python interpreter with that snapshot's validator dependencies. Preserve a virtual environment interpreter's invocation path; resolving its final symlink can lose its dependencies. Hashes identify the approved files; collecting hashes alone does not approve new guidance or executable code.
 
@@ -68,7 +68,7 @@ Use the installer's approved uv version and populated offline dependency cache. 
 3. Complete writing prepare/review/finalize using the current pinned issue guidance and exact provider title/body. Review meaning, language and preservation; a passing structural validator does not supply semantic approval. Submit only that exact currently approved task. Wait for confirmed Backlog and matching canonical provider identity, human assignee and selected agent delegate before treating linkage as complete.
 4. Explicitly enqueue the confirmed task with its current expected version and decision revision. Confirm Todo with `task_show` and scoped `task_list`, and compare independent provider readback. Backlog submission alone does not queue work. Initial preparation does not authorize execution or start an owner.
 
-Preparation requires absent owner record/socket, no execution attempts and no pending, leased or uncertain session sends. It uses the owner's nonblocking setup lock. The permanent signed activation latch prevents preparation after any owner activation, even if owner descriptors are removed. Capacity must remain identical to trusted setup.
+Preparation requires absent owner record/socket, no execution attempts and no pending, leased or uncertain session sends. It uses the owner's nonblocking setup lock. The permanent signed activation latch prevents preparation after any owner activation, even if owner descriptors are removed. Capacity must remain identical to trusted setup. Ordinary service loads only validate persisted capacity rows; missing or different limits require trusted reconciliation. Each call records its exact request; an uncertain send blocks further preparation until reconciled. Preparation does not complete tasks, start an idle lead or continuously drain events.
 
 ## Confirm success
 
@@ -82,4 +82,4 @@ Stop dependent preparation when enrollment, capacity, writing source, owner stat
 
 An interpreter or validator failure needs the approved runtime restored and verified; it does not authorize replacing the pinned source. Partial, expired or source-mismatched setup needs trusted reconciliation of the retained installation and its effects. This guide provides no automatic migration, authority renewal or destructive reset. Owned cleanup must verify current identity, membership and quiescence; retain an explicit obligation if cleanup cannot be confirmed.
 
-Owner activation and subsequent execution follow their separately authorized procedure in the [independent review How-to Guide (HTG)](../independent_review/how_to_guide.md). They are outside DP01.
+Owner activation and subsequent execution follow their separately authorized procedure in the [independent review How-to Guide (HTG)](../independent_review/how_to_guide.md). They are outside DP01. Reporting an existing scoped event uses the separate command in the [lead reporting How-to Guide (HTG)](../lead_reporting/how_to_guide.md).
