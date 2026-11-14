@@ -5,7 +5,13 @@ from markdown_it import MarkdownIt
 from ai_task_manager.domains.work.errors import ValidationError
 from ai_task_manager.domains.work.models import RenderedProse
 
-from .links import explicit_https_links, literal_blocks
+from .links import (
+    _balanced_end,
+    _code_end,
+    _line_end,
+    explicit_https_links,
+    literal_blocks,
+)
 
 
 def _heading_separators(text):
@@ -53,6 +59,52 @@ class LinearMarkdownRenderer:
     historical_representations = frozenset(
         {"linear-markdown-v1", "linear-markdown-v2", "linear-markdown-v3"}
     )
+
+    @staticmethod
+    def literal_spans_only(before, after):
+        """Insert file spans only in prose, copying existing protected syntax exactly."""
+        blocks, _ = literal_blocks(before)
+        i = j = 0
+        changed = False
+        while i < len(before) and j < len(after):
+            end = blocks.get(i)
+            char = before[i]
+            if end is None and char == "`":
+                end = _code_end(before, i)
+            elif end is None and char == "\\":
+                end = min(i + 2, len(before))
+            elif end is None and char == "[":
+                end = _balanced_end(before, i, "[", "]")
+                if before[end : end + 1] in {"(", "["}:
+                    opening = before[end]
+                    end = _balanced_end(before, end, opening, ")" if opening == "(" else "]")
+                elif before[end : end + 1] == ":" and re.fullmatch(
+                    r" {0,3}", before[before.rfind("\n", 0, i) + 1 : i]
+                ):
+                    after_line = _line_end(before, end)
+                    if not before[end + 1 : after_line].strip():
+                        after_line = _line_end(before, after_line)
+                    end = after_line
+            elif end is None and char == "<":
+                close = before.find(">", i + 1)
+                end = len(before) if close < 0 else close + 1
+            if end is not None:
+                if before[i:end] != after[j : j + end - i]:
+                    return False
+                j += end - i
+                i = end
+                continue
+            if before[i] == after[j]:
+                i += 1
+                j += 1
+                continue
+            match = re.match(r"`([A-Za-z0-9_./-]+\.[A-Za-z0-9]+)`", after[j:])
+            if not match or not before.startswith(match[1], i):
+                return False
+            i += len(match[1])
+            j += len(match[0])
+            changed = True
+        return changed and i == len(before) and j == len(after)
 
     def render(self, prose):
         blocks, fence_starts = literal_blocks(prose.body)

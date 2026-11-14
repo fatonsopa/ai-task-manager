@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 from ai_task_manager.adapters.linear.errors import LinearError, ScopeMismatch
 from ai_task_manager.domains.work.errors import WorkError
 from ai_task_manager.domains.work.models import SyncState
@@ -70,6 +72,21 @@ class OutboundDrain:
                             f"linear-preflight-scope:{task.id}:{exc.observation['updatedAt']}:{task.version}",
                         )
                     raise
+                if operation.payload.get("repair_readback_ref"):
+                    original = next(
+                        (
+                            op
+                            for op in self.core.sync.list_operations(handle)
+                            if op.id == operation.payload.get("create_operation_id")
+                        ),
+                        None,
+                    )
+                    repair_before = self.journal.pending_create_repair_snapshot(
+                        scope, task, operation, original, connection
+                    )
+                    if asdict(before) != repair_before:
+                        self._observe_conflict(handle, task, before)
+                        raise LinearError("preflight_conflict")
                 previous = self.journal.latest_snapshot(scope, task.issue_id)
                 changed_revision = bool(previous and previous["revision"] != before.revision)
                 if (

@@ -196,6 +196,7 @@ class ProviderJournal:
             raise LinearError("pending_create_repair_drift", uncertain=True)
         payload = dict(
             repair_kind="pending_create_code_spans",
+            original_snapshot_digest=digest(asdict(snapshot)),
             issue_id=snapshot.id,
             source_revision=snapshot.revision,
             title=snapshot.title,
@@ -218,6 +219,46 @@ class ProviderJournal:
             if current is None or dict(current) != send:
                 raise LinearError("pending_create_send_changed", uncertain=True)
             return self._proof(conn, "external_prose_readback", scope, task.id, payload)
+
+    def pending_create_repair_snapshot(self, scope, task, operation, original, connection):
+        """Historical exact baseline for this linked update only, not confirmed state."""
+        proof = self.verify_evidence(operation.payload["repair_readback_ref"])
+        fact = proof.payload
+        if (
+            proof.kind != "external_prose_readback"
+            or proof.scope != scope
+            or proof.subject != task.id
+            or fact.get("repair_kind") != "pending_create_code_spans"
+            or fact.get("new_prose_digest") != task.prose_digest
+            or fact.get("issue_id") != task.issue_id
+            or fact.get("connection_digest") != connection.digest
+            or original is None
+            or original.task_id != task.id
+            or original.kind != "create_backlog"
+            or original.state != "uncertain"
+            or original.error != "readback_conflict"
+            or original.fenced_by != operation.payload.get("event_id")
+            or fact.get("create_operation_id") != original.id
+            or fact.get("create_attempt") != original.attempt_count
+            or fact.get("old_prose_digest") != original.payload.get("prose_digest")
+            or operation.kind != "update_prose"
+        ):
+            raise LinearError("pending_create_repair_link_changed")
+        sends = [row for row in self.sends(scope) if row["id"] == fact.get("send_id")]
+        if (
+            len(sends) != 1
+            or sends[0]["operation_id"] != original.id
+            or sends[0]["attempt"] != original.attempt_count
+            or sends[0]["state"] != "uncertain"
+            or sends[0]["error"] != "readback_conflict"
+            or sends[0]["connection_digest"] != connection.digest
+            or not sends[0]["snapshot"]
+        ):
+            raise LinearError("pending_create_send_changed")
+        snapshot = json.loads(sends[0]["snapshot"])
+        if digest(snapshot) != fact.get("original_snapshot_digest"):
+            raise LinearError("pending_create_send_changed")
+        return snapshot
 
     def progress_receipt(self, scope, task, publication_id, snapshot):
         payload = {

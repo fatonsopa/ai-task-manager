@@ -1,5 +1,4 @@
 import json
-import re
 from dataclasses import asdict, replace
 from uuid import uuid4
 
@@ -71,23 +70,10 @@ class Intake:
             raise ApprovalRequired("Prose or frozen approval references do not match")
         return rendered, digest
 
-    @staticmethod
-    def _literal_spans_only(before, after):
-        # Only insert single-line code delimiters around existing file/path tokens.
-        i = j = 0
-        changed = False
-        while i < len(before) and j < len(after):
-            if before[i] == after[j]:
-                i += 1
-                j += 1
-                continue
-            match = re.match(r"`([A-Za-z0-9_./-]+\.[A-Za-z0-9]+)`", after[j:])
-            if not match or not before.startswith(match[1], i):
-                return False
-            i += len(match[1])
-            j += len(match[0])
-            changed = True
-        return changed and i == len(before) and j == len(after)
+    def _literal_spans_only(self, before, after):
+        # Representation owns protected syntax; an unknown renderer cannot repair it.
+        checker = getattr(self.c.renderer, "literal_spans_only", None)
+        return checker is not None and checker(before, after)
 
     @staticmethod
     def _unsettled_preparation(conn, sid):

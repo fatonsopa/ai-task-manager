@@ -52,8 +52,8 @@ def approve(demo, body=BODY, *, code=True, units=("fix-chunks",)):
     return writer.finalize(service.scope, prepared["writing_id"])["approval_ref"]
 
 
-def pending(demo):
-    approval = approve(demo)
+def pending(demo, body=BODY):
+    approval = approve(demo, body)
 
     def autolink(request, response):
         if "mutation CreateIssue" in request["query"]:
@@ -216,3 +216,52 @@ def test_repair_refuses_without_effect_and_preserves_original(boot, fault):  # n
         op for op in service.core.sync.list_operations(service.handle) if op.id == original.id
     )
     assert preserved == original
+
+
+def test_repair_preserves_protected_code_and_links_but_allows_outside_span(boot):  # noqa: F811
+    demo, _ = boot
+    body = BODY + "\n```sh\ncat config.py\n```\n\n[configuration](config.py)\n"
+    service, task, original, before = pending(demo, body)
+    count = len(mutations(demo))
+    for changed in (
+        body.replace("cat config.py", "cat `config.py`"),
+        body.replace("](config.py)", "](`config.py`)"),
+    ):
+        approval = approve(demo, changed)
+        with pytest.raises(WorkError, match="code spans"):
+            repair_pending_intake(demo.config, task.id, original.id, approval, "protected-repair")
+        assert service.core.get_task(service.handle, task.id) == task
+        assert service.provider.journal.sends(service.scope) == before
+        assert len(mutations(demo)) == count == 1
+    # Protected material elsewhere must not prohibit a normal prose filename span.
+    approval = approve(demo, body.replace("chunks.py", "`chunks.py`"))
+    result = repair_pending_intake(demo.config, task.id, original.id, approval, "outside-repair")
+    expected = body.replace("chunks.py", "`chunks.py`").rstrip("\n")
+    assert result["ok"] and result["data"]["body"] == expected
+    assert len(mutations(demo)) == 2
+
+
+def test_repair_refuses_intervening_edit_at_actual_update_preflight(boot):  # noqa: F811
+    demo, _ = boot
+    service, task, original, before = pending(demo)
+    approval = approve(demo, BODY.replace("chunks.py", "`chunks.py`"))
+    changed = []
+
+    def intervening_edit(request, response):
+        if "query ReadIssue" in request["query"] and not changed:
+            issue_id = response["issue"]["id"]
+            changed.append(demo.provider.edit(issue_id, description="Human edit", delegate=None))
+
+    demo.provider.hook = intervening_edit
+    with pytest.raises(LinearError, match="pending_create_repair_unconfirmed"):
+        repair_pending_intake(demo.config, task.id, original.id, approval, "racing-repair")
+    assert len(changed) == 1 and len(mutations(demo)) == 1
+    assert next(iter(demo.provider.issues.values())) == changed[0]
+    assert service.provider.journal.sends(service.scope) == before
+    operations = service.core.sync.list_operations(service.handle)
+    old = next(op for op in operations if op.id == original.id)
+    update = next(op for op in operations if op.kind == "update_prose")
+    assert old.state == "uncertain" and old.fenced_by and old.payload == original.payload
+    assert update.state != "confirmed"
+    with pytest.raises(EvidenceRequired, match="Unsettled"):
+        prepare(demo.config, {"operation": "task_list", "data": {}})
