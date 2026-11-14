@@ -88,6 +88,12 @@ After exact readback confirms the linked update, ordinary explicit session renew
 
 A fixture recovery window is separate from product authority. When explicitly authorized, its trusted `RunLedger.authorize_recovery_window(reference, started_at=..., deadline=..., cleanup_seconds=...)` amendment appends one observation in the original ledger. The original metadata, limits, cumulative request/resource counts and cleanup phase remain intact. The finite window retains a cleanup reserve and permits no automatic extension or counter reset.
 
+### Prepare a checked-out code target
+
+For a new code-delivery session, keep the trusted local target checked out at the repository path already sealed in the installation. The normal provisioner enrolls that physical checkout separately from the author worktree when its HEAD matches the installed target reference. The workflow then uses the existing guarded fast-forward publisher to update the target ref, index and files together. The original author resource pair and candidate binding remain the source authority; publication has its own target worktree/configuration binding in the same physical Git common directory. No model or public command selects a target path.
+
+The target checkout must be clean, owned and on the exact installed branch. Dirty, foreign-branch or replaced target checkouts refuse; concurrent target advances retain the existing bounded target policy. A target checked out elsewhere remains outside this capability. An un-checked-out target retains the existing CAS path, whose checked-out-target refusal remains binding. Install and qualify the corrected runtime before preparing a fresh session. This capability does not reinterpret an existing CAS publication intent, migrate an active owner or detach a protected target. Retain any prior failed cycle and its reviews, candidate, fence and resource obligations.
+
 ## Confirm success
 
 Retain source, wheel and dependency identities; the exact setup/request/approval bytes; command results; canonical task/provider IDs; and independent provider readbacks. Exact submit/enqueue replay uses the original request and operation key and preserves its original effect. A changed payload is a conflict; a new stale-version command is separate from exact replay.

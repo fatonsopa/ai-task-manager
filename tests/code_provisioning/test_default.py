@@ -76,7 +76,8 @@ def test_wrong_current_context_refuses_before_check_effects(owned, fault):
     assert not owned.journal._intents()
 
 
-def test_default_provisioned_checks_deliver_to_trusted_target(owned):
+@pytest.mark.parametrize("checkout", ["absent", "clean", "dirty", "foreign"])
+def test_default_provisioned_checks_deliver_to_trusted_target(owned, checkout):
     from ai_task_manager.adapters.proofs.router import EvidenceRoute, EvidenceRouter
     from ai_task_manager.adapters.resources.git import git
     from ai_task_manager.adapters.workflow_reviews.code_candidates import CodeCandidateReviews
@@ -88,7 +89,34 @@ def test_default_provisioned_checks_deliver_to_trusted_target(owned):
     from tests.merge.workflows.test_candidate_review import Captures
     from tests.runtime.helpers import ProviderFixture
 
+    if checkout != "absent":
+        git(owned.runtime.repo, "checkout", "-q", "integration")
     cap = owned.prepare()
+    publication_worktree = cap.publication_worktree
+    if checkout == "dirty":
+        (owned.runtime.repo / "unrelated.txt").write_text("preserve unrelated local work")
+    elif checkout == "foreign":
+        foreign = owned.root / "foreign-target"
+        foreign.mkdir()
+        git(foreign, "init", "-q", "--initial-branch=integration")
+        git(
+            foreign,
+            "-c",
+            "user.name=Authored Fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "--allow-empty",
+            "-qm",
+            "Foreign target",
+        )
+        publication_worktree = "foreign:target"
+        cap.profile.enroll(
+            foreign,
+            worktree_id=publication_worktree,
+            repository_id=owned.grant.binding.repository_id,
+            target_ref="refs/heads/integration",
+        )
     evidence = MergeEvidence(clock=lambda: owned.r.now)
     owned.r.core.context.evidence = EvidenceRouter(
         [
@@ -116,11 +144,40 @@ def test_default_provisioned_checks_deliver_to_trusted_target(owned):
         evidence,
         clock=lambda: owned.r.now,
         candidate_reviews=reviews,
+        publication_worktree=publication_worktree,
     )
     try:
+        if checkout in {"dirty", "foreign"}:
+            message = "Dirty target" if checkout == "dirty" else "another repository"
+            with pytest.raises(AccessDenied, match=message):
+                workflow.run(owned.task.id, plan.id, "default-resolution-delivery")
+            assert git(owned.runtime.repo, "rev-parse", "integration") == owned.base
+            assert not owned.r.core.get_task(owned.r.handle, owned.task.id).delivered_once
+            if checkout == "dirty":
+                assert (
+                    owned.runtime.repo / "unrelated.txt"
+                ).read_text() == "preserve unrelated local work"
+            return
         result = workflow.run(owned.task.id, plan.id, "default-resolution-delivery")
         assert result["data"]["state"] == "done", result
         assert git(owned.runtime.repo, "show", "integration:src/a.txt") == "4"
+        if checkout == "clean":
+            assert (owned.runtime.repo / "src/a.txt").read_text() == "4"
+            assert git(owned.runtime.repo, "symbolic-ref", "HEAD") == "refs/heads/integration"
+            assert git(owned.runtime.repo, "status", "--porcelain") == ""
+            assert cap.publication_worktree != owned.grant.binding.worktree_id
+            (consumer,) = workflow.consumers.values()
+            assert consumer.grant.source_binding == owned.grant.binding
+            assert git(owned.pair.worktree, "rev-parse", "HEAD") == owned.grant.source_head
+            assert consumer.grant.binding.resource_id == owned.grant.binding.resource_id
+            assert consumer.grant.publication.mode == "fast_forward"
+            published = consumer.service.journal.current(consumer.registration["ref"])
+            assert published["facts"]["local_git"]["result"]["publication"] == "committed"
+            before = published["version"]
+            assert workflow.resume(result["data"]["workflow"])["data"]["state"] == "done"
+            assert (
+                consumer.service.journal.current(consumer.registration["ref"])["version"] == before
+            )
         assert owned.r.core.get_task(owned.r.handle, owned.task.id).observed_status == "In Dev"
         assert result["data"]["cleanup"] == "pending_independent_retirement"
     finally:

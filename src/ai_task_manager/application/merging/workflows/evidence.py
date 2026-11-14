@@ -107,7 +107,7 @@ class MergeEvidence:
             "source_ref": grant.source_ref,
             "source_head": grant.source_head,
             "target_ref": consumer.authority.profile.validate(
-                grant.binding.worktree_id, grant.binding.repository_id
+                consumer.grant.binding.worktree_id, consumer.grant.binding.repository_id
             )["target_ref"],
             "candidate_ref": candidate.candidate_ref,
             "checks_ref": checks_ref,
@@ -119,7 +119,7 @@ class MergeEvidence:
         consumer.authority.check_current(consumer.grant.binding)
         consumer.checks.read(checks_ref, consumer.grant.binding)
         record = consumer.authority.profile.validate(
-            plan.grant.binding.worktree_id, plan.grant.binding.repository_id
+            consumer.grant.binding.worktree_id, consumer.grant.binding.repository_id
         )
         common = Path(record["common"])
         witnesses = tuple(

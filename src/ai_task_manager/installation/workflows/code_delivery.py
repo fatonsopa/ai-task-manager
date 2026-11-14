@@ -325,6 +325,7 @@ class InstalledCodeDelivery:
             candidate_reviews=reviews,
             publication_lifecycle=self.freshness,
             maximum_attempts=capability.maximum_attempts,
+            publication_worktree=capability.publication_worktree,
         )
         self.components[row["id"]] = component
         return component

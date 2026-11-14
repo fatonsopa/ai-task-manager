@@ -23,6 +23,7 @@ class LeaseGrant:
     decision_revision: int
     decision_ref: str
     publication_context: object = None
+    source_binding: Binding | None = None
 
 
 class CoreAuthority:
@@ -63,7 +64,8 @@ class CoreAuthority:
             or attempt.worktree_id != self.pair.worktree_id
             or attempt.database_id != self.pair.database_id
             or self.pair.attempt_id != attempt.id
-            or binding.worktree_id != resource_alias("worktree", attempt.worktree_id)
+            or (self.grant.source_binding or binding).worktree_id
+            != resource_alias("worktree", attempt.worktree_id)
             or binding.resource_id != resource_alias("database", attempt.database_id)
         ):
             raise AccessDenied("Task, prose, attempt or resource binding differs")
@@ -79,9 +81,34 @@ class CoreAuthority:
         # Actual physical/resource and Git observations never run under a Core lock.
         self.resources.verify(self.pair)
         record = self.profile.validate(binding.worktree_id, binding.repository_id)
+        source = self.grant.source_binding
+        if source is None:
+            if record["path"] != str(self.pair.worktree):
+                raise AccessDenied("Publication worktree differs from author resources")
+        else:
+            from dataclasses import replace
+
+            if (
+                self.grant.publication.mode != "fast_forward"
+                or replace(
+                    binding,
+                    worktree_id=source.worktree_id,
+                    configuration_digest=source.configuration_digest,
+                    operation_key=source.operation_key,
+                )
+                != source
+            ):
+                raise AccessDenied("Publication cannot change original author binding")
+            author = self.profile.validate(source.worktree_id, source.repository_id)
+            if (
+                author["path"] != str(self.pair.worktree)
+                or author["configuration_digest"] != source.configuration_digest
+                or (record["common"], record["common_identity"], record["target_ref"])
+                != (author["common"], author["common_identity"], author["target_ref"])
+            ):
+                raise AccessDenied("Publication target differs from the owned author repository")
         if record["configuration_digest"] != binding.configuration_digest or (
-            record["path"] != str(self.pair.worktree)
-            or self.profile.reference(record["path"], record["target_ref"])
+            self.profile.reference(record["path"], record["target_ref"])
             != self.grant.publication.old
             or self.profile.reference(record["path"], self.grant.publication.source_ref)
             != self.grant.publication.new

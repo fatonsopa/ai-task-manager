@@ -13,6 +13,7 @@ from ai_task_manager.adapters.hosts.bridge.containers import DockerCommands
 from ai_task_manager.adapters.hosts.bridge.workspace import Workspace
 from ai_task_manager.application.merge_checks.catalogs import Catalogs, ProjectCatalog
 from ai_task_manager.application.merge_checks.service import MergeChecks
+from ai_task_manager.application.merging.authority import resource_alias
 from ai_task_manager.application.merging.candidates.store import CandidateStore
 from ai_task_manager.application.merging.workflows import CandidateChecks
 from ai_task_manager.config.files import digest, read_private
@@ -239,7 +240,22 @@ class CodeProvisioning:
         profile = GitProfile(root=self.root, executable=self.executable, home=home)
         catalogs = self.catalogs
         catalogs.for_project(context.core.session_binding(context.handle)[1].project)
-        owner = CandidateCheckOwner(self, context, profile, catalogs)
+        target_id = resource_alias("publication-worktree", self.installation["repository"])
+        profile.enroll(
+            self.installation["repository"],
+            worktree_id=target_id,
+            repository_id=resource_alias("repository", self.installation["repository"]),
+            target_ref=self.registration.data["target_ref"],
+        )
+        head = (
+            profile.query(self.installation["repository"], "symbolic-ref", "-q", "HEAD", ok=(0, 1))
+            .stdout.decode()
+            .strip()
+        )
+        publication_worktree = target_id if head == self.registration.data["target_ref"] else None
+        owner = CandidateCheckOwner(
+            self, context, profile, catalogs, publication_worktree=publication_worktree
+        )
         checks = MergeChecks(
             CheckStore(owner.root / "results.sqlite"), owner, owner, catalogs=catalogs
         )
@@ -248,6 +264,7 @@ class CodeProvisioning:
             CandidateChecks(checks, owner.discover),
             tuple(self.data["required_hooks"]),
             self.data["attempts"],
+            publication_worktree,
         )
 
     def _configured_catalogs(self, project):
@@ -276,8 +293,9 @@ class CodeProvisioning:
 
 
 class CandidateCheckOwner:
-    def __init__(self, source, context, profile, catalogs):
+    def __init__(self, source, context, profile, catalogs, *, publication_worktree=None):
         self.source, self.context, self.profile, self.catalogs = source, context, profile, catalogs
+        self.publication_worktree = publication_worktree
         self.root = Path(context.host_journal.path).parent / "candidate-checks"
         self.root.mkdir(mode=0o700, exist_ok=True)
         command = source.commands.data
@@ -295,7 +313,7 @@ class CandidateCheckOwner:
         )
         self._roots = (physical(self.root), physical(self.runner.root))
         self.selected = None
-        self._bound = (source, context, profile, catalogs, self.runner)
+        self._bound = (source, context, profile, catalogs, self.runner, publication_worktree)
         self._plans = dict(self.runner.plans)
         self._environment = dict(self.runner.environment)
         self._transport = (
@@ -307,7 +325,14 @@ class CandidateCheckOwner:
         )
 
     def _current(self):
-        if (self.source, self.context, self.profile, self.catalogs, self.runner) != self._bound or (
+        if (
+            self.source,
+            self.context,
+            self.profile,
+            self.catalogs,
+            self.runner,
+            self.publication_worktree,
+        ) != self._bound or (
             self.runner.plans != self._plans
             or self.runner.environment != self._environment
             or (
@@ -509,13 +534,24 @@ class CandidateCheckOwner:
             return False
         workflow = workflows[0]
         expected_binding = replace(grant.binding, operation_key=workflow["ref"] + ":publication")
+        mode = "cas"
+        publication_repository = cp.source
+        if self.publication_worktree is not None:
+            target = self.profile.validate(self.publication_worktree, grant.binding.repository_id)
+            expected_binding = replace(
+                expected_binding,
+                worktree_id=self.publication_worktree,
+                configuration_digest=target["configuration_digest"],
+            )
+            mode = "fast_forward"
+            publication_repository = target
         request = {
             "source_ref": candidate.candidate_ref,
             "old": grant.target_head,
             "new": candidate.commit,
             "checked": candidate.commit,
             "range_ref": workflow["ref"] + ":range",
-            "mode": "cas",
+            "mode": mode,
         }
         matches = []
         for op in operations:
@@ -526,7 +562,7 @@ class CandidateCheckOwner:
                 and op["fingerprint"] == expected_binding.fingerprint
                 and op["facts"].get("publication_intent") == request
                 and data.get("request") == request
-                and digest(data.get("repository")) == digest(cp.source)
+                and digest(data.get("repository")) == digest(publication_repository)
                 and result.get("publication") == "committed"
                 and result.get("quiescent") is True
                 and result.get("repair_required") is False
@@ -535,7 +571,7 @@ class CandidateCheckOwner:
                 and result.get("current_target") == candidate.commit
                 and result.get("target_ref") == cp.source["target_ref"]
                 and result.get("repository_id") == grant.binding.repository_id
-                and result.get("configuration_digest") == grant.binding.configuration_digest
+                and result.get("configuration_digest") == expected_binding.configuration_digest
                 and result.get("evidence_ref") == data.get("evidence_ref")
                 and result.get("process_observation", {}).get("known") is True
                 and result["process_observation"].get("quiescent") is True

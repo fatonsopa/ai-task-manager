@@ -70,12 +70,14 @@ class MergeWorkflowService(WorkflowService):
         candidate_reviews=None,
         publication_lifecycle=None,
         maximum_attempts=1,
+        publication_worktree=None,
     ):
         self.core, self.handle, self.plan = core, handle, plan
         self.original_plan = plan
         if type(maximum_attempts) is not int or not 1 <= maximum_attempts <= 4:
             raise AccessDenied("Installed candidate attempts must be an integer from 1 to 4")
         self.maximum_attempts = self._maximum_attempts = maximum_attempts
+        self.publication_worktree = self._publication_worktree_bound = publication_worktree
         self.candidate_reviews = candidate_reviews
         self._candidate_reviews_bound = candidate_reviews
         self.publication_lifecycle = self._publication_lifecycle_bound = publication_lifecycle
@@ -95,6 +97,8 @@ class MergeWorkflowService(WorkflowService):
             raise AccessDenied("Installed merge plan outlives the current owner admission")
 
     def _scope(self):
+        if self.publication_worktree != self._publication_worktree_bound:
+            raise AccessDenied("Installed publication worktree changed")
         if self.maximum_attempts != self._maximum_attempts:
             raise AccessDenied("Installed candidate attempt budget changed")
         if self.publication_lifecycle is not self._publication_lifecycle_bound:
@@ -163,15 +167,35 @@ class MergeWorkflowService(WorkflowService):
             )
         return self.publisher_factory(journal, profile, operations)
 
+    def _publication_binding(self, ref):
+        binding = replace(self.plan.grant.binding, operation_key=ref + ":publication")
+        if self.publication_worktree is not None:
+            profile = self.candidate.profile.profile
+            target = profile.validate(self.publication_worktree, binding.repository_id)
+            source = self.candidate.profile.source
+            if (target["common"], target["common_identity"], target["target_ref"]) != (
+                source["common"],
+                source["common_identity"],
+                source["target_ref"],
+            ):
+                raise AccessDenied("Publication checkout belongs to another repository or target")
+            binding = replace(
+                binding,
+                worktree_id=self.publication_worktree,
+                configuration_digest=target["configuration_digest"],
+            )
+        return binding
+
     def _publication(self, ref, candidate, check_ref, publication_context=None):
         grant = self.plan.grant
-        binding = replace(grant.binding, operation_key=ref + ":publication")
+        binding = self._publication_binding(ref)
         request = Publication(
             candidate.candidate_ref,
             grant.target_head,
             candidate.commit,
             candidate.commit,
             ref + ":range",
+            "fast_forward" if self.publication_worktree is not None else "cas",
         )
         lease = LeaseGrant(
             binding,
@@ -181,6 +205,7 @@ class MergeWorkflowService(WorkflowService):
             grant.decision_revision,
             grant.decision_ref,
             publication_context,
+            grant.binding if self.publication_worktree is not None else None,
         )
         authority = self.candidate.authority
         consumer = CheckedMerge(
@@ -210,6 +235,14 @@ class MergeWorkflowService(WorkflowService):
         )
         consumer.service.authority = consumer.authority
         self.consumers[ref] = consumer
+        if self.publication_worktree is not None and not self.store.journal.current(
+            consumer.registration["ref"]
+        )["facts"].get("local_git"):
+            record = consumer.authority.profile.validate(binding.worktree_id, binding.repository_id)
+            if consumer.authority.profile.query(
+                record["path"], "status", "--porcelain", "-z", "--untracked-files=all"
+            ).stdout:
+                raise AccessDenied("Dirty target worktree prevents code delivery")
         return consumer
 
     def _prepare_candidate(self, row):
@@ -282,7 +315,7 @@ class MergeWorkflowService(WorkflowService):
             "decision_revision": g.decision_revision,
             "decision_ref": g.decision_ref,
             "operation_ref": row["steps"]["publication_intent"]["payload"]["ref"],
-            "binding_digest": replace(g.binding, operation_key=ref + ":publication").fingerprint,
+            "binding_digest": self._publication_binding(ref).fingerprint,
             "commit": candidate.commit,
             "old": g.target_head,
             "source_ref": g.source_ref,
@@ -304,7 +337,7 @@ class MergeWorkflowService(WorkflowService):
             self.publication_lifecycle.start()
         elif (context := self._observed_publication(ref, row, self._scope())) is not None:
             candidate = CandidateResult(**steps["candidate"]["result"])
-            binding = replace(self.plan.grant.binding, operation_key=ref + ":publication")
+            binding = self._publication_binding(ref)
             self.publication_lifecycle.adopt_fence(
                 self.plan,
                 context,
@@ -573,7 +606,7 @@ class MergeWorkflowService(WorkflowService):
                 )
                 context = PublicationContext(**context)
                 if self.publication_lifecycle is not None:
-                    binding = replace(g.binding, operation_key=ref + ":publication")
+                    binding = self._publication_binding(ref)
                     self.publication_lifecycle.adopt_fence(
                         self.plan, context, binding.fingerprint, candidate.commit
                     )
