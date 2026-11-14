@@ -54,7 +54,7 @@
     },
     {
       "path": "config/work-items.json",
-      "sha256": "bf0aacefa67e2aad9ee31bc1cb8621dba5836c92cbd1c9399125b8e1852b2b20"
+      "sha256": "932d6bc0026d6f4c746e7784c00c4b75f7439183315d58cb45c4c604d593e8f0"
     },
     {
       "path": "docs/assets/diagrams/architecture.mmd",
@@ -158,7 +158,7 @@
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "53e674c761ba1b5722250dc783492e4a78d0a1dbd27b9127a4700402f396e639"
+      "sha256": "8e075bd62c2ebde885e078de7cb647fcfd9ac964d5710bc53156b135c7893d23"
     },
     {
       "path": "docs/independent_review/how_to_guide.md",
@@ -197,6 +197,14 @@
       "sha256": "b0adf205520891a579358296e8c8e06153002e272d69de03293639b48b4e6881"
     },
     {
+      "path": "docs/plans/deliveries/DP02-handoff.md",
+      "sha256": "6b729d22a20f75fc5ebcfd9279398c46b248e9f5ba7bbb4e9a9c2c81245a93c7"
+    },
+    {
+      "path": "docs/plans/deliveries/DP02.md",
+      "sha256": "dbec846d14ee33eeb816b234f00998c0fe5ce189e486685578b98eb5cff8bb74"
+    },
+    {
       "path": "docs/plans/delivery-learning-loop.md",
       "sha256": "826fe11322ae9f184c9b569aba702775c26424bc3c44cf58ba277f535f3bc04f"
     },
@@ -205,12 +213,16 @@
       "sha256": "b003674449a3fde28159da4169f6f01785e72926b03298e1ee2ac2b7ccd1df26"
     },
     {
+      "path": "docs/plans/dp02-session-prompt.md",
+      "sha256": "6ebb39c7751c1d5a9f8885b6734b9935103faa787adbd5b33f80485ebb9521d7"
+    },
+    {
       "path": "docs/plans/incremental-delivery-proposal.md",
       "sha256": "54db48eeb73023799347ce768fb64560de438904123969e09935882c485bde82"
     },
     {
       "path": "docs/plans/linear-tracking.md",
-      "sha256": "af38830f18c7af430d065c19d9bff9753aaabc882d1702558ce7a66c2d5a070d"
+      "sha256": "13a66788c3f85a18c103ca619a77a4dd87001710a63f92cd3f806fd8172da6a7"
     },
     {
       "path": "docs/policy.md",
@@ -218,7 +230,7 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "10976e0e9b546bfdc12eab6c824841e87984011b88d7a592f053b7edd4d12d71"
+      "sha256": "12b9226d690a202ba5a96c362f03f30575688126d75ddfadba6301c2be8a033b"
     },
     {
       "path": "docs/spec_driven_development.md",
@@ -234,7 +246,7 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "0c9d677eb5503412b31558b3fcd300b3afc64beb083eb755b886f243a8ecec40"
+      "sha256": "9d6ed87b6cf81ad592eff3c6e056da35e86f9fb2a3ee14f0ca86f22c1854648b"
     },
     {
       "path": "docs/workflow_preparation/how_to_guide.md",

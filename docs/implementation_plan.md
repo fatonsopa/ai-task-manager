@@ -85,13 +85,50 @@ Use the explicitly selected Claude account in `config/execution-policy.json`. La
 
 ## Work sequence
 
-The user adopted the [delivery roadmap](plans/incremental-delivery-proposal.md) and approved [DP01 — Install and prepare approved tasks](plans/deliveries/DP01.md), version 2, on 13 November 2026. DP01 is the only active delivery objective. Its stories and task dependencies govern current admission; no DP02 work is authorized. The P00–P10 phase tables below retain their original requirements, case identities and exit obligations as acceptance references. Their earlier chronological schedule is superseded by the adopted roadmap, without marking later phase obligations complete.
+The user adopted the [delivery roadmap](plans/incremental-delivery-proposal.md). DP01 is accepted; [DP02 — Run and report one non-code task](plans/deliveries/DP02.md), version 1, was approved on 14 November 2026 and is the active delivery objective. Its stories and task dependencies govern admission through final handoff. Routine implementation, tests, fixes, review, integration and finite qualification are authorized. DP03 implementation remains outside this approval. The P00–P10 tables retain their original acceptance obligations; their earlier chronological schedule is superseded by the roadmap.
 
 This is incremental assembly of the existing product. For each phase, inspect its exact required items and reuse valid code, packages and source-bound evidence. Mark each item complete, partial, blocked or not yet assessed. Implement only missing or defective work. Do not reset the repository, erase failures or rebuild accepted components merely because the scheduling method changed.
 
 An already-built later-phase component may support the active phase's required path. A dependency defect may be corrected only as a bounded task needed to close that path; it does not authorize unrelated later-phase work or count the later phase complete. If a required capability or gate creates an unresolved ordering conflict, expose that conflict against the governing requirements. Do not substitute mocks for required genuine evidence or weaken a gate to advance.
 
 The machine-readable work graph, `config/work-items.json`, retains its 11 phase gates and 34 work items. T01–T04 provide prerequisites and reviewed contracts. The original T01–T34 work items and requirement/case identities remain traceable. Each assignment names one active phase item, its owned paths, intended usable result and relevant checks. The required-item tables below are the reporting checklist; no separate module score or invented task list overrides them.
+
+### Bounded verification and evidence reuse
+
+Custom logging is lessons-only: a few lines for a new reusable problem, correction and supporting evidence. Task status and closure stay in the existing task/Linear record; Git, test, review and required control outputs supply the proof. Preserve historical journals and required machine capture. Do not continue a parallel model-authored action diary or copy evidence into new summaries. Use existing current-task state for recovery, adding a compact pointer summary only when an actual handoff/restart requires it.
+
+Apply this rule to every delivery plan, story and task. Keep the current task focused on its agreed deliverable and Definition of Done. Each verification action must name the criterion, reproduced blocker, unresolved finding or required control it addresses.
+
+Reuse accepted checks and independent reviews when the relevant source, dependencies, configuration, environment and case bindings still match. Repeat only the affected work when a relevant input changes, a finding remains unresolved or an explicit acceptance requirement calls for a fresh run. An unrelated commit or a new report date alone does not invalidate accepted evidence. Required integrated story/epic demonstrations and final release checks retain their declared scope.
+
+Use the existing task, Linear record and primary logs to record the candidate, criterion verdicts, evidence links, remaining finding and next action. Create another receipt, manifest, snapshot, schema or validation layer only when an existing required contract needs it or a specific decision cannot be supported by the current records. State that purpose before creating it. Reuse a reference when it supplies the same proof; routine commands need no separate narrative or duplicate evidence copy.
+
+Once the task's criteria, affected checks, independent review and integration requirements are satisfied, close the task and advance to the next eligible work. Keep optional improvements outside the current task. If preparation or review repeats without resolving a delivery blocker, identify the exact gap and change the approach before adding more validation. Bookkeeping alone is not an implementation advance. Preserve required authority checks, original attempts, failures and acceptance obligations.
+
+Use these working limits throughout the remaining plans:
+
+- Start from the current task and latest relevant handoff. Search logs for the exact question and read bounded excerpts. Expand a read only when a named question remains unresolved; do not repeatedly load complete histories, large state files or terminal dumps. Preserve the raw records for diagnosis without copying them into each handoff.
+- Return one concise handoff containing the candidate, relevant changes, criterion/check verdicts, evidence links, unresolved findings and next action. The lead consumes that result and advances the task rather than repeating the worker's investigation. An independent reviewer still inspects the relevant source and evidence.
+- Independently review the complete bounded change, selecting specialists only for relevant risks. Consolidate related findings into a correction pass. Further review needs a relevant change, unresolved finding or mandatory acceptance requirement; an unchanged accepted review needs no additional confirmation review.
+- Retain essential acceptance, failure, authority, ownership and uncertain-effect records. Keep diagnostic output accessible by reference. Optional process narratives and duplicate summaries cannot become closure gates.
+- At each handoff, identify the delivered behavior, acceptance case closed or exact blocker resolved. If none advanced, name the bottleneck and change the next action before another preparation/review round. Use the existing progress guard for unchanged repetition; do not create another monitoring or bookkeeping framework. Report token usage only when measured.
+
+### Plan-level approval and autonomous execution
+
+Every delivery plan receives one approval here for its complete scoped implementation, tests, fixes, independent reviews, integration, finite qualification, reporting and owned cleanup. No further user approval is needed per task, story, test, retry or handoff. Required internal writing reviews, authority records and start guards run within that scope; they are not additional user approval queues. A material scope expansion is presented as a revised plan here.
+
+After agreement, follow the active plan’s continuation loop at every completion: reconcile actual ownership, consume results, correct/integrate/close, and immediately select the next eligible task. Continue with bounded waits while healthy work runs. Stop for accepted completion, user pause, a materially revised plan needing agreement, or exclusively external prerequisites after eligible work is exhausted. Record the exact blocker and next action in the existing task. Do not leave approved eligible work idle or create busywork merely to occupy agents.
+
+### Four execution gates
+
+Apply these gates to every remaining plan, task and handoff using the existing task record. They require no new tracking system or validation artifact.
+
+1. **Compact source references.** Use criterion IDs, source sections and evidence links in coverage records. Add only the explanation needed to resolve a gap or decision. Do not reproduce specification text across coverage tables, handoffs and review packets. Read changed sections with enough surrounding context to assess their effects.
+2. **Review only changed or unresolved material.** Reuse an accepted review of unchanged relevant work. Inspect relevant changes, unresolved findings and affected interactions; retain required independent review and final acceptance. Once findings are resolved and accepted, another unchanged review is not an eligible assignment. Before dispatch, name the bounded output and benefit: useful independent parallel work, needed expertise or required independent review. Otherwise the lead does the work directly. Reserve agents for substantive implementation, investigation or required independent judgment; do not delegate routine bookkeeping or unchanged confirmation. An idle slot is acceptable when no useful independent assignment is eligible.
+3. **One task record.** Keep status, owner, blocker/next action, criterion verdicts and evidence pointers in the existing task/Linear record. Link original Git, test, review and required control outputs. A recovery summary points to these records; it does not duplicate them. Custom notes remain lessons-only, with no separate action diary or parallel checklist to keep synchronized.
+4. **A test set fixed before expansion.** Select the smallest set that covers the task's required criteria, affected risks and regressions before authoring additional cases or grading items. Record that selection briefly in the existing task. Combine related conditions into realistic cases when their outcomes remain independently judgeable; case or grading-item count is not a quality target. Add a case only for a named uncovered requirement, risk, relevant change or unresolved failure. Preserve agreed coverage, failures and mandatory fresh/final host tests; changing the selection cannot silently drop an acceptance obligation.
+
+Continuous work means advancing an eligible deliverable or resolving its actual blocker. Repeated reviews, copied coverage text, agent coordination and extra test expansion do not become useful progress merely because they keep agents occupied. When a gate fails, correct the specific next action rather than launching another process-improvement project.
 
 ### Work-item identity and traceability
 

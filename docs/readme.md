@@ -4,7 +4,7 @@ This directory is the maintained documentation for the standalone task coordinat
 
 ## Start
 
-Current delivery authority: the adopted [delivery roadmap](plans/incremental-delivery-proposal.md), [learning protocol](plans/delivery-learning-loop.md) and approved [DP01 plan](plans/deliveries/DP01.md), version 2. Deliver DP01 only; retain the original phase acceptance obligations.
+Current delivery authority: the adopted [delivery roadmap](plans/incremental-delivery-proposal.md) and approved [DP02 plan](plans/deliveries/DP02.md), version 1. DP01 remains accepted. DP02 is blocked on the selected account’s weekly usage limit; the [continuation handoff](plans/deliveries/DP02-handoff.md) records the exact resume boundary. Retain the original phase acceptance obligations.
 
 Work from the repository root with Git and Python 3 available. Paths in code spans are relative to that root. Read the Policy (POL), [policy.md](policy.md), then the Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), and the Implementation Plan (IP), [implementation_plan.md](implementation_plan.md). Inspect `config/execution-policy.json`, requirements, work graph and acceptance inventory before acting. Documents describe approved work; they do not authorize production actions. The repository address stays in `config/execution-policy.json` so personal identifiers do not need to appear in Markdown.
 
@@ -51,6 +51,7 @@ A successful check reports consistent requirements, cases, links and diagram pai
 | Delivery phases, dependencies and rollout | Implementation Plan (IP), [implementation_plan.md](implementation_plan.md) |
 | Stable task IDs, parent stories and criterion/evidence links for all plans | [Work-item identity and traceability](implementation_plan.md#work-item-identity-and-traceability) |
 | DP01 result, supported procedure and DP02 handoff | [DP01 delivery handoff](plans/deliveries/DP01-handoff.md) |
+| DP02 approved scope and continuation | [DP02 plan](plans/deliveries/DP02.md), [session prompt](plans/dp02-session-prompt.md) and [continuation handoff](plans/deliveries/DP02-handoff.md) |
 | Confirmed Linear records for delivery plans, stories and tasks | [Linear tracking map](plans/linear-tracking.md) and [tracking rules](implementation_plan.md#linear-delivery-tracking) |
 | Methods, environments, acceptance and exact cases | Test Plan (TP), [test_plan.md](test_plan.md), and `tests/acceptance/cases.json` |
 | Prepare initial approved work before owner activation | [Workflow preparation How-to Guide (HTG)](workflow_preparation/how_to_guide.md) |

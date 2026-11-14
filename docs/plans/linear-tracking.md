@@ -34,6 +34,22 @@ DP01 and its bounded outcome epic DP01-E1 share one record. DP02–DP14 are road
 | `DP01-T07` | Demonstrate real Todo and settle owned fixtures | [DP01-S3](https://linear.app/manaferra/issue/TST-255/dp01-s3-queue-the-task-and-inspect-confirmed-state-safely) | [TST-262](https://linear.app/manaferra/issue/TST-262/dp01-t07-demonstrate-real-todo-and-settle-owned-fixtures) |
 | `DP01-T08` | Close the integrated delivery and hand off DP02 | [DP01-S3](https://linear.app/manaferra/issue/TST-255/dp01-s3-queue-the-task-and-inspect-confirmed-state-safely) | [TST-263](https://linear.app/manaferra/issue/TST-263/dp01-t08-close-the-integrated-delivery-and-hand-off-dp02) |
 
+## DP02 approved hierarchy
+
+DP02 version 1 was approved on 14 November 2026. Current status belongs to Linear and the owning session.
+
+| Planning ID | Parent | Linear record |
+| --- | --- | --- |
+| `DP02-S1` | `DP02` | [TST-265](https://linear.app/manaferra/issue/TST-265/dp02-s1-prepare-an-executable-isolated-session) |
+| `DP02-S2` | `DP02` | [TST-266](https://linear.app/manaferra/issue/TST-266/dp02-s2-execute-and-accept-the-report) |
+| `DP02-S3` | `DP02` | [TST-267](https://linear.app/manaferra/issue/TST-267/dp02-s3-report-the-result-and-settle-ownership) |
+| `DP02-T01` | `DP02-S1` | [TST-268](https://linear.app/manaferra/issue/TST-268/dp02-t01-resolve-the-normal-execution-prerequisites) |
+| `DP02-T02` | `DP02-S1` | [TST-269](https://linear.app/manaferra/issue/TST-269/dp02-t02-prepare-the-fresh-author-and-reviewer-tasks) |
+| `DP02-T03` | `DP02-S2` | [TST-270](https://linear.app/manaferra/issue/TST-270/dp02-t03-complete-the-installed-non-code-execution-path) |
+| `DP02-T04` | `DP02-S2` | [TST-271](https://linear.app/manaferra/issue/TST-271/dp02-t04-demonstrate-genuine-work-independent-review-and-done) |
+| `DP02-T05` | `DP02-S3` | [TST-272](https://linear.app/manaferra/issue/TST-272/dp02-t05-deliver-the-confirmed-result-to-the-lead) |
+| `DP02-T06` | `DP02-S3` | [TST-273](https://linear.app/manaferra/issue/TST-273/dp02-t06-close-the-cumulative-delivery-and-hand-off-dp03) |
+
 ## Preserved work
 
 The 13 November 2026 reconciliation preserves original issues and their history, code, branches, failed attempts and acceptance records. Each successor plan lists the older issues to inspect and reuse. Superseded records are archived only after ownership and current activity are checked; archive does not claim completion or discard remaining obligations.
