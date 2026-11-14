@@ -83,6 +83,88 @@ class Reconciliation:
         self.journal.finish_send(sends[-1]["id"], "confirmed", readback)
         return confirmed
 
+    def repair_pending_create(
+        self, handle, task_id, operation_id, prose, approval_ref, key, *, check_authority
+    ):
+        """Trusted initial preparation only: correct file-literal serialization."""
+        from .outbound import OutboundDrain
+
+        check_authority()
+        replay = self.core.intake.pending_create_repair_replay(
+            handle, task_id, operation_id, prose, approval_ref, key
+        )
+        _, scope = self.core.session_binding(handle)
+        if replay is None:
+            task = self.core.get_task(handle, task_id)
+            operation = next(
+                (
+                    op
+                    for op in self.core.sync.list_operations(handle)
+                    if op.id == operation_id and op.task_id == task_id
+                ),
+                None,
+            )
+            if operation is None or operation.fenced_by or operation.state != "uncertain":
+                raise LinearError("pending_create_not_repairable", uncertain=True)
+            if request_in_flight(self.journal, scope, operation):
+                raise LinearError("pending_create_still_running", uncertain=True)
+            sends = [
+                row for row in self.journal.sends(scope) if row["operation_id"] == operation.id
+            ]
+            if len(sends) != 1 or not sends[0]["snapshot"]:
+                raise LinearError("creation_identity_uncertain", uncertain=True)
+            known_id = json.loads(sends[0]["snapshot"])["id"]
+            connection = self.client.check_connection(scope, refresh=True)
+            self.journal.bind_connection(scope, connection)
+            check_authority()
+            snapshot = self.client.require_delegate(self.client.read_issue(known_id))
+            check_authority()
+            _, approved_digest = self.core.intake.approved(prose, approval_ref, scope)
+            proof = self.journal.pending_create_repair_receipt(
+                scope, task, operation, sends[0], snapshot, connection, approved_digest
+            )
+            self.core.intake.repair_pending_create(
+                handle, task_id, operation_id, prose, approval_ref, proof, key
+            )
+        check_authority()
+        task = self.core.get_task(handle, task_id)
+        original = next(
+            op for op in self.core.sync.list_operations(handle) if op.id == operation_id
+        )
+        updates = [
+            op
+            for op in self.core.sync.list_operations(handle)
+            if op.task_id == task_id
+            and op.kind == "update_prose"
+            and op.payload.get("event_id") == original.fenced_by
+        ]
+        if len(updates) != 1:
+            raise LinearError("pending_create_repair_link_changed", uncertain=True)
+        update = updates[0]
+        if update.state == "confirmed":
+            connection = self.client.check_connection(scope, refresh=True)
+            snapshot = self.client.require_delegate(self.client.read_issue(task.issue_id))
+            if (
+                snapshot.title != task.title
+                or snapshot.body != task.body
+                or snapshot.status != task.observed_status
+                or snapshot.assignee_id != scope.principal
+            ):
+                raise LinearError("pending_create_repair_drift", uncertain=True)
+            check_authority()
+            return task
+        if update.state in {"failed", "uncertain"}:
+            recovered = self.recover_outbound(handle, update.id)
+            check_authority()
+            return recovered
+        outcome = OutboundDrain(self.core, self.client, self.journal).run_once(
+            handle, task_id=task_id
+        )
+        if outcome is None or outcome["state"] != "confirmed":
+            raise LinearError("pending_create_repair_unconfirmed", uncertain=True)
+        check_authority()
+        return self.core.get_task(handle, task_id)
+
     def inspect_registered(
         self,
         handle,

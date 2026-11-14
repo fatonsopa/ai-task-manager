@@ -1,3 +1,5 @@
+import json
+import re
 from dataclasses import asdict, replace
 from uuid import uuid4
 
@@ -68,6 +70,226 @@ class Intake:
         ):
             raise ApprovalRequired("Prose or frozen approval references do not match")
         return rendered, digest
+
+    @staticmethod
+    def _literal_spans_only(before, after):
+        # Only insert single-line code delimiters around existing file/path tokens.
+        i = j = 0
+        changed = False
+        while i < len(before) and j < len(after):
+            if before[i] == after[j]:
+                i += 1
+                j += 1
+                continue
+            match = re.match(r"`([A-Za-z0-9_./-]+\.[A-Za-z0-9]+)`", after[j:])
+            if not match or not before.startswith(match[1], i):
+                return False
+            i += len(match[1])
+            j += len(match[0])
+            changed = True
+        return changed and i == len(before) and j == len(after)
+
+    @staticmethod
+    def _unsettled_preparation(conn, sid):
+        unsettled = []
+        for row in conn.execute(
+            "SELECT * FROM outbox WHERE session_id=? AND state IN ('pending','leased','uncertain')",
+            (sid,),
+        ).fetchall():
+            op = outbox.from_row(row)
+            repaired = False
+            if op.kind == "create_backlog" and op.state == "uncertain" and op.fenced_by:
+                event = conn.execute(
+                    "SELECT kind,task_id,payload FROM events WHERE id=? AND session_id=?",
+                    (op.fenced_by, sid),
+                ).fetchone()
+                if (
+                    event
+                    and event["kind"] == "pending_intake_prose_repaired"
+                    and event["task_id"] == op.task_id
+                ):
+                    fact = json.loads(event["payload"])
+                    updates = [
+                        outbox.from_row(r)
+                        for r in conn.execute(
+                            "SELECT * FROM outbox WHERE session_id=? AND task_id=? "
+                            "AND kind='update_prose'",
+                            (sid, op.task_id),
+                        ).fetchall()
+                    ]
+                    repaired = fact.get("create_operation_id") == op.id and any(
+                        update.state == "confirmed"
+                        and not update.fenced_by
+                        and update.payload.get("event_id") == op.fenced_by
+                        and update.payload.get("prose_digest") == fact.get("prose_digest")
+                        and update.payload.get("issue_id") == fact.get("issue_id")
+                        for update in updates
+                    )
+            if not repaired:
+                unsettled.append(op)
+        return unsettled
+
+    def require_settled_preparation(self, handle):
+        with self.c.db.transaction() as conn:
+            sid, _ = sessions.resolve(conn, handle)
+            if self._unsettled_preparation(conn, sid):
+                raise EvidenceRequired(
+                    "Unsettled effects require reconciliation before preparation"
+                )
+
+    def pending_create_repair_replay(
+        self, handle, task_id, create_operation_id, prose, approval_ref, key
+    ):
+        rendered, digest = self.approved(prose, approval_ref)
+        payload = dict(
+            command="repair_pending_create",
+            task_id=task_id,
+            create_operation_id=create_operation_id,
+            prose=asdict(prose),
+            approval_ref=approval_ref,
+        )
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            self.approved(prose, approval_ref, scope)
+            prior = work.replay(conn, sid, key, payload)
+            if prior is None:
+                return None
+            task = work.get(conn, sid, task_id)
+            if (
+                task.prose_digest != digest
+                or task.body != rendered.body
+                or task.issue_id != prior["issue_id"]
+            ):
+                raise EvidenceRequired("Repaired intake changed after its recorded operation")
+            return task
+
+    def repair_pending_create(
+        self, handle, task_id, create_operation_id, prose, approval_ref, proof_ref, key
+    ):
+        rendered, digest = self.approved(prose, approval_ref)
+        payload = dict(
+            command="repair_pending_create",
+            task_id=task_id,
+            create_operation_id=create_operation_id,
+            prose=asdict(prose),
+            approval_ref=approval_ref,
+        )
+
+        def action(conn, sid, scope):
+            self.approved(prose, approval_ref, scope)
+            task = work.get(conn, sid, task_id)
+            operation = outbox.get(conn, sid, create_operation_id)
+            proof = self.c.proof(proof_ref, "external_prose_readback", scope, task_id).payload
+            if (
+                task.issue_id is not None
+                or task.execution_state != "pending_intake"
+                or task.observed_status is not None
+                or task.desired_status != S.BACKLOG
+                or task.queued_once
+                or task.delivered_once
+                or task.human_hold
+                or task.completed_work
+                or task.decision_revision != 0
+                or conn.execute(
+                    "SELECT 1 FROM attempts WHERE session_id=? LIMIT 1", (sid,)
+                ).fetchone()
+                or issue_claims.known_delivered(conn, scope, task)
+            ):
+                raise InvalidTransition("Repair requires a never-executed pending intake")
+            if (
+                operation.task_id != task.id
+                or operation.kind != "create_backlog"
+                or operation.state != "uncertain"
+                or operation.fenced_by
+                or operation.error != "readback_conflict"
+                or {op.id for op in self._unsettled_preparation(conn, sid)} != {operation.id}
+                or operation.payload.get("task_version") != task.version
+                or operation.payload.get("decision_revision") != task.decision_revision
+                or operation.payload.get("prose_digest") != task.prose_digest
+            ):
+                raise EvidenceRequired("The original known mismatched create is required")
+            if (
+                rendered.title != task.title
+                or prose.code_bearing != task.code_bearing
+                or tuple(prose.required_work) != task.required_work
+                or not self._literal_spans_only(task.body, rendered.body)
+            ):
+                raise ApprovalRequired("Repair permits only newly approved file code spans")
+            if (
+                proof.get("repair_kind") != "pending_create_code_spans"
+                or proof.get("create_operation_id") != operation.id
+                or proof.get("create_attempt") != operation.attempt_count
+                or proof.get("task_version") != task.version
+                or proof.get("decision_revision") != task.decision_revision
+                or proof.get("old_prose_digest") != task.prose_digest
+                or proof.get("new_prose_digest") != digest
+                or proof.get("status") != S.BACKLOG
+                or proof.get("title") != task.title
+                or proof.get("body") == task.body
+                or proof.get("assigned_to_owner") is not True
+                or not proof.get("send_id")
+                or not proof.get("connection_digest")
+            ):
+                raise EvidenceRequired("Fresh original-send repair observation is required")
+            issue_id = proof.get("issue_id")
+            if not isinstance(issue_id, str) or not issue_id.strip():
+                raise EvidenceRequired("Known created issue identity is required")
+            if issue_claims.known_delivered(conn, scope, replace(task, issue_id=issue_id)):
+                raise InvalidTransition("A historically delivered issue cannot repair intake")
+            identity_key = work.fingerprint(
+                dict(provider=scope.provider, workspace=scope.workspace, issue_id=issue_id)
+            )
+            binding = conn.execute(
+                "SELECT task_id FROM issue_bindings WHERE identity_key=?", (identity_key,)
+            ).fetchone()
+            if binding and binding[0] != task.id:
+                raise EvidenceRequired("Created issue belongs to another canonical task")
+            conn.execute(
+                "INSERT OR IGNORE INTO issue_bindings VALUES(?,?)", (identity_key, task.id)
+            )
+            old_approval = task.approval_ref
+            task = work.save(
+                conn,
+                replace(
+                    task,
+                    issue_id=issue_id,
+                    observed_status=S.BACKLOG,
+                    body=rendered.body,
+                    prose_digest=digest,
+                    representation=rendered.representation,
+                    approval_ref=approval_ref,
+                    sync_state=SyncState.PENDING,
+                ),
+                task.version,
+            )
+            self.c.changed(
+                conn,
+                task,
+                "pending_intake_prose_repaired",
+                dict(
+                    repair_key=key,
+                    create_operation_id=operation.id,
+                    old_approval_ref=old_approval,
+                    approval_ref=approval_ref,
+                    repair_readback_ref=proof_ref,
+                    title=task.title,
+                    body=task.body,
+                    issue_id=issue_id,
+                    prose_digest=digest,
+                    required_work=list(task.required_work),
+                ),
+                "update_prose",
+            )
+            update = conn.execute(
+                "SELECT payload FROM outbox WHERE session_id=? AND task_id=? "
+                "ORDER BY rowid DESC LIMIT 1",
+                (sid, task.id),
+            ).fetchone()
+            event_id = json.loads(update["payload"])["event_id"]
+            conn.execute("UPDATE outbox SET fenced_by=? WHERE id=?", (event_id, operation.id))
+            return asdict(task)
+
+        return self.c.task_mutation(handle, key, payload, action)
 
     def recover_submit(
         self, handle, prose, approval_ref, operation_key, parent_task_id=None, followup_ref=None

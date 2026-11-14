@@ -1,6 +1,7 @@
 """Explicit trusted preparation before a task-bound execution owner is admitted."""
 
 import os
+from contextlib import contextmanager
 from pathlib import Path
 
 from ai_task_manager.adapters.decisions.authority import HostGrant
@@ -43,6 +44,32 @@ def prepare(config_file, request):
         raise AccessDenied("Initial preparation permits only approved enqueue")
     if operation == "task_submit" and ({"parent_task_id", "followup_ref"} & data.keys()):
         raise AccessDenied("Initial preparation cannot admit delivered follow-up work")
+    with _initial_service(config_file) as (service, control, grant):
+        service.core.intake.require_settled_preparation(service.handle)
+        reference = "workflow-bootstrap:" + digest(
+            {"instance": control["instance"], "request": request}
+        )
+        bind_record(
+            service.decisions.journal,
+            reference,
+            {
+                "config": file_binding(config_file),
+                "session": service.session_id,
+                "owner_instance": control["instance"],
+                "operation": operation,
+                "request_digest": digest(request),
+                "expires_at": grant.expires_at,
+            },
+        )
+        result = service.call(operation, data)
+        service.decisions.observations.verify_enrollment(service.grant_ref)
+        service.seal.check()
+        service.claim_store.check()
+        return result
+
+
+@contextmanager
+def _initial_service(config_file):
     with setup_lock(config_file):
         config = read_private(config_file)
         from ai_task_manager.config.capacity import policies
@@ -84,34 +111,35 @@ def prepare(config_file, request):
                 "SELECT 1 FROM attempts WHERE session_id=? LIMIT 1", (service.session_id,)
             ).fetchone():
                 raise EvidenceRequired("Execution history forbids initial preparation")
-            if conn.execute(
-                "SELECT 1 FROM outbox WHERE session_id=? "
-                "AND state IN ('pending','leased','uncertain') LIMIT 1",
-                (service.session_id,),
-            ).fetchone():
-                raise EvidenceRequired(
-                    "Unsettled effects require reconciliation before preparation"
-                )
-        reference = "workflow-bootstrap:" + digest(
-            {"instance": control["instance"], "request": request}
+        yield service, control, grant
+
+
+def repair_pending_intake(config_file, task_id, create_operation_id, writing_ref, operation_key):
+    """Trusted same-issue repair; no public request can select this operation."""
+    from ai_task_manager.application.linear_sync.reconcile import Reconciliation
+
+    with _initial_service(config_file) as (service, _, _):
+
+        def current_authority():
+            service.decisions.observations.verify_enrollment(service.grant_ref)
+            service.seal.check()
+            service.claim_store.check()
+
+        prose = service.writer.approvals_for_tasks(service.scope).prose(writing_ref)
+        provider = service.provider
+        task = Reconciliation(
+            service.core, provider.client, provider.journal
+        ).repair_pending_create(
+            service.handle,
+            task_id,
+            create_operation_id,
+            prose,
+            writing_ref,
+            operation_key,
+            check_authority=current_authority,
         )
-        bind_record(
-            service.decisions.journal,
-            reference,
-            {
-                "config": file_binding(config_file),
-                "session": service.session_id,
-                "owner_instance": control["instance"],
-                "operation": operation,
-                "request_digest": digest(request),
-                "expires_at": grant.expires_at,
-            },
-        )
-        result = service.call(operation, data)
-        service.decisions.observations.verify_enrollment(service.grant_ref)
-        service.seal.check()
-        service.claim_store.check()
-        return result
+        current_authority()
+        return service.confirm(task)
 
 
 def activation_reference(config_file, control):

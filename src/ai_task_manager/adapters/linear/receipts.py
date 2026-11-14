@@ -173,6 +173,52 @@ class ProviderJournal:
         with self.transaction() as conn:
             return self._proof(conn, "external_prose_readback", scope, task.id, payload)
 
+    def pending_create_repair_receipt(
+        self, scope, task, operation, send, snapshot, connection, new_prose_digest
+    ):
+        """Observe an unchanged known create result; never approve its changed prose."""
+        if (
+            send.get("operation_id") != operation.id
+            or send.get("scope") != encoded(asdict(scope))
+            or not send.get("snapshot")
+            or send.get("state") != "uncertain"
+            or send.get("error") != "readback_conflict"
+            or send.get("connection_digest") != connection.digest
+            or send.get("attempt") != operation.attempt_count
+            or json.loads(send["snapshot"]) != asdict(snapshot)
+            or snapshot.status != "Backlog"
+            or snapshot.title != task.title
+            or snapshot.assignee_id != scope.principal
+            or snapshot.project_id != scope.project
+            or snapshot.delegate_id != connection.agent_id
+            or snapshot.delegate_is_application is not True
+        ):
+            raise LinearError("pending_create_repair_drift", uncertain=True)
+        payload = dict(
+            repair_kind="pending_create_code_spans",
+            issue_id=snapshot.id,
+            source_revision=snapshot.revision,
+            title=snapshot.title,
+            body=snapshot.body,
+            status=snapshot.status,
+            assigned_to_owner=True,
+            observed_at=self.clock(),
+            create_operation_id=operation.id,
+            create_attempt=operation.attempt_count,
+            send_id=send["id"],
+            connection_digest=connection.digest,
+            task_version=task.version,
+            decision_revision=task.decision_revision,
+            old_prose_digest=task.prose_digest,
+            new_prose_digest=new_prose_digest,
+        )
+        with self.transaction() as conn:
+            # The producer consumes the actual saved row, not a caller's replacement.
+            current = conn.execute("SELECT * FROM sends WHERE id=?", (send["id"],)).fetchone()
+            if current is None or dict(current) != send:
+                raise LinearError("pending_create_send_changed", uncertain=True)
+            return self._proof(conn, "external_prose_readback", scope, task.id, payload)
+
     def progress_receipt(self, scope, task, publication_id, snapshot):
         payload = {
             "publication_id": publication_id,
