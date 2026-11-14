@@ -448,3 +448,8 @@ DONE - DP02 is accepted on 14 November 2026: T01–T06, S1–S3 and E1-A1–A5 p
 ### DP03-T01 — Code-delivery prerequisites
 
 Accepted on 14 November 2026. T01-A1–A3 and DP03-DOD-v1 pass; DP03-S1 and the epic remain pending. Reviewed source `0fb3be5269864c429e03f62aa480a3b8356718e5` seals the actual native CLI version instead of hardcoding the prior version. The exact wheel and installed 333-file runtime match; 21 control checks, 67 version-binding tests, 41 canary tests, independent control/source reviews and fresh default-account Sonnet 5.5/high conformance pass. Earlier failures remain retained. The new dev fixture has no remote; the DP02 protected author pair and original history remain unchanged. Private proof: `.local/delivery-learning/20261114-dp03-v1/DP03-T01-accepted.json`. Continue with the three-role preparation in T02.
+
+
+### DP03-T02 — Prepared code session
+
+Accepted with DP03-S1 on 15 November 2026. T02-A1–A3, S1-A1–A3 and DP03-DOD-v1 pass. The original author plus independent worker/candidate reviewer tasks are approved, freshly confirmed Todo and sealed ready with zero prior product execution. The explicitly approved recovery window preserves original deadlines, failures, uncertainty, physical stores and cumulative caps. Actual restricted read-only repair/replay, supported session renewal, exact source/wheel/installed matching for 333 runtime files and fresh 11-case host conformance pass. The affected source correction passed 220 tests; the actual fixture transport correction passed six regressions and independent review, followed by successful real metadata preflight. Private evidence: `.local/delivery-learning/20261114-dp03-v1/DP03-T02-accepted.json` and `DP03-S1-accepted.json`. Continue the actual code cycle in T03.
