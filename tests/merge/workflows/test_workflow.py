@@ -170,15 +170,28 @@ def test_missing_semantic_work_cannot_be_inferred_from_checks(tmp_path):
             value.close()
 
 
-def test_target_checkout_in_another_dirty_worktree_is_explicitly_refused(flow):
+@pytest.mark.parametrize("dirty", [False, True])
+def test_target_checkout_in_another_worktree_is_explicitly_refused(flow, dirty):
+    from ai_task_manager.domains.work.errors import AccessDenied
+
     other = flow.root / "target-checkout"
     git(flow.tree, "worktree", "add", str(other), flow.target)
-    (other / "untracked.txt").write_text("retain this dirty checkout")
+    if dirty:
+        (other / "untracked.txt").write_text("retain this dirty checkout")
     result = flow.run()
     assert not result["ok"], result
     assert git(flow.tree, "rev-parse", "refs/heads/" + flow.target) == flow.old
-    assert (other / "untracked.txt").read_text() == "retain this dirty checkout"
+    assert git(other, "rev-parse", "HEAD") == flow.old
+    if dirty:
+        assert (other / "untracked.txt").read_text() == "retain this dirty checkout"
     assert flow.pair.database.is_file()
+    (consumer,) = flow.workflow.consumers.values()
+    operation = flow.journal.current(consumer.registration["ref"])
+    assert operation["facts"]["publication_intent"]["mode"] == "cas"
+    assert "local_git" not in operation["facts"]
+    # A clean checkout also reaches this deliberate guard before any Git intent.
+    with pytest.raises(AccessDenied, match="CAS cannot update a checked-out target"):
+        consumer.service.publisher._validate(operation, consumer.grant.publication)
 
 
 def test_catalog_drift_after_physical_checks_denies_publication(flow):
