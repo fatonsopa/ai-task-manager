@@ -491,7 +491,18 @@ class CandidateCheckOwner:
         return not published
 
     def _publication_started(self):
-        candidate, grant, _, _, store = self.selected
+        candidate, grant, _, cp, store = self.selected
+        if self.publication_worktree is not None:
+            selected = self._publication_selection(candidate, grant, cp, store)
+            if selected is None:
+                return False
+            expected, request, _ = selected
+            return any(
+                op["binding"] == asdict(expected)
+                and op["fingerprint"] == expected.fingerprint
+                and op["facts"].get("publication_intent") == request
+                for op in store.journal.for_attempt(grant.binding.attempt_id)
+            )
         for op in store.journal.for_attempt(grant.binding.attempt_id):
             selected = op["binding"]
             if {key: value for key, value in selected.items() if key != "operation_key"} == {
@@ -506,8 +517,8 @@ class CandidateCheckOwner:
                 "Frozen publication intent permits evidence consumption, not new checks"
             )
 
-    def _published(self, candidate, grant, cp, store):
-        """Observe only the exact canonical workflow's recorded quiescent CAS."""
+    def _publication_selection(self, candidate, grant, cp, store):
+        """Share exact canonical author/candidate and enrolled publication identity."""
         operations = store.journal.for_attempt(grant.binding.attempt_id)
 
         def current_grant(op):
@@ -531,7 +542,7 @@ class CandidateCheckOwner:
             )
         ]
         if len(workflows) != 1:
-            return False
+            return None
         workflow = workflows[0]
         expected_binding = replace(grant.binding, operation_key=workflow["ref"] + ":publication")
         mode = "cas"
@@ -553,8 +564,16 @@ class CandidateCheckOwner:
             "range_ref": workflow["ref"] + ":range",
             "mode": mode,
         }
+        return expected_binding, request, publication_repository
+
+    def _published(self, candidate, grant, cp, store):
+        """Observe only exact canonical recorded quiescent publication."""
+        selected = self._publication_selection(candidate, grant, cp, store)
+        if selected is None:
+            return False
+        expected_binding, request, publication_repository = selected
         matches = []
-        for op in operations:
+        for op in store.journal.for_attempt(grant.binding.attempt_id):
             data = op["facts"].get("local_git", {})
             result = data.get("result", {})
             if (

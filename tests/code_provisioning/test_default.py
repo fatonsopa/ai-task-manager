@@ -405,3 +405,80 @@ def test_new_candidate_file_requires_actual_declared_snapshot_input(tmp_path, co
         assert snapshot.read_text() == "new input"
     finally:
         value.close()
+
+
+@pytest.mark.parametrize("operation", ["discover", "execute"])
+def test_checkedout_frozen_intent_refuses_new_work_but_allows_saved_proof(owned, operation):
+    from ai_task_manager.adapters.proofs.router import EvidenceRoute, EvidenceRouter
+    from ai_task_manager.adapters.resources.git import git
+    from ai_task_manager.adapters.workflow_reviews.code_candidates import CodeCandidateReviews
+    from ai_task_manager.application.merging.workflows import (
+        MergeEvidence,
+        MergePlan,
+        MergeWorkflowService,
+    )
+    from tests.merge.f1_fixtures import FaultOnce
+    from tests.merge.workflows.test_candidate_review import Captures
+    from tests.runtime.helpers import ProviderFixture
+
+    git(owned.runtime.repo, "checkout", "-q", "integration")
+    cap = owned.prepare()
+    evidence = MergeEvidence(clock=lambda: owned.r.now)
+    owned.r.core.context.evidence = EvidenceRouter(
+        [
+            *owned.r.core.context.evidence.routes,
+            EvidenceRoute(
+                "merge-publication:", frozenset({"merge", "publication_intent"}), evidence
+            ),
+        ]
+    )
+    reviews = CodeCandidateReviews(
+        owned.r.core,
+        owned.r.handle,
+        owned.candidates,
+        ("verify.py", "src/a.txt"),
+        Captures(lambda: owned.r.now),
+    )
+    merge_plan = MergePlan("frozen-checkedout", owned.grant, owned.context.deadline)
+    workflow = MergeWorkflowService(
+        owned.r.core,
+        owned.r.handle,
+        merge_plan,
+        owned.candidates,
+        cap.checks,
+        ProviderFixture(owned.r),
+        evidence,
+        clock=lambda: owned.r.now,
+        candidate_reviews=reviews,
+        publication_worktree=cap.publication_worktree,
+        faults=FaultOnce("after_publication_intent"),
+    )
+    try:
+        with pytest.raises(RuntimeError, match="lost observation"):
+            workflow.run(owned.task.id, merge_plan.id, "frozen-checkedout")
+        guard = cap.checks.checks.source_guard
+        (consumer,) = workflow.consumers.values()
+        saved = consumer.service.journal.current(consumer.registration["ref"])
+        assert saved["facts"]["publication_intent"]["mode"] == "fast_forward"
+        assert "local_git" not in saved["facts"]
+        assert saved["binding"]["worktree_id"] == cap.publication_worktree
+        assert saved["binding"]["worktree_id"] != owned.grant.binding.worktree_id
+        scope = Scope(
+            owned.r.scope.principal,
+            owned.r.scope.project,
+            owned.r.scope.logical_session,
+            owned.task.id,
+        )
+        plan = cap.checks.checks.store.read(consumer.check_ref, scope)["plan"]
+        before = len(guard.runner.jobs)
+        assert before == 1
+        guard.verify(plan)  # Existing exact physical evidence remains consumable.
+        with pytest.raises(AccessDenied, match="Frozen publication intent"):
+            if operation == "discover":
+                guard.discover(owned.candidate)
+            else:
+                guard.execute(plan, "checks", ("verify",))
+        assert len(guard.runner.jobs) == before
+        assert git(owned.runtime.repo, "rev-parse", "integration") == owned.base
+    finally:
+        workflow.close()
