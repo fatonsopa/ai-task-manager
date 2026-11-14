@@ -61,6 +61,21 @@ def test_runtime_cwd_and_task_seals_do_not_change_capability_recipe(rig, tmp_pat
     assert prepare_profile(rig.manifest, rig.pins, "2.1.301", policy=changed) == rig.profile
 
 
+def test_installed_cli_version_binds_capture_and_runtime_policy(rig):
+    from ai_task_manager.adapters.hosts.bridge.conformance.profile import _projection_policy
+
+    rig.manifest.data["cli_version"] = "2.1.325"
+    policy = _projection_policy(rig.manifest)
+    current = prepare_profile(rig.manifest, rig.pins, "2.1.325", policy=policy)
+    assert current.cli_version == "2.1.325" and current != rig.profile
+    with pytest.raises(AccessDenied, match="installed native version"):
+        prepare_profile(rig.manifest, rig.pins, "2.1.301")
+    with pytest.raises(AccessDenied, match="installed native version"):
+        prepare_profile(
+            rig.manifest, rig.pins, "2.1.325", policy=replace(policy, cli_version="2.1.301")
+        )
+
+
 @pytest.mark.parametrize("field", ["account_hash", "model", "effort", "environment"])
 def test_each_relevant_launch_fact_changes_profile_or_refuses(rig, field):
     if field == "environment":

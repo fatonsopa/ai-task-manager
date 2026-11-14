@@ -192,6 +192,7 @@ def policy_builder(manifest):
             d["model"],
             d["effort"],
             settings,
+            cli_version=d.get("cli_version"),
         )
 
     return policy

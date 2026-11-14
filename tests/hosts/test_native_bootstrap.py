@@ -12,6 +12,22 @@ from ai_task_manager.supervisor.models import RuntimeUncertain
 from tests.hosts.bootstrap_helpers import bootstrap_graph as bootstrap_graph
 
 
+def test_explicit_current_cli_version_reaches_restricted_diagnostic_admission(bootstrap_graph):
+    item = bootstrap_graph(cli_version="2.1.325", observed_version="2.1.325")
+    ref = item.bootstrap.start()
+    observed = item.observations.verify(ref)
+    assert observed["payload"]["startup_ref"] == item.native.startup.ready_ref
+    assert item.native.startup.admitted is False
+
+
+@pytest.mark.parametrize("observed", [None, "", "2.1.301", "2.1.326"])
+def test_missing_or_different_cli_version_refuses_startup(bootstrap_graph, observed):
+    item = bootstrap_graph(cli_version="2.1.325", observed_version=observed)
+    with pytest.raises(AccessDenied, match="exact approved native startup"):
+        item.bootstrap.start()
+    assert item.native.startup.ready_ref is None
+
+
 def test_diagnostic_observes_owned_startup_without_core_work_authority(bootstrap_graph):
     item = bootstrap_graph()
     ref = item.bootstrap.start()

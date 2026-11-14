@@ -42,13 +42,16 @@ from ai_task_manager.storage.database import Database
 from tests.hosts.accounting_fixtures import FixtureAccounting
 
 
-def create(root, mode, *, seconds=45):
+def create(root, mode, *, seconds=45, cli_version="2.1.301", observed_version="2.1.301"):
     root.mkdir(mode=0o700)
     home, work = root / "home", root / "workspace"
     home.mkdir(mode=0o700)
     (home / ".claude_roni").mkdir(mode=0o700)
     work.mkdir(mode=0o700)
     source = Path(__file__).with_name("fixture_claude_bootstrap.py").read_text()
+    source = source.replace(
+        '"claude_code_version": "2.1.301",', f'"claude_code_version": {observed_version!r},'
+    )
     executable = root / "authored-claude"
     executable.write_text(
         f"#!{sys.executable}\n" + source.replace('MODE = "normal"', f'MODE = "{mode}"')
@@ -78,6 +81,7 @@ def create(root, mode, *, seconds=45):
         tools,
         "fixture-requested-model",
         "high",
+        cli_version=cli_version,
     )
     binding = HostBinding(
         scope,
@@ -156,8 +160,8 @@ def create(root, mode, *, seconds=45):
 def bootstrap_graph(tmp_path):
     owned = []
 
-    def make(mode="normal", *, seconds=45):
-        item = create(tmp_path / f"diagnostic-{len(owned)}", mode, seconds=seconds)
+    def make(mode="normal", *, seconds=45, **versions):
+        item = create(tmp_path / f"diagnostic-{len(owned)}", mode, seconds=seconds, **versions)
         owned.append(item)
         return item
 

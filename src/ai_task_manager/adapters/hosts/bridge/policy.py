@@ -84,9 +84,17 @@ class NativePolicy:
     model: str | None = None
     effort: str | None = None
     codex_settings: CodexSettings | None = None
+    cli_version: str | None = None
     _executable_identity: tuple = field(init=False, repr=False)
 
     def __post_init__(self):
+        if self.host == "claude" and self.cli_version is None:
+            # Existing installations predate the explicit sealed version field.
+            object.__setattr__(self, "cli_version", "2.1.301")
+        if self.cli_version is not None and (
+            not isinstance(self.cli_version, str) or not self.cli_version.strip()
+        ):
+            raise AccessDenied("Native CLI version must be an explicit configured string")
         if (
             self.executable.is_symlink()
             or not self.executable.is_file()
@@ -102,6 +110,10 @@ class NativePolicy:
         object.__setattr__(self, "environment", MappingProxyType(dict(self.environment)))
 
     def check(self):
+        if self.host == "claude" and (
+            not isinstance(self.cli_version, str) or not self.cli_version.strip()
+        ):
+            raise AccessDenied("Claude requires an exact installed CLI version")
         if self.host == "claude" and (not isinstance(self.model, str) or not self.model.strip()):
             raise AccessDenied("Claude requires a trusted explicit model profile")
         if self.effort is not None and (

@@ -163,7 +163,7 @@ class StartupObserver:
                 or auth.get("configuration_digest") != self.binding.configuration_digest
                 or frame.get("apiKeySource") != "none"
                 or frame.get("cwd") != str(self.policy.cwd)
-                or frame.get("claude_code_version") != "2.1.301"
+                or frame.get("claude_code_version") != self.policy.cli_version
                 or not frame.get("session_id")
                 or not frame.get("model")
             ):

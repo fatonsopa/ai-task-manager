@@ -64,6 +64,7 @@ def launch_template(policy):
         "argv": list(command.argv),
         "model": policy.model,
         "effort": policy.effort,
+        "cli_version": policy.cli_version,
         "seals": [(str(s.path), s.sha256) for s in policy.seals],
     }
 
@@ -183,7 +184,7 @@ class NativeStartupObservations:
             or account.get("account_hash") != self.expected_account
             or account.get("configuration_digest") != native.binding.configuration_digest
             or frame.get("apiKeySource") != "none"
-            or frame.get("claude_code_version") != "2.1.301"
+            or frame.get("claude_code_version") != native.policy.cli_version
             or frame.get("permissionMode") != "dontAsk"
             or set(frame.get("tools", [])) != MANAGED_TOOLS
             or frame.get("mcp_servers")

@@ -10,7 +10,28 @@ from ai_task_manager.application.service.models import Unavailable
 from ai_task_manager.config.files import write_private
 from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
 from ai_task_manager.installation.native import NativeManifest, resolve
+from ai_task_manager.installation.native.resolver import policy_builder
 from tests.native_installation.helpers import PermissionSource, bundle
+
+
+@pytest.mark.parametrize("version", [None, "", 301])
+def test_explicit_invalid_cli_version_is_refused(tmp_path, version):
+    b = bundle(tmp_path, "claude", "claude-sonnet-5-5")
+    write_private(b.manifest, {**b.data, "cli_version": version}, replace=True)
+    with pytest.raises(AccessDenied, match="native CLI version"):
+        NativeManifest(b.manifest, b.config, b.installation)
+
+
+@pytest.mark.parametrize("version", [None, "2.1.325"])
+def test_cli_version_is_carried_from_sealed_manifest_to_policy(tmp_path, version):
+    from types import SimpleNamespace
+
+    b = bundle(tmp_path, "claude", "claude-sonnet-5-5")
+    if version is not None:
+        write_private(b.manifest, {**b.data, "cli_version": version}, replace=True)
+    manifest = NativeManifest(b.manifest, b.config, b.installation)
+    policy = policy_builder(manifest)("claude", SimpleNamespace(worktree=tmp_path))
+    assert policy.cli_version == (version or "2.1.301")
 
 
 @pytest.mark.parametrize(
@@ -58,14 +79,15 @@ def test_NI02_NI03_unknown_or_self_asserted_native_configuration_refuses(tmp_pat
         NativeManifest(b.manifest, b.config, b.installation)
 
 
-def test_NI03_default_claude_profile_never_selected(tmp_path):
+def test_NI03_explicit_default_claude_profile_preserves_default_login_discovery(tmp_path):
     b = bundle(tmp_path, "claude", "claude-opus-5-5")
-    wrong = Path(b.data["home"]) / ".claude"
-    wrong.mkdir(mode=0o700)
-    data = {**b.data, "profile": str(wrong)}
+    selected = Path(b.data["home"]) / ".claude"
+    selected.mkdir(mode=0o700)
+    data = {**b.data, "profile": str(selected)}
     write_private(b.manifest, data, replace=True)
-    with pytest.raises(AccessDenied, match="approved Claude"):
-        NativeManifest(b.manifest, b.config, b.installation)
+    manifest = NativeManifest(b.manifest, b.config, b.installation)
+    assert manifest.data["profile"] == str(selected)
+    assert "CLAUDE_CONFIG_DIR" not in manifest.environment
 
 
 def test_NI03_copied_manifest_and_same_bytes_replacement_refuse(tmp_path):

@@ -52,7 +52,9 @@ class NativeManifest:
         if (
             type(d) is not dict
             or not FIELDS <= set(d)
-            or set(d) - FIELDS - {"commands_manifest", "authority_store", "code_manifest"}
+            or set(d)
+            - FIELDS
+            - {"commands_manifest", "authority_store", "code_manifest", "cli_version"}
             or type(d["version"]) is not int
             or d["version"] != 1
         ):
@@ -78,6 +80,10 @@ class NativeManifest:
             or any(type(d[k]) is not str or not d[k] for k in ("native_ref", "authorization_ref"))
         ):
             raise AccessDenied("Exact authorized account/model/High profile is required")
+        if "cli_version" in d and (
+            type(d["cli_version"]) is not str or not d["cli_version"].strip()
+        ):
+            raise AccessDenied("An exact installed native CLI version is required")
         for name in ("commands_manifest", "code_manifest"):
             self._pointer(d.get(name))
         self.data = d

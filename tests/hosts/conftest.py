@@ -42,6 +42,7 @@ class FixturePolicy:
     cwd: Path
     environment: dict
     allowed_tools: tuple = ()
+    cli_version: str = "2.1.301"
 
     def check(self):
         return None

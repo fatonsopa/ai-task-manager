@@ -188,6 +188,7 @@ def _projection_policy(manifest):
         tuple(sorted(MANAGED_TOOLS)),
         d["model"],
         d["effort"],
+        cli_version=d.get("cli_version"),
     )
 
 
@@ -235,6 +236,11 @@ def prepare_profile(manifest, sources, cli_version, *, policy=None):
         == (d["host"], d["model"], d["effort"], d["executable_sha256"])
         and dict(policy.environment) == dict(manifest.environment),
         "Current launch differs from the intended account/profile",
+    )
+    require(
+        policy.host != "claude"
+        or policy.cli_version == d.get("cli_version", "2.1.301") == cli_version,
+        "Observed CLI version differs from the installed native version",
     )
     recipe, restrictions = _recipe(policy)
     hashes = tuple((name, sha) for name, _, sha in sources.files)
