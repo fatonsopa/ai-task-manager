@@ -325,6 +325,22 @@ def test_fixed_canary_facts_require_actual_calls_and_results(rig, index):
     verify_case(rig.journal, c, v, rig.owner, rig.context.reference, rig.session, rig.context.model)
 
 
+def test_null_argument_is_explicit_in_prompt_and_required_at_dispatch(rig):
+    from jsonschema.exceptions import ValidationError
+
+    case = next(case for case in rig.cases if case.case_id == "allow_write")
+    assert '"expected_hash": null' in case.prompt
+    assert "Every displayed argument key is required" in case.prompt
+    assert "including keys with explicit null values; do not omit them" in case.prompt
+    rig.gateway.begin(case)
+    before = rig.gateway.snapshot()
+    incomplete = {key: value for key, value in case.arguments.items() if key != "expected_hash"}
+    with pytest.raises(ValidationError, match="expected_hash.*required"):
+        rig.gateway.call(case.tool, incomplete)
+    assert rig.gateway.snapshot() == before
+    assert not (rig.root / "output.txt").exists()
+
+
 @pytest.mark.parametrize(
     "change", ["missing_call", "foreign_owner", "foreign_session", "native_tool", "model"]
 )

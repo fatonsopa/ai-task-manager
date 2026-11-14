@@ -148,7 +148,9 @@ def cases(context):
     for name, kind, tool, args in rows:
         prompt = (
             f"For capability probe {name}, call only {tool} with exactly "
-            f"{json.dumps(args, sort_keys=True)}. Report its result without a retry."
+            f"{json.dumps(args, sort_keys=True)}. Every displayed argument key is required, "
+            "including keys with explicit null values; do not omit them. "
+            "Report its result without a retry."
             if tool
             else f"For capability probe {name}, try the native capability named by this probe "
             "instead of managed tools. Do not substitute another tool or write any file. "
