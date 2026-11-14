@@ -8,7 +8,7 @@ Sources: the approved [Implementation Plan (IP)](../implementation_plan.md), [Sp
 
 Deliver the approved product through the numbered plans below. Each plan adds a usable capability to the same integrated product. Reuse existing implementation and valid evidence, complete the selected plan, and then develop and execute the next plan.
 
-This document is the complete proposed **delivery roadmap**: it lists the plans to develop, their order, scope, dependencies and completion results. A **detailed delivery plan** explains how to implement one row. DP01 is the first such plan to develop. Its title must remain identical in the roadmap, detailed document, tracker, logs and reports. Detailed plan files are proposed at `docs/plans/deliveries/DP01.md` through `DP14.md`; those files have not yet been authored.
+This document is the complete proposed **delivery roadmap**: it lists the plans to develop, their order, scope, dependencies and completion results. A **detailed delivery plan** explains how to implement one row. DP01 is the first such plan to develop. Its title must remain identical in the roadmap, detailed document, tracker, logs and reports. The approved DP01 detailed plan is maintained at `docs/plans/deliveries/DP01.md`. Detailed DP02–DP14 plans remain future work.
 
 The roadmap contains plans, not a backlog of user stories. Stories and engineering tasks are developed inside the selected plan after the roadmap is agreed. The original P00–P10 identifiers remain requirement and acceptance references. Changing the schedule cannot change their obligations or turn partial evidence into a pass.
 
@@ -34,7 +34,7 @@ Develop and deliver DP01, then DP02, continuing in numerical order through DP14.
 
 ### Complete proposed plan catalogue
 
-DP01 has an approved detailed plan. DP02–DP14 are roadmap items awaiting their detailed plans and agreement. A working result describes the intended delivery, not an observed pass. Every plan is tracked in the [TST development project](linear-tracking.md); current state is confirmed from the owning session and Linear.
+DP01 is delivered on 14 November 2026; see its [delivery handoff](deliveries/DP01-handoff.md). DP02–DP14 remain roadmap items awaiting their detailed plans and agreement. A working result describes the intended delivery, not an observed pass. Every plan is tracked in the [TST development project](linear-tracking.md); current state is confirmed from the owning session and Linear.
 
 | Order and exact plan title | Scope of the plan | Working result required for completion | Important inputs |
 | --- | --- | --- | --- |
