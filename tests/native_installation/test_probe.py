@@ -30,12 +30,24 @@ from tests.native_installation.helpers import bundle, refresh_digest
 
 
 @pytest.fixture
-def probe(tmp_path):
+def probe(tmp_path, request):
     b = bundle(tmp_path / "native", "claude", "claude-opus-5-5")
     store = NativeStore.create(tmp_path / "authority.sqlite")
     executable = tmp_path / "authored-cli"
     source = Path(__file__).parents[1] / "hosts/fixture_claude_bootstrap.py"
-    executable.write_text("#!" + sys.executable + "\n" + source.read_text())
+    mode = getattr(request, "param", None)
+    authored = source.read_text()
+    if mode in {"default", "default_wrong_config"}:
+        profile = Path(b.data["home"]) / ".claude"
+        profile.mkdir(mode=0o700)
+        b.data["profile"] = str(profile)
+        config = (
+            'os.path.join(os.environ["HOME"], ".claude")'
+            if mode == "default"
+            else '"foreign-config"'
+        )
+        authored = authored.replace('os.environ["CLAUDE_CONFIG_DIR"]', config)
+    executable.write_text("#!" + sys.executable + "\n" + authored)
     executable.chmod(0o700)
     b.data.update(
         authority_store=store.pointer,
@@ -142,6 +154,48 @@ def test_P301_actual_accounted_canary_start_turn_stop_without_core(probe):
     assert stopped.confirmed and native.process._closed
     assert not native.identity._thread.is_alive()
     assert factory.stop(context, native) is stopped
+
+
+@pytest.mark.parametrize("probe", ["default", "default_wrong_config"], indirect=True)
+def test_default_profile_authentication_stays_bound(probe, request):
+    _, authority, context, journal, factory = probe
+    gateway = CanaryGateway(context, authority, journal)
+    default_matches = request.node.callspec.params["probe"] == "default"
+    if default_matches:
+        native = factory.start(context, gateway)
+        assert "CLAUDE_CONFIG_DIR" not in native.policy.environment
+        assert factory.stop(context, native).confirmed
+    else:
+        with pytest.raises(AccessDenied, match="approved subscription"):
+            factory.start(context, gateway)
+        assert factory.native.process is None
+    calls = authority.controller.snapshot()["calls"]
+    expected = {"host", "relay", "auth"}
+    if default_matches:
+        expected.add("neutral")
+    assert {row["metadata"]["invocation_binding"]["purpose"] for row in calls} == expected
+    assert all(row["process_stopped"] for row in calls)
+
+
+def test_failed_probe_initialization_retains_entered_launch(probe, monkeypatch):
+    from ai_task_manager.adapters.hosts.bridge.auth_probe import ClaudeAuthProbe
+
+    _, authority, context, journal, factory = probe
+
+    def interrupted_auth(*_):
+        native = factory.native
+        with authority.controller.launch_boundary(
+            native.permits.initialization.native.reference,
+            worker_identity=native.binding.worker_id,
+        ):
+            raise AccessDenied("Declared interruption after launch entry")
+
+    monkeypatch.setattr(ClaudeAuthProbe, "observe", interrupted_auth)
+    with pytest.raises(AccessDenied, match="Declared interruption"):
+        factory.start(context, CanaryGateway(context, authority, journal))
+    calls = authority.controller.snapshot()["calls"]
+    assert len(calls) == 2 and all(not row["process_stopped"] for row in calls)
+    assert any(row["launch_token"] is not None for row in calls)
 
 
 @pytest.mark.parametrize("fault", ["context", "fixture", "expiry", "account", "profile"])

@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from pathlib import Path
 
 from ai_task_manager.adapters.process.groups import (
     OwnedProcessGroup,
@@ -64,7 +65,10 @@ class ClaudeAuthProbe:
             or data.get("loggedIn") is not True
             or data.get("authMethod") != "claude.ai"
             or data.get("apiProvider") != "firstParty"
-            or data.get("configDirectory") != policy.environment["CLAUDE_CONFIG_DIR"]
+            or data.get("configDirectory")
+            != policy.environment.get(
+                "CLAUDE_CONFIG_DIR", str(Path(policy.environment["HOME"]) / ".claude")
+            )
         ):
             raise AccessDenied("Native profile did not authenticate with the approved subscription")
         return self.journal._append(

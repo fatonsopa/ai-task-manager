@@ -17,8 +17,7 @@ def test_selected_owned_physical_profile_is_used_exactly(tmp_path, name):
     profile.mkdir(mode=0o700)
     environment = clean_environment(home, claude_profile=profile)
     assert environment["HOME"] == str(home)
-    assert environment["CLAUDE_CONFIG_DIR"] == str(profile)
-    assert set(environment) == {
+    expected = {
         "PATH",
         "HOME",
         "USER",
@@ -26,6 +25,12 @@ def test_selected_owned_physical_profile_is_used_exactly(tmp_path, name):
         "CLAUDE_CONFIG_DIR",
         "CLAUDE_CODE_ENTRYPOINT",
     }
+    if name == ".claude":
+        assert "CLAUDE_CONFIG_DIR" not in environment
+        expected.remove("CLAUDE_CONFIG_DIR")
+    else:
+        assert environment["CLAUDE_CONFIG_DIR"] == str(profile)
+    assert set(environment) == expected
 
 
 @pytest.mark.parametrize("fault", ["symlink", "outside", "writable", "missing", "foreign_owner"])

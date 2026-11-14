@@ -172,7 +172,7 @@ class ProbePermits:
     def record_initialization(self, permit, *, outcome, observation_ref, detail):
         if permit is not self.initialization:
             raise AccessDenied("Probe initialization differs")
-        self.journal._append(
+        reference = self.journal._append(
             "trace",
             {
                 "effect": "native_probe_initialization",
@@ -181,6 +181,23 @@ class ProbePermits:
                 "detail": detail,
             },
         )
+        if outcome == "failed_or_uncertain" and observation_ref is None:
+            identities = {permit.native.reference, permit.relay.reference}
+            rows = [
+                row for row in self.controller.snapshot()["calls"] if row["call_id"] in identities
+            ]
+            if len(rows) == 2 and all(
+                row["status"] == "launching"
+                and row["started_at"] is None
+                and row["launch_token"] is None
+                and row["process_pid"] is None
+                and row["process_start_identity"] is None
+                and not row["process_stopped"]
+                for row in rows
+            ):
+                self.controller._abort_unreturned_claims(
+                    rows, worker_identity=self.binding.worker_id, evidence_ref=reference
+                )
 
     def record_neutral_start(self, permit, *, outcome, result, observation_ref):
         self._record(

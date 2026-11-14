@@ -53,7 +53,10 @@ def clean_environment(home, *, claude_profile=None, codex_home=None):
             or profile.stat().st_mode & 0o022
         ):
             raise AccessDenied("Claude requires an explicit owned physical profile under its home")
-        env["CLAUDE_CONFIG_DIR"] = str(profile.resolve())
+        # Claude's default configuration also uses HOME/.claude.json. Setting
+        # CLAUDE_CONFIG_DIR to HOME/.claude selects a different login location.
+        if profile != home / ".claude":
+            env["CLAUDE_CONFIG_DIR"] = str(profile.resolve())
         env["CLAUDE_CODE_ENTRYPOINT"] = "sdk-py"
     else:
         profile = Path(codex_home)
@@ -147,6 +150,8 @@ class NativePolicy:
             if self.configuration_digest != expected_digest:
                 raise AccessDenied("Native configuration digest omits its protected source plan")
         allowed = NATIVE_ENVIRONMENT_KEYS[self.host]
+        if self.host == "claude" and "CLAUDE_CONFIG_DIR" not in self.environment:
+            allowed = allowed - {"CLAUDE_CONFIG_DIR"}
         if set(self.environment) != allowed:
             raise AccessDenied("Native provider environment is not the exact whitelist")
         if self.environment["USER"] != pwd.getpwuid(os.getuid()).pw_name:
