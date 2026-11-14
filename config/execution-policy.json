@@ -311,17 +311,29 @@
         "default_account_allowed": false,
         "fallback_allowed": false
       }
+    },
+    {
+      "id": "DP02-DEFAULT-CLAUDE-ACCOUNT-20261114",
+      "supersedes": "D-CLAUDE-ACCOUNT-3",
+      "decision": "Actual user explicitly selects plain claude with its default signed-in account for DP02. Preserve all prior account-bound evidence and failures; no silent fallback or service-limit evasion. Keep Sonnet 5.5/high and finite current authority. Omit the configuration override for the default account to preserve plain-CLI login discovery.",
+      "host_profile": {
+        "label": "claude",
+        "executable": "claude",
+        "config_dir_relative_to_home": ".claude",
+        "default_account_allowed": true,
+        "fallback_allowed": false
+      }
     }
   ],
   "active_host_profiles": {
     "claude-code": {
-      "label": "claude_info",
+      "label": "claude",
       "executable": "claude",
-      "config_dir_relative_to_home": ".claude_info",
-      "default_account_allowed": false,
+      "config_dir_relative_to_home": ".claude",
+      "default_account_allowed": true,
       "fallback_allowed": false,
-      "authorization_decision": "D-CLAUDE-ACCOUNT-3",
-      "authentication_preflight": "2026-11-04T23:50:13.334113+00:00: recorded selected-profile preflight confirms authenticated claude_info with the expected account and unmodified CLI. Both owned metadata processes stopped. This verifies authentication only; model and workflow acceptance remain separate."
+      "authorization_decision": "DP02-DEFAULT-CLAUDE-ACCOUNT-20261114",
+      "authentication_preflight": "Current default configuration authenticated through unmodified claude auth status; genuine selected-model conformance pending."
     },
     "codex-cli": {
       "executable": "codex",
@@ -505,6 +517,19 @@
       "recorded_at": "2026-11-05T00:47:59.221047+00:00",
       "previous_codex_authentication_observation": "existing ChatGPT CLI login; checked",
       "reason": "Preserve old checked assertion as historical; exact current Codex access remains under P00.4 verification."
+    },
+    {
+      "superseded_at": "2026-11-14T01:14:58.875357+00:00",
+      "profile": {
+        "label": "claude_info",
+        "executable": "claude",
+        "config_dir_relative_to_home": ".claude_info",
+        "default_account_allowed": false,
+        "fallback_allowed": false,
+        "authorization_decision": "D-CLAUDE-ACCOUNT-3",
+        "authentication_preflight": "2026-11-04T23:50:13.334113+00:00: recorded selected-profile preflight confirms authenticated claude_info with the expected account and unmodified CLI. Both owned metadata processes stopped. This verifies authentication only; model and workflow acceptance remain separate."
+      },
+      "reason": "Actual user explicitly selects plain claude with its default signed-in account during DP02 execution."
     }
   ]
 }
