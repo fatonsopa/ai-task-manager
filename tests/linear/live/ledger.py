@@ -292,6 +292,11 @@ class RunLedger:
             raise DriverRefused("deadline_expired")
         if ordinary and now >= deadline - reserve:
             raise DriverRefused("ordinary_deadline_expired")
+        return deadline
+
+    def request_deadline(self):
+        """Verified effective hard cutoff; request charging and reserve stay separate."""
+        return self._time()
 
     def _ordinary(self, conn):
         self._time(ordinary=True, conn=conn)

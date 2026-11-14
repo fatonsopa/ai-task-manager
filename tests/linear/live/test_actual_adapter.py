@@ -758,6 +758,34 @@ def test_a45_actual_http_uses_remaining_configured_timeout_without_shared_mutati
     assert len(provider.requests) == before
 
 
+def test_recovery_http_dispatch_uses_effective_window_and_exact_expiry(adapter):
+    _, _, ledger, provider, _, _, now = adapter
+    raw = HttpTransport(timeout=30, _test_endpoint=provider.endpoint)
+    transport = FixtureRequestTransport(ledger, raw)
+    limits = ledger.limits
+    before = ledger.summary()
+    now[0] = limits.deadline + 1
+    request = (
+        OPERATIONS["identity"],
+        {"team": ledger.scope.team},
+        Credentials("AUTHORED_NOT_LIVE"),
+    )
+    with pytest.raises(DriverRefused, match="fixture_transport_deadline"):
+        transport.send(*request)
+    assert not provider.requests
+    window = dict(started_at=now[0], deadline=now[0] + 60, cleanup_seconds=10)
+    ledger.authorize_recovery_window("explicit-recovery", **window)
+    ledger.request("read")
+    transport.send(*request)
+    assert len(provider.requests) == 1 and raw.timeout == 30
+    assert ledger.limits == limits
+    assert len(ledger.summary()["requests"]) == len(before["requests"]) + 1
+    now[0] = window["deadline"]
+    with pytest.raises(DriverRefused, match="fixture_transport_deadline"):
+        transport.send(*request)
+    assert len(provider.requests) == 1
+
+
 @pytest.mark.parametrize("trashed", [None, False])
 def test_project_nullable_trash_recovers_original_create_and_cleans_up(adapter, trashed):
     admin, graphql, ledger, provider, _, _, now = adapter

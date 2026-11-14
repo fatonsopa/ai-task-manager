@@ -22,7 +22,13 @@ class FixtureRequestTransport:
         self.ledger, self.transport = ledger, transport
 
     def send(self, query, variables, credentials):
-        remaining = self.ledger.limits.deadline - self.ledger.clock()
+        try:
+            deadline = self.ledger.request_deadline()
+        except DriverRefused as error:
+            if str(error) == "deadline_expired":
+                raise DriverRefused("fixture_transport_deadline") from error
+            raise
+        remaining = deadline - self.ledger.clock()
         if remaining <= 0:
             raise DriverRefused("fixture_transport_deadline")
         source = self.transport
