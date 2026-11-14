@@ -50,6 +50,22 @@ DP02 version 1 was approved on 14 November 2026. Current status belongs to Linea
 | `DP02-T05` | `DP02-S3` | [TST-272](https://linear.app/manaferra/issue/TST-272/dp02-t05-deliver-the-confirmed-result-to-the-lead) |
 | `DP02-T06` | `DP02-S3` | [TST-273](https://linear.app/manaferra/issue/TST-273/dp02-t06-close-the-cumulative-delivery-and-hand-off-dp03) |
 
+## DP03 approved hierarchy
+
+DP03 version 1, including all thirty protections, was approved here on 14 November 2026. Native parents and actual identifiers are confirmed; current execution state belongs to Linear and the owning session.
+
+| Planning ID | Parent | Linear record |
+| --- | --- | --- |
+| `DP03-S1` | `DP03` | [TST-276](https://linear.app/manaferra/issue/TST-276/dp03-s1-admit-an-isolated-code-delivery) |
+| `DP03-S2` | `DP03` | [TST-277](https://linear.app/manaferra/issue/TST-277/dp03-s2-deliver-the-reviewed-worker-commit-to-dev) |
+| `DP03-S3` | `DP03` | [TST-278](https://linear.app/manaferra/issue/TST-278/dp03-s3-report-and-retire-the-code-delivery) |
+| `DP03-T01` | `DP03-S1` | [TST-279](https://linear.app/manaferra/issue/TST-279/dp03-t01-bind-code-delivery-admission-and-trusted-fixture-inputs) |
+| `DP03-T02` | `DP03-S1` | [TST-280](https://linear.app/manaferra/issue/TST-280/dp03-t02-prepare-the-author-and-both-code-review-roles) |
+| `DP03-T03` | `DP03-S2` | [TST-281](https://linear.app/manaferra/issue/TST-281/dp03-t03-produce-the-checked-worker-commit) |
+| `DP03-T04` | `DP03-S2` | [TST-282](https://linear.app/manaferra/issue/TST-282/dp03-t04-review-and-merge-the-exact-candidate-into-dev) |
+| `DP03-T05` | `DP03-S3` | [TST-283](https://linear.app/manaferra/issue/TST-283/dp03-t05-report-the-verified-in-dev-result-and-reconcile-replay) |
+| `DP03-T06` | `DP03-S3` | [TST-284](https://linear.app/manaferra/issue/TST-284/dp03-t06-retire-owned-resources-and-accept-the-cumulative-handoff) |
+
 ## Preserved work
 
 The 13 November 2026 reconciliation preserves original issues and their history, code, branches, failed attempts and acceptance records. Each successor plan lists the older issues to inspect and reuse. Superseded records are archived only after ownership and current activity are checked; archive does not claim completion or discard remaining obligations.
