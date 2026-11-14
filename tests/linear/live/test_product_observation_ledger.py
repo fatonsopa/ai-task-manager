@@ -76,3 +76,37 @@ def test_PO02_one_shared_issue_budget_covers_reserved_and_observed_resources(
         len(ledger.summary()["operations"]) + len(ledger.summary().get("product_observations", []))
         == 1
     )
+
+
+def test_recovery_window_retains_original_binding_and_cumulative_caps(tmp_path):
+    ledger = configured(tmp_path)
+    clock = [ledger.limits.started_at + 1]
+    ledger.clock = lambda: clock[0]
+    ledger.request("read")
+    before = ledger.summary()
+    with ledger.transaction() as conn:
+        meta = conn.execute("SELECT value FROM meta").fetchone()[0]
+    clock[0] = ledger.limits.deadline + 1
+    with pytest.raises(DriverRefused, match="deadline_expired"):
+        ledger.request("read")
+    args = dict(started_at=clock[0], deadline=clock[0] + 90, cleanup_seconds=10)
+    first = ledger.authorize_recovery_window("explicit-user-approval", **args)
+    assert ledger.authorize_recovery_window("explicit-user-approval", **args) == first
+    reopened = RunLedger(
+        ledger.path, ledger.run_id, ledger.scope, ledger.limits, clock=lambda: clock[0]
+    )
+    assert reopened.summary()["requests"] == before["requests"]
+    with reopened.transaction() as conn:
+        assert conn.execute("SELECT value FROM meta").fetchone()[0] == meta
+    with pytest.raises(DriverRefused, match="recovery_window_changed"):
+        reopened.authorize_recovery_window("another-approval", **args)
+    for _ in range(7):
+        reopened.request("read")
+    with pytest.raises(DriverRefused, match="request_budget_exhausted"):
+        reopened.request("read")
+    clock[0] = args["deadline"] - 10
+    with pytest.raises(DriverRefused, match="ordinary_deadline_expired"):
+        reopened.request("read")
+    clock[0] = args["deadline"]
+    with pytest.raises(DriverRefused, match="deadline_expired"):
+        reopened._time()

@@ -4,13 +4,14 @@ import fcntl
 import hashlib
 import hmac
 import json
+import math
 import os
 import sqlite3
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 
-from ai_task_manager.adapters.decisions.observations import PREFIX, identity, intent
+from ai_task_manager.adapters.decisions.observations import PREFIX, bind_record, identity, intent
 from ai_task_manager.adapters.linear.receipts import encoded
 from ai_task_manager.adapters.workflow_control.identity import file_binding, settings
 from ai_task_manager.config.files import digest, read_private
@@ -134,6 +135,142 @@ def setup_origin(journal, reference, scope, destination, config, renew_from, wor
     }
 
 
+def intake_recovery_authorization(service, config_file, config, target, recovery_ref, deadline):
+    """Trusted operator port: finite read-only recovery, never an execution grant."""
+    now = service.core.context.clock()
+    if (
+        not isinstance(recovery_ref, str)
+        or not 1 <= len(recovery_ref) <= 256
+        or type(deadline) not in {int, float}
+        or not math.isfinite(deadline)
+        or not now < deadline <= now + 300
+    ):
+        raise AccessDenied("Explicit finite read-only recovery authorization required")
+    journal = service.decisions.journal
+    original = service.grant_ref
+    prior = history(journal, original)
+    completed = history(journal, "session-setup-result:" + digest(original))
+    from dataclasses import asdict
+
+    if (
+        prior is None
+        or completed is None
+        or prior.get("scope") != asdict(service.scope)
+        or prior.get("config_path") != str(Path(config_file).absolute())
+        or prior.get("config_intent") != intent(config)
+        or prior.get("expires_at", float("inf")) > now
+        or completed.get("scope") != asdict(service.scope)
+        or completed.get("session_file", {}).get("path") != config["session_file"]
+        or history(journal, "session-revoked:" + digest(original)) is not None
+    ):
+        raise AccessDenied("Recovery requires unchanged completed expired enrollment")
+    reference = "initial-intake-recovery:" + digest(recovery_ref)
+    value = {
+        "authorization": recovery_ref,
+        "permission": "existing-intake-update-readback-only",
+        "scope": asdict(service.scope),
+        "config": file_binding(config_file),
+        "original_enrollment": original,
+        "original_enrollment_digest": digest(prior),
+        "target": target,
+        "expires_at": deadline,
+    }
+    bind_record(journal, reference, value)
+
+    def check():
+        service.seal.check()
+        service.claim_store.check()
+        installed_authority(read_private(config_file))
+        installed_provider_history(config)
+        if (
+            history(journal, reference) != value
+            or history(journal, original) != prior
+            or service.core.context.clock() >= deadline
+            or history(journal, "session-revoked:" + digest(original)) is not None
+        ):
+            raise AccessDenied("Read-only recovery authorization expired or changed")
+
+    check()
+    return check
+
+
+def _authenticated_repaired_creates(core, handle, provider):
+    """Recognize retained historical uncertainty only through confirmed exact repair."""
+    _, scope = core.session_binding(handle)
+    operations = core.sync.list_operations(handle)
+    accepted = set()
+    for original in operations:
+        if (
+            original.kind != "create_backlog"
+            or original.state != "uncertain"
+            or original.error != "readback_conflict"
+            or not original.fenced_by
+        ):
+            continue
+        linked = [
+            op
+            for op in operations
+            if op.kind == "update_prose"
+            and op.task_id == original.task_id
+            and op.payload.get("event_id") == original.fenced_by
+        ]
+        if len(linked) != 1:
+            continue
+        update = linked[0]
+        if update.state != "confirmed" or update.fenced_by:
+            continue
+        try:
+            proof = provider.verify_evidence(update.payload.get("repair_readback_ref"))
+        except EvidenceRequired:
+            continue
+        fact = proof.payload
+        sends = provider.sends(scope)
+        old = [row for row in sends if row["id"] == fact.get("send_id")]
+        confirmed = [row for row in sends if row["operation_id"] == update.id]
+        if (
+            proof.kind != "external_prose_readback"
+            or proof.scope != scope
+            or proof.subject != original.task_id
+            or fact.get("repair_kind") != "pending_create_code_spans"
+            or fact.get("create_operation_id") != original.id
+            or update.payload.get("create_operation_id") != original.id
+            or fact.get("create_attempt") != original.attempt_count
+            or fact.get("old_prose_digest") != original.payload.get("prose_digest")
+            or fact.get("new_prose_digest") != update.payload.get("prose_digest")
+            or len(old) != 1
+            or len(confirmed) != 1
+        ):
+            continue
+        old, sent = old[0], confirmed[0]
+        if (
+            old["operation_id"] != original.id
+            or old["attempt"] != original.attempt_count
+            or old["state"] != "uncertain"
+            or old["error"] != "readback_conflict"
+            or not old["snapshot"]
+            or not sent["snapshot"]
+            or sent["state"] != "confirmed"
+            or sent["attempt"] != update.attempt_count
+            or old["connection_digest"] != fact.get("connection_digest")
+            or sent["connection_digest"] != old["connection_digest"]
+            or digest(json.loads(old["snapshot"])) != fact.get("original_snapshot_digest")
+        ):
+            continue
+        snapshot = json.loads(sent["snapshot"])
+        if (
+            snapshot.get("id") == fact.get("issue_id") == update.payload.get("issue_id")
+            and snapshot.get("title") == update.payload.get("title")
+            and snapshot.get("body") == update.payload.get("body")
+            and snapshot.get("status") == update.payload.get("desired_status")
+            and snapshot.get("assignee_id") == scope.principal
+            and snapshot.get("project_id") == scope.project
+            and snapshot.get("delegate_id") == json.loads(old["snapshot"]).get("delegate_id")
+            and snapshot.get("delegate_is_application") is True
+        ):
+            accepted.add(original.id)
+    return accepted
+
+
 def renewal(journal, config_file, config, reference, scope, now, core, handle, workflow_control):
     """Fresh trusted operator delegation for the same expired, quiescent session."""
     pointer = config.get("session_observations", {})
@@ -161,6 +298,8 @@ def renewal(journal, config_file, config, reference, scope, now, core, handle, w
     ):
         raise AccessDenied("Renewal requires completed, expired, unchanged delegation")
     sid, _ = core.session_binding(handle)
+    provider = core.context.principals
+    repaired = _authenticated_repaired_creates(core, handle, provider)
     with core.context.db.transaction() as conn:
         rows = conn.execute("SELECT id,active,data FROM attempts WHERE session_id=?", (sid,))
         for row in rows:
@@ -176,10 +315,13 @@ def renewal(journal, config_file, config, reference, scope, now, core, handle, w
             (sid,),
         ).fetchone():
             raise EvidenceRequired("Owned resources prevent session renewal")
-        if conn.execute(
-            "SELECT 1 FROM outbox WHERE session_id=? AND state IN ('leased','uncertain') LIMIT 1",
-            (sid,),
-        ).fetchone():
+        unsettled = core.intake._unsettled_preparation(conn, sid)
+        if any(op.state in {"leased", "uncertain"} for op in unsettled) or any(
+            row[0] not in repaired
+            for row in conn.execute(
+                "SELECT id FROM outbox WHERE session_id=? AND state='uncertain'", (sid,)
+            )
+        ):
             raise EvidenceRequired("Uncertain provider effects prevent session renewal")
     provider = core.context.principals
     if provider_history(journal, config, reference) != identity(provider.path):
@@ -189,7 +331,10 @@ def renewal(journal, config_file, config, reference, scope, now, core, handle, w
         old_send = latest.get(send["operation_id"])
         if old_send is None or old_send["attempt"] < send["attempt"]:
             latest[send["operation_id"]] = send
-    if any(send["state"] not in {"confirmed", "failed"} for send in latest.values()):
+    if any(
+        send["state"] not in {"confirmed", "failed"} and send["operation_id"] not in repaired
+        for send in latest.values()
+    ):
         raise EvidenceRequired("Unsettled provider sends prevent session renewal")
     with provider.transaction() as conn:
         if (

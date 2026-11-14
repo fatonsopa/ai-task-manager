@@ -33,7 +33,8 @@ class Reconciliation:
         ref = self.journal.unsent_receipt(scope, operation)
         self.core.sync.reconcile_retry(handle, operation.id, ref)
 
-    def recover_outbound(self, handle, operation_id):
+    def recover_outbound(self, handle, operation_id, *, check_authority=lambda: None):
+        check_authority()
         _, scope = self.core.session_binding(handle)
         operation = next(
             (x for x in self.core.sync.list_operations(handle) if x.id == operation_id), None
@@ -71,7 +72,9 @@ class Reconciliation:
             or task.decision_revision != operation.payload["decision_revision"]
         ):
             raise LinearError("stale_recovery_authority", uncertain=True)
+        check_authority()
         ref = self.journal.status_receipt(scope, task, operation, readback, connection=connection)
+        check_authority()
         confirmed = self.core.intake.confirm_status(
             handle,
             task.id,
@@ -80,11 +83,21 @@ class Reconciliation:
             ref,
             f"linear-recover:{operation.id}:{operation.attempt_count}",
         )
+        check_authority()
         self.journal.finish_send(sends[-1]["id"], "confirmed", readback)
         return confirmed
 
     def repair_pending_create(
-        self, handle, task_id, operation_id, prose, approval_ref, key, *, check_authority
+        self,
+        handle,
+        task_id,
+        operation_id,
+        prose,
+        approval_ref,
+        key,
+        *,
+        check_authority,
+        read_only=False,
     ):
         """Trusted initial preparation only: correct file-literal serialization."""
         from .outbound import OutboundDrain
@@ -95,6 +108,8 @@ class Reconciliation:
         )
         _, scope = self.core.session_binding(handle)
         if replay is None:
+            if read_only:
+                raise LinearError("existing_repair_required")
             task = self.core.get_task(handle, task_id)
             operation = next(
                 (
@@ -154,9 +169,11 @@ class Reconciliation:
             check_authority()
             return task
         if update.state in {"failed", "uncertain"}:
-            recovered = self.recover_outbound(handle, update.id)
+            recovered = self.recover_outbound(handle, update.id, check_authority=check_authority)
             check_authority()
             return recovered
+        if read_only:
+            raise LinearError("already_sent_repair_required")
         outcome = OutboundDrain(self.core, self.client, self.journal).run_once(
             handle, task_id=task_id
         )

@@ -78,6 +78,16 @@ The new prose may only add inline code spans around existing file/path tokens in
 
 The same canonical task receives one normal `update_prose` intent with the new approval. Its original create remains uncertain and fenced, with its original body, approval and attempts retained; it never becomes a confirmation of the old prose. Only exact provider readback of the new update permits ordinary preparation to continue. A retained uncertain create is excluded from that gate only through its exact repair event and confirmed linked update; other uncertainty still blocks. Retain one repair key: a lost update reply is reconciled by fresh readback on that same key, without another create or blind update retry. No provider readback is normalized, and the old approval gains no new authority.
 
+### Reconcile an applied repair after enrollment expires
+
+Expired enrollment does not permit another mutation or grant execution authority. With new explicit operator authorization, the trusted Python `bootstrap.recover_pending_intake(config_file, task_id, create_operation_id, writing_ref, operation_key, recovery_ref=..., deadline=...)` port can read back an already-sent repair update and record its exact local confirmation. Retain the original repair key, approval, task, provider issue, stores and enrollment. The new recovery reference binds those identities and the original enrollment history to one immutable deadline, at most 300 seconds from authorization. It grants no create, prose, status, preparation or execution permission; no public command exposes it.
+
+This path requires completed unchanged expired enrollment, original physical bindings, no owner or activation history, zero attempts, the exact committed repair and a known quiescent linked update result. Unsent updates, missing identities, revoked enrollment, unrelated uncertainty, changed readback and expired recovery authority refuse. Same-reference replay cannot change the target or deadline. Keep the original uncertain create and its saved failure unchanged.
+
+After exact readback confirms the linked update, ordinary explicit session renewal may recognize that retained create only through its authenticated repair event, original send and confirmed update/send. Recovery itself leaves the old grant expired, configuration and capability unchanged. Normal renewal still requires fresh operator delegation and every existing quiescence and continuity check.
+
+A fixture recovery window is separate from product authority. When explicitly authorized, its trusted `RunLedger.authorize_recovery_window(reference, started_at=..., deadline=..., cleanup_seconds=...)` amendment appends one observation in the original ledger. The original metadata, limits, cumulative request/resource counts and cleanup phase remain intact. The finite window retains a cleanup reserve and permits no automatic extension or counter reset.
+
 ## Confirm success
 
 Retain source, wheel and dependency identities; the exact setup/request/approval bytes; command results; canonical task/provider IDs; and independent provider readbacks. Exact submit/enqueue replay uses the original request and operation key and preserves its original effect. A changed payload is a conflict; a new stale-version command is separate from exact replay.

@@ -1,6 +1,8 @@
 """Trusted same-issue correction uses real scoped Writer approval; no host/model claim."""
 
 import copy
+import importlib
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,6 +15,7 @@ from ai_task_manager.domains.work.models import TaskProse
 from ai_task_manager.installation.workflows.bootstrap import (
     activation_reference,
     prepare,
+    recover_pending_intake,
     repair_pending_intake,
 )
 from ai_task_manager.storage import work
@@ -265,3 +268,145 @@ def test_repair_refuses_intervening_edit_at_actual_update_preflight(boot):  # no
     assert update.state != "confirmed"
     with pytest.raises(EvidenceRequired, match="Unsettled"):
         prepare(demo.config, {"operation": "task_list", "data": {}})
+
+
+def expired_repair(demo, monkeypatch):
+    service, task, original, before = pending(demo)
+    approval = approve(demo, BODY.replace("chunks.py", "`chunks.py`"))
+
+    def lost(request, response):
+        if "mutation UpdateIssue" in request["query"]:
+            demo.provider.fail_next = (503, b"unavailable")
+
+    demo.provider.hook = lost
+    with pytest.raises(LinearError, match="unconfirmed"):
+        repair_pending_intake(demo.config, task.id, original.id, approval, "expired-repair")
+    demo.provider.hook = None
+    from ai_task_manager.installation.sessions.recovery import history
+
+    old = history(service.decisions.journal, service.grant_ref)
+    now = old["expires_at"] + 1
+    module = importlib.import_module("ai_task_manager.installation.workflows.bootstrap")
+    original_load = module.load_service
+
+    def aged(*args, **kwargs):
+        current = original_load(*args, **kwargs)
+        current.core.context.clock = lambda: now
+        current.decisions.journal.clock = lambda: now
+        current.provider.journal.clock = lambda: now
+        return current
+
+    monkeypatch.setattr(module, "load_service", aged)
+    setup_module = importlib.import_module("ai_task_manager.installation.sessions.setup")
+    monkeypatch.setattr(setup_module, "time", SimpleNamespace(time=lambda: now))
+    return service, task, original, approval, now, old
+
+
+def test_expired_read_only_repair_then_explicit_ordinary_renewal(boot, monkeypatch):  # noqa: F811
+    demo, _ = boot
+    service, task, original, approval, now, old = expired_repair(demo, monkeypatch)
+    from ai_task_manager.config.files import read_private
+    from ai_task_manager.installation.sessions import setup
+    from ai_task_manager.installation.sessions.recovery import history
+
+    config_before = read_private(demo.config)
+    capability_before = read_private(config_before["session_file"])
+    mutation_count = len(mutations(demo))
+    renewal = dict(
+        logical_session=service.scope.logical_session,
+        actions=("enqueue", "start"),
+        deadline=now + 120,
+        operation_key="after-expired-repair",
+        renew_from=service.grant_ref,
+        components=demo.components,
+    )
+    with pytest.raises(EvidenceRequired, match="Uncertain"):
+        setup(demo.config, **renewal)
+    with pytest.raises(WorkError):
+        repair_pending_intake(demo.config, task.id, original.id, approval, "expired-repair")
+    args = dict(recovery_ref="explicit-user-recovery", deadline=now + 60)
+    from ai_task_manager.adapters.linear.receipts import ProviderJournal
+
+    finish = ProviderJournal.finish_send
+    interrupted = []
+
+    def lose_local_reply(journal, send_id, state, *values, **options):
+        if state == "confirmed" and not interrupted:
+            interrupted.append(True)
+            raise ConnectionError("Interrupted after Core confirmation")
+        return finish(journal, send_id, state, *values, **options)
+
+    monkeypatch.setattr(ProviderJournal, "finish_send", lose_local_reply)
+    with pytest.raises(ConnectionError, match="Core confirmation"):
+        recover_pending_intake(
+            demo.config, task.id, original.id, approval, "expired-repair", **args
+        )
+    monkeypatch.setattr(ProviderJournal, "finish_send", finish)
+    result = recover_pending_intake(
+        demo.config, task.id, original.id, approval, "expired-repair", **args
+    )
+    assert (
+        interrupted
+        and result["outcome"] == "confirmed"
+        and len(mutations(demo)) == mutation_count == 2
+    )
+    assert (
+        recover_pending_intake(
+            demo.config, task.id, original.id, approval, "expired-repair", **args
+        )
+        == result
+    )
+    assert read_private(demo.config) == config_before
+    assert read_private(config_before["session_file"]) == capability_before
+    assert history(service.decisions.journal, service.grant_ref) == old
+    assert service.core.sync.list_operations(service.handle)[0].state == "uncertain"
+    with pytest.raises(WorkError):
+        prepare(demo.config, {"operation": "task_list", "data": {}})
+    renewed = setup(demo.config, **renewal)
+    assert renewed["enrollment_ref"] != service.grant_ref
+    assert history(service.decisions.journal, service.grant_ref) == old
+    assert read_private(config_before["session_file"]) == capability_before
+    assert len(mutations(demo)) == mutation_count
+
+
+@pytest.mark.parametrize(
+    "fault", ["expired", "during-read", "changed-key", "drift", "unknown-send", "owner"]
+)
+def test_expired_read_only_recovery_refuses_without_provider_write(boot, monkeypatch, fault):  # noqa: F811
+    demo, control = boot
+    service, task, original, approval, now, _ = expired_repair(demo, monkeypatch)
+    kwargs = dict(recovery_ref="explicit-recovery", deadline=now + 60)
+    key = "expired-repair"
+    if fault == "expired":
+        kwargs["deadline"] = now
+    elif fault == "changed-key":
+        key = "another-repair"
+    elif fault == "drift":
+        issue = next(iter(demo.provider.issues.values()))
+        demo.provider.edit(issue["id"], description="Unapproved external prose")
+    elif fault == "unknown-send":
+        with service.provider.journal.transaction() as conn:
+            conn.execute("UPDATE sends SET snapshot=NULL WHERE operation_id!=?", (original.id,))
+    elif fault == "owner":
+        write_private(control["record"], {"owner": "present"})
+    elif fault == "during-read":
+        module = importlib.import_module("ai_task_manager.installation.workflows.bootstrap")
+        original_load = module.load_service
+        clock = [now]
+
+        def timed(*args, **kwargs):
+            current = original_load(*args, **kwargs)
+            current.core.context.clock = lambda: clock[0]
+            return current
+
+        def expire(request, response):
+            if "query ReadIssue" in request["query"]:
+                clock[0] = now + 61
+
+        monkeypatch.setattr(module, "load_service", timed)
+        demo.provider.hook = expire
+    count = len(mutations(demo))
+    with pytest.raises((WorkError, LinearError)):
+        recover_pending_intake(demo.config, task.id, original.id, approval, key, **kwargs)
+    assert len(mutations(demo)) == count == 2
+    assert service.core.get_task(service.handle, task.id).sync_state != "confirmed"

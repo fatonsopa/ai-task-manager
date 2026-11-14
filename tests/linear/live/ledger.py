@@ -215,20 +215,86 @@ class RunLedger:
         finally:
             conn.close()
 
-    def _time(self, *, ordinary=False):
+    def authorize_recovery_window(self, reference, *, started_at, deadline, cleanup_seconds):
+        """Trusted fixture operator amendment; original limits and counters stay immutable."""
+        now = self.clock()
+        if (
+            not isinstance(reference, str)
+            or not 1 <= len(reference) <= 256
+            or any(
+                type(value) not in {int, float} or not math.isfinite(value)
+                for value in (started_at, deadline, cleanup_seconds, now)
+            )
+            or not self.limits.deadline <= started_at <= now < deadline
+            or deadline - started_at > 5400
+            or not 0 < cleanup_seconds < deadline - now
+        ):
+            raise DriverRefused("invalid_recovery_window")
+        value = dict(
+            reference=reference,
+            run=self.run_id,
+            scope=asdict(self.scope),
+            original_limits_digest=digest(asdict(self.limits)),
+            started_at=started_at,
+            deadline=deadline,
+            cleanup_seconds=cleanup_seconds,
+        )
+        raw = json.dumps(value, sort_keys=True, separators=(",", ":"))
+        with self.transaction() as conn:
+            rows = conn.execute(
+                "SELECT payload FROM observations WHERE kind='recovery_window'"
+            ).fetchall()
+            if rows:
+                if len(rows) != 1 or rows[0][0] != raw:
+                    raise DriverRefused("recovery_window_changed")
+                return value
+            if conn.execute("SELECT phase FROM run_state").fetchone()[0] != "ordinary":
+                raise DriverRefused("cleanup_phase_active")
+            conn.execute(
+                "INSERT INTO observations(kind,payload) VALUES('recovery_window',?)", (raw,)
+            )
+        return value
+
+    def _time(self, *, ordinary=False, conn=None):
+        if conn is None:
+            with self.transaction() as current:
+                return self._time(ordinary=ordinary, conn=current)
+        rows = conn.execute(
+            "SELECT payload FROM observations WHERE kind='recovery_window'"
+        ).fetchall()
+        start, deadline, reserve = (
+            self.limits.started_at,
+            self.limits.deadline,
+            self.limits.cleanup_seconds,
+        )
+        if rows:
+            if len(rows) != 1:
+                raise DriverRefused("recovery_window_changed")
+            window = json.loads(rows[0][0])
+            if (
+                window.get("run") != self.run_id
+                or window.get("scope") != asdict(self.scope)
+                or window.get("original_limits_digest") != digest(asdict(self.limits))
+            ):
+                raise DriverRefused("recovery_window_changed")
+            start, deadline, reserve = (
+                window["started_at"],
+                window["deadline"],
+                window["cleanup_seconds"],
+            )
         now = self.clock()
         if (
             type(now) not in {int, float}
             or not math.isfinite(now)
-            or now < self.limits.started_at
-            or now >= self.limits.deadline
+            or now < start
+            or now >= deadline
         ):
             raise DriverRefused("deadline_expired")
-        if ordinary and now >= self.limits.deadline - self.limits.cleanup_seconds:
+        if ordinary and now >= deadline - reserve:
             raise DriverRefused("ordinary_deadline_expired")
 
     def _ordinary(self, conn):
-        self._time(ordinary=True)
+        self._time(ordinary=True, conn=conn)
         if conn.execute("SELECT phase FROM run_state").fetchone()[0] != "ordinary":
             raise DriverRefused("cleanup_phase_active")
 
@@ -437,7 +503,7 @@ class RunLedger:
                 if prior["fingerprint"] != fingerprint:
                     raise DriverRefused("cleanup_key_collision")
                 return dict(prior)
-            self._time()
+            self._time(conn=conn)
             if resource["kind"] == "project":
                 self._closed_children(conn, exclude_cleanup_key=key)
             if conn.execute(
@@ -471,7 +537,7 @@ class RunLedger:
         return row
 
     def _cleanup_request(self, conn, key, purpose):
-        self._time()
+        self._time(conn=conn)
         row = self._cleanup_row(conn, key)
         if row["state"] not in {"intent", "sent", "uncertain"}:
             raise DriverRefused("cleanup_already_confirmed")
@@ -489,7 +555,7 @@ class RunLedger:
     def create_recovery_read(self, key):
         """Only a durable possible create may borrow reserved recovery reads."""
         with self.transaction() as conn:
-            self._time()
+            self._time(conn=conn)
             row = conn.execute("SELECT * FROM operations WHERE key=?", (key,)).fetchone()
             if not row or row["state"] not in {"sent", "uncertain"}:
                 raise DriverRefused("possible_create_intent_required")
@@ -502,7 +568,7 @@ class RunLedger:
     def cleanup_prepared(self, key, before_digest):
         self._digest(before_digest)
         with self.transaction() as conn:
-            self._time()
+            self._time(conn=conn)
             row = self._cleanup_row(conn, key)
             if row["state"] != "intent":
                 raise DriverRefused("cleanup_not_preparable")

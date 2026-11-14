@@ -1,5 +1,6 @@
 """Explicit trusted preparation before a task-bound execution owner is admitted."""
 
+import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
@@ -14,6 +15,7 @@ from ai_task_manager.installation.sessions.recovery import (
     history,
     installed_authority,
     installed_provider_history,
+    intake_recovery_authorization,
     setup_lock,
 )
 
@@ -69,7 +71,7 @@ def prepare(config_file, request):
 
 
 @contextmanager
-def _initial_service(config_file):
+def _initial_service(config_file, *, recovery=None):
     with setup_lock(config_file):
         config = read_private(config_file)
         from ai_task_manager.config.capacity import policies
@@ -98,14 +100,17 @@ def _initial_service(config_file):
             is not None
         ):
             raise AccessDenied("Owner activation history permanently closes initial preparation")
-        grant = service.decisions.observations.verify_enrollment(service.grant_ref)
-        if (
-            type(grant) is not HostGrant
-            or grant.scope != service.scope
-            or grant.logical_session != service.scope.logical_session
-            or grant.expires_at <= service.core.context.clock()
-        ):
-            raise AccessDenied("Current same-session operator enrollment required")
+        if recovery is None:
+            grant = service.decisions.observations.verify_enrollment(service.grant_ref)
+            if (
+                type(grant) is not HostGrant
+                or grant.scope != service.scope
+                or grant.logical_session != service.scope.logical_session
+                or grant.expires_at <= service.core.context.clock()
+            ):
+                raise AccessDenied("Current same-session operator enrollment required")
+        else:
+            grant = intake_recovery_authorization(service, config_file, config, **recovery)
         with service.core.context.db.transaction() as conn:
             if conn.execute(
                 "SELECT 1 FROM attempts WHERE session_id=? LIMIT 1", (service.session_id,)
@@ -140,6 +145,108 @@ def repair_pending_intake(config_file, task_id, create_operation_id, writing_ref
         )
         current_authority()
         return service.confirm(task)
+
+
+def recover_pending_intake(
+    config_file, task_id, create_operation_id, writing_ref, operation_key, *, recovery_ref, deadline
+):
+    """Explicit operator-authorized readback only; never drain an unsent effect."""
+    from ai_task_manager.application.linear_sync.inflight import request_in_flight
+    from ai_task_manager.application.linear_sync.reconcile import Reconciliation
+    from ai_task_manager.application.service.models import result
+    from ai_task_manager.application.service.projection import task_view
+
+    target = dict(
+        task_id=task_id,
+        create_operation_id=create_operation_id,
+        writing_ref=writing_ref,
+        operation_key=operation_key,
+    )
+    recovery = dict(target=target, recovery_ref=recovery_ref, deadline=deadline)
+    with _initial_service(config_file, recovery=recovery) as (service, _, check):
+        prose = service.writer.approvals_for_tasks(service.scope).prose(writing_ref)
+        task = service.core.intake.pending_create_repair_replay(
+            service.handle, task_id, create_operation_id, prose, writing_ref, operation_key
+        )
+        if task is None or task.human_hold or task.queued_once or task.delivered_once:
+            raise EvidenceRequired("Read-only recovery requires the exact existing initial repair")
+        operations = service.core.sync.list_operations(service.handle)
+        original = next((op for op in operations if op.id == create_operation_id), None)
+        updates = [
+            op
+            for op in operations
+            if op.kind == "update_prose"
+            and op.task_id == task.id
+            and original
+            and op.payload.get("event_id") == original.fenced_by
+        ]
+        if len(updates) != 1 or updates[0].state not in {"uncertain", "failed", "confirmed"}:
+            raise EvidenceRequired("Read-only recovery requires an already-sent linked update")
+        update = updates[0]
+        if update.fenced_by or any(
+            op.state in {"pending", "leased", "uncertain"} and op.id not in {original.id, update.id}
+            for op in operations
+        ):
+            raise EvidenceRequired("Unrelated unsettled effects forbid intake recovery")
+        provider = service.provider
+        connection = provider.client.check_connection(service.scope, refresh=True)
+        provider.journal.pending_create_repair_snapshot(
+            service.scope, task, update, original, connection
+        )
+        sends = provider.journal.sends(service.scope)
+        sent = [row for row in sends if row["operation_id"] == update.id]
+        if (
+            len(sent) != 1
+            or not sent[0]["snapshot"]
+            or sent[0]["attempt"] != update.attempt_count
+            or sent[0]["connection_digest"] != connection.digest
+            or any(
+                row["state"] not in {"confirmed", "failed"}
+                and row["operation_id"] not in {original.id, update.id}
+                for row in sends
+            )
+            or request_in_flight(provider.journal, service.scope, update)
+            or request_in_flight(provider.journal, service.scope, original)
+        ):
+            raise EvidenceRequired("Read-only recovery requires a known quiescent update result")
+        if json.loads(sent[0]["snapshot"])["id"] != task.issue_id:
+            raise EvidenceRequired("Repair update result has another identity")
+        check()
+        task = Reconciliation(
+            service.core, provider.client, provider.journal
+        ).repair_pending_create(
+            service.handle,
+            task_id,
+            create_operation_id,
+            prose,
+            writing_ref,
+            operation_key,
+            check_authority=check,
+            read_only=True,
+        )
+        check()
+        if task.sync_state != "confirmed":
+            raise EvidenceRequired("Read-only repair remains unconfirmed")
+        # A previous finite call may have confirmed Core just before its authority
+        # expired. Finish only that known journal effect after another exact read.
+        current_send = next(
+            row for row in provider.journal.sends(service.scope) if row["id"] == sent[0]["id"]
+        )
+        if current_send["state"] != "confirmed":
+            snapshot = provider.client.require_delegate(provider.client.read_issue(task.issue_id))
+            if (
+                snapshot.title != task.title
+                or snapshot.body != task.body
+                or snapshot.status != task.observed_status
+                or snapshot.assignee_id != service.scope.principal
+            ):
+                raise EvidenceRequired("Confirmed repair readback changed")
+            check()
+            provider.journal.finish_send(current_send["id"], "confirmed", snapshot)
+        check()
+        if service.core.get_task(service.handle, task.id).version != task.version:
+            raise EvidenceRequired("Repaired task changed during read-only recovery")
+        return result(task_view(service, task), "confirmed")
 
 
 def activation_reference(config_file, control):
