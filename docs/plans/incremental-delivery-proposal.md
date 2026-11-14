@@ -34,7 +34,7 @@ Develop and deliver DP01, then DP02, continuing in numerical order through DP14.
 
 ### Complete proposed plan catalogue
 
-DP01 is delivered on 14 November 2026; see its [delivery handoff](deliveries/DP01-handoff.md). DP02–DP14 remain roadmap items awaiting their detailed plans and agreement. A working result describes the intended delivery, not an observed pass. Every plan is tracked in the [TST development project](linear-tracking.md); current state is confirmed from the owning session and Linear.
+DP01 and DP02 are delivered on 14 November 2026; see their [DP01 handoff](deliveries/DP01-handoff.md) and [DP02 handoff](deliveries/DP02-handoff.md). DP03–DP14 remain roadmap items awaiting their detailed plans and agreement. A working result describes the intended delivery, not an observed pass. Every plan is tracked in the [TST development project](linear-tracking.md); current state is confirmed from the owning session and Linear.
 
 | Order and exact plan title | Scope of the plan | Working result required for completion | Important inputs |
 | --- | --- | --- | --- |

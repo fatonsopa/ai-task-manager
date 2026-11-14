@@ -1344,7 +1344,7 @@
     "active_plan": "DP02",
     "plan_ref": "docs/plans/deliveries/DP02.md",
     "roadmap_ref": "docs/plans/incremental-delivery-proposal.md",
-    "scope": "Approved DP02 version 1; DP01 accepted. Original phase obligations remain; no DP03 implementation.",
+    "scope": "DP02 version 1 accepted: six tasks, three stories and five epic criteria. Original phase obligations remain. No DP03 implementation admitted.",
     "stories": [
       "DP02-S1",
       "DP02-S2",
@@ -1450,6 +1450,9 @@
         "story_dependencies": [],
         "execution_owner": "lead"
       }
-    ]
+    ],
+    "status": "accepted",
+    "accepted_on": "2026-11-14",
+    "handoff_ref": "docs/plans/deliveries/DP02-handoff.md"
   }
 }

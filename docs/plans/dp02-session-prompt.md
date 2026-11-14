@@ -1,6 +1,6 @@
 # DP02 autonomous execution prompt
 
-Status: Ready for the next session. DP02 version 1 was approved on 14 November 2026 in the coordination chat. This prompt transfers that existing approval; it does not claim execution has started.
+Status: Historical execution prompt for DP02 version 1, approved on 14 November 2026. Current outcome and continuation boundary are in [the delivery handoff](deliveries/DP02-handoff.md). The original Prompt below is preserved; the user’s later explicit selection of plain `claude` with its default account supersedes its `claude_info` selection.
 
 ## Prompt
 

@@ -54,7 +54,7 @@
     },
     {
       "path": "config/work-items.json",
-      "sha256": "932d6bc0026d6f4c746e7784c00c4b75f7439183315d58cb45c4c604d593e8f0"
+      "sha256": "8c68434e9c2a22d08f781135a29905551e2a2982510059b4adfe405a269d47e3"
     },
     {
       "path": "docs/assets/diagrams/architecture.mmd",
@@ -198,11 +198,11 @@
     },
     {
       "path": "docs/plans/deliveries/DP02-handoff.md",
-      "sha256": "eb010fad193cd23163f8c4d7d761c80270c7410d3af62134db7fb4d61aab4e74"
+      "sha256": "1594264dd852c6b8a542838741c0c9419a543d5271982970181c532aeaef4d1d"
     },
     {
       "path": "docs/plans/deliveries/DP02.md",
-      "sha256": "c3c35c6bb89768ff0eaeced9b53bd86a67bcacf783c3d2321e4b0d7958b5ea8f"
+      "sha256": "2949c33d7b4e0b5a7056bdc415892ea8e387cbbf5e6c842ed6370f4b5aa4f1aa"
     },
     {
       "path": "docs/plans/delivery-learning-loop.md",
@@ -214,11 +214,11 @@
     },
     {
       "path": "docs/plans/dp02-session-prompt.md",
-      "sha256": "6ebb39c7751c1d5a9f8885b6734b9935103faa787adbd5b33f80485ebb9521d7"
+      "sha256": "9486c87edf64ea16cb5007f47231a56597bcd4223d39d2f4e170dc90334ae72d"
     },
     {
       "path": "docs/plans/incremental-delivery-proposal.md",
-      "sha256": "54db48eeb73023799347ce768fb64560de438904123969e09935882c485bde82"
+      "sha256": "468ab953d0eb22c993f58cf54122a89705e1d4647e8fa53cd78e2718b7afed0a"
     },
     {
       "path": "docs/plans/linear-tracking.md",
@@ -230,7 +230,7 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "9e88dc0d5676da569b5015e77b0a670cb1e2a0864ebccd969e719d9a1c572561"
+      "sha256": "88ce29d864649f30476e2db8bfe6bb1e98447ed3b8c4789c2544616c6fbe9ab3"
     },
     {
       "path": "docs/spec_driven_development.md",
@@ -246,7 +246,7 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "35b7c5ab802a14da17e65eac6268bc5c03ae6364e89f5b24448878df13fab02f"
+      "sha256": "4b09af77553a866d65f7e05e6b185dd90db850cbf95d24853a98b6526f2330bb"
     },
     {
       "path": "docs/workflow_preparation/how_to_guide.md",
