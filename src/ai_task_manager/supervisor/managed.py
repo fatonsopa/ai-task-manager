@@ -443,7 +443,9 @@ class ManagedWorkers:
         components["commands"] = outcomes[-1]
         if native is not None:
             try:
-                outcomes.append(native.stop().confirmed)
+                stop_until = getattr(native, "stop_until", None)
+                stopped = stop_until(self.deadline) if callable(stop_until) else native.stop()
+                outcomes.append(stopped.confirmed)
             except BaseException as error:
                 self._diagnose(attempt_id, error, FailureStage.MANAGED_STOP)
                 outcomes.append(False)

@@ -2,6 +2,7 @@
 
 import inspect
 import json
+import math
 from contextlib import contextmanager
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -399,6 +400,50 @@ class ManagedNativeHost:
         if not self._stop_lock.acquire(blocking=False):
             raise AccessDenied("Owned native stopping is already in progress")
         try:
+            if getattr(self, "_physical_stop", None) is not None:
+                return self._settle_known_stop()
+            return self._stop_owned()
+        except BaseException as error:
+            self._diagnose(error, FailureStage.NATIVE_STOP)
+            raise
+        finally:
+            self._stop_lock.release()
+
+    def stop_until(self, not_after):
+        """Join the original owned stop within its finite bound, without signalling again."""
+        if type(not_after) not in {int, float} or not math.isfinite(not_after):
+            raise AccessDenied("Native stop coordination requires an original finite deadline")
+        acquired = self._stop_lock.acquire(blocking=False)
+        expected = None
+        if not acquired:
+            process = self.process
+            expected = (
+                process,
+                process.identity if process is not None else None,
+                self.identity,
+                self._identity_bound,
+            )
+            end = min(not_after, self.binding.deadline)
+            remaining = max(0, end - self.journal.clock())
+            started = diagnostic_clock()
+            if remaining <= 0 or not self._stop_lock.acquire(timeout=remaining):
+                raise AccessDenied("Original owned native stop did not complete before deadline")
+        try:
+            if expected is not None:
+                if diagnostic_clock() - started >= remaining or self.journal.clock() >= end:
+                    raise AccessDenied("Original native stop coordination deadline expired")
+                process, identity, helper, bound_helper = expected
+                if (
+                    self.process is not process
+                    or (process is not None and process.identity != identity)
+                    or self.identity is not helper
+                    or self._identity_bound is not bound_helper
+                    or helper is not bound_helper
+                ):
+                    raise AccessDenied("Original stopping native process or helper owner changed")
+                # The concurrent owner alone may have signalled the group. Its
+                # retained physical receipt and helper exit remain mandatory.
+                return self._settle_known_stop()
             if getattr(self, "_physical_stop", None) is not None:
                 return self._settle_known_stop()
             return self._stop_owned()
