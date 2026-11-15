@@ -227,6 +227,11 @@ class InboundDrain:
             if task.sync_state == "confirmed" and self.journal.is_echo(scope, snapshot):
                 applied()
                 return {"state": "applied", "classification": "outbound_echo"}
+            if self.journal.held_metadata(scope, task, snapshot, payload, self.authorized_actors):
+                # Keep the durable signed delivery/checkpoint and acknowledgement,
+                # without turning an unchanged label edit into fresh human intent.
+                applied()
+                return {"state": "applied", "classification": "held_metadata"}
             if (
                 matching_pending
                 and (responses or matching_pending.state == "uncertain")

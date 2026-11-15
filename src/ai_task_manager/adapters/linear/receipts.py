@@ -415,6 +415,45 @@ class ProviderJournal:
         with self.transaction() as conn:
             return self._proof(conn, "provider_status", scope, task.id, payload)
 
+    def held_metadata(self, scope, task, snapshot, event, authorized_actors):
+        """Recognize an explicit label-only delta, never infer a new human decision."""
+        from .models import revision
+
+        actor = event.get("actor") or {}
+        delta = event.get("updatedFrom")
+        if (
+            not task.human_hold
+            or task.sync_state != "confirmed"
+            or task.observed_status not in {"Backlog", "On Hold"}
+            or task.desired_status != task.observed_status
+            or snapshot.status != task.observed_status
+            or snapshot.id != task.issue_id
+            or snapshot.title != task.title
+            or snapshot.body != task.body
+            or snapshot.assignee_id != scope.principal
+            or snapshot.delegate_is_application is not True
+            or not snapshot.delegate_id
+            or actor.get("type") != "user"
+            or actor.get("id") not in authorized_actors
+            or event.get("action") != "update"
+            or type(delta) is not dict
+            or "labelIds" not in delta
+            or set(delta) - {"labelIds", "updatedAt"}
+            or type(delta["labelIds"]) is not list
+            or event.get("data", {}).get("id") != snapshot.id
+            or revision(event["data"]["updatedAt"]) != snapshot.revision
+        ):
+            return False
+        previous = self.latest_snapshot(scope, task.issue_id)
+        if previous is None or snapshot.revision <= previous["revision"]:
+            return False
+        current = asdict(snapshot)
+        # The previous confirmed send/applied delivery binds delegation and
+        # every other managed issue fact, including the original held status.
+        return set(previous) == set(current) and all(
+            current[key] == value for key, value in previous.items() if key != "revision"
+        )
+
     def external_receipt(self, scope, task, snapshot, event, authorized_actors):
         actor = event.get("actor") or {}
         authorized = actor.get("type") == "user" and actor.get("id") in authorized_actors
