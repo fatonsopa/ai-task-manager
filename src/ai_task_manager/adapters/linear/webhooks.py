@@ -19,6 +19,44 @@ def unique_object(pairs):
     return result
 
 
+def ownership_unverified(payload):
+    """Retain only safe facts until fresh scoped readback supplies missing ownership."""
+    identities = {"id", "teamId", "projectId", "assigneeId", "delegateId", "stateId"}
+    data = {
+        key: value
+        for key, value in payload["data"].items()
+        if key in identities or key == "updatedAt"
+    }
+    for key in identities & data.keys():
+        if data[key] is not None:
+            canonical_id(data[key])
+    result = {
+        key: payload[key]
+        for key in ("action", "type", "organizationId", "webhookId", "webhookTimestamp")
+    }
+    result["data"] = data
+    actor = payload.get("actor") or {}
+    if actor.get("id"):
+        result["actor"] = {
+            "id": canonical_id(actor["id"]),
+            "type": "user" if actor.get("type") == "user" else "integration",
+        }
+    if type(payload.get("updatedFrom")) is dict:
+        delta = {}
+        for key, value in payload["updatedFrom"].items():
+            if key in identities:
+                delta[key] = canonical_id(value) if value is not None else None
+            elif key == "updatedAt":
+                delta[key] = revision(value) if value is not None else None
+            elif key == "labelIds" and type(value) is list:
+                delta[key] = [canonical_id(item) for item in value]
+            else:
+                # Keep the fact of another change, never its possibly foreign text.
+                delta["otherFieldsChanged"] = True
+        result["updatedFrom"] = delta
+    return result
+
+
 class WebhookReceiver:
     def __init__(
         self,
@@ -99,12 +137,26 @@ class WebhookReceiver:
             }
             changed_team = data.get("teamId") != self.binding.expected.team_id
             changed_project = data.get("projectId") != self.scope.project
+            changed_assignee = "assigneeId" in data and data["assigneeId"] != self.scope.principal
+            connection = self.binding.connection
+            changed_delegate = (
+                connection is not None
+                and "delegateId" in data
+                and data["delegateId"] != connection.agent_id
+            )
             if issue_id not in registered:
                 self.journal.ignore_delivery(
                     self.scope, delivery_id, raw_body, "unregistered_issue", self.clock()
                 )
                 return HttpResponse(200)
-            if changed_team or changed_project:
+            if "delegateId" in data and connection is None:
+                return HttpResponse(403)  # No installed selection witness for this claim.
+            if changed_team or changed_project or changed_assignee or changed_delegate:
+                scope_fields = {"team": data.get("teamId"), "project": data.get("projectId")}
+                if changed_assignee or changed_delegate:
+                    scope_fields.update(
+                        assignee=data.get("assigneeId"), delegate=data.get("delegateId")
+                    )
                 payload = {
                     "action": payload["action"],
                     "type": "Issue",
@@ -119,12 +171,18 @@ class WebhookReceiver:
                         "projectChanged": changed_project,
                         "scopeDigest": hashlib.sha256(
                             json.dumps(
-                                {"team": data.get("teamId"), "project": data.get("projectId")},
+                                scope_fields,
                                 sort_keys=True,
                             ).encode()
                         ).hexdigest(),
                     },
                 }
+                if changed_assignee or changed_delegate:
+                    payload["data"].update(
+                        assigneeChanged=changed_assignee, delegateChanged=changed_delegate
+                    )
+            elif "assigneeId" not in data or "delegateId" not in data:
+                payload = ownership_unverified(payload)
         except WorkError:
             return HttpResponse(403)
         except sqlite3.DatabaseError:

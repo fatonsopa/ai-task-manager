@@ -155,6 +155,8 @@ This operation creates no outbound write and does not rewrite the original deliv
 
 Connection selection remains explicit and sealed per logical session. The adapter resolves the canonical application ID in the current workspace, preserves the separate human assignee and refuses missing/ambiguous/non-application, permission/account or competing-session selections. A different delegate needs a new explicitly configured logical session and its own authority; do not edit an enrolled selection in place or reuse an old connection for an uncertain send.
 
+For a newly created issue, the approved Writer issue kind supplies native `Type` metadata. Keep the description exactly as approved; do not add a `Type:` declaration. The existing single-select Type group and its Bug, Chore, Decision, Feature, Improvement and Release leaves must be available in the current workspace or team. Missing or ambiguous metadata refuses creation before an effect. The application does not create labels or choose a Product. Existing Product and other labels remain unchanged on updates; imported issues are not silently retagged. Older approvals retain their original text and metadata behavior.
+
 ## Decision requests and observed choices
 
 Use the installed `task decision_prepare` command (MCP: `task_decision_prepare`) for a material choice. Supply `task_id`, a topic `title`, `context`, two to eight `options` with distinct alphanumeric `id`, `label` and `description`, the recommended option ID in `recommendation`, `rationale` and an original `operation_key`. The operation reads the current issue creator. It selects that active human, or the current human assignee when the creator is an application. Missing or ambiguous recipient or label metadata refuses preparation.

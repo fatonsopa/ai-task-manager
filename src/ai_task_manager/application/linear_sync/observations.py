@@ -1,3 +1,21 @@
+from ai_task_manager.config.files import digest
+
+
+def ownership_removal(snapshot):
+    """Hash changed ownership only; never retain newly foreign issue content."""
+    return {
+        "id": snapshot.id,
+        "updatedAt": snapshot.revision,
+        "scopeDigest": digest(
+            {
+                "assignee": snapshot.assignee_id,
+                "delegate": snapshot.delegate_id,
+                "delegate_is_application": snapshot.delegate_is_application,
+            }
+        ),
+    }
+
+
 def record_scope_removal(
     core, journal, handle, task, metadata, operation_key, *, check_authority=None
 ):

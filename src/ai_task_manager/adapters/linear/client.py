@@ -42,6 +42,17 @@ COMMENT_CREATE = (
     "commentCreate(input: $input) { success comment { " + COMMENT_FIELDS + " } } }"
 )
 
+
+NATIVE_TYPE_LABELS = """query NativeTypeLabels($after:String) {
+ viewer{id} organization{id} issueLabels(includeArchived:true,first:50,after:$after) {
+ nodes{id name isGroup groupType archivedAt team{id} parent{id name isGroup team{id}}}
+ pageInfo{hasNextPage endCursor} } }"""
+NATIVE_TYPE_READ = (
+    "query NativeTypeRead($id:String!) { viewer{id} organization{id} issue(id:$id) { "
+    + ISSUE_FIELDS
+    + " labels(first:50){nodes{id parent{id}} pageInfo{hasNextPage endCursor}} } }"
+)
+
 DECISION_USER = "id app active url organization { id }"
 DECISION_ISSUE = ISSUE_FIELDS.replace("assignee { id }", "assignee { " + DECISION_USER + " }")
 DECISION_READ = (
@@ -334,7 +345,106 @@ class LinearClient:
         canonical_id(issue_id)
         return self.snapshot(self.request(READ, {"id": issue_id}).get("issue"), allow_unknown=True)
 
-    def create_issue(self, task, candidate_id=None):
+    def native_type(self, task_type):
+        """Resolve one existing applicable single-select Type group and approved leaf."""
+        try:
+            return self._native_type(task_type)
+        except (KeyError, TypeError, AttributeError, ValueError) as exc:
+            raise LinearError("native_type_metadata_incomplete") from exc
+
+    def _native_type(self, task_type):
+        if task_type not in {"Bug", "Chore", "Decision", "Feature", "Improvement", "Release"}:
+            raise LinearError("native_type_not_supported")
+        self.check_connection()
+        after, rows, cursors, seen = None, [], set(), set()
+        for _ in range(self.max_pages):
+            data = self.request(NATIVE_TYPE_LABELS, {"after": after})
+            if (data["viewer"]["id"], data["organization"]["id"]) != (
+                self.expected.viewer_id,
+                self.expected.workspace_id,
+            ):
+                raise LinearError("native_type_scope_mismatch")
+            page = data["issueLabels"]
+            for row in page["nodes"]:
+                identifier = canonical_id(row["id"])
+                if identifier in seen:
+                    raise LinearError("native_type_metadata_ambiguous")
+                seen.add(identifier)
+                rows.append(row)
+            if page["pageInfo"]["hasNextPage"] is False:
+                break
+            cursor = page["pageInfo"]["endCursor"]
+            if not isinstance(cursor, str) or not cursor or cursor in cursors:
+                raise LinearError("native_type_lookup_incomplete")
+            cursors.add(cursor)
+            after = cursor
+        else:
+            raise LinearError("native_type_lookup_incomplete")
+
+        def team(row):
+            return row["team"]["id"] if row["team"] else None
+
+        groups = [
+            r
+            for r in rows
+            if r["name"].casefold() == "type"
+            and r["archivedAt"] is None
+            and r["isGroup"] is True
+            and r["groupType"] == "singleSelect"
+            and r["parent"] is None
+            and team(r) in {None, self.expected.team_id}
+        ]
+        if len(groups) != 1:
+            raise LinearError("native_type_group_missing_or_ambiguous")
+        group = groups[0]
+        leaves = [
+            r
+            for r in rows
+            if r["name"].casefold() == task_type.casefold()
+            and r["archivedAt"] is None
+            and r["isGroup"] is False
+            and team(r) == team(group)
+            and (r["parent"] or {}).get("id") == group["id"]
+            and r["parent"].get("isGroup") is True
+            and r["parent"].get("name", "").casefold() == "type"
+            and team(r["parent"]) == team(group)
+        ]
+        if len(leaves) != 1:
+            raise LinearError("native_type_leaf_missing_or_ambiguous")
+        self.check_connection()
+        return {"task_type": task_type, "group_id": group["id"], "label_id": leaves[0]["id"]}
+
+    def verify_native_type(self, issue_id, binding):
+        try:
+            return self._verify_native_type(issue_id, binding)
+        except (KeyError, TypeError, AttributeError, ValueError) as exc:
+            raise LinearError("native_type_readback_incomplete", uncertain=True) from exc
+        except LinearError as exc:
+            raise LinearError(exc.category, uncertain=True, retry_after=exc.retry_after) from exc
+
+    def _verify_native_type(self, issue_id, binding):
+        if self.native_type(binding["task_type"]) != binding:
+            raise LinearError("native_type_metadata_changed", uncertain=True)
+        data = self.request(NATIVE_TYPE_READ, {"id": canonical_id(issue_id)})
+        if (data["viewer"]["id"], data["organization"]["id"]) != (
+            self.expected.viewer_id,
+            self.expected.workspace_id,
+        ):
+            raise LinearError("native_type_scope_mismatch", uncertain=True)
+        issue = data["issue"]
+        snapshot = self.require_delegate(self.snapshot(issue, allow_unknown=True))
+        labels = issue["labels"]
+        typed = [
+            r["id"]
+            for r in labels["nodes"]
+            if (r.get("parent") or {}).get("id") == binding["group_id"]
+        ]
+        if labels["pageInfo"]["hasNextPage"] is not False or typed != [binding["label_id"]]:
+            raise LinearError("native_type_readback_conflict", uncertain=True)
+        self.check_connection()
+        return snapshot
+
+    def create_issue(self, task, candidate_id=None, *, native_type=None):
         if self.binding is None:
             raise LinearError("binding_not_verified")
         connection = self.check_connection(refresh=True)
@@ -347,6 +457,8 @@ class LinearClient:
             "title": task.title,
             "description": task.body,
         }
+        if native_type is not None:
+            values["labelIds"] = [canonical_id(native_type["label_id"])]
         if candidate_id is not None:
             if self.create_capability is None:
                 raise LinearError("creation_uuid_capability_missing")

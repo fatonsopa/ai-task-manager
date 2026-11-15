@@ -34,6 +34,29 @@ class DecisionProvider(AdapterProvider):
         }
         self.label_candidates = [self.managed]
         self.creator_app = False
+        self.type_group = {
+            "id": uid(610),
+            "name": "Type",
+            "isGroup": True,
+            "groupType": "singleSelect",
+            "archivedAt": None,
+            "team": None,
+            "parent": None,
+        }
+        self.type_labels = [self.type_group] + [
+            {
+                "id": uid(611 + i),
+                "name": name,
+                "isGroup": False,
+                "groupType": None,
+                "archivedAt": None,
+                "team": None,
+                "parent": {k: self.type_group[k] for k in ("id", "name", "isGroup", "team")},
+            }
+            for i, name in enumerate(
+                ("Bug", "Chore", "Decision", "Feature", "Improvement", "Release")
+            )
+        ]
         super().__init__()
 
     @staticmethod
@@ -47,6 +70,33 @@ class DecisionProvider(AdapterProvider):
         }
 
     def _fixture_query(self, query, variables):
+        if "query NativeTypeLabels" in query:
+            return {
+                "viewer": {"id": EXPECTED.viewer_id},
+                "organization": {"id": EXPECTED.workspace_id},
+                "issueLabels": {
+                    "nodes": copy.deepcopy(self.type_labels),
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                },
+            }
+        if "query NativeTypeRead" in query:
+            issue = copy.deepcopy(self.issues[variables["id"]])
+            typed_ids = {r["id"] for r in self.type_labels if not r["isGroup"]}
+            issue["labels"] = {
+                "nodes": [
+                    {
+                        "id": value,
+                        "parent": {"id": self.type_group["id"]} if value in typed_ids else None,
+                    }
+                    for value in issue.get("decision_labels", [])
+                ],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+            return {
+                "viewer": {"id": EXPECTED.viewer_id},
+                "organization": {"id": EXPECTED.workspace_id},
+                "issue": issue,
+            }
         if "query DecisionLabels" in query:
             return {
                 "issueLabels": {
@@ -89,7 +139,12 @@ class DecisionProvider(AdapterProvider):
                 "pageInfo": {"hasNextPage": False, "endCursor": None},
             }
             return {"issueUpdate": {"success": True, "issue": result}}
-        return super()._fixture_query(query, variables)
+        result = super()._fixture_query(query, variables)
+        if "mutation CreateIssue" in query:
+            self.issues[result["issueCreate"]["issue"]["id"]]["decision_labels"] = list(
+                variables["input"].get("labelIds", [])
+            )
+        return result
 
 
 class DecisionApprovals:

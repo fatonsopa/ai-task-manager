@@ -151,6 +151,11 @@ class WritingService:
             "task_id": task.id if task else None,
             "task_prose_digest": task.prose_digest if task else None,
         }
+        if purpose == "task":
+            task_type = packet["contract"].get("task_type")
+            if task_type not in {"Bug", "Chore", "Decision", "Feature", "Improvement", "Release"}:
+                raise ApprovalRequired("Writer issue kind has no supported native Type")
+            row["native_task_type"] = task_type
         if purpose == "decision":
             row["decision"] = decision
         write_private(folder / "packet.json", packet)

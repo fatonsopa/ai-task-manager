@@ -5,7 +5,7 @@ from ai_task_manager.domains.work.errors import WorkError
 from ai_task_manager.domains.work.models import SyncState
 
 from .inflight import owned_request
-from .observations import record_scope_removal
+from .observations import ownership_removal, record_scope_removal
 
 
 class OutboundDrain:
@@ -23,6 +23,20 @@ class OutboundDrain:
 
     def _observe_conflict(self, handle, task, snapshot):
         _, scope = self.core.session_binding(handle)
+        connection = self.client.check_connection(scope)
+        if (
+            snapshot.assignee_id != scope.principal
+            or snapshot.delegate_id != connection.agent_id
+            or snapshot.delegate_is_application is not True
+        ):
+            return record_scope_removal(
+                self.core,
+                self.journal,
+                handle,
+                task,
+                ownership_removal(snapshot),
+                f"linear-preflight-scope:{task.id}:{snapshot.revision}:{task.version}",
+            )
         ref = self.journal.external_receipt(scope, task, snapshot, {}, frozenset())
         return self.core.external.observe(
             handle,
@@ -32,6 +46,21 @@ class OutboundDrain:
             ref,
             f"linear-preflight:{task.id}:{snapshot.revision}:{task.version}",
         )
+
+    def _native_type(self, scope, task):
+        record = getattr(self.core.context.approvals, "record", None)
+        if record is None:
+            return None  # Historical adapters have no new signed metadata marker.
+        approved = record(task.approval_ref)
+        if "native_task_type" not in approved:
+            return None
+        if (
+            approved.get("purpose") != "task"
+            or approved.get("scope") != asdict(scope)
+            or approved.get("digest") != task.prose_digest
+        ):
+            raise LinearError("native_type_approval_scope_changed")
+        return self.client.native_type(approved["native_task_type"])
 
     def run_once(self, handle, *, task_id=None):
         operation = self.core.sync.claim(handle, self.adapter_id, task_id=task_id)
@@ -107,6 +136,9 @@ class OutboundDrain:
                 ):
                     self._observe_conflict(handle, task, before)
                     raise LinearError("preflight_conflict")
+            native_type = (
+                self._native_type(scope, task) if operation.kind == "create_backlog" else None
+            )
             # Recheck after preflight I/O; a newer local human decision fences this send.
             current = self.core.get_task(handle, task.id)
             if (
@@ -124,16 +156,35 @@ class OutboundDrain:
                 else None
             )
             send_id = self.journal.begin_send(
-                scope, operation, candidate_id, connection_digest=connection.digest
+                scope,
+                operation,
+                candidate_id,
+                connection_digest=connection.digest,
+                native_type=native_type,
             )
             with owned_request(self.journal, scope, operation, send_id):
-                result = (
-                    self.client.create_issue(task, candidate_id)
-                    if candidate_id
-                    else self.client.create_issue(task)
-                    if operation.kind == "create_backlog"
-                    else self.client.update_issue(task, operation.kind)
-                )
+                if operation.kind == "create_backlog":
+                    options = {"native_type": native_type} if native_type is not None else {}
+                    result = (
+                        self.client.create_issue(task, candidate_id, **options)
+                        if candidate_id
+                        else self.client.create_issue(task, **options)
+                    )
+                else:
+                    result = self.client.update_issue(task, operation.kind)
+                if result.assignee_id != scope.principal:
+                    metadata = ownership_removal(result)
+                    self.journal.record_scope_response(scope, send_id, metadata)
+                    if task.issue_id == result.id:
+                        record_scope_removal(
+                            self.core,
+                            self.journal,
+                            handle,
+                            task,
+                            metadata,
+                            f"linear-response-scope:{operation.id}:{operation.attempt_count}",
+                        )
+                    raise LinearError("mutation_scope_changed", uncertain=True)
                 self.journal.finish_send(send_id, "mutation_returned", result)
             if candidate_id is not None and result.id != candidate_id:
                 raise LinearError("creation_uuid_not_honored", uncertain=True)
@@ -142,8 +193,13 @@ class OutboundDrain:
             if readback != result:
                 self._observe_conflict(handle, self.core.get_task(handle, task.id), readback)
                 raise LinearError("readback_race", uncertain=True)
+            if native_type is not None:
+                typed = self.client.verify_native_type(result.id, native_type)
+                if typed != readback:
+                    self._observe_conflict(handle, self.core.get_task(handle, task.id), typed)
+                    raise LinearError("readback_race", uncertain=True)
             ref = self.journal.status_receipt(
-                scope, task, operation, readback, connection=connection
+                scope, task, operation, readback, connection=connection, native_type=native_type
             )
             self.journal.finish_send(send_id, "readback", readback)
             confirmed = self.core.intake.confirm_status(
