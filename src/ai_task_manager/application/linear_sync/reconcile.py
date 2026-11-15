@@ -6,7 +6,7 @@ from ai_task_manager.domains.work.models import SyncState
 
 from .echoes import pending_echo
 from .inflight import request_in_flight
-from .observations import record_scope_removal
+from .observations import ownership_removal, record_scope_removal
 
 
 class Reconciliation:
@@ -224,6 +224,8 @@ class Reconciliation:
                 snapshot = self.client.read_issue(task.issue_id)
                 check()
                 self.client.require_delegate(snapshot)
+                if snapshot.assignee_id != scope.principal:
+                    raise ScopeMismatch(ownership_removal(snapshot))
                 current = self.core.get_task(handle, task.id)
                 if (current.version, current.decision_revision) != (
                     task.version,

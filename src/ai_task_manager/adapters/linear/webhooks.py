@@ -99,12 +99,26 @@ class WebhookReceiver:
             }
             changed_team = data.get("teamId") != self.binding.expected.team_id
             changed_project = data.get("projectId") != self.scope.project
+            changed_assignee = "assigneeId" in data and data["assigneeId"] != self.scope.principal
+            connection = self.binding.connection
+            changed_delegate = (
+                connection is not None
+                and "delegateId" in data
+                and data["delegateId"] != connection.agent_id
+            )
             if issue_id not in registered:
                 self.journal.ignore_delivery(
                     self.scope, delivery_id, raw_body, "unregistered_issue", self.clock()
                 )
                 return HttpResponse(200)
-            if changed_team or changed_project:
+            if "delegateId" in data and connection is None:
+                return HttpResponse(403)  # No installed selection witness for this claim.
+            if changed_team or changed_project or changed_assignee or changed_delegate:
+                scope_fields = {"team": data.get("teamId"), "project": data.get("projectId")}
+                if changed_assignee or changed_delegate:
+                    scope_fields.update(
+                        assignee=data.get("assigneeId"), delegate=data.get("delegateId")
+                    )
                 payload = {
                     "action": payload["action"],
                     "type": "Issue",
@@ -119,12 +133,16 @@ class WebhookReceiver:
                         "projectChanged": changed_project,
                         "scopeDigest": hashlib.sha256(
                             json.dumps(
-                                {"team": data.get("teamId"), "project": data.get("projectId")},
+                                scope_fields,
                                 sort_keys=True,
                             ).encode()
                         ).hexdigest(),
                     },
                 }
+                if changed_assignee or changed_delegate:
+                    payload["data"].update(
+                        assigneeChanged=changed_assignee, delegateChanged=changed_delegate
+                    )
         except WorkError:
             return HttpResponse(403)
         except sqlite3.DatabaseError:

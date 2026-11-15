@@ -5,7 +5,7 @@ from ai_task_manager.domains.work.errors import WorkError
 from ai_task_manager.domains.work.models import SyncState
 
 from .inflight import owned_request
-from .observations import record_scope_removal
+from .observations import ownership_removal, record_scope_removal
 
 
 class OutboundDrain:
@@ -23,6 +23,20 @@ class OutboundDrain:
 
     def _observe_conflict(self, handle, task, snapshot):
         _, scope = self.core.session_binding(handle)
+        connection = self.client.check_connection(scope)
+        if (
+            snapshot.assignee_id != scope.principal
+            or snapshot.delegate_id != connection.agent_id
+            or snapshot.delegate_is_application is not True
+        ):
+            return record_scope_removal(
+                self.core,
+                self.journal,
+                handle,
+                task,
+                ownership_removal(snapshot),
+                f"linear-preflight-scope:{task.id}:{snapshot.revision}:{task.version}",
+            )
         ref = self.journal.external_receipt(scope, task, snapshot, {}, frozenset())
         return self.core.external.observe(
             handle,

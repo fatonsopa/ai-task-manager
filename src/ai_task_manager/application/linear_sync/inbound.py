@@ -2,13 +2,13 @@ import json
 from dataclasses import asdict
 from uuid import uuid4
 
-from ai_task_manager.adapters.linear.errors import LinearError
+from ai_task_manager.adapters.linear.errors import LinearError, ScopeMismatch
 from ai_task_manager.adapters.linear.models import revision
 from ai_task_manager.domains.work.errors import InvalidTransition, WorkError
 from ai_task_manager.domains.work.models import Cause
 
 from .echoes import pending_echo, retained_responses
-from .observations import record_scope_removal
+from .observations import ownership_removal, record_scope_removal
 
 
 class InboundDrain:
@@ -198,8 +198,30 @@ class InboundDrain:
                     f"linear-removal:{receipt['id']}",
                 )
                 raise LinearError("remote_issue_removed")
-            snapshot = self.client.read_issue(task.issue_id)
-            check()
+            try:
+                snapshot = self.client.read_issue(task.issue_id)
+                check()
+                if snapshot.assignee_id != scope.principal:
+                    raise ScopeMismatch(ownership_removal(snapshot))
+                try:
+                    self.client.require_delegate(snapshot)
+                except LinearError as exc:
+                    if exc.category != "agent_delegate_mismatch":
+                        raise
+                    raise ScopeMismatch(ownership_removal(snapshot)) from exc
+            except ScopeMismatch as exc:
+                check()
+                if exc.observation:
+                    record_scope_removal(
+                        self.core,
+                        self.journal,
+                        handle,
+                        task,
+                        exc.observation,
+                        f"linear-inbound-scope:{receipt['id']}:{exc.observation['updatedAt']}",
+                        check_authority=check,
+                    )
+                raise
             checkpoint = self.journal.checkpoint(
                 receipt["id"], worker_id, {"snapshot": asdict(snapshot)}, self.clock()
             )
