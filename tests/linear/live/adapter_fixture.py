@@ -4,7 +4,7 @@ import copy
 import json
 from pathlib import Path
 
-from tests.linear.helpers import EXPECTED, ProviderFixture
+from tests.linear.helpers import EXPECTED, ProviderFixture, uid
 
 from .fixture_graphql import OPERATIONS, SHAPE
 
@@ -13,6 +13,29 @@ class AdapterProvider(ProviderFixture):
     def __init__(self):
         self.projects, self.webhooks = {}, {}
         self.transform = None
+        self.type_group = {
+            "id": uid(610),
+            "name": "Type",
+            "isGroup": True,
+            "groupType": "singleSelect",
+            "archivedAt": None,
+            "team": None,
+            "parent": None,
+        }
+        self.type_labels = [self.type_group] + [
+            {
+                "id": uid(611 + i),
+                "name": name,
+                "isGroup": False,
+                "groupType": None,
+                "archivedAt": None,
+                "team": None,
+                "parent": {k: self.type_group[k] for k in ("id", "name", "isGroup", "team")},
+            }
+            for i, name in enumerate(
+                ("Bug", "Chore", "Decision", "Feature", "Improvement", "Release")
+            )
+        ]
         super().__init__()
 
     def identity(self):
@@ -26,6 +49,33 @@ class AdapterProvider(ProviderFixture):
         return self.transform(query, variables, result) if self.transform else result
 
     def _fixture_query(self, query, variables):
+        if "query NativeTypeLabels" in query:
+            return {
+                "viewer": {"id": EXPECTED.viewer_id},
+                "organization": {"id": EXPECTED.workspace_id},
+                "issueLabels": {
+                    "nodes": copy.deepcopy(self.type_labels),
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                },
+            }
+        if "query NativeTypeRead" in query:
+            issue = copy.deepcopy(self.issues[variables["id"]])
+            typed_ids = {r["id"] for r in self.type_labels if not r["isGroup"]}
+            issue["labels"] = {
+                "nodes": [
+                    {
+                        "id": value,
+                        "parent": {"id": self.type_group["id"]} if value in typed_ids else None,
+                    }
+                    for value in issue.get("decision_labels", [])
+                ],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+            return {
+                "viewer": {"id": EXPECTED.viewer_id},
+                "organization": {"id": EXPECTED.workspace_id},
+                "issue": issue,
+            }
         if query == SHAPE:
             return json.loads(
                 (Path(__file__).parents[1] / "frozen/fixture-admin-schema-v1.json").read_text()
@@ -116,6 +166,8 @@ class AdapterProvider(ProviderFixture):
         result = super().graphql(query, variables)
         if "mutation CreateIssue" in query:
             self.issues[result["issueCreate"]["issue"]["id"]].update(
-                creator={"id": EXPECTED.viewer_id}, archivedAt=None
+                creator={"id": EXPECTED.viewer_id},
+                archivedAt=None,
+                decision_labels=list(variables["input"].get("labelIds", [])),
             )
         return result
