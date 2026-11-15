@@ -26,6 +26,9 @@ class HumanInstruction:
     task_version: int | None = None
     prose_digest: str | None = None
     proposed_prose_digest: str | None = None
+    decision_request_id: str | None = None
+    decision_option_id: str | None = None
+    decision_digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +71,8 @@ class DecisionAuthority:
                 raise EvidenceRequired(
                     "Human instruction does not authorize this task and revision"
                 )
+            if source.decision_request_id is not None:
+                raise EvidenceRequired("A decision option is not task-transition acceptance")
             if source.prose_digest != task.prose_digest:
                 raise EvidenceRequired("Human acceptance belongs to another task version or scope")
             actor, source_ref, actual_reason = "human", source.source_hash, source.reason
@@ -182,6 +187,8 @@ class DecisionAuthority:
             raise EvidenceRequired(
                 "Observed human instruction does not match this work and revision"
             )
+        if source.decision_request_id is not None:
+            raise EvidenceRequired("A decision option is not task-transition acceptance")
         if human_ref.startswith("session-human-receipt:") and source.task_version != task.version:
             raise EvidenceRequired("Human instruction belongs to another task version")
         if action == "revise" and source.proposed_prose_digest != proposed_prose_digest:

@@ -25,6 +25,8 @@ def capture_instruction(
     reason,
     writing_ref=None,
     timeout=60,
+    decision_request_id=None,
+    decision_option_id=None,
 ):
     """Not a model tool: the existing private console must approve its own challenge.
 
@@ -56,6 +58,36 @@ def capture_instruction(
     if writing_ref is not None:
         view = service._required("writer").approvals_for_tasks(service.scope)
         proposed = view.verify_approval(writing_ref).digest
+    decision_digest = None
+    if decision_request_id is not None or decision_option_id is not None:
+        import json
+
+        from ai_task_manager.adapters.linear.progress_store import ProgressStore
+
+        if target != task.observed_status or writing_ref is not None:
+            raise AccessDenied("An option choice cannot change task status or approved prose")
+        row = ProgressStore(service.inbound.journal).get(service.scope, decision_request_id)
+        payload = json.loads(row["payload"])
+        record = (
+            service._required("writer")
+            .approvals_for_decisions(service.scope, task.id, task.prose_digest)
+            .record(payload["approval_ref"])
+        )
+        metadata = payload.get("decision")
+        if (
+            row["task_id"] != task.id
+            or row["decision_state"] != "open"
+            or row["state"] != "confirmed"
+            or row["label_state"] != "confirmed"
+            or not metadata
+            or metadata != record.get("decision")
+            or metadata["recipient"]["id"] != service.scope.principal
+            or decision_option_id not in {option["id"] for option in metadata["options"]}
+        ):
+            raise AccessDenied(
+                "Current confirmed request and one exact responsible-human option required"
+            )
+        decision_digest = row["fingerprint"]
     reference = OperatorChannel(journal).capture_instruction(
         scope=service.scope,
         task_id=task.id,
@@ -66,6 +98,9 @@ def capture_instruction(
         prose_digest=task.prose_digest,
         proposed_prose_digest=proposed,
         timeout=timeout,
+        decision_request_id=decision_request_id,
+        decision_option_id=decision_option_id,
+        decision_digest=decision_digest,
     )
     current = service.core.get_task(service.handle, task.id)
     if current != task:

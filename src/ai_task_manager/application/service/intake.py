@@ -114,11 +114,10 @@ def task_revise(service, data, invocation):
 def task_progress(service, data, invocation):
     task = service.core.get_task(service.handle, data["task_id"])
     require_owned(service, task)
-    view = service._required("writer").approvals_for_progress(
-        service.scope, task.id, task.prose_digest
-    )
+    from .decision_publication import publisher as bound_publisher
+
+    publisher, view = bound_publisher(service, task, decision=False)
     prose = view.prose(data["writing_ref"])
-    publisher = service._required("publisher")(service.scope, task, view)
     return external_result(
         publisher.publish(
             service.handle, task.id, prose, data["writing_ref"], data["operation_key"]

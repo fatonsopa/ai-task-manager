@@ -337,17 +337,21 @@ def renewal(journal, config_file, config, reference, scope, now, core, handle, w
     ):
         raise EvidenceRequired("Unsettled provider sends prevent session renewal")
     with provider.transaction() as conn:
-        if (
-            conn.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='progress_publications'"
-            ).fetchone()
-            and conn.execute(
-                "SELECT 1 FROM progress_publications WHERE scope=? "
-                "AND state IN ('leased','uncertain') LIMIT 1",
+        if conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='progress_publications'"
+        ).fetchone():
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(progress_publications)")}
+            pending = "state IN ('leased','uncertain')"
+            if {"label_state", "decision_state", "effect_owner"} <= columns:
+                pending += (
+                    " OR label_state IN ('sent','uncertain')"
+                    " OR decision_state='resolving' OR effect_owner IS NOT NULL"
+                )
+            if conn.execute(
+                "SELECT 1 FROM progress_publications WHERE scope=? AND (" + pending + ") LIMIT 1",
                 (encoded(scope),),
-            ).fetchone()
-        ):
-            raise EvidenceRequired("Unsettled progress publication prevents session renewal")
+            ).fetchone():
+                raise EvidenceRequired("Unsettled progress publication prevents session renewal")
     old = config.get("workflow_control")
     if old is None:
         if workflow_control is not None:

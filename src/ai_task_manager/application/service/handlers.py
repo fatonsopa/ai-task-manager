@@ -2,6 +2,18 @@
 
 from .actions import perform as task_action
 from .actions import settle_external as task_settle_external
+from .decision_publication import (
+    prepare as task_decision_prepare,
+)
+from .decision_publication import (
+    request as task_decision_request,
+)
+from .decision_publication import (
+    resolve as task_decision_resolve,
+)
+from .decision_publication import (
+    show as task_decision_show,
+)
 from .events import event_acknowledge, event_list, session_resume, session_show, sync_now
 from .existing import task_admit, task_find, task_inspect, task_select
 from .intake import (
@@ -30,6 +42,10 @@ HANDLERS = {
     "task_admit": task_admit,
     "task_revise": task_revise,
     "task_progress": task_progress,
+    "task_decision_prepare": task_decision_prepare,
+    "task_decision_request": task_decision_request,
+    "task_decision_resolve": task_decision_resolve,
+    "task_decision_show": task_decision_show,
     "task_accept_external_prose": task_accept_external_prose,
     "task_list": task_list,
     "task_show": task_show,

@@ -90,6 +90,13 @@ class ApplicationService:
                             task_view(self, current),
                             "confirmed" if current.sync_state == "confirmed" else "pending",
                         )
+                    if operation in {"task_decision_request", "task_decision_resolve"}:
+                        from .decision_publication import selected
+                        from .models import external_result
+
+                        publisher, row = selected(self, {"request_id": cached["data"]["id"]})
+                        publisher.check_authority()
+                        return external_result(publisher._decision_view(row))
                     if operation == "worker_start":
                         current = self.core.get_attempt(self.handle, cached["data"]["id"])
                         return result(attempt_view(self, current))

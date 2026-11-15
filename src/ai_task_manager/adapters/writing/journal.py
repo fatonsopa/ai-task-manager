@@ -20,7 +20,10 @@ class ApprovalView:
             raise ApprovalRequired("Writing approval belongs to another purpose or version")
         if self.scope is not None and data["scope"] != asdict(self.scope):
             raise ApprovalRequired("Writing approval belongs to another session")
-        if self.purpose == "progress" and (data.get("task_id"), data.get("task_prose_digest")) != (
+        if self.purpose in {"progress", "decision"} and (
+            data.get("task_id"),
+            data.get("task_prose_digest"),
+        ) != (
             self.task_id,
             self.task_prose_digest,
         ):

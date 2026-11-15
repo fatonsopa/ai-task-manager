@@ -31,8 +31,27 @@ class ProgressStore:
                     "publication_id TEXT NOT NULL, state TEXT NOT NULL, "
                     "recorded_at REAL NOT NULL, detail TEXT)"
                 )
-            elif len(versions) != 1 or versions[0][0] != 1:
+            elif len(versions) != 1 or versions[0][0] not in {1, 2}:
                 raise LinearError("unsupported_progress_schema")
+            if not versions or versions[0][0] == 1:
+                for name, declaration in {
+                    "decision_state": "TEXT",
+                    "label_state": "TEXT",
+                    "label_response": "TEXT",
+                    "resolution_key": "TEXT",
+                    "resolution": "TEXT",
+                    "effect_owner": "TEXT",
+                    "effect_lease": "REAL",
+                }.items():
+                    conn.execute(
+                        "ALTER TABLE progress_publications ADD COLUMN " + name + " " + declaration
+                    )
+                conn.execute(
+                    "CREATE UNIQUE INDEX progress_resolution_key ON "
+                    "progress_publications(scope,resolution_key) WHERE "
+                    "resolution_key IS NOT NULL"
+                )
+                conn.execute("UPDATE progress_metadata SET version=2")
 
     def submit(self, scope, task_id, operation_key, payload):
         if not isinstance(operation_key, str) or not operation_key.strip():
@@ -50,6 +69,10 @@ class ProgressStore:
                 ):
                     raise IdempotencyConflict("Publication identity has a different scoped request")
                 return dict(old)
+            if "decision" in payload:
+                anchor = self._anchor(conn, scope_text, payload["issue_id"])
+                if anchor and anchor["effect_owner"]:
+                    raise LinearError("decision_issue_effect_busy", uncertain=True)
             publication_id = str(uuid4())
             conn.execute(
                 "INSERT INTO progress_publications(id,scope,task_id,operation_key,"
@@ -65,6 +88,12 @@ class ProgressStore:
                     self.clock(),
                 ),
             )
+            if "decision" in payload:
+                conn.execute(
+                    "UPDATE progress_publications SET "
+                    "decision_state='open',label_state='pending' WHERE id=?",
+                    (publication_id,),
+                )
             return dict(
                 conn.execute(
                     "SELECT * FROM progress_publications WHERE id=?", (publication_id,)
@@ -175,3 +204,111 @@ class ProgressStore:
             )
             if result.rowcount != 1:
                 raise LinearError("progress_effect_not_proven_absent")
+
+    @staticmethod
+    def _anchor(conn, scope_text, issue_id):
+        return conn.execute(
+            "SELECT * FROM progress_publications WHERE scope=? AND decision_state IS NOT NULL "
+            "AND json_extract(payload,'$.issue_id')=? ORDER BY rowid LIMIT 1",
+            (scope_text, issue_id),
+        ).fetchone()
+
+    def decision_claim(self, scope, publication_id, owner):
+        import json
+
+        with self.journal.transaction() as conn:
+            row = conn.execute(
+                "SELECT * FROM progress_publications WHERE id=? AND scope=?",
+                (publication_id, encoded(asdict(scope))),
+            ).fetchone()
+            if row is None or row["decision_state"] is None:
+                raise NotFound("Decision request is unavailable in this session")
+            issue_id = json.loads(row["payload"])["issue_id"]
+            anchor = self._anchor(conn, encoded(asdict(scope)), issue_id)
+            if anchor["effect_owner"]:
+                raise LinearError("decision_issue_effect_busy", uncertain=True)
+            other = conn.execute(
+                "SELECT id FROM progress_publications WHERE scope=? AND decision_state IS NOT NULL "
+                "AND json_extract(payload,'$.issue_id')=? AND label_state IN"
+                " ('sent','uncertain') AND id!=? LIMIT 1",
+                (encoded(asdict(scope)), issue_id, publication_id),
+            ).fetchone()
+            if other:
+                raise LinearError("decision_label_effect_uncertain", uncertain=True)
+            conn.execute(
+                "UPDATE progress_publications SET effect_owner=?,effect_lease=? WHERE id=?",
+                (owner, self.clock() + 120, anchor["id"]),
+            )
+            return anchor["id"]
+
+    def decision_release(self, anchor_id, owner):
+        with self.journal.transaction() as conn:
+            conn.execute(
+                "UPDATE progress_publications SET "
+                "effect_owner=NULL,effect_lease=NULL WHERE id=? AND "
+                "effect_owner=?",
+                (anchor_id, owner),
+            )
+
+    def label_stage(self, scope, publication_id, state, response=None):
+        with self.journal.transaction() as conn:
+            result = conn.execute(
+                "UPDATE progress_publications SET "
+                "label_state=?,label_response=COALESCE(?,label_response) "
+                "WHERE id=? AND scope=? AND decision_state IS NOT NULL",
+                (
+                    state,
+                    encoded(response) if response is not None else None,
+                    publication_id,
+                    encoded(asdict(scope)),
+                ),
+            )
+            if result.rowcount != 1:
+                raise NotFound("Decision request is unavailable")
+            conn.execute(
+                "INSERT INTO "
+                "progress_history(publication_id,state,recorded_at,detail) "
+                "VALUES(?,?,?,?)",
+                (publication_id, "label:" + state, self.clock(), None),
+            )
+
+    def record_resolution(self, scope, publication_id, operation_key, resolution):
+        with self.journal.transaction() as conn:
+            row = conn.execute(
+                "SELECT * FROM progress_publications WHERE id=? AND scope=?",
+                (publication_id, encoded(asdict(scope))),
+            ).fetchone()
+            if row is None:
+                raise NotFound("Decision request is unavailable")
+            if row["resolution_key"]:
+                if row["resolution_key"] != operation_key or row["resolution"] != encoded(
+                    resolution
+                ):
+                    raise IdempotencyConflict(
+                        "Decision resolution has another original source or key"
+                    )
+                return
+            conn.execute(
+                "UPDATE progress_publications SET "
+                "decision_state='resolving',resolution_key=?,resolution=?,label_state='pending',label_response=NULL"
+                " WHERE id=?",
+                (operation_key, encoded(resolution), publication_id),
+            )
+
+    def open_decisions(self, scope, issue_id):
+        with self.journal.transaction() as conn:
+            return conn.execute(
+                "SELECT count(*) FROM progress_publications WHERE scope=? "
+                "AND decision_state='open' AND "
+                "json_extract(payload,'$.issue_id')=?",
+                (encoded(asdict(scope)), issue_id),
+            ).fetchone()[0]
+
+    def finish_resolution(self, scope, publication_id):
+        with self.journal.transaction() as conn:
+            conn.execute(
+                "UPDATE progress_publications SET decision_state='resolved' "
+                "WHERE id=? AND scope=? AND decision_state='resolving' AND "
+                "label_state='confirmed'",
+                (publication_id, encoded(asdict(scope))),
+            )

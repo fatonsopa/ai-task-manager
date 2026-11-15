@@ -106,6 +106,16 @@ class LinearMarkdownRenderer:
             changed = True
         return changed and i == len(before) and j == len(after)
 
+    def render_decision(self, prose, mention_url):
+        """Preserve the verified mention URL before approval; routine rendering is unchanged."""
+        from dataclasses import replace
+
+        suffix = "\n\n" + mention_url
+        if not prose.body.endswith(suffix):
+            raise ValidationError("Decision draft must end with its exact canonical profile URL")
+        rendered = self.render(replace(prose, body=prose.body[: -len(suffix)]))
+        return RenderedProse(rendered.title, rendered.body + suffix, "linear-decision-markdown-v1")
+
     def render(self, prose):
         blocks, fence_starts = literal_blocks(prose.body)
         # Apply the existing list rules on the original offsets first. A list

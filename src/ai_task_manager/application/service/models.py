@@ -129,6 +129,31 @@ SCHEMAS = {
         {**TASK, **WRITE, **CONCURRENCY, "human_ref": REF},
         ("task_id", "writing_ref", "human_ref", *CONCURRENCY),
     ),
+    "task_decision_prepare": obj(
+        {
+            **TASK,
+            "operation_key": REF,
+            "title": TEXT,
+            "context": TEXT,
+            "options": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 8,
+                "items": obj(
+                    {"id": REF, "label": TEXT, "description": TEXT}, ("id", "label", "description")
+                ),
+            },
+            "recommendation": REF,
+            "rationale": TEXT,
+        },
+        ("task_id", "operation_key", "title", "context", "options", "recommendation", "rationale"),
+    ),
+    "task_decision_request": obj({**TASK, **WRITE}, ("task_id", *WRITE)),
+    "task_decision_resolve": obj(
+        {"request_id": REF, "human_ref": REF, "operation_key": REF},
+        ("request_id", "human_ref", "operation_key"),
+    ),
+    "task_decision_show": obj({"request_id": REF}, ("request_id",)),
     "task_progress": obj({**TASK, **WRITE}, ("task_id", *WRITE)),
     "worker_start": obj(
         {**TASK, **CONCURRENCY, "host": REF, "human_ref": REF}, ("task_id", "host", *CONCURRENCY)

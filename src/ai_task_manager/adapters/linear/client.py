@@ -42,6 +42,26 @@ COMMENT_CREATE = (
     "commentCreate(input: $input) { success comment { " + COMMENT_FIELDS + " } } }"
 )
 
+DECISION_USER = "id app active url organization { id }"
+DECISION_ISSUE = ISSUE_FIELDS.replace("assignee { id }", "assignee { " + DECISION_USER + " }")
+DECISION_READ = (
+    "query DecisionContext($id: String!) { viewer { id } organization { id urlKey } "
+    "issue(id:$id) { " + DECISION_ISSUE + " creator { " + DECISION_USER + " } "
+    "labels(first:50) { nodes { id } pageInfo { hasNextPage endCursor } } } }"
+)
+DECISION_LABELS = (
+    "query DecisionLabels { "
+    'issueLabels(includeArchived:true,filter:{name:{eqIgnoreCase:"Waiting '
+    'for Decision"}},first:50) '
+    "{ nodes { id name isGroup archivedAt team{id} } pageInfo{hasNextPage endCursor} } }"
+)
+DECISION_LABEL_UPDATE = (
+    "mutation DecisionLabelsUpdate($id:String!,$input:IssueUpdateInput!) { "
+    "issueUpdate(id:$id,input:$input) { success issue { "
+    + DECISION_ISSUE
+    + " labels(first:50) { nodes { id } pageInfo { hasNextPage endCursor } } } } }"
+)
+
 
 class LinearClient:
     def __init__(
@@ -392,3 +412,82 @@ class LinearClient:
     def read_comment(self, comment_id):
         canonical_id(comment_id)
         return self.comment_snapshot(self.request(COMMENT_READ, {"id": comment_id}).get("comment"))
+
+    def decision_context(self, issue_id):
+        """Current canonical recipient and exact scoped label; never create metadata."""
+        from urllib.parse import urlsplit
+
+        self.check_connection(refresh=True)
+        value = self.request(DECISION_READ, {"id": canonical_id(issue_id)})
+        if (value["viewer"]["id"], value["organization"]["id"]) != (
+            self.expected.viewer_id,
+            self.expected.workspace_id,
+        ):
+            raise LinearError("decision_recipient_scope_mismatch")
+        issue = value["issue"]
+        snapshot = self.require_delegate(self.snapshot(issue))
+        creator = issue.get("creator")
+        if not isinstance(creator, dict) or type(creator.get("app")) is not bool:
+            raise LinearError("decision_creator_unavailable")
+        recipient = issue.get("assignee") if creator["app"] else creator
+        if (
+            not isinstance(recipient, dict)
+            or recipient.get("app") is not False
+            or recipient.get("active") is not True
+            or recipient.get("organization", {}).get("id") != self.expected.workspace_id
+        ):
+            raise LinearError("decision_human_recipient_unavailable")
+        recipient_id = canonical_id(recipient["id"])
+        url = recipient["url"]
+        parsed = urlsplit(url)
+        workspace = value["organization"]["urlKey"]
+        if (
+            parsed.scheme != "https"
+            or parsed.netloc != "linear.app"
+            or parsed.query
+            or parsed.fragment
+            or not parsed.path.startswith("/" + workspace + "/profiles/")
+            or not parsed.path.removeprefix("/" + workspace + "/profiles/")
+            or any(not 0x21 <= ord(c) <= 0x7E for c in url)
+        ):
+            raise LinearError("decision_profile_url_invalid")
+        labels = self.request(DECISION_LABELS, {})["issueLabels"]
+        if labels["pageInfo"]["hasNextPage"] or issue["labels"]["pageInfo"]["hasNextPage"]:
+            raise LinearError("decision_label_lookup_incomplete")
+        candidates = [
+            row
+            for row in labels["nodes"]
+            if row["name"].casefold() == "waiting for decision"
+            and row.get("archivedAt") is None
+            and row["isGroup"] is False
+            and (row.get("team") is None or row["team"]["id"] == self.expected.team_id)
+        ]
+        if len(candidates) != 1:
+            raise LinearError("decision_label_missing_or_ambiguous")
+        return {
+            "recipient": {"id": recipient_id, "url": url},
+            "label_id": canonical_id(candidates[0]["id"]),
+            "label_name": candidates[0]["name"],
+            "labels": sorted(canonical_id(row["id"]) for row in issue["labels"]["nodes"]),
+            "issue": snapshot,
+        }
+
+    def change_decision_label(self, issue_id, label_id, *, add):
+        result = self.request(
+            DECISION_LABEL_UPDATE,
+            {
+                "id": canonical_id(issue_id),
+                "input": {"addedLabelIds" if add else "removedLabelIds": [canonical_id(label_id)]},
+            },
+            mutation=True,
+        ).get("issueUpdate")
+        if not result or result.get("success") is not True:
+            raise LinearError("decision_label_effect_unconfirmed", uncertain=True)
+        issue = result["issue"]
+        snapshot = self.require_delegate(self.snapshot(issue))
+        if issue["labels"]["pageInfo"]["hasNextPage"]:
+            raise LinearError("decision_label_lookup_incomplete", uncertain=True)
+        return {
+            "revision": snapshot.revision,
+            "labels": sorted(canonical_id(row["id"]) for row in issue["labels"]["nodes"]),
+        }

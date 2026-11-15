@@ -143,3 +143,33 @@ def test_completed_retry_refuses_replaced_provider(provider, monkeypatch):
     with pytest.raises(AccessDenied, match="provider journal"):
         ordinary_renew(p, s, monkeypatch)
     assert (p.config.read_bytes(), records(s)) == before
+
+
+def test_confirmed_comment_with_partial_decision_effect_blocks_renewal(provider, monkeypatch):
+    """Confirmed comments cannot hide pending label/resolution or unknown-owner effects."""
+    p = provider
+    s = expired(p, monkeypatch)
+    store = ProgressStore(s.core.context.principals)
+    publication = store.submit(
+        s.scope,
+        "owned-task",
+        "decision-request",
+        {"issue_id": "owned-canonical", "decision": {"recipient": "authored"}},
+    )
+    before = p.config.read_bytes(), records(s), (p.root / "session.json").read_bytes()
+    for label_state, decision_state, owner in (
+        ("sent", "open", None),
+        ("uncertain", "open", None),
+        ("confirmed", "resolving", None),
+        ("confirmed", "open", "original-owner"),
+    ):
+        with store.journal.transaction() as conn:
+            conn.execute(
+                "UPDATE progress_publications SET "
+                "state='confirmed',label_state=?,decision_state=?,effect_owner=?"
+                " WHERE id=?",
+                (label_state, decision_state, owner, publication["id"]),
+            )
+        with pytest.raises(EvidenceRequired, match="progress"):
+            ordinary_renew(p, s, monkeypatch)
+        assert (p.config.read_bytes(), records(s), (p.root / "session.json").read_bytes()) == before

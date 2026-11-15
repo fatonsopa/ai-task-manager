@@ -47,6 +47,9 @@ class WritingService:
     def approvals_for_progress(self, scope, task_id, task_prose_digest):
         return ApprovalView(self, "progress", scope, task_id, task_prose_digest)
 
+    def approvals_for_decisions(self, scope, task_id, task_prose_digest):
+        return ApprovalView(self, "decision", scope, task_id, task_prose_digest)
+
     def _session(self, writing_id, scope):
         record = self.journal._get(writing_id, "writing-session:")
         if record["scope"] != asdict(scope):
@@ -58,15 +61,27 @@ class WritingService:
             raise ApprovalRequired("Writing guidance changed; audit and prepare a new session")
         return folder, record
 
-    def prepare(self, scope, kind, prose, *, purpose="task", task=None):
+    def prepare(self, scope, kind, prose, *, purpose="task", task=None, decision=None):
         self.package.verify()
-        if kind not in ISSUE_KINDS or purpose not in {"task", "progress"}:
+        if not (
+            (kind in ISSUE_KINDS and purpose in {"task", "progress"})
+            or (
+                kind == "decision"
+                and purpose == "decision"
+                and task is not None
+                and isinstance(decision, dict)
+            )
+        ):
             raise ValidationError("Select a supported issue kind and writing purpose")
         if purpose == "progress":
             if task is None:
                 raise ValidationError("Progress writing needs its current scoped task")
             prose = TaskProse("Task progress update", prose.body, False, ("progress",))
-        rendered = self.renderer.render(prose)
+        rendered = (
+            self.renderer.render_decision(prose, decision["recipient"]["url"])
+            if purpose == "decision"
+            else self.renderer.render(prose)
+        )
         prose = TaskProse(rendered.title, rendered.body, prose.code_bearing, prose.required_work)
         document = "# " + prose.title + "\n\n" + prose.body
         # Review the exact provider body, including its terminal-byte contract.
@@ -79,7 +94,7 @@ class WritingService:
         request = {
             "kind": kind,
             "operation": "create",
-            "scope": "complete" if purpose == "task" else "excerpt",
+            "scope": "complete" if purpose in {"task", "decision"} else "excerpt",
             "sources": [
                 {"id": "task-brief", "text": document},
                 {
@@ -136,6 +151,8 @@ class WritingService:
             "task_id": task.id if task else None,
             "task_prose_digest": task.prose_digest if task else None,
         }
+        if purpose == "decision":
+            row["decision"] = decision
         write_private(folder / "packet.json", packet)
         ref = self.journal._put("writing-session:", row)
         return {

@@ -78,6 +78,9 @@ class OperatorChannel:
         prose_digest,
         proposed_prose_digest=None,
         timeout=60,
+        decision_request_id=None,
+        decision_option_id=None,
+        decision_digest=None,
     ):
         if not isinstance(scope, Scope) or not reason.strip() or type(revision) is not int:
             raise AccessDenied("Exact scoped human instruction is required")
@@ -91,6 +94,12 @@ class OperatorChannel:
             "prose_digest": prose_digest,
             "proposed_prose_digest": proposed_prose_digest,
         }
+        if decision_request_id is not None:
+            payload.update(
+                decision_request_id=decision_request_id,
+                decision_option_id=decision_option_id,
+                decision_digest=decision_digest,
+            )
         return self._capture("human", payload, timeout)
 
     def capture_enrollment(self, *, scope, actions, startup_ref, timeout=60):
@@ -146,4 +155,7 @@ class HumanReceipts:
             data["task_version"],
             data["prose_digest"],
             data["proposed_prose_digest"],
+            data.get("decision_request_id"),
+            data.get("decision_option_id"),
+            data.get("decision_digest"),
         )

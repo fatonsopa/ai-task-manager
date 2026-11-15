@@ -132,6 +132,8 @@ class AuthorityJournal:
 
             observed = verify_receipt(self, origin)
             payload = data["payload"]
+            if observed.decision_request_id is not None:
+                raise AccessDenied("Decision option source cannot authorize a task transition")
             if (data["scope"], data["subject"], payload.get("target"), payload.get("reason")) != (
                 asdict(observed.scope),
                 observed.task_id,
