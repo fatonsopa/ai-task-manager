@@ -56,7 +56,10 @@ def peer(wire, observation_path, *, early):
                     value = connection.recv(4096)
                     assert value and len(request) + len(value) <= 16384
                     request.extend(value)
-                _, body = bytes(request).split(b"\r\n\r\n", 1)
+                head, body = bytes(request).split(b"\r\n\r\n", 1)
+                observations["headers"] = [
+                    line.decode("latin1").split(":", 1) for line in head.split(b"\r\n")[1:]
+                ]
                 while len(body) < 565:
                     value = connection.recv(565 - len(body))
                     assert value
@@ -131,6 +134,30 @@ def test_client_normal_complete_response(tmp_path):
         observations["actual_returned_status"] = result[0]
         assert result == (200, b"")
     assert observations["body_bytes"] == 565
+
+
+def test_captured_headers_do_not_gain_implicit_duplicates(tmp_path):
+    signed = "a" * 64
+    headers = [
+        ("Host", "captured.example"),
+        ("Accept-Encoding", "gzip"),
+        ("Linear-Signature", signed),
+    ]
+    with peer(REPLIES["200"], tmp_path / "captured-headers.json", early=False) as (server, seen):
+        assert client.send_request(server, headers, b"x" * 565) == (200, b"")
+    actual = [(name.lower(), value.strip()) for name, value in seen["headers"]]
+    assert [v for k, v in actual if k == "host"] == ["captured.example"]
+    assert [v for k, v in actual if k == "accept-encoding"] == ["gzip"]
+    assert [v for k, v in actual if k == "linear-signature"] == [signed]
+    assert seen["body_bytes"] == 565
+
+
+def test_explicit_duplicate_headers_remain_visible_to_receiver(tmp_path):
+    headers = [("Accept-Encoding", "gzip"), ("accept-encoding", "br")]
+    with peer(REPLIES["200"], tmp_path / "explicit-duplicates.json", early=False) as (server, seen):
+        assert client.send_request(server, headers, b"x" * 565) == (200, b"")
+    actual = [(name.lower(), value.strip()) for name, value in seen["headers"]]
+    assert [v for k, v in actual if k == "accept-encoding"] == ["gzip", "br"]
 
 
 @pytest.mark.parametrize("status", [503, 200, 500])

@@ -41,7 +41,13 @@ def send_request(
     connection.response_class = _Response
     upload_error = None
     try:
-        connection.putrequest(method, route or server.route)
+        names = {name.lower() for name, _ in headers}
+        connection.putrequest(
+            method,
+            route or server.route,
+            skip_host="host" in names,
+            skip_accept_encoding="accept-encoding" in names,
+        )
         for key, value in headers:
             connection.putheader(key, value)
         if not omit_length and not any(key.lower() == "content-length" for key, _ in headers):
