@@ -44,7 +44,9 @@ def test_ea22_ea23_ea24_ea26_direct_core_cannot_bypass_exact_authority(rig, prov
             prose,
             **{
                 "title": {"title": prose.title + " changed"},
-                "body": {"body": prose.body + "\n"},
+                # Terminal LF is normalized before approval by the accepted
+                # Linear representation; change actual content for this guard.
+                "body": {"body": prose.body + " Changed scope."},
                 "metadata": {"required_work": ("different",)},
             }[field],
         )

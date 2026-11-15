@@ -13,7 +13,16 @@ from tests.application.helpers import ServiceRig
 def test_WE03_preserve_all_original_schemas_and_handlers():
     prior = json.loads((Path(__file__).parent / "frozen/old_operations_v1.json").read_text())
     assert {k: v for k, v in SCHEMAS.items() if k in prior} == prior
-    assert set(SCHEMAS) - set(prior) == {"workflow_run", "workflow_resume"}
+    assert set(SCHEMAS) - set(prior) == {
+        "workflow_run",
+        "workflow_resume",
+        "task_select",
+        "task_settle_external",
+        "task_decision_prepare",
+        "task_decision_request",
+        "task_decision_show",
+        "task_decision_resolve",
+    }
     assert set(HANDLERS) == set(SCHEMAS)
     assert not any("merge-to-dev" in name or "passed" in name for name in SCHEMAS)
 
