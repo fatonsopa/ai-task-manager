@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.adapters.linear.listener import LoopbackListener
 from ai_task_manager.adapters.linear.models import HttpResponse
 from ai_task_manager.application.linear_sync.listener import InstalledReceiver
@@ -55,6 +56,26 @@ def test_ir02_authenticated_event_applies_through_existing_core(running):
     assert after.version == before.version
     assert len(service.inbound.journal.deliveries(service.scope)) == 1
     assert request(receiver.http.address, receiver.http.health_route, method="GET")[0] == 200
+
+
+def test_owned_delegate_event_after_enrollment_refresh(running):
+    fixture, service, receiver = running
+    fixture.provider.edit(fixture.task.issue_id, state={"id": STATES["Todo"], "name": "Todo"})
+    payload = fixture.provider.event(fixture.task.issue_id, timestamp=int(time.time() * 1000))
+    payload["data"]["delegateId"] = fixture.connection.agent_id
+    headers, body = fixture.rig.signed(payload)
+    assert request(receiver.http.address, ROUTE, headers, body)[0] == 200
+    wait_for(
+        lambda: service.core.get_task(service.handle, fixture.task.id).observed_status == "Todo"
+    )
+    assert len(service.inbound.journal.deliveries(service.scope)) == 1
+
+
+def test_selected_app_removed_after_load_refuses_receiver(fixture):
+    service = fixture.load()
+    fixture.provider.agent_users = []
+    with pytest.raises(LinearError, match="agent_identity_not_application"):
+        InstalledReceiver(service, fixture.config)
 
 
 @pytest.mark.parametrize(

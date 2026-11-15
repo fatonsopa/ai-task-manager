@@ -153,6 +153,9 @@ class InstalledReceiver:
         grant = self.observations.verify_enrollment(service.grant_ref)
         if grant.scope != service.scope or grant.expires_at <= time.time():
             raise AccessDenied("Receiver enrollment is expired or belongs to another session")
+        # Enrollment rechecks provider identity and replaces the immutable binding.
+        # Refresh the selected app before the HTTP adapter captures that binding.
+        self.client.check_connection(service.scope, refresh=True)
         self.credential_digest = hashlib.sha256(
             self.client.credentials().authorization().encode()
         ).digest()
