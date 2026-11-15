@@ -22,9 +22,7 @@ from tests.native_installation.helpers import bundle, refresh_digest
 from tests.native_installation.test_lead_startup import DeclaredRestrictions
 
 REPORT = "Owned non-code report produced through the managed write_file tool.\n"
-REVIEW_BODY = """Type: Chore
-
-## Description
+REVIEW_BODY = """## Description
 
 The owned report needs a separate review of its actual content and required work.
 

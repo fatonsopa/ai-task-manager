@@ -4,10 +4,10 @@ import copy
 import json
 from pathlib import Path
 
-from tests.linear.helpers import ProviderFixture
+from tests.linear.live.adapter_fixture import AdapterProvider
 
 
-class CycleProvider(ProviderFixture):
+class CycleProvider(AdapterProvider):
     def graphql(self, query, variables):
         if "DependencySchema" in query:
             return json.loads(
