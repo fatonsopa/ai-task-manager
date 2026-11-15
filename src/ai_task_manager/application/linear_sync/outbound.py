@@ -148,6 +148,19 @@ class OutboundDrain:
                     if operation.kind == "create_backlog"
                     else self.client.update_issue(task, operation.kind)
                 )
+                if result.assignee_id != scope.principal:
+                    metadata = ownership_removal(result)
+                    self.journal.record_scope_response(scope, send_id, metadata)
+                    if task.issue_id == result.id:
+                        record_scope_removal(
+                            self.core,
+                            self.journal,
+                            handle,
+                            task,
+                            metadata,
+                            f"linear-response-scope:{operation.id}:{operation.attempt_count}",
+                        )
+                    raise LinearError("mutation_scope_changed", uncertain=True)
                 self.journal.finish_send(send_id, "mutation_returned", result)
             if candidate_id is not None and result.id != candidate_id:
                 raise LinearError("creation_uuid_not_honored", uncertain=True)

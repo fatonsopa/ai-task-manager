@@ -159,3 +159,76 @@ def test_outbound_readback_withdrawal_retains_uncertain_send_without_foreign_pro
     before = len(rig.provider.requests)
     assert rig.outbound.run_once(rig.handle) is None
     assert len(rig.provider.requests) == before
+
+
+@pytest.mark.parametrize("missing", ["assignee", "delegate", "both"])
+def test_missing_ownership_witness_keeps_only_safe_ingress_then_fences_fresh_foreign(rig, missing):
+    task = rig.task()
+    rig.receiver.binding = rig.client.binding
+    marker = "MISSING WITNESS FOREIGN PRIVATE CONTENT"
+    issue = withdrawal(rig, task, "assignee", marker)
+    event = rig.provider.event(task.issue_id)
+    event["data"].update(
+        title=issue["title"],
+        description=issue["description"],
+        delegateId=issue["delegate"]["id"],
+        private_text=marker,
+    )
+    event["updatedFrom"] = {"description": marker}
+    if missing in {"assignee", "both"}:
+        event["data"].pop("assigneeId")
+    if missing in {"delegate", "both"}:
+        event["data"].pop("delegateId")
+        # Delegate-only omission must not smuggle the current foreign content
+        # behind an earlier same-owner assignment claim.
+        event["data"]["assigneeId"] = rig.scope.principal
+    if missing == "both":
+        event["data"].pop("assigneeId", None)
+    headers, body = rig.signed(event)
+    assert rig.receiver.receive("POST", headers, body).status == 200
+    for path in (rig.journal.path, rig.db.path):
+        assert marker.encode() not in Path(path).read_bytes()
+    assert rig.inbound.run_once(rig.handle)["state"] == "conflict"
+    assert_private(rig, task, marker, rig.journal.sends(rig.scope))
+    if missing == "both":
+        assert rig.receiver.receive("POST", headers, body).status == 200
+        changed = copy.deepcopy(event)
+        changed["data"]["description"] += " CHANGED"
+        retry_headers, retry_body = rig.signed(changed, dict(headers)["Linear-Delivery"])
+        assert rig.receiver.receive("POST", retry_headers, retry_body).status == 409
+
+
+@pytest.mark.parametrize("operation", ["create", "update"])
+def test_changed_assignee_mutation_response_retains_only_minimal_uncertain_identity(rig, operation):
+    task = rig.task(confirmed=operation != "create")
+    if operation == "update":
+        rig.transition(task, "Todo", "enqueue", confirm=False)
+    marker = "RETURNED RESPONSE FOREIGN PRIVATE CONTENT"
+    returned = []
+
+    def response(request, result):
+        name = "issueCreate" if operation == "create" else "issueUpdate"
+        if name not in result:
+            return
+        issue = result[name]["issue"]
+        returned.append(issue["id"])
+        issue.update(title=marker, description=marker, assignee={"id": uid(903)})
+
+    rig.provider.hook = response
+    result = rig.outbound.run_once(rig.handle)
+    assert result["state"] == "uncertain"
+    for path in (rig.journal.path, rig.db.path):
+        assert marker.encode() not in Path(path).read_bytes()
+    send = rig.journal.sends(rig.scope)[-1]
+    assert send["snapshot"] is None and send["state"] == "uncertain"
+    with rig.journal.transaction() as db:
+        rows = db.execute(
+            "SELECT detail FROM history WHERE subject=? AND stage='mutation_scope_returned'",
+            (send["id"],),
+        ).fetchall()
+    assert len(rows) == 1 and json.loads(rows[0][0])["id"] == returned[0]
+    current = rig.current(task)
+    assert current.title == task.title and current.body == task.body
+    before = len(rig.provider.requests)
+    assert rig.outbound.run_once(rig.handle) is None
+    assert len(rig.provider.requests) == before

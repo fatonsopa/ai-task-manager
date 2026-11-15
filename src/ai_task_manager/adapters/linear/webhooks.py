@@ -19,6 +19,44 @@ def unique_object(pairs):
     return result
 
 
+def ownership_unverified(payload):
+    """Retain only safe facts until fresh scoped readback supplies missing ownership."""
+    identities = {"id", "teamId", "projectId", "assigneeId", "delegateId", "stateId"}
+    data = {
+        key: value
+        for key, value in payload["data"].items()
+        if key in identities or key == "updatedAt"
+    }
+    for key in identities & data.keys():
+        if data[key] is not None:
+            canonical_id(data[key])
+    result = {
+        key: payload[key]
+        for key in ("action", "type", "organizationId", "webhookId", "webhookTimestamp")
+    }
+    result["data"] = data
+    actor = payload.get("actor") or {}
+    if actor.get("id"):
+        result["actor"] = {
+            "id": canonical_id(actor["id"]),
+            "type": "user" if actor.get("type") == "user" else "integration",
+        }
+    if type(payload.get("updatedFrom")) is dict:
+        delta = {}
+        for key, value in payload["updatedFrom"].items():
+            if key in identities:
+                delta[key] = canonical_id(value) if value is not None else None
+            elif key == "updatedAt":
+                delta[key] = revision(value) if value is not None else None
+            elif key == "labelIds" and type(value) is list:
+                delta[key] = [canonical_id(item) for item in value]
+            else:
+                # Keep the fact of another change, never its possibly foreign text.
+                delta["otherFieldsChanged"] = True
+        result["updatedFrom"] = delta
+    return result
+
+
 class WebhookReceiver:
     def __init__(
         self,
@@ -143,6 +181,8 @@ class WebhookReceiver:
                     payload["data"].update(
                         assigneeChanged=changed_assignee, delegateChanged=changed_delegate
                     )
+            elif "assigneeId" not in data or "delegateId" not in data:
+                payload = ownership_unverified(payload)
         except WorkError:
             return HttpResponse(403)
         except sqlite3.DatabaseError:

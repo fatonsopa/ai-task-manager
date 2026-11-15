@@ -653,6 +653,26 @@ class ProviderJournal:
             )
             return send_id
 
+    def record_scope_response(self, scope, send_id, metadata):
+        """Preserve a returned effect identity without foreign response content."""
+        from .models import canonical_id, revision
+
+        if set(metadata) != {"id", "updatedAt", "scopeDigest"}:
+            raise LinearError("invalid_scope_response")
+        canonical_id(metadata["id"])
+        revision(metadata["updatedAt"])
+        if not isinstance(metadata["scopeDigest"], str) or len(metadata["scopeDigest"]) != 64:
+            raise LinearError("invalid_scope_response")
+        with self.transaction() as conn:
+            if not conn.execute(
+                "SELECT 1 FROM sends WHERE id=? AND scope=?", (send_id, encoded(asdict(scope)))
+            ).fetchone():
+                raise LinearError("scope_response_send_missing", uncertain=True)
+            conn.execute(
+                "INSERT INTO history(subject,stage,detail) VALUES(?,?,?)",
+                (send_id, "mutation_scope_returned", encoded(metadata)),
+            )
+
     def finish_send(self, send_id, state, snapshot=None, error=None):
         with self.transaction() as conn:
             conn.execute(
