@@ -9,7 +9,7 @@ from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.domains.scheduling.models import SchedulingBlocked
 from ai_task_manager.domains.work import errors
 from ai_task_manager.domains.work.existing import ExistingBlocked
-from ai_task_manager.domains.work.models import IssueStatus
+from ai_task_manager.domains.work.models import Cause, IssueStatus
 from ai_task_manager.supervisor.models import RuntimeRefused, RuntimeUncertain
 
 
@@ -88,6 +88,16 @@ SCHEMAS = {
     "task_accept_external_prose": obj(
         {**TASK, **WRITE, **CONCURRENCY, "observation_id": REF},
         ("task_id", "writing_ref", "observation_id", *CONCURRENCY),
+    ),
+    "task_settle_external": obj(
+        {
+            **TASK,
+            **CONCURRENCY,
+            "observation_id": REF,
+            "cause": {"enum": list(Cause)},
+            "evidence_refs": {"type": "object", "additionalProperties": REF},
+        },
+        ("task_id", "observation_id", "cause", *CONCURRENCY),
     ),
     "task_action": obj(
         {

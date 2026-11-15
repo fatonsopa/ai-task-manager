@@ -182,6 +182,8 @@ class DecisionAuthority:
             raise EvidenceRequired(
                 "Observed human instruction does not match this work and revision"
             )
+        if human_ref.startswith("session-human-receipt:") and source.task_version != task.version:
+            raise EvidenceRequired("Human instruction belongs to another task version")
         if action == "revise" and source.proposed_prose_digest != proposed_prose_digest:
             raise EvidenceRequired("Observed scope revision does not match the new approved prose")
         expires = self.journal.clock() + 300

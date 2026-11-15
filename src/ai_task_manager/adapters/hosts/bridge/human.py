@@ -134,8 +134,8 @@ class HumanReceipts:
     def __init__(self, journal):
         self.journal = journal
 
-    def verify_instruction(self, ref):
-        data = self.journal._read(ref, "human")["payload"]
+    def verify_instruction(self, ref, *, fresh=True):
+        data = self.journal._read(ref, "human", fresh=fresh)["payload"]
         return HumanInstruction(
             Scope(**data["scope"]),
             data["task_id"],

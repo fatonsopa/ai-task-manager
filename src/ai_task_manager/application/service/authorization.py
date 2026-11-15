@@ -16,6 +16,10 @@ def authorize(service, task, target, action, data, invocation, proposed_digest=N
             )
 
         plan = invocation.reference("human_plan", observed_plan)
+        # A saved, uncommitted plan cannot turn an expired console capture into new intent.
+        # Recorded current intent uses its durable decision ref and existing Core guards.
+        if data["human_ref"].startswith("session-human-receipt:"):
+            service.decisions.observations.verify_instruction(data["human_ref"])
         if plan.get("already_recorded"):
             return plan["decision_ref"], data["expected_version"], data["decision_revision"]
         changed = service.core.decisions.record(

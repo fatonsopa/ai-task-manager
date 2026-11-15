@@ -7,7 +7,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from ai_task_manager.config.files import digest, private_path, read_private
-from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired, IdempotencyConflict
+from ai_task_manager.domains.work.errors import AccessDenied, IdempotencyConflict
 from ai_task_manager.domains.work.models import Scope
 
 from .authority import HostGrant
@@ -130,7 +130,14 @@ class SessionObservations:
         )
 
     def verify_instruction(self, reference):
-        raise EvidenceRequired("Actual human instruction observation is unavailable")
+        from .human import verify_receipt
+
+        grant = self.verify_enrollment(self.pointer["reference"])
+        observed = verify_receipt(self.journal, reference, fresh=True)
+        source = self.journal._get(reference, "session-human-receipt:")
+        if source["enrollment"] != grant.source_ref or observed.scope != grant.scope:
+            raise AccessDenied("Human instruction belongs to another installed enrollment")
+        return observed
 
     def capture_issue_selection(self, scope, discovery, claim_store, invocation_id, arguments):
         from .existing import capture

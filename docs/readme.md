@@ -109,6 +109,52 @@ Stop only the confirmed owned receiver through its normal signal/lifetime path, 
 
 If startup refuses, retain its stage diagnostics and original configuration/operation. Correct only the named prerequisite through the supported installer; do not edit grants, replace stores, remove an unknown owner's lock or silently extend a deadline. These are supported synchronization procedures, not complete release, production or normal-session activation approval.
 
+## Human instructions and held-work settlement
+
+A signed Linear event can record an attributable human change immediately, fence old writes and hold work. It does not prove that an active worker stopped. The owning runtime must retain capacity/resources until its existing `ManagedWorkers.stop` or `reconcile` path records the actual complete stop through runtime evidence and Core settlement. Unknown process ownership remains unresolved. Task and attempt views report `stopping_or_unresolved` while old work is fenced; a remote In Progress or delivered status cannot supply startup or delivery evidence.
+
+For an explicit operator instruction, the trusted installer uses the existing independent console and an already owned `HostJournal`. This is a Python operator API, not a model tool or a JSON approval importer. Use current task/version/decision-revision values, the original finite provider grant and the actual existing native journal/key. An absent journal or console is a prerequisite failure; do not create a replacement store, use a retired journal or write observer rows by hand.
+
+```python
+from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
+from ai_task_manager.installation.sessions.human import capture_instruction
+
+human_ref = capture_instruction(
+    CONFIG,
+    HostJournal.open_existing(HOST_JOURNAL, HOST_KEY),
+    task_id=TASK_ID,
+    target="Todo",
+    expected_version=TASK_VERSION,
+    decision_revision=DECISION_REVISION,
+    reason="Release this exact held task after reviewing its current scope.",
+    timeout=60,
+)
+```
+
+Uppercase values are explicit installer inputs; paths are absolute. Inspect the actual current work and, for a prose revision, the approved Writer output before approving the console's exact one-use challenge. Supply `writing_ref=APPROVED_WRITING_REF` when the instruction authorizes that proposed revision. The capture binds the exact task, revision, current/proposed prose digests, original config/capability, host journal/key and current provider enrollment. Cold consumers verify that source again. Synthetic terminal input establishes an authored operator test only, not a person's acceptance.
+
+Pass the returned `human_ref` to the existing task action, revision or worker-start operation with current concurrency fields. `review_decision` also requires `review_target`; `worker start` retains actual startup requirements. Every configured In Review destination keeps its cause-specific prerequisites. Merge, staging, production and non-code completion references must come from their existing trusted producers; human approval alone supplies none of them. Staging/production producers remain isolated contracts here, not actual deployments. A new instruction must enter within the capture's admission window. A recorded current decision can continue through its `decision_ref` when missing evidence later arrives, while the original provider grant, source files, work digest and decision revision still hold.
+
+To settle an existing pending signed observation after stop or approved-prose evidence arrives, inspect `task external_changes` and the current task, then place this request in a private input file:
+
+```json
+{
+  "task_id": "CURRENT_TASK_UUID",
+  "observation_id": "CURRENT_PENDING_OBSERVATION_UUID",
+  "expected_version": 12,
+  "decision_revision": 3,
+  "cause": "hold",
+  "evidence_refs": {},
+  "operation_key": "ORIGINAL_SETTLEMENT_KEY"
+}
+```
+
+The numbers are examples, not authority. Run `AITM --config CONFIG --json task settle_external --input REQUEST`; MCP exposes the same `task_settle_external` operation. It verifies current provider/connection authority before and after fresh readback and compares exact issue/revision/status/prose/assignment facts with the original observation. Core checks current versions, actor, cause, quiescence and destination evidence. Revised external prose first needs the existing `task accept_external_prose` path and exact approved readback. Unknown actors, newer facts, foreign assignment, revoked delegation, missing stop/delivery evidence and illegal reopen/delivery remain held or conflicted.
+
+This operation creates no outbound write and does not rewrite the original delivery's conflict/error history. An exact committed retry reports current local facts without repeating an effect; changed arguments require their own supported operation. Ordinary calls still pass through the configured owner when `workflow_control` is present. Neither operator capture nor settlement replaces that owner.
+
+Connection selection remains explicit and sealed per logical session. The adapter resolves the canonical application ID in the current workspace, preserves the separate human assignee and refuses missing/ambiguous/non-application, permission/account or competing-session selections. A different delegate needs a new explicitly configured logical session and its own authority; do not edit an enrolled selection in place or reuse an old connection for an uncertain send.
+
 ## Installed lead and reviewer components
 
 Source `7e4e4f4` includes explicit [initial workflow preparation](workflow_preparation/how_to_guide.md), finite capacity configuration, and the independently reviewed [lead reporting command](lead_reporting/how_to_guide.md) and [independent reviewer configuration](independent_review/how_to_guide.md). Both require sealed installer inputs, distinct role authority, current source/account evidence and finite invocation limits. Before first owner activation, the trusted `workflow prepare` command permits approved intake and enqueue. Ordinary calls still require the owner. Lead reporting is a separate explicit command; its sealed installation chooses human-console or explicitly delegated enrollment. The declared scripted owner cycle and the scoped genuine DP02 non-code cycle have passed. Historical LP17 reporting failure and the remaining required host/model profiles stay visible in the Test Status Report (TSR). These components do not implement automatic idle wake, continuous reporting or the complete coordination skill.

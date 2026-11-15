@@ -127,6 +127,55 @@ class AuthorityJournal:
                 },
             ):
                 raise AccessDenied("Selection proof differs from its installed source")
+        if isinstance(origin, str) and origin.startswith("session-human-receipt:"):
+            from .human import verify_receipt
+
+            observed = verify_receipt(self, origin)
+            payload = data["payload"]
+            if (data["scope"], data["subject"], payload.get("target"), payload.get("reason")) != (
+                asdict(observed.scope),
+                observed.task_id,
+                observed.target,
+                observed.reason,
+            ) or payload.get("actor") != "human":
+                raise AccessDenied("Human proof differs from its independent source")
+            if data["kind"] == "human_decision":
+                from ai_task_manager.domains.work.transitions import human_hold_required
+
+                if payload.get("hold") != human_hold_required(observed.target):
+                    raise AccessDenied("Human hold differs from its independent instruction")
+                if (
+                    payload.get("previous_revision"),
+                    payload.get("prose_digest"),
+                    payload.get("proposed_prose_digest"),
+                ) != (observed.revision, observed.prose_digest, observed.proposed_prose_digest):
+                    raise AccessDenied("Human work or revision changed")
+            elif data["kind"] != "decision" or payload.get("revision") not in {
+                observed.revision,
+                observed.revision + 1,
+            }:
+                raise AccessDenied("Human proof has another purpose or revision")
+        if (
+            data["kind"] == "decision"
+            and data["payload"].get("actor") == "human"
+            and isinstance(origin, str)
+            and origin.startswith("decision-proof:")
+        ):
+            parent = self.verify_evidence(origin)
+            if (
+                parent.kind,
+                parent.scope,
+                parent.subject,
+                parent.payload.get("target"),
+                parent.payload.get("previous_revision", -1) + 1,
+            ) != (
+                "human_decision",
+                Scope(**data["scope"]),
+                data["subject"],
+                data["payload"].get("target"),
+                data["payload"].get("revision"),
+            ):
+                raise AccessDenied("Recorded human intent differs from its original source")
         if isinstance(origin, str) and origin.startswith("session-host-receipt:"):
             from .host_observations import verify_receipt
 

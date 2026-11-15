@@ -250,6 +250,44 @@ class ExternalSynchronization:
 
         return self.c.task_mutation(handle, operation_key, payload, action)
 
+    @staticmethod
+    def _settle_payload(
+        task_id, observation_id, expected_version, expected_decision_revision, cause, evidence_refs
+    ):
+        return {
+            "command": "external_settle",
+            "task_id": task_id,
+            "observation_id": observation_id,
+            "version": expected_version,
+            "revision": expected_decision_revision,
+            "cause": cause,
+            "evidence_refs": evidence_refs,
+        }
+
+    def recover_settle(
+        self,
+        handle,
+        task_id,
+        observation_id,
+        expected_version,
+        expected_decision_revision,
+        cause,
+        evidence_refs,
+        operation_key,
+    ):
+        payload = self._settle_payload(
+            task_id,
+            observation_id,
+            expected_version,
+            expected_decision_revision,
+            cause,
+            evidence_refs,
+        )
+        with self.c.db.transaction() as conn:
+            sid, _ = sessions.resolve(conn, handle)
+            prior = work.replay(conn, sid, operation_key, payload)
+            return work.get(conn, sid, task_id) if prior is not None else None
+
     def settle(
         self,
         handle,
@@ -261,15 +299,14 @@ class ExternalSynchronization:
         evidence_refs,
         operation_key,
     ):
-        payload = {
-            "command": "external_settle",
-            "task_id": task_id,
-            "observation_id": observation_id,
-            "version": expected_version,
-            "revision": expected_decision_revision,
-            "cause": cause,
-            "evidence_refs": evidence_refs,
-        }
+        payload = self._settle_payload(
+            task_id,
+            observation_id,
+            expected_version,
+            expected_decision_revision,
+            cause,
+            evidence_refs,
+        )
 
         def action(conn, sid, scope):
             task = work.get(conn, sid, task_id)

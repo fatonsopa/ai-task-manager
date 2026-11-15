@@ -1,6 +1,7 @@
 """The fixed public surface; clients cannot select arbitrary callables."""
 
 from .actions import perform as task_action
+from .actions import settle_external as task_settle_external
 from .events import event_acknowledge, event_list, session_resume, session_show, sync_now
 from .existing import task_admit, task_find, task_inspect, task_select
 from .intake import (
@@ -41,4 +42,5 @@ HANDLERS = {
     "worker_start": worker_start,
     "worker_execute": worker_execute,
     "task_action": task_action,
+    "task_settle_external": task_settle_external,
 }

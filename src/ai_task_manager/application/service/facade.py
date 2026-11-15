@@ -83,6 +83,7 @@ class ApplicationService:
                         "task_submit",
                         "task_admit",
                         "task_accept_external_prose",
+                        "task_settle_external",
                     }:
                         current = self.core.get_task(self.handle, cached["data"]["id"])
                         return result(
