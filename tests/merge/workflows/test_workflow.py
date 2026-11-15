@@ -134,18 +134,24 @@ def test_current_authority_refuses_before_candidate_effect(flow, change):
     if change == "hold":
         flow.runtime.hold(flow.dispatch)
     elif change == "stale_version":
-        flow.workflow.plan = replace(
+        flow.plan = replace(
             flow.plan, grant=replace(flow.grant, task_version=flow.grant.task_version - 1)
         )
     elif change == "stale_decision":
-        flow.workflow.plan = replace(
+        flow.plan = replace(
             flow.plan, grant=replace(flow.grant, decision_revision=flow.grant.decision_revision + 1)
         )
     elif change == "nonhuman":
         grant = replace(
             flow.grant, decision_ref=flow.r.decision(flow.task, "In Dev", actor="model")
         )
-        flow.workflow.plan = replace(flow.plan, grant=grant, require_human_acceptance=True)
+        flow.plan = replace(flow.plan, grant=grant, require_human_acceptance=True)
+    if change in {"stale_version", "stale_decision", "nonhuman"}:
+        # Trusted composition binds the immutable original plan. Changing only
+        # the controller's derived current plan cannot replace that authority.
+        flow.workflow.close()
+        flow.workflow = flow.compose()
+        flow.app.workflows = flow.workflow
     data = {"task_id": flow.task.id, "plan_ref": flow.plan.id, "operation_key": "public-merge"}
     if change == "foreign_task":
         data["task_id"] = "foreign"
@@ -153,6 +159,15 @@ def test_current_authority_refuses_before_candidate_effect(flow, change):
         data["plan_ref"] = "foreign"
     result = flow.app.call("workflow_run", data)
     assert not result["ok"], result
+    if change in {"stale_version", "stale_decision", "nonhuman"}:
+        assert (
+            result["error"]["message"]
+            == {
+                "stale_version": "Task version has changed",
+                "stale_decision": "A newer human decision takes precedence",
+                "nonhuman": "Configured explicit human acceptance is required",
+            }[change]
+        )
     assert not list(flow.candidate_profile.root.iterdir())
     assert not flow.executor.records
     assert git(flow.tree, "rev-parse", "refs/heads/" + flow.target) == flow.old
@@ -348,6 +363,7 @@ def test_actual_retained_workflow_owner_accepts_code_service_and_public_client(f
     import time
     from uuid import uuid4
 
+    from ai_task_manager.adapters.decisions.authority import DecisionAuthority
     from ai_task_manager.adapters.decisions.journal import AuthorityJournal
     from ai_task_manager.adapters.workflow_control.client import WorkflowClient
     from ai_task_manager.adapters.workflow_control.owner import WorkflowOwner
@@ -361,8 +377,12 @@ def test_actual_retained_workflow_owner_accepts_code_service_and_public_client(f
     thread = None
     try:
         authority = AuthorityJournal(root / "authority.sqlite", root / "authority.key")
+        # Enrollment requires installer-prepared private state; the generic
+        # internal Core fixture does not prepare file permissions for an owner.
+        Path(flow.r.core.context.db.path).chmod(0o600)
         enroll_claim_store(flow.r.core.context.db, authority)
         flow.app.claim_store = verify_claim_store(flow.r.core.context.db, authority)
+        flow.app.decisions = DecisionAuthority(authority)
         config = root / "config.json"
         write_private(
             config,
