@@ -158,7 +158,7 @@
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "dd7a8cee43d70d9452e2f455f27f48e0bd6d99786bcc5d5226bc98d6eb388ec0"
+      "sha256": "618702d2c2d743f00444e219b14db7b381a61d451a8141d4e9b52df1d7d8672b"
     },
     {
       "path": "docs/independent_review/how_to_guide.md",
@@ -218,7 +218,7 @@
     },
     {
       "path": "docs/plans/deliveries/DP04.md",
-      "sha256": "93758da5a4f6bda5f2a82cfc00f34cf99f46fd8d76a311cb100e4ef3013d769a"
+      "sha256": "444c67a9ef68389df57004f0e0228ad684b2268ac353c4dba9f448712bfd986b"
     },
     {
       "path": "docs/plans/delivery-learning-loop.md",
@@ -242,11 +242,11 @@
     },
     {
       "path": "docs/plans/incremental-delivery-proposal.md",
-      "sha256": "39a1c1fbc672f23ee301fc5cfb665e2589c4898ac3e4bf733fe938f46e19ae32"
+      "sha256": "17af89a8a28ed9c1409362ea42ff32d483572aa5eb35014273a9cc07065e8199"
     },
     {
       "path": "docs/plans/linear-tracking.md",
-      "sha256": "2a5da261269f1b1dcb236f0c697f24d9394703285f99c543db2d9ffac0ce9a31"
+      "sha256": "4ded80a5f5ef5ca2956261003931058d43d4c1cb9d46a38a8a2d99db7f363796"
     },
     {
       "path": "docs/policy.md",
@@ -254,7 +254,7 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "e26c521460ec09be637de364a24cc5c70d669a3c72e124f89e17769940436001"
+      "sha256": "e4119dd3bd178a89b7305196eb987647d232147ff589fbee35be41ec830462eb"
     },
     {
       "path": "docs/spec_driven_development.md",

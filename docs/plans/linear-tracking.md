@@ -74,9 +74,11 @@ The private reconciliation record is `.local/delivery-learning/20261113-tst-reco
 
 Actual execution remains owned by the delivery session. The human assignee, selected verified Linear app delegate and lead/worker execution owner are separate. Keep all three truthful when an assignment or connection changes.
 
-## DP04 proposed hierarchy
+<a id="dp04-proposed-hierarchy"></a>
 
-Version 1 was prepared on 15 November 2026 and awaits the user's single approval. All records were read back in Backlog, with their native parent, human assignee and selected application delegate confirmed. The plan and `DP04-E1` share TST-242. This map records identity; current state and criterion/evidence verdicts belong to Linear.
+## DP04 approved hierarchy
+
+Version 1 at planning commit `4eaf60b` was approved on 15 November 2026: “Approve DP04 version 1 and execute.” All records were read back in Backlog, with their native parent, human assignee and selected application delegate confirmed. The plan and `DP04-E1` share TST-242. This map records identity; current state and criterion/evidence verdicts belong to Linear.
 
 | Planning ID | Parent | Linear record |
 | --- | --- | --- |
