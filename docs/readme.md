@@ -4,7 +4,7 @@ This directory is the maintained documentation for the standalone task coordinat
 
 ## Start
 
-Current delivery authority: DP01 and DP02 are accepted. The approved [DP03 plan](plans/deliveries/DP03.md), version 1, is the active delivery objective under the [delivery roadmap](plans/incremental-delivery-proposal.md). Follow its [execution prompt](plans/dp03-session-prompt.md). Retain the [DP02 delivery handoff](plans/deliveries/DP02-handoff.md), evidence, resources and original phase acceptance obligations.
+Current delivery authority: DP01, DP02 and [DP03](plans/deliveries/DP03.md) are accepted. The [DP03 delivery handoff](plans/deliveries/DP03-handoff.md) records the verified local code cycle and DP04 prerequisites under the [delivery roadmap](plans/incremental-delivery-proposal.md). DP04 implementation has not started. Preserve accepted evidence, protected resources and original phase acceptance obligations.
 
 Work from the repository root with Git and Python 3 available. Paths in code spans are relative to that root. Read the Policy (POL), [policy.md](policy.md), then the Spec Driven Development document (SDD), [spec_driven_development.md](spec_driven_development.md), and the Implementation Plan (IP), [implementation_plan.md](implementation_plan.md). Inspect `config/execution-policy.json`, requirements, work graph and acceptance inventory before acting. Documents describe approved work; they do not authorize production actions. The repository address stays in `config/execution-policy.json` so personal identifiers do not need to appear in Markdown.
 
