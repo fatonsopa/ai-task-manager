@@ -9,6 +9,7 @@ import pytest
 from ai_task_manager.application.linear_sync import listener
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.observability.failures import FailureStage
+from tests.receiver.helpers import Fixture
 
 
 @pytest.mark.parametrize("stage", ["load", "configure", "start", "stop"])
@@ -52,3 +53,31 @@ def test_startup_diagnostics_preserve_failure_without_private_text(monkeypatch, 
     assert final["diagnostics"][-1]["causes"][0]["code"] == "access_denied"
     assert secret not in json.dumps(records)
     assert all(signal.getsignal(s) == previous for s, previous in before.items())
+
+
+def test_reconciliation_failure_preserves_origin_without_private_text(tmp_path, monkeypatch):
+    fixture = Fixture(tmp_path)
+    service = fixture.load()
+    receiver = listener.InstalledReceiver(service, fixture.config)
+    records = []
+    secret = "PRIVATE-RECOVERY-TOKEN-AND-PAYLOAD"
+
+    def fail():
+        raise AccessDenied(secret)
+
+    monkeypatch.setattr(receiver, "_reconcile", fail)
+    try:
+        assert listener.serve(service, fixture.config, records.append, receiver=receiver) == 1
+    finally:
+        fixture.close()
+    final = records[-1]
+    assert final["ok"] is False
+    assert final["cleanup"]["failure"] == "receiver_reconciliation_failed"
+    assert all(
+        final["cleanup"][key]
+        for key in ("stopped", "drain_stopped", "reconciliation_stopped", "ownership_released")
+    )
+    assert any(
+        item["causes"][0]["code"] == "access_denied" for item in final.get("diagnostics", [])
+    ), "The actual reconciliation exception must survive the later shutdown signal"
+    assert secret not in json.dumps(records)

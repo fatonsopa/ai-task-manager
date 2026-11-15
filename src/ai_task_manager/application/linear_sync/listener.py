@@ -164,6 +164,7 @@ class InstalledReceiver:
         self.draining = threading.Event()
         self.closing, self.wake = threading.Event(), threading.Event()
         self.failed = None
+        self._diagnostics = []
         self.instance = str(uuid4())
         self.values = values
         self.deadline = time.monotonic() + values["lifetime_seconds"]
@@ -311,10 +312,13 @@ class InstalledReceiver:
                 self._reconcile()
         except ListenerStopping:
             pass
-        except BaseException:
-            self.failed = "receiver_reconciliation_failed"
-            self.closing.set()
-            self.wake.set()
+        except BaseException as error:
+            try:
+                self._diagnostics.append(capture_failure(error, FailureStage.RECEIVER_MONITOR))
+            finally:
+                self.failed = "receiver_reconciliation_failed"
+                self.closing.set()
+                self.wake.set()
 
     def _drain(self):
         delay = None
@@ -467,6 +471,8 @@ def serve(service, config_file, emit, *, receiver=None):
         failed = failed or "receiver_cleanup_failed"
     ok = failed is None
     result = {"ok": ok, "event": "receiver_stopped", "failure": failed, "cleanup": cleanup}
+    if receiver is not None:
+        diagnostics = [*getattr(receiver, "_diagnostics", ()), *diagnostics]
     if diagnostics:
         result["diagnostics"] = diagnostics
     emit(result)

@@ -107,7 +107,7 @@ A poll can detect and stage a missed provider change while preserving a hold, co
 
 Stop only the confirmed owned receiver through its normal signal/lifetime path, then inspect the actual `receiver_stopped` record and confirmed process exit. Require `cleanup.stopped`, listener/drain/reconciliation stop and ownership release; process disappearance alone is insufficient. Expiry, revocation, changed files or uncertain ownership can produce a failed command with retained durable facts. Preserve that original outcome. Receiver shutdown does not retire the separately owned tunnel, webhook, project or issues; use their supported scoped cleanup and original identities.
 
-If startup refuses, retain its stage diagnostics and original configuration/operation. Correct only the named prerequisite through the supported installer; do not edit grants, replace stores, remove an unknown owner's lock or silently extend a deadline. These are supported synchronization procedures, not complete release, production or normal-session activation approval.
+If startup refuses or reconciliation fails, retain its stage diagnostics and original configuration/operation. Reconciliation diagnostics preserve the original sanitized cause alongside later shutdown observations. Correct only the named prerequisite through the supported installer; do not edit grants, replace stores, remove an unknown owner's lock or silently extend a deadline. These are supported synchronization procedures, not complete release, production or normal-session activation approval.
 
 ## Human instructions and held-work settlement
 
