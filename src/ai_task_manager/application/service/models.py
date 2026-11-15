@@ -79,6 +79,9 @@ SCHEMAS = {
         {"discovery_ref": REF, "writing_ref": REF, "selection_ref": REF, "operation_key": REF},
         ("discovery_ref", "writing_ref", "selection_ref", "operation_key"),
     ),
+    "task_select": obj(
+        {"discovery_ref": REF, "operation_key": REF}, ("discovery_ref", "operation_key")
+    ),
     "task_list": obj(),
     "task_show": obj(TASK, ("task_id",)),
     "task_external_changes": obj(TASK, ("task_id",)),

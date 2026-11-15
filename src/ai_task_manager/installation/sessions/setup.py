@@ -38,6 +38,7 @@ ACTIONS = frozenset(
     {
         "enqueue",
         "delivered_followup",
+        "existing_issue_selection",
         "dequeue",
         "hold",
         "start",

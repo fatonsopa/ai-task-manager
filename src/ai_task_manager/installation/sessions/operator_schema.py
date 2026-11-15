@@ -55,8 +55,10 @@ def parse(request):
             or any(ord(c) < 32 for c in request[key])
         ):
             raise ValidationError("Bounded explicit session and operation key required")
-    if request["actions"] != ["enqueue"]:
-        raise ValidationError("Initial installation delegates only enqueue")
+    if request["actions"] not in (["enqueue"], ["enqueue", "existing_issue_selection"]):
+        raise ValidationError(
+            "Initial installation delegates enqueue and optional existing selection"
+        )
     if (
         type(request["deadline"]) not in {int, float}
         or not math.isfinite(request["deadline"])

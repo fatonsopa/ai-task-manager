@@ -132,6 +132,21 @@ class SessionObservations:
     def verify_instruction(self, reference):
         raise EvidenceRequired("Actual human instruction observation is unavailable")
 
+    def capture_issue_selection(self, scope, discovery, claim_store, invocation_id, arguments):
+        from .existing import capture
+
+        return capture(self, scope, discovery, claim_store, invocation_id, arguments)
+
+    def verify_issue_selection(self, reference):
+        from .existing import verify_receipt
+
+        grant = self.verify_enrollment(self.pointer["reference"])
+        self.client.check_connection(grant.scope, refresh=True)
+        observed = verify_receipt(self.journal, reference)
+        if observed.scope != grant.scope or "existing_issue_selection" not in grant.actions:
+            raise AccessDenied("Selection belongs to another installed session")
+        return observed
+
     def verify_host_observation(self, reference):
         from .host_observations import observe
 

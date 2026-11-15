@@ -38,7 +38,7 @@ Use the installer's approved uv version and populated offline dependency cache. 
    | `logical_session` | Explicit nonempty session name, matching the connection. |
    | `writer` | Object containing absolute physical snapshot `root`, absolute Python invocation path `python`, executable-byte `python_sha256`, and the complete approved relative-file-to-SHA-256 `pins` inventory. |
    | `capacity_policies` | Nonempty list of objects with `host` (`codex` or `claude`), positive integer `host_limit` and `project_limit`. Hosts are distinct; the project limit agrees across hosts. |
-   | `actions` | Exactly `["enqueue"]`. |
+   | `actions` | `["enqueue"]` for new-task preparation, or explicitly `["enqueue", "existing_issue_selection"]` to permit existing-issue selection. Other initial effects remain refused. |
    | `deadline` | Original finite future Unix time in seconds. It bounds delegation, including verification time. |
    | `operation_key` | Explicit nonempty key identifying this setup intent. |
 
@@ -69,6 +69,18 @@ Use the installer's approved uv version and populated offline dependency cache. 
 4. Explicitly enqueue the confirmed task with its current expected version and decision revision. Confirm Todo with `task_show` and scoped `task_list`, and compare independent provider readback. Backlog submission alone does not queue work. Initial preparation does not authorize execution or start an owner.
 
 Preparation requires absent owner record/socket, no execution attempts and no pending, leased or unresolved uncertain session sends. The narrowly linked, confirmed repair below is the only exception for retained historical create uncertainty. It uses the owner's nonblocking setup lock. The permanent signed activation latch prevents preparation after any owner activation, even if owner descriptors are removed. Capacity must remain identical to trusted setup. Ordinary service loads only validate persisted capacity rows; missing or different limits require trusted reconciliation. Each call records its exact request; an uncertain send blocks further preparation until reconciled. Preparation does not complete tasks, start an idle lead or continuously drain events.
+
+### Select and admit an existing issue
+
+Set up a fresh authorized session with the explicit `existing_issue_selection` action above. Before its first owner activation, use the same `workflow prepare` envelope for `task_find`, `task_inspect`, `task_select` and `task_admit`. After activation, use the ordinary `task find`, `task inspect`, `task select` and `task admit` commands; they retain owner forwarding and do not fall back to preparation.
+
+1. Find the intended issue, then inspect its canonical identifier. Retain the returned `discovery_ref`, exact title/body and history assessment. A blocked history or held/delivered issue needs its existing guarded path.
+2. Select that inspected revision with `{"operation":"task_select","data":{"discovery_ref":"DISCOVERY_REF","operation_key":"SELECTION_KEY"}}`. The installed operation returns `selection_ref`, canonical `issue_id` and `expires_at`; it records this delegated lead request, not human acceptance. Keep the original key for an identical retry. Missing selection permission, foreign/stale discovery or changed request/source refuses.
+3. Prepare, review and finalize exact task-purpose writing approval for the inspected title/body through the existing writing operations. A selection proof cannot replace writing approval.
+4. Admit using `{"operation":"task_admit","data":{"discovery_ref":"DISCOVERY_REF","writing_ref":"WRITING_REF","selection_ref":"SELECTION_REF","operation_key":"ADMISSION_KEY"}}`. Admission performs its separate fresh readback and binds the same canonical issue without creating another issue. Its initial local binding is unqueued, including when Linear already shows Todo.
+5. Explicitly enqueue with the current task version and decision revision, then inspect confirmed local/provider facts. An already remote Todo requires no redundant status write. Queue and later startup keep their distinct purpose-bound source readbacks and worker guards.
+
+The literal JSON above shows the preparation envelope. For ordinary commands, put only its `data` object in the input file. Do not edit signed observation rows, invent `selection_ref` values or alter configuration to extend an expired grant. The selection expires no later than its discovery or enrollment. Committed admission retries preserve their historical result; they do not authorize new work or renew authority.
 
 ### Repair file-literal serialization before owner activation
 

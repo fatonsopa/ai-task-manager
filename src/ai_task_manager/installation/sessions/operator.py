@@ -257,7 +257,7 @@ def setup(config_file, request):
         established = trusted_setup(
             config_file,
             logical_session=request["logical_session"],
-            actions=("enqueue",),
+            actions=tuple(request["actions"]),
             deadline=request["deadline"],
             operation_key=request["operation_key"],
         )
@@ -421,7 +421,7 @@ def doctor(config_file):
         installed_provider_history(config)
         state["journal"] = journal
         enrollment = journal._get(config["grant_ref"], "session-enrollment:")
-        if enrollment["actions"] != ["enqueue"]:
+        if enrollment["actions"] != state["request"]["actions"]:
             raise AccessDenied("Installed delegation changed")
         client = provider_client(config)
         grant = SessionObservations(

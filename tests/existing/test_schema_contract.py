@@ -5,13 +5,25 @@ from ai_task_manager.application.service.handlers import HANDLERS
 from ai_task_manager.application.service.models import SCHEMAS
 
 
-def test_ea63_old_schemas_are_unchanged_and_only_three_reviewed_operations_are_added():
+def test_ea63_old_schemas_are_unchanged_with_explicit_later_additions():
     root = Path(__file__).with_name("frozen")
     legacy = json.loads((root / "legacy-schemas.json").read_text())["schemas"]
     contract = json.loads((root / "admission-contract-v1.json").read_text())
     added = contract["public_operations"]
-    assert set(SCHEMAS) == set(HANDLERS) == set(legacy) | set(added)
+    # The accepted delivery baseline also has the shared workflow operations;
+    # DP04 adds the explicit installed selection request. Freeze the old inputs.
+    later = {"workflow_run", "workflow_resume", "task_select"}
+    assert set(SCHEMAS) == set(HANDLERS) == set(legacy) | set(added) | later
     assert {name: SCHEMAS[name] for name in legacy} == legacy
     assert {name: SCHEMAS[name] for name in added} == {
         name: operation["input"] for name, operation in added.items()
+    }
+    assert SCHEMAS["task_select"] == {
+        "type": "object",
+        "properties": {
+            "discovery_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+            "operation_key": {"type": "string", "minLength": 1, "maxLength": 256},
+        },
+        "required": ["discovery_ref", "operation_key"],
+        "additionalProperties": False,
     }

@@ -76,7 +76,7 @@ class ApplicationService:
                     claim_store=self.claim_store.context if self.claim_store else None,
                 )
                 cached = invocation.cached()
-                if cached is not None:
+                if cached is not None and operation != "task_select":
                     if operation in {
                         "task_action",
                         "task_revise",

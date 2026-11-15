@@ -31,14 +31,26 @@ class ExistingIntake:
             "expires_at": proof.expires_at,
         }
 
-    def admit(self, discovery_ref, prose, writing_ref, selection_ref, operation_key):
+    def admit(
+        self,
+        discovery_ref,
+        prose,
+        writing_ref,
+        selection_ref,
+        operation_key,
+        *,
+        check_selection=lambda: None,
+    ):
+        check_selection()
         original = self.reader.receipt(discovery_ref)
-        snapshot, fresh_ref = self.reader.readback(original.subject, readback_context(
-            "admission", operation_key, discovery_ref=discovery_ref
-        ))
+        snapshot, fresh_ref = self.reader.readback(
+            original.subject,
+            readback_context("admission", operation_key, discovery_ref=discovery_ref),
+        )
         self.core.existing.observed(self.handle, fresh_ref)
         if digest(snapshot) != original.payload["discovery_digest"]:
             raise EvidenceRequired("Issue changed; inspect and select its current revision")
+        check_selection()
         return self.core.existing.admit(
             self.handle, discovery_ref, fresh_ref, prose, writing_ref, selection_ref, operation_key
         )

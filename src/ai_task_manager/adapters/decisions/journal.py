@@ -110,6 +110,23 @@ class AuthorityJournal:
         from .observations import PREFIX, current_enrollment
 
         origin = data.get("source_ref")
+        if (
+            data["kind"] == "existing_issue_selection"
+            and isinstance(origin, str)
+            and origin.startswith("session-issue-selection:")
+        ):
+            from .existing import verify_receipt
+
+            observed = verify_receipt(self, origin)
+            if (data["scope"], data["subject"], data["payload"]) != (
+                asdict(observed.scope),
+                observed.issue_id,
+                {
+                    "discovery_digest": observed.discovery_digest,
+                    "claim_store": observed.claim_store,
+                },
+            ):
+                raise AccessDenied("Selection proof differs from its installed source")
         if isinstance(origin, str) and origin.startswith("session-host-receipt:"):
             from .host_observations import verify_receipt
 

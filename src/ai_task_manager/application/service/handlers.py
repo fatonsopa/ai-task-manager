@@ -2,7 +2,7 @@
 
 from .actions import perform as task_action
 from .events import event_acknowledge, event_list, session_resume, session_show, sync_now
-from .existing import task_admit, task_find, task_inspect
+from .existing import task_admit, task_find, task_inspect, task_select
 from .intake import (
     task_accept_external_prose,
     task_progress,
@@ -25,6 +25,7 @@ HANDLERS = {
     "task_submit": task_submit,
     "task_find": task_find,
     "task_inspect": task_inspect,
+    "task_select": task_select,
     "task_admit": task_admit,
     "task_revise": task_revise,
     "task_progress": task_progress,
