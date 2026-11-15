@@ -19,6 +19,22 @@ from ai_task_manager.domains.work.errors import AccessDenied
 from tests.hosts.test_physical_invocations import initialized
 from tests.test_build_control_effect_boundaries import SCOPE
 from tests.test_build_control_policy_amendment import rig as rig
+from tools.build_control import ControlError
+
+
+def live_parent(rig, name):
+    rig.current.reserve(
+        name,
+        label="authored foreign host fixture",
+        paid=False,
+        max_cost_usd=None,
+        uses_worker=True,
+        batch_id="batch",
+        timeout_seconds=20,
+        metadata={"invocation_binding": {**SCOPE, "purpose": "host"}},
+    )
+    rig.current.claim_launch(name, worker_identity="owner")
+    rig.current.mark_started(name, worker_identity="owner")
 
 
 def complete_call(rig, name, parent, *, scope=None, worker="owner", outcome="succeeded"):
@@ -52,6 +68,7 @@ def complete_call(rig, name, parent, *, scope=None, worker="owner", outcome="suc
 
 def test_foreign_completed_call_cannot_clear_active_bound(rig, tmp_path):
     invocation, command = initialized(rig, tmp_path)
+    live_parent(rig, "another-native-host")
     foreign = complete_call(rig, "foreign", "another-native-host")
     spec = prepare_binding(invocation.native, command)
     policy = RelayPolicy(
@@ -63,6 +80,7 @@ def test_foreign_completed_call_cannot_clear_active_bound(rig, tmp_path):
 
 def test_parent_completion_requires_exact_pending_capability(rig, tmp_path, monkeypatch):
     invocation, command = initialized(rig, tmp_path)
+    live_parent(rig, "another-native-host")
     foreign = complete_call(rig, "foreign", "another-native-host")
     process = HostProcess(
         command, tmp_path / "output", deadline=time.time() + 10, invocation=invocation
@@ -101,6 +119,29 @@ def test_relay_completion_rechecks_exact_active_scope(rig, tmp_path, variant):
         scope[variant] = "foreign"
     elif variant == "host":
         scope["host"] = "claude"
+    if variant == "parent":
+        live_parent(rig, "foreign")
+    if variant == "owner":
+        # Current launch admission rejects a foreign owner before it can
+        # produce the terminal child receipt assumed by the older fixture.
+        before = next(row for row in rig.current.snapshot()["calls"] if row["call_id"] == "host")
+        with pytest.raises(ControlError) as caught:
+            complete_call(rig, "current", "host", scope=scope, worker="foreign")
+        assert caught.value.code == "parent_call_conflict"
+        call = next(row for row in rig.current.snapshot()["calls"] if row["call_id"] == "current")
+        assert call["status"] == "reserved" and call["process_stopped"] is False
+        after = next(row for row in rig.current.snapshot()["calls"] if row["call_id"] == "host")
+        assert after == before
+        policy = RelayPolicy(
+            prepare_binding(invocation.native, command),
+            {
+                "argv": list(command.argv),
+                "cwd": str(command.cwd),
+                "environment": command.environment,
+            },
+        )
+        assert policy.completed("current", active_call="current") is False
+        return
     permit = complete_call(
         rig,
         "current",

@@ -162,8 +162,21 @@ class FixtureExitWatch:
                 while not self.process.group.leader().exited:
                     assert time.monotonic() < until, "Original terminal child anchor is unknown"
                     time.sleep(0.01)
-                stop = self.process.stop()
+                # Product shutdown keeps its original unknown receipt. Manual
+                # fixture recovery uses the exact retained group after both
+                # registered generations have exited; it does not retry or
+                # rewrite the product transport's stop observation.
+                prior = self.process.stop_evidence
+                stop = self.process.group.stop()
                 assert stop.confirmed
+                self.process.group.reap_exited_leader()
+                self.process.native_input.close()
+                self.process.native_exit.close()
+                self.process.process.stdout.close()
+                if self.process._relay_ready_fd is not None:
+                    os.close(self.process._relay_ready_fd)
+                    self.process._relay_ready_fd = None
+                assert self.process.stop_evidence is prior
             result = {
                 "confirmed": True,
                 "kernel_exits": self.exits,

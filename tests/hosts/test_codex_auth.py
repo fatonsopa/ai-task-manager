@@ -110,6 +110,8 @@ def test_auth_receipt_is_fresh_single_launch_and_exactly_bound(tmp_path, binding
     (p.codex_settings.sources.home / "auth.json").write_text("changed-fixture-cache")
     with pytest.raises(AccessDenied):
         probe.consume(p, binding, fresh)
+    # Expiry has its own unchanged source; the altered home remains fenced.
+    p = policy(tmp_path / "expiry")
     _, _, fresh = status(p, binding, journal, tmp_path)
     now = journal.clock()
     journal.clock = lambda: now + 61

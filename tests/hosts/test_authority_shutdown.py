@@ -64,16 +64,17 @@ def test_success_or_stop_drains_owned_collection_before_core_terminal_mutation(
     g = graph(composition)
     entered, release, exited = block_collection(g, monkeypatch)
     native_stopped, finished = Event(), Event()
-    stop = g.native.stop
+    stop_until = g.native.stop_until
     output, errors = [], []
 
-    def observed_stop():
-        result = stop()
+    def observed_stop(not_after):
+        assert not_after == g.workers.deadline
+        result = stop_until(not_after)
         if result.confirmed:
             native_stopped.set()
         return result
 
-    monkeypatch.setattr(g.native, "stop", observed_stop)
+    monkeypatch.setattr(g.native, "stop_until", observed_stop)
     before = g.core.get_task(g.handle, g.task.id)
     renewals = [
         e
