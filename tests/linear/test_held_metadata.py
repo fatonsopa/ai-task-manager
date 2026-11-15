@@ -1,7 +1,10 @@
 """Signed label metadata preserves held authority; lifecycle facts still fence it."""
 
+import json
+
 import pytest
 
+from ai_task_manager.application.service.facade import ApplicationService
 from tests.linear.helpers import STATES, uid
 from tests.linear.test_decision_publication import env as env
 from tests.linear.test_decision_publication import request
@@ -79,5 +82,22 @@ def test_held_metadata_shortcut_refuses_changed_or_unknown_decision_facts(env, f
     assert result.get("classification") != "held_metadata"
     assert len(rig.core.external.observations(rig.handle, task.id)) == 2
     assert rig.current(task).human_hold
-    if fault not in {"actor", "reorder"}:
-        assert rig.current(task).decision_revision == task.decision_revision + 1
+    current = rig.current(task)
+    if fault in {"assignment", "delegate"}:
+        # Withdrawal fences the old authority without inventing a human choice
+        # from the privacy-minimized, unattributed scope-removal observation.
+        assert current.decision_revision == task.decision_revision
+        assert current.version == task.version + 1 and current.sync_state == "uncertain"
+        assert current.decision_ref != task.decision_ref
+        assert current.title == task.title and current.body == task.body
+        observations = rig.core.external.observations(rig.handle, task.id)
+        latest = json.loads(observations[-1]["payload"])
+        assert latest["assigned_to_owner"] is False
+        assert latest["actor_kind"] == "integration" and latest["actor_authorized"] is False
+        projected = ApplicationService(rig.core, rig.handle).call("task_show", {"task_id": task.id})
+        assert projected["ok"] and projected["data"]["quarantined"]
+        assert projected["data"]["body"] is None and not projected["data"]["active_group"]
+        assert rig.receiver.receive("POST", headers, body).status == 200
+        assert rig.inbound.run_once(rig.handle) is None and rig.current(task) == current
+    elif fault not in {"actor", "reorder"}:
+        assert current.decision_revision == task.decision_revision + 1

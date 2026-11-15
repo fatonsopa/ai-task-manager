@@ -4,10 +4,13 @@ import threading
 from contextlib import contextmanager
 
 from ai_task_manager.adapters.linear.client import (
+    AGENT_USERS,
     COMMENT_CREATE,
     COMMENT_READ,
     CREATE,
     IDENTITY,
+    NATIVE_TYPE_LABELS,
+    NATIVE_TYPE_READ,
     PROJECT_TEAMS,
     READ,
     STATES,
@@ -104,6 +107,22 @@ class OwnedProductTransport:
                 and variables == {"id": recovery["candidate"]}
                 or query == IDENTITY
                 and variables == {"team": s.team, "project": s.project}
+                # Recovery must freshly verify the selected application, but it
+                # still cannot dispatch mutations or unrestricted metadata reads.
+                or (
+                    query == AGENT_USERS
+                    or query == NATIVE_TYPE_LABELS
+                    and recovery["kind"] == "issue"
+                )
+                and set(variables) == {"after"}
+                and (
+                    variables["after"] is None
+                    or isinstance(variables["after"], str)
+                    and bool(variables["after"])
+                )
+                or query == NATIVE_TYPE_READ
+                and recovery["kind"] == "issue"
+                and variables == {"id": recovery["candidate"]}
                 or query == STATES
                 and variables.get("team") == s.team
                 or query == PROJECT_TEAMS
