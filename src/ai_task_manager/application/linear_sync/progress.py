@@ -14,7 +14,7 @@ def progress_prose(body):
     return TaskProse("Task progress update", body, False, ("progress",))
 
 
-def decision_prose(fields):
+def _decision_fields(fields):
     import re
 
     from ai_task_manager.domains.work.errors import ValidationError
@@ -47,12 +47,31 @@ def decision_prose(fields):
         )
     if any("\n" in option["label"] or "\r" in option["label"] for option in options):
         raise ValidationError("Option labels must remain one line")
-    body = "## Context\n\n" + fields["context"] + "\n\n## Options considered\n\n"
-    body += "\n\n".join(
-        "### Option " + o["id"] + ": " + o["label"] + "\n\n" + o["description"] for o in options
+    return options, ids
+
+
+def decision_prose(fields):
+    from ai_task_manager.adapters.writing.package import decision_template
+    from ai_task_manager.config.files import digest
+    from ai_task_manager.domains.work.errors import ValidationError
+
+    options, ids = _decision_fields(fields)
+    if "\n" in fields["title"] or "\r" in fields["title"]:
+        raise ValidationError("Decision topic title must be one plain-text line")
+    template = decision_template(fields.get("proposal_rendering"))
+    if fields.get("proposal_rendering_sha256") != digest(template):
+        raise ApprovalRequired("Decision rendering differs from its pinned Writer template")
+    if ids != list(template["option_labels"][: len(options)]):
+        raise ValidationError("Decision options must follow the Writer's consecutive labels")
+    body = template["body"].format(
+        title=fields["title"],
+        context=fields["context"],
+        options="\n\n".join(template["option"].format(**o) for o in options),
+        recommendation=fields["recommendation"],
+        rationale=fields["rationale"],
+        outcome=template["pending_outcome"],
+        recipient_url=fields["recipient"]["url"],
     )
-    body += "\n\n## Recommended option (" + fields["recommendation"] + ")\n\n" + fields["rationale"]
-    body += "\n\n## Outcome\n\nPending an observed human choice.\n\n" + fields["recipient"]["url"]
     return TaskProse(fields["title"], body, False, ("decision",))
 
 
@@ -95,6 +114,21 @@ class ProgressPublisher:
                 or not metadata
             ):
                 raise ApprovalRequired("Decision publication needs exact decision-purpose approval")
+            if "proposal_rendering" in metadata:
+                original = decision_prose(metadata)
+            else:
+                # Historical authority comes from the exact signed, delivered
+                # approval bytes; never rebuild them with a current template.
+                saved = record.get("prose")
+                if not isinstance(saved, dict):
+                    raise ApprovalRequired("Original decision approval content is unavailable")
+                original = TaskProse(**{**saved, "required_work": tuple(saved["required_work"])})
+                if (
+                    original.title != metadata["title"]
+                    or original.code_bearing
+                    or original.required_work != ("decision",)
+                ):
+                    raise ApprovalRequired("Original decision approval purpose changed")
             rendered = self.renderer.render_decision(prose, metadata["recipient"]["url"])
             approval = self.approvals.verify_approval(approval_ref)
             digest = prose_digest(prose, rendered)
@@ -102,10 +136,7 @@ class ProgressPublisher:
                 approval.policy != self.approval_policy
                 or approval.digest != digest
                 or approval.representation != rendered.representation
-                or rendered
-                != self.renderer.render_decision(
-                    decision_prose(metadata), metadata["recipient"]["url"]
-                )
+                or rendered != self.renderer.render_decision(original, metadata["recipient"]["url"])
             ):
                 raise ApprovalRequired("Decision Record content differs from its approved fields")
             return rendered, digest
@@ -342,6 +373,17 @@ class ProgressPublisher:
             "label_name": context["label_name"],
             "decision_revision": task.decision_revision,
         }
+        from ai_task_manager.config.files import digest
+
+        options, ids = _decision_fields(metadata)
+        template = writer.package.decision_template()
+        labels = template["option_labels"]
+        metadata.update(
+            options=[{**option, "id": labels[i]} for i, option in enumerate(options)],
+            recommendation=labels[ids.index(metadata["recommendation"])],
+            proposal_rendering=template,
+            proposal_rendering_sha256=digest(template),
+        )
         prose = decision_prose(metadata)
         return writer.prepare(
             scope, "decision", prose, purpose="decision", task=task, decision=metadata

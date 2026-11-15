@@ -2,7 +2,7 @@
 
 import copy
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -15,11 +15,10 @@ from ai_task_manager.application.intake import prose_digest
 from ai_task_manager.application.linear_sync.progress import (
     ProgressApprovalContext,
     ProgressPublisher,
-    decision_prose,
     progress_prose,
 )
 from ai_task_manager.domains.work.errors import ApprovalRequired, NotFound
-from ai_task_manager.domains.work.models import Approval
+from ai_task_manager.domains.work.models import Approval, TaskProse
 from tests.linear.helpers import CONNECTION, EXPECTED, LinearRig, uid
 from tests.linear.live.adapter_fixture import AdapterProvider
 
@@ -100,11 +99,28 @@ class DecisionApprovals:
         self.proofs = {}
 
     def approve(self, metadata):
-        prose = decision_prose(metadata)
+        # Authored legacy approval fixture; production uses its signed original
+        # content, not this historical template, during recovery.
+        body = "## Context\n\n" + metadata["context"] + "\n\n## Options considered\n\n"
+        body += "\n\n".join(
+            "### Option " + o["id"] + ": " + o["label"] + "\n\n" + o["description"]
+            for o in metadata["options"]
+        )
+        body += (
+            "\n\n## Recommended option ("
+            + metadata["recommendation"]
+            + ")\n\n"
+            + metadata["rationale"]
+        )
+        body += (
+            "\n\n## Outcome\n\nPending an observed human choice.\n\n" + metadata["recipient"]["url"]
+        )
+        prose = TaskProse(metadata["title"], body, False, ("decision",))
         rendered = LinearMarkdownRenderer().render_decision(prose, metadata["recipient"]["url"])
         prose = replace(prose, body=rendered.body)
         ref = "writing-decision:" + str(uuid4())
         self.records[ref] = {"purpose": "decision", "kind": "decision", "decision": metadata}
+        self.records[ref]["prose"] = asdict(prose)
         self.proofs[ref] = Approval(
             prose_digest(prose, rendered), self.rig.policy, rendered.representation
         )
