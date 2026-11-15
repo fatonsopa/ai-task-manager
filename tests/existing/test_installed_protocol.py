@@ -1,10 +1,12 @@
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 from dataclasses import asdict, replace
 from pathlib import Path
 from uuid import uuid4
@@ -30,6 +32,28 @@ def installed():
     root = Path(__file__).parents[2]
     destination = root / ".local/existing-results/installed" / str(uuid4())
     destination.mkdir(parents=True)
+    lock_file = root / "uv.lock"
+    lock_hash = hashlib.sha256(lock_file.read_bytes()).hexdigest()
+    runtime_requirements = destination / "runtime-requirements.txt"
+    exported = subprocess.run(
+        [
+            "uv",
+            "export",
+            "--locked",
+            "--offline",
+            "--no-dev",
+            "--no-emit-project",
+            "--output-file",
+            str(runtime_requirements),
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    (destination / "export.log").write_text(exported.stdout + exported.stderr)
+    assert exported.returncode == 0, exported.stderr
+    assert hashlib.sha256(lock_file.read_bytes()).hexdigest() == lock_hash
     build = subprocess.run(
         ["uv", "build", "--wheel", "--out-dir", str(destination / "dist")],
         cwd=root,
@@ -47,14 +71,66 @@ def installed():
         timeout=60,
     )
     python = destination / "venv/bin/python"
+    runtime_install = subprocess.run(
+        [
+            "uv",
+            "pip",
+            "install",
+            "--offline",
+            "--require-hashes",
+            "--python",
+            str(python),
+            "-r",
+            str(runtime_requirements),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    (destination / "runtime-install.log").write_text(
+        runtime_install.stdout + runtime_install.stderr
+    )
+    assert runtime_install.returncode == 0, runtime_install.stderr
     install = subprocess.run(
-        ["uv", "pip", "install", "--python", str(python), str(wheel)],
+        ["uv", "pip", "install", "--offline", "--no-deps", "--python", str(python), str(wheel)],
         capture_output=True,
         text=True,
         timeout=180,
     )
     (destination / "install.log").write_text(install.stdout + install.stderr)
     assert install.returncode == 0, install.stderr
+    observed = subprocess.run(
+        [
+            str(python),
+            "-c",
+            "import importlib.metadata as m,json; "
+            "print(json.dumps({d.metadata['Name']:d.version for d in m.distributions()}))",
+        ],
+        cwd=destination,
+        env={key: value for key, value in os.environ.items() if key != "PYTHONPATH"},
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=15,
+    )
+    def canonical(name):
+        return re.sub(r"[-_.]+", "-", name).lower()
+
+    distributions = {
+        canonical(name): version for name, version in json.loads(observed.stdout).items()
+    }
+    locked = {}
+    for package in tomllib.loads(lock_file.read_text())["package"]:
+        locked.setdefault(canonical(package["name"]), set()).add(package["version"])
+    # Installer tools are not product runtime dependencies. Every installed
+    # runtime distribution must retain a version from the unchanged source lock.
+    tooling = {"pip"}
+    assert all(
+        version in locked.get(name, set())
+        for name, version in distributions.items()
+        if name not in tooling
+    ), distributions
+    assert hashlib.sha256(lock_file.read_bytes()).hexdigest() == lock_hash
     aitm = destination / "venv/bin/aitm"
     bootstrap = root / "tests/fixtures/existing/installed_bootstrap.py"
     imported = subprocess.run(
@@ -71,16 +147,26 @@ def installed():
     installed_runtime = Path(imported.stdout.strip()).parent
     source_hashes = {
         str(path.relative_to(source_runtime)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in source_runtime.rglob("*.py")
+        for path in source_runtime.rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts
     }
     installed_hashes = {
         str(path.relative_to(installed_runtime)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in installed_runtime.rglob("*.py")
+        for path in installed_runtime.rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts
     }
     assert source_hashes == installed_hashes
     manifest = {
         "wheel": str(wheel),
         "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+        "uv_lock_sha256": lock_hash,
+        "runtime_requirements": str(runtime_requirements),
+        "runtime_requirements_sha256": hashlib.sha256(
+            runtime_requirements.read_bytes()
+        ).hexdigest(),
+        "runtime_distributions": {
+            name: version for name, version in distributions.items() if name not in tooling
+        },
         "bootstrap_sha256": hashlib.sha256(bootstrap.read_bytes()).hexdigest(),
         "crash_harness_sha256": hashlib.sha256(
             bootstrap.with_name("crash_after_admit.py").read_bytes()
