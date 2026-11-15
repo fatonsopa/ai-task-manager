@@ -98,7 +98,9 @@ def main(argv=None):
     selected_command = argparse.ArgumentParser(add_help=False)
     selected_command.add_argument("--config", required=True)
     selected_command.add_argument("--json", action="store_true")
-    selected_command.add_argument("group", choices=["workflow", "session"])
+    selected_command.add_argument(
+        "group", choices=["workflow", "session", "writing", "task", "event", "sync"]
+    )
     selected_command.add_argument("action")
     selected_command.add_argument("--input")
     selected = selected_command.parse_args(command)
@@ -106,8 +108,24 @@ def main(argv=None):
         ("workflow", "prepare"),
         ("session", "setup"),
         ("session", "doctor"),
+        ("writing", "prepare"),
+        ("writing", "review"),
+        ("writing", "finalize"),
+        ("task", "submit"),
+        ("task", "action"),
+        ("task", "list"),
+        ("task", "show"),
+        ("event", "list"),
+        ("sync", "now"),
     }:
         raise DriverRefused("installed_preparation_command_required")
+    if (selected.group, selected.action) == ("task", "action"):
+        if (
+            not selected.input
+            or selected.input == "-"
+            or strict_json(private_path(selected.input).read_bytes()).get("action") != "enqueue"
+        ):
+            raise DriverRefused("bounded_installed_enqueue_required")
     if "PYTHONPATH" in os.environ:
         raise DriverRefused("pythonpath_must_be_absent")
     import ai_task_manager

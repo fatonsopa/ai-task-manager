@@ -2,12 +2,13 @@
 
 import json
 import time
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
 
-from ai_task_manager.config.files import read_private
-from tests.install.cli_observer import DispatchObserver, open_ledger
+from ai_task_manager.config.files import read_private, write_private
+from tests.install.cli_observer import DispatchObserver, main, open_ledger
 from tests.linear.helpers import EXPECTED
 from tests.linear.live.ledger import DriverRefused, Limits, RunLedger, Scope
 
@@ -93,3 +94,33 @@ def test_OB03_existing_receipt_is_retained_without_another_attempt(tmp_path):
         DispatchObserver(run, "https://api.linear.app/graphql", receipt, {"replacement": True})
     assert receipt.read_bytes() == before
     assert run.summary()["requests"] == []
+
+
+@pytest.mark.parametrize(
+    ("group", "action"),
+    [("workflow", "owner"), ("event", "acknowledge"), ("task", "cancel"), ("sync", "listen")],
+)
+def test_OB04_execution_and_receipt_commands_never_reach_installed_entry(tmp_path, group, action):
+    store, receipt = tmp_path / "unopened.sqlite", tmp_path / "unwritten.json"
+    with patch("runpy.run_path") as entry, pytest.raises(DriverRefused):
+        main([
+            "--ledger", str(store), "--receipt", str(receipt), "--", "--config",
+            str(tmp_path / "unopened-service.json"), "--json", group, action,
+        ])
+    entry.assert_not_called()
+    assert not store.exists() and not receipt.exists()
+
+
+def test_OB05_normal_task_action_remains_enqueue_only(tmp_path):
+    request = tmp_path / "cancel.json"
+    write_private(request, {"action": "cancel"})
+    with patch("runpy.run_path") as entry, pytest.raises(DriverRefused, match="enqueue_required"):
+        main([
+            "--ledger", str(tmp_path / "unopened.sqlite"), "--receipt",
+            str(tmp_path / "unwritten.json"), "--", "--config",
+            str(tmp_path / "unopened-service.json"), "--json", "task", "action", "--input",
+            str(request),
+        ])
+    entry.assert_not_called()
+    assert not (tmp_path / "unopened.sqlite").exists()
+    assert not (tmp_path / "unwritten.json").exists()
