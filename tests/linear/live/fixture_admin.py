@@ -235,7 +235,89 @@ class FixtureAdministration:
             kind, candidate, s.workspace, s.team, s.project, s.owner, self.ledger.run_id, state
         )
 
-    def _product_issue(self, config_file, submit_key, task_id, writing_ref):
+    def _api_submit_source(self, observation_file, config_file, config, submit_key, writing_ref):
+        """Trusted private observation port; dispatch metadata alone grants no ownership."""
+        import hashlib
+
+        from ai_task_manager.adapters.decisions.observations import identity
+        from ai_task_manager.adapters.linear.client import CREATE
+        from ai_task_manager.adapters.workflow_control.identity import canonical, source_digest
+        from ai_task_manager.config.files import FileSeal, read_private
+
+        observation_seal = FileSeal(observation_file)
+        observed = read_private(observation_file)
+        python = Path(config["writer"]["python"]).absolute()
+        entry = python.parent / "aitm"
+        package = Path(observed["package"])
+        module = package.parent / "presentation/cli/main.py"
+        argv = observed["argv"]
+        if (
+            observed["classification"] != "pre_io_dispatch_attempts"
+            or observed["mode"] not in {"genuine_default_provider", "authored_loopback_control"}
+            or type(observed["exit_code"]) is not int
+            or observed["exit_code"] != 0
+            or observed["pythonpath_absent"] is not True
+            or observed["python"] != str(python)
+            or observed["entry"] != str(entry)
+            or len(argv) != 8
+            or argv[:7]
+            != [
+                str(entry),
+                "--config",
+                str(Path(config_file).absolute()),
+                "--json",
+                "task",
+                "submit",
+                "--input",
+            ]
+            or not package.is_absolute()
+            or package.resolve() != package
+            or not package.is_relative_to(python.parent.parent / "lib")
+            or "site-packages" not in package.parts
+            or package.name != "__init__.py"
+            or package.parent.name != "ai_task_manager"
+            or observed["cli_module"] != str(module)
+            or observed["source_digest"] != source_digest()
+        ):
+            raise DriverRefused("product_api_submit_observation_changed")
+        for field, path in (
+            ("python_sha256", python),
+            ("entry_sha256", entry),
+            ("cli_module_sha256", module),
+            ("observer_sha256", Path(__file__).parents[2] / "install/cli_observer.py"),
+            ("ledger_helper_sha256", Path(__file__).with_name("ledger.py")),
+        ):
+            if observed[field] != hashlib.sha256(path.read_bytes()).hexdigest():
+                raise DriverRefused("product_api_submit_source_changed")
+        rows = [
+            (str(p.relative_to(package.parent)), hashlib.sha256(p.read_bytes()).hexdigest())
+            for p in sorted(package.parent.rglob("*.py"))
+        ]
+        if hashlib.sha256(canonical(rows)).hexdigest() != observed["source_digest"]:
+            raise DriverRefused("product_api_submit_source_changed")
+        request_seal = FileSeal(argv[7])
+        if read_private(argv[7]) != {"writing_ref": writing_ref, "operation_key": submit_key}:
+            raise DriverRefused("product_api_submit_request_changed")
+        creates = [
+            row
+            for row in observed["dispatches"]
+            if row["operation"] == "mutation"
+            and row["query_sha256"] == hashlib.sha256(CREATE.encode()).hexdigest()
+        ]
+        if len(creates) != 1:
+            raise DriverRefused("original_product_api_create_required")
+        observation_seal.check()
+        request_seal.check()
+        return {
+            "mode": "setup_api",
+            "submit_observation": identity(observation_file, content=True),
+            "submit_input": identity(argv[7], content=True),
+            "provider_mode": observed["mode"],
+        }
+
+    def _product_issue(
+        self, config_file, submit_key, task_id, writing_ref, *, api_submit_observation=None
+    ):
         """Read actual installed product intent and approval; do not initialize its stores."""
         from ai_task_manager.adapters.decisions.observations import identity
         from ai_task_manager.adapters.linear.connections import AgentConnection
@@ -265,18 +347,49 @@ class FixtureAdministration:
         seal = FileSeal(config_file)
         config = read_private(config_file)
         root = Path(config_file).parent
-        setup = read_private(root / "operator-intent.json")
-        complete = read_private(root / "operator-result.json")
-        if setup["source"] != source_digest() or complete["config"] != identity(
-            config_file, content=True
-        ):
-            raise DriverRefused("product_installation_changed")
+        if api_submit_observation is None:
+            setup = read_private(root / "operator-intent.json")
+            complete = read_private(root / "operator-result.json")
+            if setup["source"] != source_digest() or complete["config"] != identity(
+                config_file, content=True
+            ):
+                raise DriverRefused("product_installation_changed")
+            installation = {"mode": "operator"}
+        else:
+            installation = self._api_submit_source(
+                api_submit_observation, config_file, config, submit_key, writing_ref
+            )
         installed_authority(config)
         # Reject WAL before the history helper can open SQLite and create sidecars.
         journal = ReadOnlyAuthority(config["authority_database"], config["authority_key"])
         installed_provider_history(config)
         enrollment = journal._get(config["grant_ref"], "session-enrollment:")
         capability = read_private(config["session_file"])
+        if api_submit_observation is not None:
+            reference = config["grant_ref"]
+            origin = journal._get(
+                "session-setup-origin:" + digest(reference), "session-setup-origin:"
+            )
+            completed = journal._get(
+                "session-setup-result:" + digest(reference), "session-setup-result:"
+            )
+            initial = journal._get(
+                "session-initial-setup:" + digest(str(Path(config_file).absolute())),
+                "session-initial-setup:",
+            )
+            if (
+                origin["renew_from"] is not None
+                or origin["capability"] is not None
+                or origin["workflow_control"] is not None
+                or origin["scope"] != enrollment["scope"]
+                or completed["scope"] != enrollment["scope"]
+                or completed["session_file"] != identity(config["session_file"], content=True)
+                or initial["enrollment"] != reference
+                or initial["scope"] != enrollment["scope"]
+            ):
+                raise DriverRefused("original_product_api_setup_required")
+            installation["setup_origin"] = digest(origin)
+            installation["setup_result"] = digest(completed)
         with readonly(config["core_database"]) as conn:
             scheduling(conn)
             publication(conn)
@@ -453,6 +566,8 @@ class FixtureAdministration:
             "title_sha256": digest(task.title),
             "body_sha256": digest(task.body),
         }
+        if api_submit_observation is not None:
+            provenance["installation"] = installation
         return SimpleNamespace(
             provenance=provenance,
             title=task.title,
@@ -461,10 +576,18 @@ class FixtureAdministration:
             state_id=snapshot["state_id"],
         )
 
-    def observe_product_issue(self, config_file, submit_key, task_id, writing_ref):
+    def observe_product_issue(
+        self, config_file, submit_key, task_id, writing_ref, *, api_submit_observation=None
+    ):
         """Bind confirmed default-CLI creation to cleanup using truthful post-effect provenance."""
         try:
-            before = self._product_issue(config_file, submit_key, task_id, writing_ref)
+            before = self._product_issue(
+                config_file,
+                submit_key,
+                task_id,
+                writing_ref,
+                api_submit_observation=api_submit_observation,
+            )
             self.ledger.resource(self.ledger.scope.project)
             self.graphql.refresh_if_needed()
             item, stamp = self._metadata("issue", before.issue_id, None)
@@ -479,7 +602,13 @@ class FixtureAdministration:
             ):
                 raise DriverRefused("product_fresh_readback_changed")
             # Re-observe after I/O; local intent, approval or authority may have changed.
-            after = self._product_issue(config_file, submit_key, task_id, writing_ref)
+            after = self._product_issue(
+                config_file,
+                submit_key,
+                task_id,
+                writing_ref,
+                api_submit_observation=api_submit_observation,
+            )
             if before.provenance != after.provenance:
                 raise DriverRefused("product_changed_during_readback")
             provenance = {**after.provenance, "provider_revision": stamp}

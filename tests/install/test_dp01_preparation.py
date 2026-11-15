@@ -43,7 +43,8 @@ def snapshot(root):
 
 
 @pytest.fixture
-def installed():
+def installed(request):
+    api_install = getattr(request, "param", "operator") == "api"
     selected = os.environ.get("DP01_INSTALLED_PYTHON")
     writer = os.environ.get("TECHNICAL_WRITER_PACKAGE")
     if not selected or not writer:
@@ -144,6 +145,7 @@ def installed():
             "stdout": child.stdout,
             "stderr": child.stderr,
             "receipt": read_private(receipt) if receipt.exists() else None,
+            "receipt_path": str(receipt),
         }
         commands.append(row)
         assert child.returncode == expected if expected is not None else child.returncode != 0, row
@@ -155,6 +157,10 @@ def installed():
 
     def prepare(operation, data, **kwargs):
         request = folder / f"request-{len(commands) + 1}.json"
+        if api_install:
+            write_private(request, data)
+            group, action = operation.split("_", 1)
+            return cli(["--json", group, action, "--input", str(request)], **kwargs)
         write_private(request, {"operation": operation, "data": data})
         return cli(["workflow", "prepare", "--input", str(request)], **kwargs)
 
@@ -184,8 +190,78 @@ def installed():
     request = folder / "setup.json"
     write_private(request, manifest)
     try:
-        cli(["session", "setup", "--input", str(request)])
+        if api_install:
+            state.mkdir(mode=0o700)
+            write_private(
+                config,
+                {
+                    "version": 1,
+                    "core_database": str(state / "core.sqlite"),
+                    "authority_database": str(state / "authority.sqlite"),
+                    "authority_key": str(state / "authority.key"),
+                    "session_file": str(state / "session.json"),
+                    "approval_policy": asdict(package.verify()),
+                    "linear": {
+                        "expected": asdict(EXPECTED),
+                        "agent_connection": asdict(CONNECTION),
+                        "credential_environment": "AITM_CREDENTIAL_DP01_CONTROL",
+                        "journal": str(state / "provider.sqlite"),
+                    },
+                    "writer": {
+                        "root": str(package.root),
+                        "python": str(python),
+                        "pins": package.pins,
+                        "sessions_root": str(state / "writing"),
+                        "journal": str(state / "writing.sqlite"),
+                        "key": str(state / "writing.key"),
+                    },
+                    "capacity_policies": manifest["capacity_policies"],
+                },
+            )
+            # Actual installed API, default components; only the declared HTTP endpoint is authored.
+            script = (
+                "import sys,json; from pathlib import Path; "
+                "from ai_task_manager.adapters.linear.transport import HttpTransport; "
+                "from ai_task_manager.installation.sessions import setup; "
+                "sys.path.insert(0,sys.argv[7]); "
+                "from tests.install.cli_observer import DispatchObserver,open_ledger; "
+                "HttpTransport.ENDPOINT=sys.argv[1]; "
+                "observer=DispatchObserver(open_ledger(sys.argv[5]),sys.argv[1],sys.argv[6],"
+                "{'mode':'authored_loopback_control','operation':'trusted_setup_api'}); "
+                "sys.addaudithook(observer.audit); "
+                "result=setup(Path(sys.argv[2]), logical_session=sys.argv[3], "
+                "actions=('enqueue',), deadline=float(sys.argv[4]), "
+                "operation_key='authored-api-setup'); observer.save(); print(json.dumps(result))"
+            )
+            child = subprocess.run(
+                [
+                    str(python),
+                    "-I",
+                    "-B",
+                    "-c",
+                    script,
+                    provider.endpoint,
+                    str(config),
+                    CONNECTION.logical_session,
+                    str(manifest["deadline"]),
+                    str(ledger.path),
+                    str(folder / "api-setup-observer.json"),
+                    str(OBSERVER.parents[2]),
+                ],
+                cwd=project,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert child.returncode == 0, child.stderr
+            assert json.loads(child.stdout)["capability_saved"] is True
+            assert not (state / "operator-intent.json").exists()
+            assert not (state / "operator-result.json").exists()
+        else:
+            cli(["session", "setup", "--input", str(request)])
         yield SimpleNamespace(
+            api_install=api_install,
             config=config,
             folder=folder,
             project=project,
