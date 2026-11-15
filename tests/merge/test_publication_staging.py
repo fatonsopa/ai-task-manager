@@ -101,12 +101,12 @@ def test_actual_core_yield_excludes_preparation_and_journal_io(tmp_path, monkeyp
 
     with owned_chain(tmp_path / "chain") as chain:
         active, violations, durations = False, [], []
-        boundary = chain.r.core.execution.work_snapshot_boundary
+        boundary = chain.r.core.execution.merge_snapshot_boundary
 
         @contextmanager
-        def observed(*args):
+        def observed(*args, **kwargs):
             nonlocal active
-            with boundary(*args) as snapshot:
+            with boundary(*args, **kwargs) as snapshot:
                 active = True
                 started = time.monotonic()
                 try:
@@ -115,7 +115,7 @@ def test_actual_core_yield_excludes_preparation_and_journal_io(tmp_path, monkeyp
                     durations.append(time.monotonic() - started)
                     active = False
 
-        monkeypatch.setattr(chain.r.core.execution, "work_snapshot_boundary", observed)
+        monkeypatch.setattr(chain.r.core.execution, "merge_snapshot_boundary", observed)
         for obj, name in [
             (module.subprocess, "Popen"),
             (chain.consumer.service.publisher, "_inventory"),
