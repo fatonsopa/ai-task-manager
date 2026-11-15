@@ -190,3 +190,41 @@ def test_installed_creator_choice_preserves_task_owner(installed):  # noqa: F811
     assert (
         p.prepare("task_show", {"task_id": task["id"]})["data"]["session_id"] == task["session_id"]
     )
+
+
+def test_installed_cold_original_key_recovers_known_comment(installed):  # noqa: F811
+    p = installed
+    writing = p.approved()
+    task = p.prepare(
+        "task_submit", {"writing_ref": writing["approval_ref"], "operation_key": "recovery-task"}
+    )["data"]
+    prepared = p.prepare(
+        "task_decision_prepare",
+        {"task_id": task["id"], **fields(), "operation_key": "prepare-recovery"},
+    )["data"]
+    assert prepared["mechanical_passed"], prepared["packet"]["mechanical_checks"]
+    p.prepare(
+        "writing_review",
+        {"writing_id": prepared["writing_id"], "review": reviewed_control(prepared["packet"])},
+    )
+    accepted = p.prepare("writing_finalize", {"writing_id": prepared["writing_id"]})["data"]
+    data = {
+        "task_id": task["id"],
+        "writing_ref": accepted["approval_ref"],
+        "operation_key": "original-readback-recovery",
+    }
+    p.provider.transform = lambda query, variables, result: (
+        {"comment": None} if "query ReadComment" in query else result
+    )
+    first = p.prepare("task_decision_request", data, expected=6)
+    assert first["ok"] and first["outcome"] == "uncertain", first
+    assert first["data"]["comment_id"] and len(p.provider.comments) == 1
+    p.provider.transform = None
+    # Every prepare call launches a fresh literal installed CLI process.
+    recovered = p.prepare("task_decision_request", data)
+    assert recovered["ok"] and recovered["outcome"] == "confirmed", recovered
+    assert recovered["data"]["id"] == first["data"]["id"]
+    assert recovered["data"]["comment_id"] == first["data"]["comment_id"]
+    assert recovered["data"]["label_state"] == "confirmed"
+    assert len(p.provider.comments) == 1
+    assert sum("mutation CreateComment" in r["query"] for r, _ in p.provider.requests) == 1

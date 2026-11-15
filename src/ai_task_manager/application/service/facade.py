@@ -96,7 +96,15 @@ class ApplicationService:
 
                         publisher, row = selected(self, {"request_id": cached["data"]["id"]})
                         publisher.check_authority()
-                        return external_result(publisher._decision_view(row))
+                        view = publisher._decision_view(row)
+                        if view["state"] != "confirmed" or (
+                            operation == "task_decision_resolve"
+                            and row["decision_state"] != "resolved"
+                        ):
+                            # Continue only the original partial intent. Completed publication
+                            # remains historical even while its human choice is still open.
+                            return self._invoke(operation, data, invocation)
+                        return external_result(view)
                     if operation == "worker_start":
                         current = self.core.get_attempt(self.handle, cached["data"]["id"])
                         return result(attempt_view(self, current))
