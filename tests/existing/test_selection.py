@@ -1,6 +1,8 @@
 """Real installed-enrollment selection source with an authored HTTP provider."""
 
 import json
+import os
+import sys
 import time
 from dataclasses import asdict, replace
 from uuid import uuid4
@@ -8,14 +10,19 @@ from uuid import uuid4
 import pytest
 
 from ai_task_manager.adapters.linear.transport import HttpTransport
-from ai_task_manager.config.files import write_private
+from ai_task_manager.adapters.writing.package import WriterPackage
+from ai_task_manager.config.files import read_private, write_private
 from ai_task_manager.config.service import load_service
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.installation.sessions import setup
-from tests.linear.helpers import CONNECTION, EXPECTED
+from tests.application.helpers import FEATURE_BODY
+from tests.linear.helpers import CONNECTION, EXPECTED, STATES
+
+from .helpers import span
+from .service_support import approve
 
 
-def configured(tmp_path, provider, monkeypatch, *, delegated=True, name="selected"):
+def configured(tmp_path, provider, monkeypatch, *, delegated=True, name="selected", writing=False):
     root = tmp_path / name
     root.mkdir(mode=0o700)
     monkeypatch.setattr(HttpTransport, "ENDPOINT", provider.endpoint)
@@ -46,6 +53,22 @@ def configured(tmp_path, provider, monkeypatch, *, delegated=True, name="selecte
             },
         },
     )
+    if writing:
+        source = os.environ.get("TECHNICAL_WRITER_PACKAGE")
+        if not source:
+            pytest.skip("Actual configured current Technical Writer is required")
+        package = WriterPackage.capture(source, sys.executable)
+        values = read_private(config)
+        values["approval_policy"] = asdict(package.policy())
+        values["writer"] = {
+            "root": str(package.root),
+            "python": package.python,
+            "pins": package.pins,
+            "sessions_root": str(root / "writing"),
+            "journal": str(root / "writing.sqlite"),
+            "key": str(root / "writing.key"),
+        }
+        write_private(config, values, replace=True)
     actions = ("enqueue", "existing_issue_selection") if delegated else ("enqueue",)
     setup(
         config,
@@ -151,3 +174,83 @@ def test_selection_preserves_ordinary_owner_forwarding(tmp_path, provider, monke
     assert calls == [("task_select", request)]
     with service.decisions.journal.transaction() as conn:
         assert conn.execute("SELECT count(*) FROM invocations").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("revoke", [True, False])
+def test_admission_readback_authority_loss_cannot_persist_a_canonical_fence(
+    tmp_path, provider, monkeypatch, revoke
+):
+    """DPT01-01: actual HTTP readback and canonical rows, with valid-authority control."""
+    service = configured(tmp_path, provider, monkeypatch, writing=True)
+    issue = provider.seed()
+    provider.issues[issue]["description"] = FEATURE_BODY.removesuffix("\n")
+    writing = approve(service, provider.issues[issue]["title"], FEATURE_BODY)
+    inspected = service.call("task_inspect", {"issue": issue})
+    assert inspected["ok"], inspected
+    discovery = inspected["data"]["discovery_ref"]
+    selected = service.call(
+        "task_select",
+        {
+            "discovery_ref": discovery,
+            "operation_key": "select-before-readback",
+        },
+    )
+    assert selected["ok"], selected
+
+    def domain_state():
+        with service.core.context.db.transaction() as conn:
+            return {
+                table: [tuple(row) for row in conn.execute(f"SELECT * FROM {table}")]
+                for table in (
+                    "issue_lifecycle",
+                    "tasks",
+                    "issue_bindings",
+                    "events",
+                    "outbox",
+                    "attempts",
+                    "existing_admissions",
+                    "resource_leases",
+                    "operations",
+                )
+            }
+
+    before = domain_state()
+    assert before["issue_lifecycle"] == []
+    original = provider.graphql
+    readback = []
+
+    def delivered_during_readback(query, variables):
+        if "query ExistingMetadata" in query and not readback:
+            provider.issues[issue]["state"] = {"id": STATES["Done"], "name": "Done"}
+            changed_at = "2026-11-01T00:03:00Z"
+            provider.issues[issue]["updatedAt"] = changed_at
+            provider.histories[issue] = [
+                span("Backlog", end=changed_at),
+                span("Done", changed_at, number=1),
+            ]
+            if revoke:
+                service.decisions.observations.revoke()
+            readback.append({"status": "Done", "enrollment_revoked": revoke})
+        return original(query, variables)
+
+    monkeypatch.setattr(provider, "graphql", delivered_during_readback)
+    refused = service.call(
+        "task_admit",
+        {
+            "discovery_ref": discovery,
+            "writing_ref": writing["approval_ref"],
+            "selection_ref": selected["data"]["selection_ref"],
+            "operation_key": "admit-after-readback",
+        },
+    )
+    assert readback == [{"status": "Done", "enrollment_revoked": revoke}]
+    assert not refused["ok"], refused
+    after = domain_state()
+    if revoke:
+        assert after == before
+    else:
+        assert len(after["issue_lifecycle"]) == 1 and after["issue_lifecycle"][0][1:3] == (1, 0)
+        assert {k: v for k, v in after.items() if k != "issue_lifecycle"} == {
+            k: v for k, v in before.items() if k != "issue_lifecycle"
+        }
+    assert not any("mutation" in row[0]["query"].lower() for row in provider.requests)

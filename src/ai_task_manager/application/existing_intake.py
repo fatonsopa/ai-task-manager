@@ -47,10 +47,10 @@ class ExistingIntake:
             original.subject,
             readback_context("admission", operation_key, discovery_ref=discovery_ref),
         )
+        check_selection()
         self.core.existing.observed(self.handle, fresh_ref)
         if digest(snapshot) != original.payload["discovery_digest"]:
             raise EvidenceRequired("Issue changed; inspect and select its current revision")
-        check_selection()
         return self.core.existing.admit(
             self.handle, discovery_ref, fresh_ref, prose, writing_ref, selection_ref, operation_key
         )
