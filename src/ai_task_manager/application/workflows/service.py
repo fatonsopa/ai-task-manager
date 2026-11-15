@@ -87,6 +87,19 @@ class WorkflowService:
         with self._task_lock(authorization.task_id):
             return recover_expired(self.driver, authorization)
 
+    def inspect(self, workflow_ref):
+        from .inspection import inspect_row
+
+        row = self.driver.store.read(workflow_ref, self.driver.scope)
+        if self.task_plans.get(row["task_id"]) != row["plan_id"]:
+            from ai_task_manager.domains.work.errors import AccessDenied
+
+            raise AccessDenied("The installed plan is not assigned to this task")
+        return inspect_row(
+            self.driver.core, self.driver.handle, row,
+            self.driver.store.original_key(workflow_ref, self.driver.scope),
+        )
+
     def resume(self, workflow_ref):
         self._ready()
         row = self.driver.store.read(workflow_ref, self.driver.scope)

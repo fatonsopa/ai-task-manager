@@ -28,9 +28,10 @@ from .identity import (
 
 
 class WorkflowOwner:
-    def __init__(self, service, config_file, *, deadline, clock=time.time):
+    def __init__(self, service, config_file, *, deadline, clock=time.time, installation=None):
         if type(deadline) not in {int, float} or not math.isfinite(deadline) or deadline <= clock():
             raise AccessDenied("The owner requires an original finite future deadline")
+        self.installation = installation
         self.service, self.config_file, self.deadline, self.clock = (
             service,
             Path(config_file).absolute(),
@@ -72,16 +73,27 @@ class WorkflowOwner:
         from ai_task_manager.adapters.decisions.observations import bind_record
         from ai_task_manager.installation.workflows.bootstrap import activation_reference
 
+        activation = {
+            "config": file_binding(self.config_file),
+            "scope": self.scope,
+            "instance": self.settings["instance"],
+            "source": self.source,
+            "deadline": self.deadline,
+        }
+        if self.installation is not None:
+            from .recovery import physical
+
+            self.installation.check()
+            store = self.service.workflows.driver.store
+            activation["recovery"] = {
+                "installation": file_binding(self.installation.seal.path),
+                "workflow": dict(physical(store.path), store_id=store.store_id),
+                "owner": {"pid": os.getpid(), "start": process_start(os.getpid())},
+            }
         bind_record(
             self.service.decisions.journal,
             activation_reference(self.config_file, self.settings),
-            {
-                "config": file_binding(self.config_file),
-                "scope": self.scope,
-                "instance": self.settings["instance"],
-                "source": self.source,
-                "deadline": self.deadline,
-            },
+            activation,
         )
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
             listener.bind(str(path))

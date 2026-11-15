@@ -104,6 +104,23 @@ class WorkflowStore:
                 seal_migration(conn, origin)
             self.store_id = rows[0][1]
 
+    @classmethod
+    def open_existing(cls, path, *, store_id):
+        """Open retained schema-2 history without creation, migration or UUID adoption."""
+        value = cls.__new__(cls)
+        value.path = private_path(path)
+        info = value.path.stat()
+        value.identity = info.st_dev, info.st_ino
+        value.store_id = store_id
+        value._existing_only = True
+        with value.transaction() as conn:
+            tables = {
+                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
+            if tables not in (CURRENT_TABLES, CURRENT_TABLES | {MARKER}):
+                raise SchemaError("Not an owned workflow store")
+        return value
+
     rollback_schema1 = staticmethod(rollback_schema1)
 
     @contextmanager
@@ -111,7 +128,12 @@ class WorkflowStore:
         info = private_path(self.path).stat()
         if (info.st_dev, info.st_ino) != self.identity:
             raise AccessDenied("Workflow file identity changed")
-        conn = sqlite3.connect(self.path, isolation_level=None, timeout=2)
+        conn = sqlite3.connect(
+            self.path.as_uri() + "?mode=rw"
+            if getattr(self, "_existing_only", False)
+            else self.path,
+            uri=getattr(self, "_existing_only", False), isolation_level=None, timeout=2,
+        )
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("BEGIN IMMEDIATE")
@@ -279,6 +301,16 @@ class WorkflowStore:
                     for r in conn.execute("SELECT * FROM steps WHERE run_id=?", (reference,))
                 },
             )
+
+    def original_key(self, reference, scope):
+        with self.transaction() as conn:
+            row = conn.execute(
+                "SELECT operation_key FROM runs WHERE id=? AND scope=?",
+                (reference, canonical(asdict(scope))),
+            ).fetchone()
+            if row is None:
+                raise AccessDenied("Scoped workflow is unavailable")
+            return row["operation_key"]
 
     def claim(self, reference, scope, owner):
         self.read(reference, scope)

@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 
 
-def owner_main(root, socket_root, *, drop_first=False, max_steps=16, barrier=False):
+def owner_main(root, socket_root, *, drop_first=False, max_steps=16, barrier=False, recovery=False):
     from ai_task_manager.adapters.decisions.authority import HostGrant, HumanInstruction
     from ai_task_manager.adapters.decisions.journal import AuthorityJournal
     from ai_task_manager.adapters.proofs.router import EvidenceRoute, EvidenceRouter
@@ -59,6 +59,8 @@ def owner_main(root, socket_root, *, drop_first=False, max_steps=16, barrier=Fal
             "instance": str(uuid4()),
         },
     }
+    if recovery:
+        config["grant_ref"] = "fixture-grant"
     config_file = root / "service.json"
     write_private(config_file, config)
     observations = Observations()
@@ -176,6 +178,27 @@ def owner_main(root, socket_root, *, drop_first=False, max_steps=16, barrier=Fal
         scheduling_sources=r.scheduling_sources,
         workflow_factory=compose,
     )
+    installation = None
+    if recovery:
+        from ai_task_manager.adapters.workflow_control.identity import file_binding
+        from ai_task_manager.installation.workflows.spec import Installation
+
+        # This authored selection configures the existing mechanical owner;
+        # the product activation code, not this fixture, produces its witness.
+        installation_file = root / "installation.json"
+        plan = service.workflows.driver.plans.get("non-code")
+        write_private(installation_file, {
+            "version": 1, "config": file_binding(config_file), "scope": asdict(r.scope),
+            "task_id": task.id, "prose_digest": task.prose_digest,
+            "native_ref": "declared-mechanical-fixture", "native_digest": "0" * 64,
+            "repository": str(rr.repo), "source_head": plan.base,
+            "state_root": str(root), "deadline": deadline,
+            "principal_ref": "authored-principal", "plan_ref": plan.id,
+            "files": list(plan.allowed_files), "artifacts": list(plan.artifacts),
+            "installation_path": str(installation_file),
+        })
+        installation = Installation(installation_file, config_file)
+        write_private(root / "prepared.json", {"task_id": task.id, "plan_ref": plan.id})
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *args: stop.set())
     signal.signal(signal.SIGINT, lambda *args: stop.set())
@@ -207,7 +230,9 @@ def owner_main(root, socket_root, *, drop_first=False, max_steps=16, barrier=Fal
         )
 
     try:
-        WorkflowOwner(service, config_file, deadline=deadline).serve(stop, ready)
+        WorkflowOwner(
+            service, config_file, deadline=deadline, installation=installation
+        ).serve(stop, ready)
     finally:
         rr.close()
         reports = []
@@ -233,4 +258,5 @@ def entry():
         drop_first="drop" in sys.argv[3:],
         max_steps=1 if "step" in sys.argv[3:] else 16,
         barrier="barrier" in sys.argv[3:],
+        recovery="recovery" in sys.argv[3:],
     )

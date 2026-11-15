@@ -27,11 +27,12 @@ from .intake import (
 )
 from .queries import task_external_changes, task_list, task_show
 from .workers import worker_execute, worker_start
-from .workflows import workflow_resume, workflow_run
+from .workflows import workflow_inspect, workflow_resume, workflow_run
 
 HANDLERS = {
     "workflow_run": workflow_run,
     "workflow_resume": workflow_resume,
+    "workflow_inspect": workflow_inspect,
     "writing_prepare": writing_prepare,
     "writing_review": writing_review,
     "writing_finalize": writing_finalize,

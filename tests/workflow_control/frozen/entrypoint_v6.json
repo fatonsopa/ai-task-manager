@@ -1,0 +1,46 @@
+{
+  "format": 1,
+  "extends": "entrypoint_v5.json",
+  "requirements": [
+    "R03",
+    "R14",
+    "R15",
+    "R27",
+    "R36"
+  ],
+  "public_read": {
+    "operation": "workflow_inspect",
+    "fields": [
+      "workflow_ref"
+    ],
+    "authority_input": false
+  },
+  "operator": {
+    "command": "workflow recover",
+    "fields": [
+      "action",
+      "workflow_ref",
+      "operation_key"
+    ],
+    "implemented_actions": [
+      "inspect",
+      "resume"
+    ],
+    "unavailable_actions": [
+      "stop",
+      "successor",
+      "retire"
+    ]
+  },
+  "original_history": "Signed original activation, installation/workflow file identity, store UUID and owner PID/start; no backfill or recreation.",
+  "authority": "Current enrolled scope checked by the verified live owner; JSON selects history and supplies no permission.",
+  "verification": "tests/workflows/test_operator_recovery.py; preserve earlier versions and their results.",
+  "plan_id": "DP05",
+  "task_id": "DP05-T01",
+  "parent_story": "DP05-S1",
+  "criteria": [
+    "T01-A1",
+    "T01-A2",
+    "T01-A3"
+  ]
+}

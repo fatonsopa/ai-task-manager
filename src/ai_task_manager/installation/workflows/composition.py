@@ -107,7 +107,9 @@ class InstalledWorkflow:
         self.service = load_service(config_file, **options)
         self.service.workers = self.workers
         self.service.dependencies = self.dependencies
-        self.owner = WorkflowOwner(self.service, config_file, deadline=spec.data["deadline"])
+        self.owner = WorkflowOwner(
+            self.service, config_file, deadline=spec.data["deadline"], installation=spec
+        )
 
     def _compose(self, core, handle, decisions, provider, unused):
         d = self.spec.data

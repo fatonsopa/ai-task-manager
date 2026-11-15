@@ -297,7 +297,7 @@ def owner_main(root, socket_root, mode="valid"):
     signal.signal(signal.SIGTERM, lambda *args: stop.set())
     # The installed CLI intentionally accepts only a trusted in-process registry.
     # Its production default never imports this test helper or these controls.
-    if mode not in {"valid", "code", "code-restart"}:
+    if mode not in {"valid", "code", "code-restart", "recovery"}:
         try:
             from ai_task_manager.installation.workflows import InstalledWorkflow
 
@@ -333,6 +333,24 @@ def owner_main(root, socket_root, mode="valid"):
             return observed
 
         InstalledCodeDelivery._step = lose_reply
+    if mode == "recovery":
+        # A recorded, unexecuted intent is enough for refusal boundaries. Do not
+        # launch an unrelated synthetic native worker in every negative case.
+        from ai_task_manager.adapters.workflow_control.owner import WorkflowOwner
+
+        original_serve = WorkflowOwner._serve
+
+        def with_intent(self, stop=None, ready=None):
+            def admitted():
+                workflow = self.service.workflows.driver.begin(
+                    task.id, spec["plan_ref"], "recovery-original"
+                )
+                write_private(root / "recovery-intent.json", {"workflow_ref": workflow})
+                if ready:
+                    ready()
+            return original_serve(self, stop, admitted)
+
+        WorkflowOwner._serve = with_intent
     # Real launcher signal lifecycle uses the same concrete launch function.
     import ai_task_manager.installation.workflows as api
 

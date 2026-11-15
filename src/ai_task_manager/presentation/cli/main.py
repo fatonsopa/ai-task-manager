@@ -82,6 +82,20 @@ def main(argv=None, *, workflow_registry=None):
             output = sys.stdout if envelope["ok"] else sys.stderr
             output.write(json.dumps(envelope, ensure_ascii=False, allow_nan=False) + "\n")
             return exit_code(envelope)
+        if args.group == "workflow" and args.action == "recover":
+            if not args.installation or not args.input or args.session_file:
+                raise ValueError("Recovery needs installation, input and the configured session")
+            from ai_task_manager.installation.workflows.recovery import recover
+
+            if args.input == "-":
+                raw = sys.stdin.buffer.read(MAX_JSON_BYTES + 1)
+            else:
+                with open(args.input, "rb") as stream:
+                    raw = stream.read(MAX_JSON_BYTES + 1)
+            envelope = recover(args.config, args.installation, strict_json(raw))
+            output = sys.stdout if envelope["ok"] else sys.stderr
+            output.write(json.dumps(envelope, ensure_ascii=False, allow_nan=False) + "\n")
+            return exit_code(envelope)
         if args.group == "workflow" and args.action == "owner":
             if not args.installation or args.input or args.session_file:
                 raise ValueError("Owner launch needs installation and no request/session override")

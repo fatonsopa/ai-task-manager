@@ -16,6 +16,7 @@ def test_WE03_preserve_all_original_schemas_and_handlers():
     assert set(SCHEMAS) - set(prior) == {
         "workflow_run",
         "workflow_resume",
+        "workflow_inspect",
         "task_select",
         "task_settle_external",
         "task_decision_prepare",

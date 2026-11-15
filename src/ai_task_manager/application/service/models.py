@@ -38,6 +38,7 @@ SCHEMAS = {
         ("task_id", "plan_ref", "operation_key"),
     ),
     "workflow_resume": obj({"workflow_ref": REF}, ("workflow_ref",)),
+    "workflow_inspect": obj({"workflow_ref": REF}, ("workflow_ref",)),
     "session_show": obj(),
     "session_resume": obj(
         {"enrollment_ref": REF, "resume_ref": REF}, ("enrollment_ref", "resume_ref")
