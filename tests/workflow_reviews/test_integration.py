@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from ai_task_manager.adapters.workflow_reviews import CurrentArtifacts
+from ai_task_manager.adapters.workflow_reviews import CurrentArtifacts, WorkflowReviews
 from ai_task_manager.application.workflows.reviews import ReviewedEvidence
 from ai_task_manager.config.files import write_private
 from tests.workflow_reviews.helpers import ReviewRig
@@ -17,6 +17,8 @@ def installed_control(wf, root, artifact_digest):
     value.root, value.runtime, value.r = root, wf.rr, wf.rig
     value.scope = wf.rig.scope
     value.task = wf.rig.current(wf.task)
+    value.code = value.task.code_bearing
+    assert not value.code
     value.saved = wf.store.verified(value.scope, value.task.id, artifact_digest)
     value.artifacts = CurrentArtifacts(
         wf.rig.core,
@@ -60,6 +62,7 @@ def test_real_workflow_inspection_and_core_consume_independent_issuer(tmp_path, 
         root = tmp_path / "installed-capture"
         root.mkdir(mode=0o700)
         control = installed_control(wf, root, waiting["artifact_digest"])
+        assert type(control.issuer) is WorkflowReviews
         reviews = ReviewedEvidence(wf.rig.core, control.issuer.lookup)
         faults = LostReply(interruption) if interruption else None
         first = wf.new_driver(reviews=reviews, faults=faults).run(wf.ref)
