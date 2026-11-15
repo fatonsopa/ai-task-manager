@@ -18,7 +18,7 @@ from ai_task_manager.domains.work.errors import EvidenceRequired
 from ai_task_manager.domains.work.models import ApprovalPolicy
 from tests.domains.helpers import Rig
 
-FEATURE_BODY = """Type: Feature
+LEGACY_FEATURE_BODY = """Type: Feature
 
 ## Description
 
@@ -33,6 +33,11 @@ Only the bound session can read and change its assigned task.
 * Keep `check --scope=session` unchanged.
 * Refuse cross-session reads and retain failed attempts.
 """
+
+
+# Author the current fixture before preparing approval. Historical prose remains
+# explicit above; no saved approval or provider result is transformed.
+FEATURE_BODY = LEGACY_FEATURE_BODY.removeprefix("Type: Feature\n\n")
 
 
 class Observations:
