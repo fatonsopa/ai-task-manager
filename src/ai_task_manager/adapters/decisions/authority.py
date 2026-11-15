@@ -29,6 +29,7 @@ class HumanInstruction:
     decision_request_id: str | None = None
     decision_option_id: str | None = None
     decision_digest: str | None = None
+    decision_actor_id: str | None = None
 
 
 @dataclass(frozen=True)

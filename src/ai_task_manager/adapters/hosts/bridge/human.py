@@ -81,6 +81,7 @@ class OperatorChannel:
         decision_request_id=None,
         decision_option_id=None,
         decision_digest=None,
+        decision_actor_id=None,
     ):
         if not isinstance(scope, Scope) or not reason.strip() or type(revision) is not int:
             raise AccessDenied("Exact scoped human instruction is required")
@@ -99,6 +100,7 @@ class OperatorChannel:
                 decision_request_id=decision_request_id,
                 decision_option_id=decision_option_id,
                 decision_digest=decision_digest,
+                decision_actor_id=decision_actor_id,
             )
         return self._capture("human", payload, timeout)
 
@@ -158,4 +160,5 @@ class HumanReceipts:
             data.get("decision_request_id"),
             data.get("decision_option_id"),
             data.get("decision_digest"),
+            data.get("decision_actor_id"),
         )

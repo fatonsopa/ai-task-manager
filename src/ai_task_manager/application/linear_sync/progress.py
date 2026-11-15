@@ -436,15 +436,15 @@ class ProgressPublisher:
         task, payload, _ = self._decision_context(handle, row)
         if row["state"] != "confirmed":
             raise ApprovalRequired("Decision comment is not confirmed")
-        if payload["decision"]["recipient"]["id"] != scope.principal:
-            raise ApprovalRequired("Current enrolled human is not the decision recipient")
         observed = (
             verify_receipt(observations.journal, human_ref)
             if row["resolution_key"]
             else observations.verify_instruction(human_ref)
         )
         if (
-            observed.scope != scope
+            (observed.decision_actor_id or observed.scope.principal)
+            != payload["decision"]["recipient"]["id"]
+            or observed.scope != scope
             or observed.task_id != task.id
             or observed.prose_digest != task.prose_digest
             or observed.decision_request_id != publication_id

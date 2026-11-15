@@ -66,6 +66,23 @@ class AuthorityJournal:
             )
         os.chmod(self.path, 0o600)
 
+    @classmethod
+    def open_existing(cls, path, key_path, *, clock=time.time):
+        """Consume an original source without creating or migrating its authority."""
+        value = cls.__new__(cls)
+        value.path, value.key_path = private_path(path), private_path(key_path)
+        for parent in {value.path.parent, value.key_path.parent}:
+            if parent.is_symlink() or parent.stat().st_mode & 0o077:
+                raise AccessDenied("Authority storage requires a private owned directory")
+        value.clock, value._key = clock, value.key_path.read_bytes()
+        if len(value._key) != 32:
+            raise AccessDenied("Authority key is invalid")
+        with value.transaction() as conn:
+            versions = conn.execute("SELECT version FROM authority_version").fetchall()
+            if len(versions) != 1 or versions[0][0] != 2:
+                raise SchemaError("Current original authority source required")
+        return value
+
     @contextmanager
     def transaction(self):
         conn = sqlite3.connect(self.path, timeout=10)

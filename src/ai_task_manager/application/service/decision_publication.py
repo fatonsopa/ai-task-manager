@@ -59,6 +59,16 @@ def selected(service, data):
 
 def resolve(service, data, invocation):
     value, row = selected(service, data)
+    from ai_task_manager.installation.sessions.human import verify_recipient
+
+    owner_authority = value.check_authority
+
+    def current():
+        owner_authority()
+        verify_recipient(service.decisions.observations, data["human_ref"])
+        owner_authority()
+
+    value.check_authority = current
     return external_result(
         value.resolve_decision(
             service.handle,

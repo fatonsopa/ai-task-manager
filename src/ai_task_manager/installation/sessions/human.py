@@ -4,7 +4,11 @@ import math
 from dataclasses import asdict
 
 from ai_task_manager.adapters.decisions.human import PREFIX, verify_receipt
-from ai_task_manager.adapters.decisions.observations import bind_record, identity
+from ai_task_manager.adapters.decisions.observations import (
+    bind_record,
+    current_enrollment,
+    identity,
+)
 from ai_task_manager.adapters.hosts.bridge.human import OperatorChannel
 from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
 from ai_task_manager.application.service.projection import require_owned
@@ -27,6 +31,7 @@ def capture_instruction(
     timeout=60,
     decision_request_id=None,
     decision_option_id=None,
+    recipient_config_file=None,
 ):
     """Not a model tool: the existing private console must approve its own challenge.
 
@@ -59,6 +64,10 @@ def capture_instruction(
         view = service._required("writer").approvals_for_tasks(service.scope)
         proposed = view.verify_approval(writing_ref).digest
     decision_digest = None
+    decision_actor_id = None
+    recipient = None
+    if recipient_config_file is not None and decision_request_id is None:
+        raise AccessDenied("Separate recipient authority is only for an exact decision choice")
     if decision_request_id is not None or decision_option_id is not None:
         import json
 
@@ -81,12 +90,27 @@ def capture_instruction(
             or row["label_state"] != "confirmed"
             or not metadata
             or metadata != record.get("decision")
-            or metadata["recipient"]["id"] != service.scope.principal
             or decision_option_id not in {option["id"] for option in metadata["options"]}
         ):
             raise AccessDenied(
                 "Current confirmed request and one exact responsible-human option required"
             )
+        context = observations.client.decision_context(task.issue_id)
+        if (
+            context["recipient"] != metadata["recipient"]
+            or context["label_id"] != metadata["label_id"]
+            or context["issue"].assignee_id != service.scope.principal
+            or context["issue"].title != task.title
+            or context["issue"].body != task.body
+        ):
+            raise AccessDenied("Decision recipient or owned work changed before capture")
+        decision_actor_id = metadata["recipient"]["id"]
+        if recipient_config_file is not None:
+            recipient = recipient_binding(
+                recipient_service(recipient_config_file, decision_actor_id, service.scope)
+            )
+        elif decision_actor_id != service.scope.principal:
+            raise AccessDenied("The actual recipient needs a separately authenticated installation")
         decision_digest = row["fingerprint"]
     reference = OperatorChannel(journal).capture_instruction(
         scope=service.scope,
@@ -101,6 +125,7 @@ def capture_instruction(
         decision_request_id=decision_request_id,
         decision_option_id=decision_option_id,
         decision_digest=decision_digest,
+        decision_actor_id=decision_actor_id,
     )
     current = service.core.get_task(service.handle, task.id)
     if current != task:
@@ -117,6 +142,14 @@ def capture_instruction(
         "key": identity(journal.key_path, content=True),
     }:
         raise AccessDenied("Original operator journal changed")
+    if (
+        recipient is not None
+        and recipient_binding(
+            recipient_service(recipient["config"]["path"], decision_actor_id, service.scope)
+        )
+        != recipient
+    ):
+        raise AccessDenied("Recipient authority changed during independent capture")
     record = journal._read(reference, "human")
     receipt = PREFIX + digest(
         {"enrollment": service.grant_ref, "journal": source, "human": reference}
@@ -134,7 +167,62 @@ def capture_instruction(
             "human_ref": reference,
             "human_hash": digest(record),
             "expires_at": grant.expires_at,
+            **({"recipient": recipient} if recipient is not None else {}),
         },
     )
     verify_receipt(service.decisions.journal, receipt, fresh=True)
     return receipt
+
+
+def recipient_service(config_file, actor_id, owner_scope):
+    """Authenticate a decision recipient without granting access to the owner's task."""
+    service = load_service(config_file)
+    grant = service.decisions.observations.verify_enrollment(service.grant_ref)
+    if (
+        service.scope.principal != actor_id
+        or any(
+            getattr(service.scope, key) != getattr(owner_scope, key)
+            for key in ("provider", "workspace", "project")
+        )
+        or grant.scope != service.scope
+        or service.core.session_binding(service.handle) != (service.session_id, service.scope)
+    ):
+        raise AccessDenied(
+            "Actual authenticated decision recipient and matching workspace required"
+        )
+    service.decisions.observations.client.check_connection(service.scope, refresh=True)
+    current_enrollment(service.decisions.journal, service.grant_ref, asdict(service.scope))
+    if service.core.session_binding(service.handle) != (service.session_id, service.scope):
+        raise AccessDenied("Recipient capability changed during provider verification")
+    service.seal.check()
+    service.claim_store.check()
+    return service
+
+
+def recipient_binding(service):
+    config = read_private(service.seal.path)
+    return {
+        "scope": asdict(service.scope),
+        "session_id": service.session_id,
+        "enrollment": service.grant_ref,
+        "config": identity(service.seal.path, content=True),
+        "capability": identity(config["session_file"], content=True),
+        "journal": identity(service.decisions.journal.path),
+        "key": identity(service.decisions.journal.key_path, content=True),
+    }
+
+
+def verify_recipient(observations, reference):
+    """Refresh the original recipient's provider authority before/after resolution effects."""
+    observed = verify_receipt(observations.journal, reference)
+    source = observations.journal._get(reference, PREFIX)
+    bound = source.get("recipient")
+    if (
+        bound is not None
+        and recipient_binding(
+            recipient_service(bound["config"]["path"], observed.decision_actor_id, observed.scope)
+        )
+        != bound
+    ):
+        raise AccessDenied("Original authenticated recipient installation changed")
+    return observed
