@@ -34,7 +34,7 @@
     },
     {
       "path": "config/repository-layout.json",
-      "sha256": "e344b86784248f9604501956a234eaaea069ecb5ae6b5151f60ae802b2ec7f2c"
+      "sha256": "ef42f2a6482a949ec40d0c783279a61e1ac0cad9d4d31804d21f11c8973f48f2"
     },
     {
       "path": "config/requirements.json",
@@ -218,7 +218,7 @@
     },
     {
       "path": "docs/plans/deliveries/DP04.md",
-      "sha256": "6945cff905d3a692855f047fbe067511311f807c50904d9e337a68a27dbfb105"
+      "sha256": "1be7dd73607644aa0e6a9b64c50edc4fbc1b6ea699beec7bcd5ba41cd862eb69"
     },
     {
       "path": "docs/plans/delivery-learning-loop.md",
@@ -286,11 +286,11 @@
     },
     {
       "path": "tests/architecture/test_repository_layout.py",
-      "sha256": "3af2752fcf229998e2dd58b5fd542fa46c1b0ceae76652ab3cb9fbd5413a0a8d"
+      "sha256": "db4e11c7924089f780f202e85010ec80a1eb72a68d9cf4045280f252e810ddd0"
     },
     {
       "path": "tests/test_build_control_policy_migration.py",
-      "sha256": "360af0d788ab7e6cc5cb1c0f50c30b976efdb0a01a592143ac3fef3c4c6a5b19"
+      "sha256": "4cc3fd58b6414db182ff84bc1c5e0cf8316f7bfb57db425a322f2c9e7f88abbb"
     },
     {
       "path": "tools/check_handoff.py",

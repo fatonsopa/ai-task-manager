@@ -193,7 +193,15 @@
       "before_sha256": "a45787e433057a674b76f174de0c34237c90d5d563432b48ba22e062f00e08d0",
       "owner": "machine_configuration",
       "intent": "Relocate owned responsibility; preserve semantics and required source facts.",
-      "byte_preserved": true
+      "byte_preserved": false,
+      "byte_preserved_during_relocation": true,
+      "post_relocation_revision": {
+        "authority": "Accepted P01 integration of the separately versioned standalone merge contract",
+        "source_commit": "359e4e01df7d177bd48afd7edfdb3011be436e1e",
+        "previous_sha256": "a45787e433057a674b76f174de0c34237c90d5d563432b48ba22e062f00e08d0",
+        "current_sha256": "680181b9cdb9cf73001a327024600321c18d5fc3a795e75aaad8da20ba1db5c6",
+        "reason": "The relocation preserved the original bytes. The later accepted P01 change retains historical command rows and adds the current standalone merge interpretation. This record preserves the original relocation hash; documentation-manifest checks current file integrity."
+      }
     },
     {
       "old": "docs/HANDOFF-CHECKS.json",

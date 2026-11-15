@@ -10,7 +10,10 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_build_control_policy_migration import normalize_relocated_readme_commands
+from tests.test_build_control_policy_migration import (
+    APPROVED_DP04_README_EXAMPLE_HASHES,
+    normalize_relocated_readme_commands,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -187,6 +190,9 @@ def test_exact_command_path_normalization_keeps_original_hash_oracles():
         (ROOT / "tests/fixtures/build_control/planning-before-authorization.json").read_text()
     )
     expected = baseline["documentation_invariants"]["readme.md"]["code_block_sha256"]
+    # Keep both original hash oracles and allow only the six accepted DP04 examples.
+    assert len(expected) == 2
+    expected = [expected[0], *APPROVED_DP04_README_EXAMPLE_HASHES, expected[1]]
     assert [
         hashlib.sha256(block.encode()).hexdigest() for block in re.findall(r"```.*?```", text, re.S)
     ] == expected

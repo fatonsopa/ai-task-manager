@@ -465,6 +465,16 @@ def test_lp47_integrity_guard_rejects_stale_or_incomplete_policy(variant):
     assert bool(failures) == (variant != "valid")
 
 
+APPROVED_DP04_README_EXAMPLE_HASHES = (
+    "112e0377122615f373fc44b7b07f2cbbe90fb6a9bda9e5a6fd8f2392df87317a",
+    "f41cfeaee2f1eb89155934573d08ecb1f86ee79bf75a680010ca31bbda7f1ce6",
+    "6f82be8f823261b244521166b7840529202a9b1c335b23a9146419370d788b33",
+    "3b4e7f4cafd82b366bdf650575e7a71e72ccefb028697b7b3e36937adfb81a93",
+    "046845a50503775af27b241daa115b2dfc5734f9806bc385beb2a0e324393266",
+    "2cd278f4f597b300ee8d1a1922fc8c8071f15880430ca09dcf9c1e4cc5faf9f4",
+)
+
+
 def normalize_relocated_readme_commands(text):
     # T34 changes only these two exact approved command-path positions.
     # Frozen hashes and unrelated command bytes remain authoritative.
@@ -515,14 +525,7 @@ def test_lp48_narrow_edits_preserve_document_structure_and_commands():
             )
             # DP04-T03 and T05 add six exact examples between the two retained
             # commands. Their accepted sources are 4b48af6 and b879d0e.
-            code_hashes[1:1] = [
-                "112e0377122615f373fc44b7b07f2cbbe90fb6a9bda9e5a6fd8f2392df87317a",
-                "f41cfeaee2f1eb89155934573d08ecb1f86ee79bf75a680010ca31bbda7f1ce6",
-                "6f82be8f823261b244521166b7840529202a9b1c335b23a9146419370d788b33",
-                "3b4e7f4cafd82b366bdf650575e7a71e72ccefb028697b7b3e36937adfb81a93",
-                "046845a50503775af27b241daa115b2dfc5734f9806bc385beb2a0e324393266",
-                "2cd278f4f597b300ee8d1a1922fc8c8071f15880430ca09dcf9c1e4cc5faf9f4",
-            ]
+            code_hashes[1:1] = APPROVED_DP04_README_EXAMPLE_HASHES
         if name == "implementation_plan.md":
             addition = "### Existing-issue intake"
             position = headings.index("## Current context and approach") + 1
