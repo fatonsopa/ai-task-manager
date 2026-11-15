@@ -154,7 +154,7 @@
     },
     {
       "path": "docs/high_level_document.md",
-      "sha256": "97983a4f0969794d7493a957fdf83d67ccb6df02d271b3d447c8f050c554eee6"
+      "sha256": "eb6f3603cbeba2f6b062dcb4dcbff68c9f813ee0443d0b08857c013554d9717d"
     },
     {
       "path": "docs/implementation_plan.md",
@@ -254,7 +254,7 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "e4119dd3bd178a89b7305196eb987647d232147ff589fbee35be41ec830462eb"
+      "sha256": "707a3f7865a93928415564d075e3eb0cc8bee7e91b0328e615bbff9513bd91b1"
     },
     {
       "path": "docs/spec_driven_development.md",
@@ -274,7 +274,7 @@
     },
     {
       "path": "docs/workflow_preparation/how_to_guide.md",
-      "sha256": "3b54f9a13bf5ac0fa814da2ac4f41da6fcbcdd81dd6cbaeba7ed2cf0fa5e702d"
+      "sha256": "446ff180f02217e94f6a702db6ff6a9e4bcc7143c3f312f4fa3c38a8d54ecfb5"
     },
     {
       "path": "prototypes/terminal/session-task-management.html",

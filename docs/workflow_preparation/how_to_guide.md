@@ -10,6 +10,8 @@ You need an authorized Linear human credential, explicit workspace/TST team/proj
 
 Choose a short physical private state path outside the project, installed package and caches. Its parent must already exist; the state directory must be absent or empty and owned by you with mode 700. The generated `owner.sock` path must fit within 100 encoded bytes. Keep the configuration at a distinct direct-child filename such as `service.json`. Authoritative files use private permissions. Do not reuse a copied store, old session grant or expired deadline.
 
+This literal setup port does not accept receiver settings. For synchronization-only operation, the existing trusted setup API can enroll a service configuration whose receiver path is present from the start, with optional workflow ownership. Follow the [installed inbound listener procedure](../readme.md#installed-inbound-listener); do not append a receiver path to this port's already signed configuration.
+
 ## Steps
 
 ### Install the candidate

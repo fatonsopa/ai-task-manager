@@ -94,6 +94,23 @@ def query(fixture):
 
 
 def test_ir02_ir03_ir06_actual_installed_command_and_same_task_interface(fixture):
+    # This existing trusted API configuration deliberately omits workflow_control.
+    # The installed CLI uses default composition, not a workflow_factory override.
+    assert "workflow_control" not in fixture.config_data
+
+    def events(after=0):
+        result = subprocess.run(
+            command(fixture, "event", "list", "--input", "-"),
+            input=json.dumps({"after": after, "timeout_seconds": 0}),
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert result.returncode == 0, result.stderr
+        return json.loads(result.stdout)["data"]
+
+    before = events()
+    cursor = max((item["sequence"] for item in before), default=0)
     process, ready = start(fixture)
     address = (ready["host"], ready["port"])
     try:
@@ -117,10 +134,24 @@ def test_ir02_ir03_ir06_actual_installed_command_and_same_task_interface(fixture
         )
         observed = query(fixture)
         assert observed["id"] == fixture.task.id and observed["observed_status"] == "Todo"
+        wait_for(lambda: fixture.rig.journal.deliveries(fixture.rig.scope)[0]["state"] == "applied")
+        delivered = events(cursor)
+        assert delivered and all(item["task_id"] == fixture.task.id for item in delivered)
+        session_id, _ = fixture.rig.core.session_binding(fixture.rig.handle)
+        assert all(item["session_id"] == session_id for item in delivered)
+        for item in delivered:
+            assert fixture.rig.core.notifications.receipts(fixture.rig.handle, item["id"]) == {
+                "queued": "local-transaction"
+            }
         assert request(address, ROUTE, headers, body)[0] == 200
         time.sleep(0.1)
         assert query(fixture)["version"] == observed["version"]
+        assert events(cursor) == delivered
+        with fixture.rig.core.context.db.transaction() as conn:
+            assert conn.execute("SELECT count(*) FROM attempts").fetchone()[0] == 0
+            assert conn.execute("SELECT count(*) FROM resource_leases").fetchone()[0] == 0
         (fixture.root / "observed-task.json").write_text(json.dumps(observed, indent=2))
+        (fixture.root / "installed-events.json").write_text(json.dumps(delivered, indent=2))
     finally:
         assert stop(fixture, process)["ok"]
     restarted, _ = start(fixture)

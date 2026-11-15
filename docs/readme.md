@@ -22,9 +22,92 @@ The helper uses hidden input and stores `LINEAR_TEST_USER_B_TOKEN` outside Git a
 
 ## Installed inbound listener
 
-The installed CLI supports `aitm --config /private/aitm/service.json --json sync listen` after trusted session setup has completed for that configuration. Its private service configuration names an absolute `receiver_file`; that private JSON file contains `version: 1`, the exact `webhook_id`, a `/hooks/` route with a 16–128 character identifier, `port` (zero selects an ephemeral port), an absolute `secret_file`, and finite `lifetime_seconds` up to 86,400. The secret file contains the selected webhook signing secret. Keep these files owned and mode 0600; the parent configuration directory must be private. The installed command accepts no receiver request payload and rejects a session override that differs from the sealed configuration.
+Use this procedure for a fresh scoped synchronization installation. It supports the public trusted Python setup API followed by ordinary installed CLI commands. The separate `session setup` CLI port supports the [initial workflow manifest](workflow_preparation/how_to_guide.md); it does not currently accept receiver settings. Do not add `receiver_file` to an already enrolled configuration: the changed intent is refused. Do not reactivate archived fixtures or old grants.
 
-The listener binds loopback and emits a `receiver_ready` record with its address, instance identity and health route. An owned HTTPS tunnel is a separate prerequisite for provider delivery. The listener durably accepts authenticated events, wakes the existing inbound drain and reports `receiver_stopped` with cleanup evidence on exit. Expired or revoked delegation, changed configuration or ownership loss stops admission. Inspect the actual stop record; process exit alone does not prove that provider synchronization succeeded.
+### Prepare and enroll the sealed configuration
+
+The trusted installer prepares an owned physical private state directory and service JSON before enrollment. Keep configuration, receiver, secret, credential and capability files owned and mode 0600, with private parent directories. Use the exact installed source, locked dependencies, approved writer package and current verified human/workspace/TST/project/application connection. Uppercase names below are installer-supplied paths, identities, pinned values or the original finite deadline; paths must be absolute.
+
+The service JSON is the existing application configuration, not the operator CLI manifest. Its required fields are `version: 1`, `core_database`, `authority_database`, `authority_key`, `session_file`, `approval_policy` and `linear`. Use these additional bindings:
+
+| Field | Required procedure |
+| --- | --- |
+| `approval_policy` | Exact approved `writer_hash`, `reference_hash` and `style_hash`; collecting hashes is not approval of a new source. |
+| `linear` | Complete expected viewer/workspace/team/project, selected `agent_connection`, one supported credential reference and private provider journal. See [installed Linear credentials](high_level_document.md#installed-linear-credentials) and [connected Linear agent](high_level_document.md#connected-linear-agent). |
+| `writer` | Include the existing `root`, `python`, `pins`, `sessions_root`, `journal` and `key` object when preparing new or revised task/progress prose. Keep the approved Python invocation path. |
+| `capacity_policies` | Declare the finite host/project limits needed by this installation, as described in the initial workflow guide. Synchronization alone starts no worker. |
+| `receiver_file` | Absolute path to the receiver JSON below, present before enrollment. |
+| `workflow_control` | May be omitted for synchronization-only task/event access without a native workflow owner. If present, ordinary task/event/`sync now` commands retain that configured owner's forwarding requirement and refuse an absent owner; they never fall back. `sync listen` is a separate explicit operator lifetime. |
+
+Prepare the receiver JSON with exactly these fields; `reconciliation_seconds` is optional:
+
+```json
+{
+  "version": 1,
+  "webhook_id": "CANONICAL_OWNED_WEBHOOK_UUID",
+  "route": "/hooks/OWNED_ROUTE_IDENTIFIER",
+  "port": 0,
+  "secret_file": "ABSOLUTE_PRIVATE_SECRET_JSON",
+  "lifetime_seconds": 600,
+  "reconciliation_seconds": 300
+}
+```
+
+`route` uses `/hooks/` followed by 16–128 ASCII letters, digits, underscores or hyphens. `port` is an integer from 0 to 65535; zero chooses an ephemeral loopback port. `lifetime_seconds` is a positive finite number through 86,400. The example's 600 seconds is an example lifetime, not an extension of enrollment. `reconciliation_seconds` must be an integer from 120 to 900; omission uses 300. The secret file must be JSON with exactly `{"secret":"ACTUAL_WEBHOOK_SIGNING_SECRET"}`: 16–4096 visible ASCII characters. Do not put a credential, arbitrary secret or guessed hook identity in place of the actual owned webhook binding.
+
+From the approved installed Python environment, the trusted installer calls the existing API with no factory overrides:
+
+```python
+from ai_task_manager.installation.sessions import setup
+
+established = setup(
+    CONFIG,
+    logical_session=LOGICAL_SESSION,
+    actions=("enqueue",),
+    deadline=ORIGINAL_DEADLINE,
+    operation_key=ENROLLMENT_KEY,
+)
+assert established["capability_saved"] is True
+```
+
+Verify the returned `scope` against the intended identity/project/session and preserve `enrollment_ref`. Include `existing_issue_selection` in the explicit actions only when that installation must select existing issues. Setup signs the unchanged service intent, including the receiver path, and saves its capability. The listener captures and continuously checks the receiver/secret files at startup; this API does not generate their contents or extend any original authority. Prepare them before enrollment and retain the same files through the receiver lifetime. Literal `session doctor` diagnoses installations created by the operator CLI port; it is not the readiness gate for this API-created configuration.
+
+### Start the installed receiver and read its events
+
+Run the absolute installed executable from the intended project with `PYTHONPATH` unset and its explicitly selected credential source available:
+
+```sh
+AITM --config CONFIG --json sync listen
+```
+
+The command accepts no receiver request payload or alternate installation. It uses default service composition and the enrolled Core/provider stores; it does not require a native owner when `workflow_control` is omitted and does not create a worker. A second listener for the same Core file refuses.
+
+Require an actual `receiver_ready` line. Use its observed loopback host, port, route, `instance_id` and `health_route`; do not infer them from a PID or old log. The listener owns a finite loopback HTTP endpoint. Genuine Linear delivery also needs the separately owned HTTPS transport and exact TST Issue webhook under their approved setup/cleanup contracts. Match the public route, current receiver instance, webhook identity and signing secret before enabling provider delivery. The listener itself neither creates a tunnel nor provisions a webhook.
+
+Authorized local task changes use the shared application API, save durable outbound intent and trigger confirmation immediately. Compare returned synchronization state with independent provider readback. The installed `sync now` command drains existing saved outbound/inbound work once; it is not a command to force a registered-issue polling scan or discover arbitrary backlog.
+
+Read the same session's task and event projections through ordinary installed commands. For example, place `{"after":0,"timeout_seconds":0}` in `EVENT_REQUEST` and run:
+
+```sh
+AITM --config CONFIG --json task list
+AITM --config CONFIG --json event list --input EVENT_REQUEST
+```
+
+Use a returned sequence as the next `after` value for this session. Event listing and a successful provider write do not advance host delivery, AI acknowledgement or user-report receipts. Those stages need their separate actual observations through the [lead reporting procedure](lead_reporting/how_to_guide.md). This procedure makes no claim that an idle lead woke up.
+
+### Confirm synchronization and recover a missed change
+
+A normal authenticated webhook is durably accepted before HTTP 200 and wakes the inbound drain immediately. HTTP 200 alone does not prove application: legitimate ignored or duplicate deliveries may also return it. Verify actual Core/CLI/event state and provider readback, with separate event, receipt, application and render timestamps. Invalid authentication, stale transport time, changed business content under a reused delivery ID and lost current authority remain refusals. A refreshed valid transport timestamp does not create a second business effect.
+
+The listener performs registered-task recovery on startup, then schedules recovery polling. The configured interval defaults to 300 seconds, with at most eight registered tasks per slice and a round-robin cursor; larger populations need later eligible slices. Webhooks remain the normal path and can run while a recovery read is outstanding. Rate/transport failures use the existing bounded backoff and provider `Retry-After`; wakes do not bypass pacing. Report actual delay rather than promising an internet-wide latency bound.
+
+A poll can detect and stage a missed provider change while preserving a hold, conflict or unknown actor. It cannot invent a signed delivery, human instruction, queue admission, worker or acknowledgement. `sync now` cannot replace that check. For a controlled missed-change test, observe the next eligible scheduled read or a supported same-configuration receiver restart under its unchanged still-valid enrollment; compare exact remote/local facts and retained operations. Keep webhook authentication and current authority checks active.
+
+### Stop or handle a refusal
+
+Stop only the confirmed owned receiver through its normal signal/lifetime path, then inspect the actual `receiver_stopped` record and confirmed process exit. Require `cleanup.stopped`, listener/drain/reconciliation stop and ownership release; process disappearance alone is insufficient. Expiry, revocation, changed files or uncertain ownership can produce a failed command with retained durable facts. Preserve that original outcome. Receiver shutdown does not retire the separately owned tunnel, webhook, project or issues; use their supported scoped cleanup and original identities.
+
+If startup refuses, retain its stage diagnostics and original configuration/operation. Correct only the named prerequisite through the supported installer; do not edit grants, replace stores, remove an unknown owner's lock or silently extend a deadline. These are supported synchronization procedures, not complete release, production or normal-session activation approval.
 
 ## Installed lead and reviewer components
 
