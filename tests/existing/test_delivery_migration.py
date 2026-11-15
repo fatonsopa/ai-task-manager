@@ -55,7 +55,8 @@ def test_ea53_schema_two_backfills_delivery_without_losing_pending_effects(tmp_p
         original_outbox = [tuple(row) for row in conn.execute("SELECT * FROM outbox ORDER BY id")]
     migrated = Database(rig.db.path)
     with migrated.transaction() as conn:
-        assert conn.execute("SELECT version FROM metadata").fetchone()[0] == 4
+        # The accepted publication migration follows scheduling schema4.
+        assert conn.execute("SELECT version FROM metadata").fetchone()[0] == 5
         assert [
             tuple(row) for row in conn.execute("SELECT * FROM tasks ORDER BY id")
         ] == original_tasks
@@ -73,14 +74,23 @@ def test_ea53_ea69_migration_retains_positive_terminal_observation_after_reset(t
 
     rig = LegacyMigrationFixture(tmp_path / "core.sqlite", 2)
     task = rig.task()
-    payload = {"issue_id": task.issue_id, "source_revision": "2026-11-01T00:02:00Z",
-               "status": "Canceled", "title": task.title, "body": task.body}
+    payload = {
+        "issue_id": task.issue_id,
+        "source_revision": "2026-11-01T00:02:00Z",
+        "status": "Canceled",
+        "title": task.title,
+        "body": task.body,
+    }
     rig.terminal_observation(task, payload)
     with rig.db.transaction() as conn:
-        original_observations = [tuple(row) for row in conn.execute("SELECT * FROM external_observations")]
+        original_observations = [
+            tuple(row) for row in conn.execute("SELECT * FROM external_observations")
+        ]
     migrated = Database(rig.db.path)
     with migrated.transaction() as conn:
         with pytest.raises(EvidenceRequired):
             issue_claims.require_open(conn, rig.scope, task.issue_id)
-        assert [tuple(row) for row in conn.execute("SELECT * FROM external_observations")] == original_observations
+        assert [
+            tuple(row) for row in conn.execute("SELECT * FROM external_observations")
+        ] == original_observations
     assert rig.current(task).observed_status == "Backlog"

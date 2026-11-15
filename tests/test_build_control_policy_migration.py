@@ -345,6 +345,28 @@ def test_lp44_requirements_preserve_ids_history_and_other_rules():
     before = {r["id"]: r["text"] for r in old["requirements"]}
     after = {r["id"]: r["text"] for r in current["requirements"]}
     assert len(before) == len(after) == 38 and before.keys() == after.keys()
+    # Approved revisions5–7 supersede these six texts after the policy amendment
+    # under test (2f754eb and a3abf87). Pin their current bytes, then reconstruct
+    # revision4 from retained history so its original preservation check remains.
+    later_hashes = {
+        "R08": "6f07100737dcdfc78bc0f7440853222a5ff012ced3cdf2d1f3496a8667cf908b",
+        "R15": "858a91c9a93d7e3038d7a441a1742e782d198fceaa2100b5b36da04dfea335d5",
+        "R24": "caf9b5981e057eb517d2d72a1f96815299865a98bb0eca6ea75ea347a453722b",
+        "R28": "90133d47eeec09b0e2bd8b6cefa4178d154ccc08de932b6671e961da90d99370",
+        "R32": "697ea581f66bdfe0ea2ac90273b8c18b889946c1e704eb5496ed1f8d8ebd63e2",
+        "R33": "9f5d96ac9130d1e6e1e810004f2bb148f3c5321571c62a0ab7391519b9364c1f",
+    }
+    assert {
+        key: hashlib.sha256(after[key].encode()).hexdigest() for key in later_hashes
+    } == later_hashes
+    later = [row for row in current["revision_history"] if row["revision"] > 4]
+    assert [row["revision"] for row in later] == [5, 6, 7]
+    for amendment in reversed(later):
+        assert amendment["prior_results_reinterpreted"] is False
+        prior = amendment.get("previous_requirements") or [
+            {"id": amendment["requirement"], "text": amendment["previous_text"]}
+        ]
+        after.update({row["id"]: row["text"] for row in prior})
     assert {key for key in before if before[key] != after[key]} == {"R20", "R22"}
     revision = next(row for row in current["revision_history"] if row["revision"] == 4)
     assert {r["id"]: r["text"] for r in revision["previous_requirements"]} == {
@@ -467,26 +489,113 @@ def test_lp48_narrow_edits_preserve_document_structure_and_commands():
         if name == "readme.md":
             text = normalize_relocated_readme_commands(text)
         headings = list(expected["headings"])
+        code_hashes = list(expected["code_block_sha256"])
+
+        def insert_after(anchor, additions):
+            assert all(addition not in headings for addition in additions)
+            position = headings.index(anchor) + 1
+            headings[position:position] = additions
+
+        # Accepted delivery guidance extends the original planning documents.
+        # Enumerate exact additions; retain the frozen headings and command
+        # hashes rather than deriving an oracle from the documents being checked.
+        if name == "readme.md":
+            insert_after(
+                "## Start",
+                [
+                    "## Installed inbound listener",
+                    "### Prepare and enroll the sealed configuration",
+                    "### Start the installed receiver and read its events",
+                    "### Confirm synchronization and recover a missed change",
+                    "### Stop or handle a refusal",
+                    "## Human instructions and held-work settlement",
+                    "## Decision requests and observed choices",
+                    "## Installed lead and reviewer components",
+                ],
+            )
+            # DP04-T03 and T05 add six exact examples between the two retained
+            # commands. Their accepted sources are 4b48af6 and b879d0e.
+            code_hashes[1:1] = [
+                "112e0377122615f373fc44b7b07f2cbbe90fb6a9bda9e5a6fd8f2392df87317a",
+                "f41cfeaee2f1eb89155934573d08ecb1f86ee79bf75a680010ca31bbda7f1ce6",
+                "6f82be8f823261b244521166b7840529202a9b1c335b23a9146419370d788b33",
+                "3b4e7f4cafd82b366bdf650575e7a71e72ccefb028697b7b3e36937adfb81a93",
+                "046845a50503775af27b241daa115b2dfc5734f9806bc385beb2a0e324393266",
+                "2cd278f4f597b300ee8d1a1922fc8c8071f15880430ca09dcf9c1e4cc5faf9f4",
+            ]
         if name == "implementation_plan.md":
             addition = "### Existing-issue intake"
             position = headings.index("## Current context and approach") + 1
             assert headings[position] == "### Tools and prerequisite checks"
             assert addition not in headings
             headings.insert(position, addition)
+            insert_after(
+                "## Goal and specification",
+                [
+                    "### Required scope",
+                    "### Project independence and final migration",
+                ],
+            )
+            insert_after(
+                "## Work sequence",
+                [
+                    "### Bounded verification and evidence reuse",
+                    "### Plan-level approval and autonomous execution",
+                    "### Four execution gates",
+                    "### Review-failure safeguards for every remaining plan",
+                    "### Work-item identity and traceability",
+                    "### Linear delivery tracking",
+                    "### Definition of done for a phase",
+                    "### Delivery rounds and continuation",
+                    "### Phase-item progress reporting",
+                    "### Required phase work and exit results",
+                ],
+            )
+            prior_p03 = "### P03 — Implement workers, resources and the first complete path"
+            current_p03 = "### P03 — Implement workers, resources and the complete delivery path"
+            headings[headings.index(prior_p03)] = current_p03
+            insert_after(
+                current_p03,
+                [
+                    "#### Completed P03 components",
+                    "#### Deterministic run and resume controller",
+                ],
+            )
+            insert_after(
+                "### Autonomous operating procedure",
+                [
+                    "## Technical coverage references",
+                    "### Module responsibilities",
+                    "### Module and connection completion requirements",
+                    "### Definition of done for each module",
+                    "### Definition of done for connections",
+                ],
+            )
+            insert_after(
+                "## Risks and open decisions", ["## Deferred Engineering Lead organization"]
+            )
+        if name == "test_plan.md":
+            insert_after("### Captured interface references", ["## Endpoint readiness controls"])
         assert re.findall(r"^#{1,6} .+$", text, re.M) == headings
         assert [
             hashlib.sha256(b.encode()).hexdigest() for b in re.findall(r"```.*?```", text, re.S)
-        ] == expected["code_block_sha256"]
+        ] == code_hashes
     # Historical policy-only scope: "TST-85 branch integration is a separate lead
     # gate; this test does not claim inspection/preservation of additions not yet
     # integrated here." The separately frozen v7 integration extends that check
     # to this combined candidate without changing the original baseline fixture.
 
 
-@pytest.mark.parametrize("change", ["missing", "duplicate", "extra", "reordered", "command"])
+@pytest.mark.parametrize(
+    "change", ["missing", "duplicate", "extra", "reordered", "command", "approved_command"]
+)
 def test_lp48_combined_preservation_refuses_unapproved_changes(monkeypatch, change):
     original = Path.read_text
-    document = ROOT / "docs" / ("readme.md" if change == "command" else "implementation_plan.md")
+    document = (
+        ROOT
+        / "docs"
+        / ("readme.md" if change in {"command", "approved_command"} else "implementation_plan.md")
+    )
     text = original(document)
     heading = "### Existing-issue intake"
     if change == "missing":
@@ -501,6 +610,8 @@ def test_lp48_combined_preservation_refuses_unapproved_changes(monkeypatch, chan
             .replace("## Goal and specification", "## Current context and approach", 1)
             .replace("__original_heading__", "## Goal and specification", 1)
         )
+    elif change == "approved_command":
+        altered = text.replace("AITM --config CONFIG --json sync listen", "AITM sync listen", 1)
     else:
         altered = text.replace("```", "```unapproved", 1)
     assert altered != text

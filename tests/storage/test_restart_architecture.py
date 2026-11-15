@@ -46,6 +46,8 @@ def test_p21_unknown_or_foreign_schema_is_refused_without_reset(tmp_path):
 def _assert_core_imports(path, source, root):
     allowed_stdlib = {
         "collections",
+        # Pure data copying in publication_fences predates DP04 (96894ab).
+        "copy",
         "dataclasses",
         "enum",
         "typing",
@@ -131,6 +133,7 @@ def test_frozen_precode_case_manifest_is_unchanged():
         ("storage", "import os", True),
         ("domains/work", "import os", False),
         ("application", "import os", False),
+        ("application", "from copy import deepcopy", True),
         ("storage", "import subprocess", False),
         ("storage", "import socket", False),
         ("storage", "import http.client", False),
