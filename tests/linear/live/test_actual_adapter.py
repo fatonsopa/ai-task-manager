@@ -383,6 +383,29 @@ def test_a17_a18_enable_has_durable_intent_and_independent_readback(adapter):
     assert len(provider.requests) == actual
 
 
+def test_cleanup_archive_dispatch_confirms_and_original_key_replay_is_read_only(adapter):
+    admin, graphql, ledger, provider, *_ = ready(adapter)
+    project = ledger.scope.project
+    first = admin.cleanup("archive-once", project, "archive")
+    assert first["state"] == "archived"
+    assert ledger.cleanup_action("archive-once")["state"] == "confirmed"
+    with ledger.transaction() as conn:
+        delegated = [
+            dict(row)
+            for row in conn.execute(
+                "SELECT * FROM adapter_http_effects WHERE reference='cleanup:archive-once'"
+            )
+        ]
+    assert len(delegated) == 1 and delegated[0]["operation"] == "project_archive"
+    assert operations(provider).count(OPERATIONS["project_archive"]) == 1
+    before = len(provider.requests), ledger.summary()
+    assert admin.cleanup("archive-once", project, "archive") == first
+    assert (len(provider.requests), ledger.summary()) == before
+    with pytest.raises(DriverRefused, match="effect_context_mismatch"):
+        graphql.request("project_archive", {"id": project}, effect=("cleanup", "archive-once"))
+    assert len(provider.requests) == before[0]
+
+
 def test_a20_a24_cleanup_has_fresh_readback_and_authenticated_absence(adapter):
     admin, graphql, ledger, provider, _, candidate, _ = ready(adapter, webhook=True)
     admin.cleanup("disable", candidate, "disable")

@@ -126,7 +126,7 @@ class ActionJournal:
             row = self.get(key, conn=conn)
             if row["state"] not in {"sent", "uncertain"}:
                 raise DriverRefused("ordinary_possible_effect_required")
-            self.ledger._time()
+            self.ledger._time(conn=conn)
             self.ledger._reserved_charge(conn, "ordinary-recovery:" + key, "ordinary_recovery_read")
 
     def begin(self, key, resource_id, action, payload):
@@ -216,7 +216,7 @@ class ActionJournal:
         reference = f"{mode}:{key}"
         with self.ledger.transaction() as conn:
             if mode == "cleanup":
-                self.ledger._time()
+                self.ledger._time(conn=conn)
             else:
                 self.ledger._ordinary(conn)
             if conn.execute(
