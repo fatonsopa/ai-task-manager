@@ -3,16 +3,21 @@
 import hashlib
 import os
 import sys
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
-from ai_task_manager.adapters.decisions.authority import DecisionAuthority
+from ai_task_manager.adapters.decisions.authority import DecisionAuthority, HostGrant
 from ai_task_manager.adapters.decisions.journal import AuthorityJournal
-from ai_task_manager.adapters.linear.client import CREATE
+from ai_task_manager.adapters.linear.client import (
+    AGENT_USERS,
+    CREATE,
+    NATIVE_TYPE_LABELS,
+    NATIVE_TYPE_READ,
+)
 from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.adapters.linear.transport import HttpTransport
 from ai_task_manager.adapters.writing.package import WriterPackage
@@ -20,6 +25,9 @@ from ai_task_manager.adapters.writing.service import WritingService
 from ai_task_manager.application.core import Core
 from ai_task_manager.application.linear_sync.outbound import OutboundDrain
 from ai_task_manager.application.service.facade import ApplicationService
+from ai_task_manager.config.claim_store import enroll_claim_store, verify_claim_store
+from ai_task_manager.config.files import FileSeal, write_private
+from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import TaskProse
 from tests.application.helpers import FEATURE_BODY, Observations, reviewed_control
 from tests.linear.helpers import FixtureRouter, LinearRig
@@ -65,7 +73,29 @@ def product(adapter, tmp_path):
         clock=lambda: linear.now,
     )
     authority = AuthorityJournal(folder / "authority.sqlite", folder / "authority.key")
-    decisions = DecisionAuthority(authority, Observations())
+    observations = Observations()
+    # This explicit authored grant is not native/account acceptance. The actual
+    # file seal and enrolled Core store remain active in this local composition.
+    observations.grants["fixture-enrollment"] = HostGrant(
+        linear.scope,
+        linear.scope.logical_session,
+        ("enqueue", "dequeue", "start"),
+        "authored-fixture-enrollment",
+        ledger.limits.deadline,
+    )
+    decisions = DecisionAuthority(authority, observations)
+    Path(linear.db.path).chmod(0o600)
+    enroll_claim_store(linear.db, authority)
+    claim_store = verify_claim_store(linear.db, authority)
+    config = folder / "fixture-composition.json"
+    write_private(
+        config,
+        {
+            "scope": asdict(linear.scope),
+            "core_database": str(linear.db.path),
+            "approval_policy": asdict(policy),
+        },
+    )
     outbound = OutboundDrain(core, linear.client, linear.journal)
 
     publisher = FixtureProgressFactory(core, linear.client, linear.journal)
@@ -74,8 +104,11 @@ def product(adapter, tmp_path):
         linear.handle,
         writer=writer,
         decisions=decisions,
+        grant_ref="fixture-enrollment",
         provider=outbound,
         publisher=publisher,
+        seal=FileSeal(config),
+        claim_store=claim_store,
     )
     driver = PrimaryDriver(service, admin, transport, client=linear.client)
     return SimpleNamespace(
@@ -88,6 +121,8 @@ def product(adapter, tmp_path):
         client=linear.client,
         transport=transport,
         admin=admin,
+        observations=observations,
+        config=config,
     )
 
 
@@ -227,6 +262,40 @@ def test_a32_progress_uses_actual_publisher_author_issue_and_body_readback(produ
     assert product.ledger.resource(comment.id)["kind"] == "comment"
 
 
+@pytest.mark.parametrize("fault", ["enrollment", "scope", "config", "claim_store"])
+def test_a32_changed_publication_authority_refuses_before_comment_effect(product, fault):
+    _, _, task = submit(product)
+    writing = approved(product, purpose="progress", task=task)
+    if fault == "enrollment":
+        del product.observations.grants["fixture-enrollment"]
+    elif fault == "scope":
+        grant = product.observations.grants["fixture-enrollment"]
+        product.observations.grants["fixture-enrollment"] = replace(
+            grant, scope=replace(grant.scope, principal=str(uuid4()))
+        )
+    elif fault == "config":
+        write_private(product.config, {"changed_composition": True}, replace=True)
+    else:
+        path = Path(product.core.context.db.path)
+        replacement = path.with_name("replacement.sqlite")
+        replacement.write_bytes(path.read_bytes())
+        replacement.chmod(0o600)
+        replacement.replace(path)
+    before = len(product.provider.requests)
+    data = {
+        "task_id": task.id,
+        "writing_ref": writing["approval_ref"],
+        "operation_key": "refused-fixture-progress",
+    }
+    if fault == "claim_store":
+        with pytest.raises(AccessDenied, match="claim store changed"):
+            product.driver.invoke("task_progress", data)
+    else:
+        result = product.driver.invoke("task_progress", data)
+        assert not result["ok"] and result["outcome"] == "denied", result
+    assert len(product.provider.requests) == before and product.provider.comments == {}
+
+
 def test_a34_committed_same_key_replay_after_artifact_cleanup_has_no_effect(product):
     writing, first, _ = submit(product)
     Path(writing["handoff"]["destination"]).unlink()
@@ -263,7 +332,10 @@ def test_a35_cross_scope_service_cannot_be_composed_with_the_fixture(product):
     assert len(product.provider.requests) == before
 
 
-def test_a34_actual_product_create_reply_loss_uses_existing_reconciliation(product):
+@pytest.mark.parametrize("paginated_metadata", [False, True])
+def test_a34_actual_product_create_reply_loss_uses_existing_reconciliation(
+    product, paginated_metadata
+):
     writing = approved(product)
     underlying = product.transport.transport
 
@@ -287,6 +359,35 @@ def test_a34_actual_product_create_reply_loss_uses_existing_reconciliation(produ
         for op in product.core.sync.list_operations(product.service.handle)
         if op.kind == "create_backlog"
     )
+    before = len(product.provider.requests)
+    key = "product:issue:" + operation.id
+    with product.transport.possible_effect_readback(key):
+        for query, variables in (
+            (CREATE, {"input": {"id": operation.id}}),
+            (AGENT_USERS, {"after": 1}),
+            (AGENT_USERS, {"after": None, "foreign": True}),
+            (NATIVE_TYPE_LABELS, {"after": 1}),
+            (NATIVE_TYPE_READ, {"id": str(uuid4())}),
+        ):
+            with pytest.raises(DriverRefused, match="recovery_context_mismatch"):
+                product.transport.send(query, variables, product.client.credentials())
+    assert len(product.provider.requests) == before
+    if paginated_metadata:
+
+        def paginate(query, variables, result):
+            key = {AGENT_USERS: "users", NATIVE_TYPE_LABELS: "issueLabels"}.get(query)
+            if key:
+                page = result[key]
+                first = variables["after"] is None
+                assert first or variables["after"] == "authored-next-metadata-page"
+                page["nodes"] = page["nodes"][:1] if first else page["nodes"][1:]
+                page["pageInfo"] = {
+                    "hasNextPage": first,
+                    "endCursor": "authored-next-metadata-page" if first else None,
+                }
+            return result
+
+        product.provider.transform = paginate
     task = product.driver.recover_issue(operation.id)
     assert task.issue_id == operation.id and task.observed_status == "Backlog"
     assert product.ledger.resource(task.issue_id)["kind"] == "issue"

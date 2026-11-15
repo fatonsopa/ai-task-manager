@@ -13,6 +13,7 @@ import pytest
 from ai_task_manager.adapters.linear.receipts import ProviderJournal
 from ai_task_manager.adapters.linear.webhooks import WebhookReceiver
 from ai_task_manager.application.linear_sync.inbound import InboundDrain
+from ai_task_manager.config.files import digest
 from tests.linear.helpers import EXPECTED, STATES, WEBHOOK, LinearRig, ProviderFixture, uid
 
 # Exact timestamp values from the retained provider retry diagnosis; all other data is authored.
@@ -234,7 +235,29 @@ def test_re06_concurrent_separate_connections_admit_one_receipt(rig, conflict):
         for payload in (event, retry)
         if hashlib.sha256(rig.signed(payload, DELIVERY)[1]).hexdigest() == rows[0]["raw_digest"]
     )
-    assert rows[0]["payload"] == json.dumps(accepted, sort_keys=True, separators=(",", ":"))
+    # The raw/semantic hashes identify the winning complete delivery. Until
+    # delegation is freshly read back, stored payload retains only safe facts.
+    assert rows[0]["semantic_digest"] == digest(
+        {key: value for key, value in accepted.items() if key != "webhookTimestamp"}
+    )
+    retained = json.loads(rows[0]["payload"])
+    assert retained == {
+        "action": accepted["action"],
+        "type": "Issue",
+        "organizationId": EXPECTED.workspace_id,
+        "webhookId": WEBHOOK,
+        "webhookTimestamp": accepted["webhookTimestamp"],
+        "actor": accepted["actor"],
+        "data": {
+            "id": accepted["data"]["id"],
+            "teamId": EXPECTED.team_id,
+            "projectId": EXPECTED.project_id,
+            "assigneeId": EXPECTED.viewer_id,
+            "stateId": STATES["Todo"],
+            "updatedAt": accepted["data"]["updatedAt"],
+        },
+    }
+    assert "createdAt" not in retained and "description" not in retained["data"]
     if not conflict:
         assert rig.inbound.run_once(rig.handle)["state"] == "applied"
         assert rig.inbound.run_once(rig.handle) is None
