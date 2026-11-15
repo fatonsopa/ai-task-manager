@@ -201,6 +201,7 @@ A successful check reports consistent requirements, cases, links and diagram pai
 | DP02 approved scope and continuation | [DP02 plan](plans/deliveries/DP02.md), [session prompt](plans/dp02-session-prompt.md) and [continuation handoff](plans/deliveries/DP02-handoff.md) |
 | DP03 approved scope and execution | [DP03 plan](plans/deliveries/DP03.md) and [execution prompt](plans/dp03-session-prompt.md) |
 | Approved DP04 scope, bounded audit, stories, tasks and acceptance | [DP04 detailed plan](plans/deliveries/DP04.md); version 1 is approved for complete scoped autonomous execution |
+| Approved DP05 recovery scope and execution | [DP05 Implementation Plan (IP)](plans/deliveries/DP05.md) and [saved prompt](plans/dp05-session-prompt.md) |
 | Confirmed Linear records for delivery plans, stories and tasks | [Linear tracking map](plans/linear-tracking.md) and [tracking rules](implementation_plan.md#linear-delivery-tracking) |
 | Methods, environments, acceptance and exact cases | Test Plan (TP), [test_plan.md](test_plan.md), and `tests/acceptance/cases.json` |
 | Prepare initial approved work before owner activation | [Workflow preparation How-to Guide (HTG)](workflow_preparation/how_to_guide.md) |

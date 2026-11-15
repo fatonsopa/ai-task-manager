@@ -11,6 +11,13 @@ This Spec Driven Development document (SDD) is the full behavioral reference. Th
 
 The lead may investigate, maintain plans, frame tasks, review prose/evidence and perform narrow coordination support. Substantive application work is delegated as one tracked assignment per worker. All worker communication goes through the lead; workers do not assign peers, change scope or exchange direct coordination messages. Protected pipeline/recovery commands remain lead capabilities through their existing routes, not separate task-state authority.
 
+## Application language and Technical Writer
+
+User clarification, 15 November 2026: all human-readable content authored or emitted by the application and its coordinated Codex/Claude agents must go through the current Technical Writer workflow, including the applicable document-type guidance and Writing Style (WS), before publication. This covers issue titles/descriptions/comments, decisions and their options/recommendations, questions, progress/result explanations, and application/interface/help/error language. Development documents alone do not satisfy this requirement for runtime content.
+
+The application must not use hard-coded prose templates to author this content or bypass Technical Writer with canned text or direct unreviewed model output. Use the current skill's guidance rather than copying its templates into application code. Preserve actual facts, technical literals and authority boundaries. Reuse valid review of unchanged copy; new or changed content, including generated content, needs the corresponding writing workflow before publication. This is an agreed requirement, not a claim that every application output path already implements it.
+
+
 ## Definitions
 
 | Term | Meaning |

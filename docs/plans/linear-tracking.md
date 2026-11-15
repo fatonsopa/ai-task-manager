@@ -95,3 +95,24 @@ Version 1 at planning commit `4eaf60b` was approved on 15 November 2026: “Appr
 | `DP04-T07` | `DP04-S3` | [TST-313](https://linear.app/manaferra/issue/TST-313/dp04-t07-demonstrate-human-choices-and-decision-only-notifications) |
 | `DP04-T08` | `DP04-S4` | [TST-314](https://linear.app/manaferra/issue/TST-314/dp04-t08-demonstrate-genuine-two-user-isolation) |
 | `DP04-T09` | `DP04-S4` | [TST-315](https://linear.app/manaferra/issue/TST-315/dp04-t09-accept-the-cumulative-increment-and-hand-off-dp05) |
+
+## DP05 approved hierarchy
+
+Version 1 was approved on 16 November 2026: “Approve DP05 version 1 and execute.” All records were independently read back in Backlog with native parents, human assignment, selected active application delegate and native Type metadata confirmed. DP05 and DP05-E1 share existing TST-243. This map records identity; current state and acceptance evidence belong to Linear. Execution admission follows the approved dependency order.
+
+| Planning ID | Parent | Linear record |
+| --- | --- | --- |
+| `DP05-S1` | `DP05` | [TST-338](https://linear.app/manaferra/issue/TST-338/dp05-s1-resume-or-stop-after-an-owner-interruption) |
+| `DP05-S2` | `DP05` | [TST-339](https://linear.app/manaferra/issue/TST-339/dp05-s2-continue-after-partial-or-uncertain-effects) |
+| `DP05-S3` | `DP05` | [TST-340](https://linear.app/manaferra/issue/TST-340/dp05-s3-continue-with-an-explicitly-authorized-successor) |
+| `DP05-S4` | `DP05` | [TST-341](https://linear.app/manaferra/issue/TST-341/dp05-s4-settle-retained-obligations-and-report-recovery) |
+| `DP05-T01` | `DP05-S1` | [TST-342](https://linear.app/manaferra/issue/TST-342/dp05-t01-connect-the-trusted-installed-recovery-interface) |
+| `DP05-T02` | `DP05-S1` | [TST-343](https://linear.app/manaferra/issue/TST-343/dp05-t02-recover-and-settle-an-interrupted-owner-and-worker) |
+| `DP05-T03` | `DP05-S2` | [TST-344](https://linear.app/manaferra/issue/TST-344/dp05-t03-reconcile-retained-provider-operations) |
+| `DP05-T04` | `DP05-S2` | [TST-345](https://linear.app/manaferra/issue/TST-345/dp05-t04-preserve-partial-code-and-reconcile-publication) |
+| `DP05-T05` | `DP05-S2` | [TST-346](https://linear.app/manaferra/issue/TST-346/dp05-t05-demonstrate-installed-partial-effect-recovery) |
+| `DP05-T06` | `DP05-S3` | [TST-347](https://linear.app/manaferra/issue/TST-347/dp05-t06-admit-explicitly-authorized-recovery-successors) |
+| `DP05-T07` | `DP05-S3` | [TST-348](https://linear.app/manaferra/issue/TST-348/dp05-t07-demonstrate-expiry-and-revoked-predecessor-recovery) |
+| `DP05-T08` | `DP05-S4` | [TST-349](https://linear.app/manaferra/issue/TST-349/dp05-t08-recover-eligible-resource-retirement) |
+| `DP05-T09` | `DP05-S4` | [TST-350](https://linear.app/manaferra/issue/TST-350/dp05-t09-deliver-the-observed-recovery-report) |
+| `DP05-T10` | `DP05-S4` | [TST-351](https://linear.app/manaferra/issue/TST-351/dp05-t10-accept-the-cumulative-recovery-increment-and-hand-off-dp06) |
