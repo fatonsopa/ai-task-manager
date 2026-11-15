@@ -31,6 +31,12 @@ def inspect_row(core, handle, row, operation_key):
         "decision_revision": task.decision_revision,
         "prose_digest": task.prose_digest,
         "status": task.observed_status,
+        "action_availability": {
+            "inspect": {"callable": True, "effect_eligibility": "no_effects"},
+            "resume": {"callable": True, "effect_eligibility": "requires_workflow_guards"},
+            **{action: {"callable": False, "blocker": "not_installed"}
+               for action in ("stop", "successor", "retire")},
+        },
         "steps": {name: "pending" if step["result"] is None else "recorded"
                   for name, step in row["steps"].items()},
     })

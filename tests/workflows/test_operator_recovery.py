@@ -87,6 +87,14 @@ def test_operator_installed_inspect_and_original_resume(owned):
     assert observed.returncode == 0 and result["data"]["owner_state"] == "live", result
     assert result["data"]["workflow"] == value["workflow_ref"]
     assert result["data"]["operation_key"] == "recovery-original"
+    actions = result["data"]["action_availability"]
+    assert set(actions) == {"inspect", "resume", "stop", "successor", "retire"}
+    assert actions["inspect"] == {"callable": True, "effect_eligibility": "no_effects"}
+    assert actions["resume"] == {
+        "callable": True, "effect_eligibility": "requires_workflow_guards"
+    }
+    assert all(actions[name] == {"callable": False, "blocker": "not_installed"}
+               for name in ("stop", "successor", "retire"))
     assert counts(root) == before and owner.poll() is None
     value["action"] = "resume"
     resumed = stock_cli(installed, "recover", value)
@@ -145,6 +153,13 @@ def test_existing_workflow_inspection_never_starts_or_changes_history(wf):
     observed = service.inspect(wf.ref)["data"]
     assert observed["operation_key"] == "workflow-intake"
     assert observed["attempt_id"] is None and observed["steps"] == {}
+    assert observed["action_availability"]["inspect"]["callable"] is True
+    assert observed["action_availability"]["resume"] == {
+        "callable": True, "effect_eligibility": "requires_workflow_guards"
+    }
+    assert observed["action_availability"]["successor"] == {
+        "callable": False, "blocker": "not_installed"
+    }
     assert wf.store.read(wf.ref, wf.rig.scope) == before and not wf.runtime.dispatches
     with pytest.raises(AccessDenied):
         service.inspect("workflow:foreign")

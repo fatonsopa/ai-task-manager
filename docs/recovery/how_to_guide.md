@@ -22,7 +22,7 @@ This procedure supports inspection and continuation through the same owner. Cold
    aitm --config <service.json> --installation <installation.json> --json workflow recover --input <request.json>
    ```
 
-   Expect the same workflow/task/plan/key/deadline, its attempt and step observations, and `owner_state: live`. No new worker or provider write is part of inspection. Stop if identity, scope, configuration, source or current authority is refused.
+   Expect the same workflow/task/plan/key/deadline, its attempt and step observations, and `owner_state: live`. No new worker or provider write is part of inspection. Stop if identity, scope, configuration, source or current authority is refused. Read `action_availability`: `inspect` and `resume` are callable, while `stop`, `successor` and `retire` are unavailable in T01. A callable resume still requires the ordinary workflow guards; this observation grants no permission for an effect.
 
 3. Review the reported state and current human instructions. If continuation remains appropriate, change only `action` to `resume` and run the same command. The existing controller decides the next eligible step. A human hold, reassignment, changed scope, missing review or uncertain effect may keep it blocked.
 
