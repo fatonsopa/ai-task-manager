@@ -372,7 +372,7 @@ def test_requested_effort_is_bound_to_policy_digest_and_native_argv(tmp_path):
             options = sdk_options(policy, WaitingGateway())
             command = sdk_command(policy, options, 10)
             assert command.argv[command.argv.index("--effort") + 1] == "high"
-            assert options.max_turns == 4 and options.max_budget_usd == 0.25
+            assert options.max_turns == 8 and options.max_budget_usd == 0.25
             options.effort = "low"
             with pytest.raises(AccessDenied):
                 sdk_command(policy, options, 10)

@@ -12,13 +12,22 @@ from tests.hosts.test_authority_shutdown import graph
 from tests.hosts.test_composition import composition as composition
 
 
-@pytest.mark.parametrize("change", [None, "close", "deadline", "model", "source"])
-def test_gateway_authority_waits_before_core_and_rechecks(composition, monkeypatch, change):
+@pytest.mark.parametrize("busy", [False, True])
+@pytest.mark.parametrize("change", [None, "close", "deadline", "expiry", "model", "source"])
+def test_gateway_authority_waits_before_core_and_rechecks(composition, monkeypatch, change, busy):
+    monkeypatch.setattr(AttemptAuthority, "start", lambda self: self.ensure_current())
     g = graph(composition)
     guard = g.native.startup.model_guard
     held, release, waiting = Event(), Event(), Event()
     original = guard.observation_boundary
     dependencies = g.authority.registry.dependencies
+    collecting, collected = Event(), Event()
+    prepare = g.source.prepare
+
+    def collect(*args, **kwargs):
+        collecting.set()
+        assert collected.wait(5)
+        return prepare(*args, **kwargs)
 
     @contextmanager
     def observed(**kwargs):
@@ -36,7 +45,13 @@ def test_gateway_authority_waits_before_core_and_rechecks(composition, monkeypat
                 guard.refusal = "authored_model_refusal"
 
     try:
-        with ThreadPoolExecutor(max_workers=2) as pool:
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            collector = None
+            if busy:
+                monkeypatch.setattr(g.source, "prepare", collect)
+                g.clock[0] = g.authority._next_refresh_at + 0.001
+                collector = pool.submit(g.authority.refresh)
+                assert collecting.wait(2)
             holder = pool.submit(hold)
             assert held.wait(2)
             checked = pool.submit(g.native.gateway.delegate.check)
@@ -52,9 +67,11 @@ def test_gateway_authority_waits_before_core_and_rechecks(composition, monkeypat
                     g.authority.request_close()
                 elif change == "deadline":
                     g.clock[0] = g.authority.deadline
+                elif change == "expiry":
+                    g.clock[0] = g.authority._expires_at
                 elif change == "source":
                     g.authority.registry.dependencies = object()
-                if change in {"close", "deadline"}:
+                if change in {"close", "deadline", "expiry"}:
                     # Cancellation/expiry must end the wait while the guard is held.
                     with pytest.raises(AccessDenied, match="stopped or expired"):
                         checked.result(timeout=1)
@@ -72,7 +89,14 @@ def test_gateway_authority_waits_before_core_and_rechecks(composition, monkeypat
             finally:
                 release.set()
                 holder.result(timeout=2)
+                collected.set()
+                if collector is not None:
+                    try:
+                        collector.result(timeout=2)
+                    except AccessDenied:
+                        assert change is not None
     finally:
+        collected.set()
         g.authority.registry.dependencies = dependencies
         g.workers.stop(g.handle, g.attempt.id, operation_key="observation-order-stop")
 

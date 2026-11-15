@@ -98,7 +98,7 @@ def test_claude_uses_custom_owned_transport_and_never_sdk_spawn(tmp_path, monkey
     assert command.argv[command.argv.index("--tools") + 1] == ""
     assert "--setting-sources=" in command.argv
     assert "--bare" not in command.argv
-    assert command.argv[command.argv.index("--max-turns") + 1] == "4"
+    assert command.argv[command.argv.index("--max-turns") + 1] == "8"
     assert command.argv[command.argv.index("--max-budget-usd") + 1] == "0.25"
     options.tools = ["Bash"]
     with pytest.raises(AccessDenied):
@@ -106,7 +106,8 @@ def test_claude_uses_custom_owned_transport_and_never_sdk_spawn(tmp_path, monkey
 
 
 @pytest.mark.parametrize(
-    "field,value", [("max_turns", None), ("max_budget_usd", 100), ("max_buffer_size", None)]
+    "field,value",
+    [("max_turns", None), ("max_turns", 4), ("max_budget_usd", 100), ("max_buffer_size", None)],
 )
 def test_claude_finite_limits_cannot_be_changed_after_review(tmp_path, field, value):
     p = policy(tmp_path, "claude")

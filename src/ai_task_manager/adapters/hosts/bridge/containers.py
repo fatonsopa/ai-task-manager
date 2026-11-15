@@ -14,6 +14,7 @@ from pathlib import Path
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup, require_group_monitoring
 from ai_task_manager.config.files import digest, read_private, write_private
 from ai_task_manager.domains.work.errors import AccessDenied
+from ai_task_manager.observability.failures import FailureStage, capture_failure
 from ai_task_manager.supervisor.models import RuntimeUncertain
 
 from .container_admission import ContainerAdmissions
@@ -264,6 +265,7 @@ class DockerCommands:
         admitted = False
         process, group = job["process"], job["group"]
         trigger = None
+        failure = None
         grace = None
         while True:
             status = group.leader()
@@ -305,6 +307,7 @@ class DockerCommands:
                     if self.journal.clock() >= deadline:
                         raise AccessDenied("Command deadline")
                 except BaseException as error:
+                    failure = capture_failure(error, FailureStage.MANAGED_EXECUTION)
                     trigger = type(error).__name__
                     process.stdin.close()
                     grace = time.monotonic() + 12
@@ -334,6 +337,7 @@ class DockerCommands:
                 "process_stop": group.evidence(stopped, orphaned=False),
                 "container": cleanup,
                 "trigger": trigger,
+                "failure": failure,
             },
         )
         if not known:

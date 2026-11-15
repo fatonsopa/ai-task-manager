@@ -164,7 +164,7 @@ class AttemptAuthority:
     def refresh(self):
         started = diagnostic_clock()
         if not self._collecting.acquire(blocking=False):
-            return self.check_prepared()
+            return self._observe_current()
         publication_attempted = publication_confirmed = False
         try:
             self._check_owner()
@@ -184,8 +184,7 @@ class AttemptAuthority:
                 # a still-unexpired but short cached proof is insufficient.
                 identity.ensure_current(
                     minimum_remaining_seconds=(
-                        MAX_COLLECTION_SECONDS + CHECK_INTERVAL_SECONDS
-                        + self._preparation_latency
+                        MAX_COLLECTION_SECONDS + CHECK_INTERVAL_SECONDS + self._preparation_latency
                     )
                 )
             collection_started = diagnostic_clock()
@@ -333,6 +332,14 @@ class AttemptAuthority:
             raise AccessDenied("Renewal leaves no safe next collection window")
         return next_at
 
+    def _observe_current(self):
+        """Outside Core only: wait for the model guard while cached authority is valid."""
+        end = min(self.deadline, self._expires_at or self.deadline)
+        with self.native.startup.model_guard.observation_boundary(
+            cancelled=self._stop, not_after=end
+        ):
+            return self.check_prepared()
+
     def ensure_current(self):
         """Prepare outside Core, then serialize the current local observation."""
         if self._current is None or self.registry.core.context.clock() >= self._next_refresh_at:
@@ -340,10 +347,7 @@ class AttemptAuthority:
         # Provider collection above must not hold the model fence. This caller
         # has no Core transaction, so wait here rather than using the reverse
         # nonblocking observation while another native observer holds it.
-        with self.native.startup.model_guard.observation_boundary(
-            cancelled=self._stop, not_after=self.deadline
-        ):
-            return self.check_prepared()
+        return self._observe_current()
 
     def start(self):
         if self._thread is not None:

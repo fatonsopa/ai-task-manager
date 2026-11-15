@@ -135,7 +135,7 @@ def sdk_options(policy, gateway):
         include_hook_events=True,
         model=policy.model,
         effort=policy.effort,
-        max_turns=4,
+        max_turns=8,
         max_budget_usd=0.25,
         max_buffer_size=262144,
         system_prompt="Work only through the managed task tools and follow current task authority.",
@@ -159,7 +159,7 @@ def sdk_command(policy, options, timeout):
         or options.model != policy.model
         or options.effort != policy.effort
         or options.fallback_model is not None
-        or options.max_turns != 4
+        or options.max_turns != 8
         or options.max_budget_usd != 0.25
         or options.max_buffer_size != 262144
         or set(options.mcp_servers) != {"aitm"}
