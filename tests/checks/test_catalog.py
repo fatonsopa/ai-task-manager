@@ -55,7 +55,8 @@ def test_hook_and_actor_scope_remain_external(tmp_path):
     result = catalogs(private_dir(tmp_path)).for_project("project")
     assert not hasattr(result, "authorize_commit")
     assert not hasattr(result, "change_task_status")
-    assert find_spec("ai_task_manager.adapters.projects.ai_index.check_catalog") is None
+    parent = "ai_task_manager.adapters.projects.ai_index"
+    assert find_spec(parent) is None or find_spec(parent + ".check_catalog") is None
 
 
 @pytest.mark.parametrize(

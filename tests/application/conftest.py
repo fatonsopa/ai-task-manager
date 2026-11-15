@@ -17,7 +17,8 @@ from ai_task_manager.config.files import write_private
 from ai_task_manager.config.service import load_service
 from ai_task_manager.config.sessions import SessionFile
 from tests.application.helpers import Observations
-from tests.linear.helpers import CONNECTION, EXPECTED, LinearRig, ProviderFixture
+from tests.linear.helpers import CONNECTION, EXPECTED, LinearRig
+from tests.linear.test_decision_publication import DecisionProvider as CurrentWriterProvider
 
 
 @pytest.fixture
@@ -26,7 +27,7 @@ def composed(tmp_path):
     if not root:
         pytest.skip("Actual configured external Technical Writer is required")
     os.chmod(tmp_path, 0o700)
-    provider = ProviderFixture()
+    provider = CurrentWriterProvider()
     try:
         rig = LinearRig(tmp_path, provider)
         os.chmod(tmp_path / "core.sqlite", 0o600)

@@ -20,7 +20,8 @@ from ai_task_manager.config.files import write_private
 from ai_task_manager.config.service import load_service
 from ai_task_manager.installation.sessions import setup
 from tests.application.helpers import FEATURE_BODY, reviewed_control
-from tests.linear.helpers import CONNECTION, EXPECTED, STATES, ProviderFixture
+from tests.linear.helpers import CONNECTION, EXPECTED, STATES
+from tests.linear.test_decision_publication import DecisionProvider as CurrentWriterProvider
 from tests.module_core.fixture import CLI
 
 
@@ -28,7 +29,7 @@ class FollowupRig:
     def __init__(self, root, writer_root, actions):
         self.root = root
         root.chmod(0o700)
-        self.provider = ProviderFixture()
+        self.provider = CurrentWriterProvider()
         try:
             package = WriterPackage.capture(writer_root, sys.executable)
             credential = root / "credential.env"
