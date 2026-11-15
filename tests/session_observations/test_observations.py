@@ -144,7 +144,7 @@ def test_SO05_agent_grant_never_issues_human_or_unpermitted_decision(provider):
             "enqueue",
             grant_ref=s.grant_ref,
         )
-    with pytest.raises(EvidenceRequired):
+    with pytest.raises(AccessDenied, match="Receipt authority is not available"):
         s.decisions.observations.verify_instruction(s.grant_ref)
     with pytest.raises(EvidenceRequired):
         s.decisions.observations.verify_host_observation(s.grant_ref)

@@ -91,13 +91,16 @@ def test_RO02_unknown_reviewer_retains_obligation_without_repeated_stop(installe
     def start(*args, **kwargs):
         attempt = original_start(*args, **kwargs)
         host = producer.workers.hosts.owned[attempt.id]
-        original_stop = host.stop
+        original_stop = host.stop_until
 
-        def unknown_stop():
+        def unknown_stop(not_after):
+            assert not_after == producer.workers.deadline
             stops.append(attempt.id)
-            return replace(original_stop(), confirmed=False, reason="declared helper unknown")
+            return replace(
+                original_stop(not_after), confirmed=False, reason="declared helper unknown"
+            )
 
-        monkeypatch.setattr(host, "stop", unknown_stop)
+        monkeypatch.setattr(host, "stop_until", unknown_stop)
         return attempt
 
     monkeypatch.setattr(producer.workers, "start", start)
@@ -109,6 +112,14 @@ def test_RO02_unknown_reviewer_retains_obligation_without_repeated_stop(installe
     with pytest.raises(RuntimeError, match="declared reviewer"):
         owner._review_source(Path(owner.spec.data["state_root"])).resolve(s["inspection"])
     assert len(stops) == 1
+    host = producer.workers.hosts.owned[stops[0]]
+
+    def repeated_stop(*args, **kwargs):
+        pytest.fail("owner close must retain the original unknown stop")
+
+    monkeypatch.setattr(producer.workers, "stop", repeated_stop)
+    monkeypatch.setattr(host, "stop", repeated_stop)
+    monkeypatch.setattr(host, "stop_until", repeated_stop)
     outcomes = owner.service.workflows.close()
     assert outcomes[0]["state"] == "uncertain" and outcomes[0]["quiescent"] is False
     attempt = producer.workers.core.get_attempt(producer.handle, stops[0])

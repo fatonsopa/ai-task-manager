@@ -402,10 +402,14 @@ def test_cw10_expired_parked_lease_recovers_without_spin_or_provider_poll(fixtur
         trial.service = fixture.load()
         trial.receiver = InstalledReceiver(trial.service, fixture.config)
         before_task = trial.service.core.get_task(trial.service.handle, trial.task.id)
+        wall_before = time.time()
+        monotonic_before = time.monotonic()
         trial.receiver.start()
         # Startup recovery owns one provider scan. Parked receipt recovery must
         # not poll after that independently scheduled lane has completed.
         wait_for(lambda: trial.receiver.next_reconciliation > 0)
+        monotonic_after = time.monotonic()
+        wall_after = time.time()
         before = len(fixture.provider.requests)
         time.sleep(0.8)
         assert len(fixture.provider.requests) == before
@@ -413,8 +417,13 @@ def test_cw10_expired_parked_lease_recovers_without_spin_or_provider_poll(fixtur
         assert trial.service.core.get_task(trial.service.handle, trial.task.id) == before_task
         pending = trial.service.core.sync.list_operations(trial.service.handle)[-1]
         assert pending.state == "leased" and not pending.fenced_by
-        remaining = pending.lease_until - time.time()
-        assert time.monotonic() < trial.receiver.next_reconciliation <= time.monotonic() + remaining
+        # The wall-clock lease is converted during startup. Bound that
+        # conversion by the observed interval instead of requiring separately
+        # sampled wall and monotonic clocks to agree to the final nanosecond.
+        lower = monotonic_before + (pending.lease_until - wall_after)
+        upper = monotonic_after + (pending.lease_until - wall_before)
+        assert time.monotonic() < trial.receiver.next_reconciliation
+        assert lower <= trial.receiver.next_reconciliation <= upper
         assert trial.receiver._recovery_delay() == trial.receiver.CONFIRMATION_RECOVERY_SECONDS
         trial.confirm()
         wait_for(lambda: trial.rows()[0]["state"] == "applied")

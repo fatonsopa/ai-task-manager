@@ -232,7 +232,7 @@ def test_HO02_current_authority_and_original_source_required(
 def test_HO03_receipt_cannot_select_event_stage_or_human_authority(
     provider, service, journal, native, binding, fault
 ):
-    from ai_task_manager.domains.work.errors import EvidenceRequired
+    from ai_task_manager.domains.work.errors import AccessDenied
 
     event, _, emit, observer, value, _, _ = compose(provider, service, journal, native, binding)
     delivered(emit, observer, value)
@@ -244,8 +244,9 @@ def test_HO03_receipt_cannot_select_event_stage_or_human_authority(
     elif fault == "self_report":
         request["observation_ref"] = '{"delivered":true}'
     else:
-        with pytest.raises(EvidenceRequired):
+        with pytest.raises(AccessDenied, match="Receipt authority is not available"):
             service.decisions.observations.verify_instruction(request["observation_ref"])
+        assert set(service.core.notifications.receipts(service.handle, event.id)) == {"queued"}
         return
     assert not service.call("event_acknowledge", request)["ok"]
     assert set(service.core.notifications.receipts(service.handle, event.id)) == {"queued"}
