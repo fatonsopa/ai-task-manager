@@ -15,8 +15,6 @@ from tests.linear.live.ledger import DriverRefused
 
 from .test_dp01_preparation import installed, snapshot  # noqa: F401, F811 -- shared installed fixture
 
-pytestmark = pytest.mark.parametrize("installed", ["api"], indirect=True)
-
 
 def submitted(p):
     writing = p.approved()
@@ -32,6 +30,7 @@ def observe(p, writing, task, receipt):
     )
 
 
+@pytest.mark.parametrize("installed", ["api"], indirect=True)
 def test_API01_actual_default_setup_and_installed_submit_are_readonly_observed(installed):  # noqa: F811
     p = installed
     writing, task, receipt = submitted(p)
@@ -54,6 +53,7 @@ def test_API01_actual_default_setup_and_installed_submit_are_readonly_observed(i
     assert len(p.ledger.summary()["requests"]) == len(p.provider.requests)
 
 
+@pytest.mark.parametrize("installed", ["api"], indirect=True)
 @pytest.mark.parametrize(
     "change",
     [
@@ -124,4 +124,42 @@ def test_API02_missing_foreign_revoked_and_changed_lineage_refuses(installed, ch
         observe(p, writing, task, receipt)
     assert snapshot(p.config.parent) == before
     assert len(p.provider.issues) == creates == 1
+    assert "product_observations" not in p.ledger.summary()
+
+
+@pytest.mark.parametrize("installed", ["api_workflow"], indirect=True)
+def test_API03_workflow_prepare_origin_is_readonly_observed(installed):  # noqa: F811
+    p = installed
+    writing, task, receipt = submitted(p)
+    command = read_private(receipt)["argv"]
+    assert command[3:-1] == ["workflow", "prepare", "--input"]
+    assert read_private(command[-1]) == {
+        "operation": "task_submit",
+        "data": {"writing_ref": writing["approval_ref"], "operation_key": "api-submit"},
+    }
+    before = snapshot(p.config.parent)
+    owned = observe(p, writing, task, receipt)
+    assert owned["id"] == task["issue_id"] and observe(p, writing, task, receipt) == owned
+    assert snapshot(p.config.parent) == before
+    assert not (p.config.parent / "operator-intent.json").exists()
+    assert not (p.config.parent / "operator-result.json").exists()
+    assert len(p.provider.issues) == 1
+
+
+@pytest.mark.parametrize("installed", ["api_workflow"], indirect=True)
+@pytest.mark.parametrize("change", ["wrong_operation", "input_tamper"])
+def test_API04_wrong_workflow_operation_or_tampered_input_refuses(installed, change):  # noqa: F811
+    p = installed
+    writing, task, receipt = submitted(p)
+    request = Path(read_private(receipt)["argv"][-1])
+    value = read_private(request)
+    if change == "wrong_operation":
+        value["operation"] = "task_action"
+    else:
+        value["data"]["operation_key"] = "another-original-key"
+    write_private(request, value, replace=True)
+    before = snapshot(p.config.parent)
+    with pytest.raises(DriverRefused):
+        observe(p, writing, task, receipt)
+    assert snapshot(p.config.parent) == before and len(p.provider.issues) == 1
     assert "product_observations" not in p.ledger.summary()

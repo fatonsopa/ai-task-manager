@@ -259,17 +259,13 @@ class FixtureAdministration:
             or observed["pythonpath_absent"] is not True
             or observed["python"] != str(python)
             or observed["entry"] != str(entry)
-            or len(argv) != 8
-            or argv[:7]
-            != [
-                str(entry),
-                "--config",
-                str(Path(config_file).absolute()),
-                "--json",
-                "task",
-                "submit",
-                "--input",
-            ]
+            or argv[:3] != [str(entry), "--config", str(Path(config_file).absolute())]
+            or argv[3:-1]
+            not in (
+                ["--json", "task", "submit", "--input"],
+                ["--json", "workflow", "prepare", "--input"],
+                ["workflow", "prepare", "--input"],
+            )
             or not package.is_absolute()
             or package.resolve() != package
             or not package.is_relative_to(python.parent.parent / "lib")
@@ -295,8 +291,11 @@ class FixtureAdministration:
         ]
         if hashlib.sha256(canonical(rows)).hexdigest() != observed["source_digest"]:
             raise DriverRefused("product_api_submit_source_changed")
-        request_seal = FileSeal(argv[7])
-        if read_private(argv[7]) != {"writing_ref": writing_ref, "operation_key": submit_key}:
+        request_seal = FileSeal(argv[-1])
+        expected_request = {"writing_ref": writing_ref, "operation_key": submit_key}
+        if "workflow" in argv[3:-1]:
+            expected_request = {"operation": "task_submit", "data": expected_request}
+        if read_private(argv[-1]) != expected_request:
             raise DriverRefused("product_api_submit_request_changed")
         creates = [
             row
@@ -311,7 +310,7 @@ class FixtureAdministration:
         return {
             "mode": "setup_api",
             "submit_observation": identity(observation_file, content=True),
-            "submit_input": identity(argv[7], content=True),
+            "submit_input": identity(argv[-1], content=True),
             "provider_mode": observed["mode"],
         }
 

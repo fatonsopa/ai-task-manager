@@ -44,7 +44,8 @@ def snapshot(root):
 
 @pytest.fixture
 def installed(request):
-    api_install = getattr(request, "param", "operator") == "api"
+    api_workflow = getattr(request, "param", "operator") == "api_workflow"
+    api_install = getattr(request, "param", "operator") in {"api", "api_workflow"}
     selected = os.environ.get("DP01_INSTALLED_PYTHON")
     writer = os.environ.get("TECHNICAL_WRITER_PACKAGE")
     if not selected or not writer:
@@ -157,7 +158,7 @@ def installed(request):
 
     def prepare(operation, data, **kwargs):
         request = folder / f"request-{len(commands) + 1}.json"
-        if api_install:
+        if api_install and not api_workflow:
             write_private(request, data)
             group, action = operation.split("_", 1)
             return cli(["--json", group, action, "--input", str(request)], **kwargs)
@@ -216,6 +217,17 @@ def installed(request):
                         "key": str(state / "writing.key"),
                     },
                     "capacity_policies": manifest["capacity_policies"],
+                    **(
+                        {
+                            "workflow_control": {
+                                "record": str(state / "owner.json"),
+                                "endpoint": str(state / "owner.sock"),
+                                "instance": str(uuid4()),
+                            }
+                        }
+                        if api_workflow
+                        else {}
+                    ),
                 },
             )
             # Actual installed API, default components; only the declared HTTP endpoint is authored.
