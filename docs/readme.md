@@ -53,6 +53,7 @@ A successful check reports consistent requirements, cases, links and diagram pai
 | DP01 result, supported procedure and DP02 handoff | [DP01 delivery handoff](plans/deliveries/DP01-handoff.md) |
 | DP02 approved scope and continuation | [DP02 plan](plans/deliveries/DP02.md), [session prompt](plans/dp02-session-prompt.md) and [continuation handoff](plans/deliveries/DP02-handoff.md) |
 | DP03 approved scope and execution | [DP03 plan](plans/deliveries/DP03.md) and [execution prompt](plans/dp03-session-prompt.md) |
+| Proposed DP04 scope, bounded audit, stories, tasks and acceptance | [DP04 detailed plan](plans/deliveries/DP04.md); version 1 awaits the user's single approval |
 | Confirmed Linear records for delivery plans, stories and tasks | [Linear tracking map](plans/linear-tracking.md) and [tracking rules](implementation_plan.md#linear-delivery-tracking) |
 | Methods, environments, acceptance and exact cases | Test Plan (TP), [test_plan.md](test_plan.md), and `tests/acceptance/cases.json` |
 | Prepare initial approved work before owner activation | [Workflow preparation How-to Guide (HTG)](workflow_preparation/how_to_guide.md) |

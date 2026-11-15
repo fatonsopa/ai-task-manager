@@ -73,3 +73,23 @@ The 13 November 2026 reconciliation preserves original issues and their history,
 The private reconciliation record is `.local/delivery-learning/20261113-tst-reconciliation-v1/`. It contains the before snapshot, comments, retained-work crosswalk, identity/ownership observations, mutation receipts and final readback. Previously completed issues remain completed. Development tracking changes do not count as product acceptance.
 
 Actual execution remains owned by the delivery session. The human assignee, selected verified Linear app delegate and lead/worker execution owner are separate. Keep all three truthful when an assignment or connection changes.
+
+## DP04 proposed hierarchy
+
+Version 1 was prepared on 15 November 2026 and awaits the user's single approval. All records were read back in Backlog, with their native parent, human assignee and selected application delegate confirmed. The plan and `DP04-E1` share TST-242. This map records identity; current state and criterion/evidence verdicts belong to Linear.
+
+| Planning ID | Parent | Linear record |
+| --- | --- | --- |
+| `DP04-S1` | `DP04` | [TST-303](https://linear.app/manaferra/issue/TST-303/dp04-s1-reuse-an-existing-issue-safely) |
+| `DP04-S2` | `DP04` | [TST-304](https://linear.app/manaferra/issue/TST-304/dp04-s2-see-immediate-changes-and-recover-missed-events) |
+| `DP04-S3` | `DP04` | [TST-305](https://linear.app/manaferra/issue/TST-305/dp04-s3-preserve-human-decisions-and-request-a-choice) |
+| `DP04-S4` | `DP04` | [TST-306](https://linear.app/manaferra/issue/TST-306/dp04-s4-keep-two-users-isolated-and-deliver-the-increment) |
+| `DP04-T01` | `DP04-S1` | [TST-307](https://linear.app/manaferra/issue/TST-307/dp04-t01-connect-trusted-existing-issue-selection-and-intake) |
+| `DP04-T02` | `DP04-S1` | [TST-308](https://linear.app/manaferra/issue/TST-308/dp04-t02-demonstrate-existing-intake-and-immediate-confirmed-updates) |
+| `DP04-T03` | `DP04-S2` | [TST-309](https://linear.app/manaferra/issue/TST-309/dp04-t03-complete-installed-event-and-polling-connections) |
+| `DP04-T04` | `DP04-S2` | [TST-310](https://linear.app/manaferra/issue/TST-310/dp04-t04-demonstrate-signed-synchronization-and-missed-change-recovery) |
+| `DP04-T05` | `DP04-S3` | [TST-311](https://linear.app/manaferra/issue/TST-311/dp04-t05-preserve-human-authority-across-task-and-lifecycle-changes) |
+| `DP04-T06` | `DP04-S3` | [TST-312](https://linear.app/manaferra/issue/TST-312/dp04-t06-publish-and-resolve-genuine-decision-requests) |
+| `DP04-T07` | `DP04-S3` | [TST-313](https://linear.app/manaferra/issue/TST-313/dp04-t07-demonstrate-human-choices-and-decision-only-notifications) |
+| `DP04-T08` | `DP04-S4` | [TST-314](https://linear.app/manaferra/issue/TST-314/dp04-t08-demonstrate-genuine-two-user-isolation) |
+| `DP04-T09` | `DP04-S4` | [TST-315](https://linear.app/manaferra/issue/TST-315/dp04-t09-accept-the-cumulative-increment-and-hand-off-dp05) |

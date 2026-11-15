@@ -10,7 +10,7 @@
     },
     {
       "path": "AGENTS.md",
-      "sha256": "bc61afcc82c8088a0f39981a5372e69029d0442fa29aa9fc3e2c2025dfb56232"
+      "sha256": "87a91b60ac94a051b41cbc314696dca7e7b60d0cb462ab3261014f3a6bcd931b"
     },
     {
       "path": "CLAUDE.md",
@@ -158,7 +158,7 @@
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "8e075bd62c2ebde885e078de7cb647fcfd9ac964d5710bc53156b135c7893d23"
+      "sha256": "dd7a8cee43d70d9452e2f455f27f48e0bd6d99786bcc5d5226bc98d6eb388ec0"
     },
     {
       "path": "docs/independent_review/how_to_guide.md",
@@ -205,6 +205,22 @@
       "sha256": "2949c33d7b4e0b5a7056bdc415892ea8e387cbbf5e6c842ed6370f4b5aa4f1aa"
     },
     {
+      "path": "docs/plans/deliveries/DP03-fresh-qualification-amendment.md",
+      "sha256": "8224679b01fada9c536984b0e56b6d3e0e52c774b47695d6755df4899da82ed2"
+    },
+    {
+      "path": "docs/plans/deliveries/DP03-handoff.md",
+      "sha256": "cefdf693e289c95e3857fac87835dbbaad41ef454a7721eae3eee64fe388dd21"
+    },
+    {
+      "path": "docs/plans/deliveries/DP03.md",
+      "sha256": "04c6a7c844c68dd6d1a175e6d54399abd2d7db792300c8f5dfd5b3ed05588c5e"
+    },
+    {
+      "path": "docs/plans/deliveries/DP04.md",
+      "sha256": "93758da5a4f6bda5f2a82cfc00f34cf99f46fd8d76a311cb100e4ef3013d769a"
+    },
+    {
       "path": "docs/plans/delivery-learning-loop.md",
       "sha256": "826fe11322ae9f184c9b569aba702775c26424bc3c44cf58ba277f535f3bc04f"
     },
@@ -217,12 +233,20 @@
       "sha256": "9486c87edf64ea16cb5007f47231a56597bcd4223d39d2f4e170dc90334ae72d"
     },
     {
+      "path": "docs/plans/dp03-session-prompt.md",
+      "sha256": "5bb2cac14c174b0183545a2c44df0cf1430d950f7cb69c009b98e95cd49487b4"
+    },
+    {
+      "path": "docs/plans/dp04-session-prompt.md",
+      "sha256": "bdfeb0273678df7306e7dc5a22f5d0d863fd55009a5f86bf75a66751b8365abc"
+    },
+    {
       "path": "docs/plans/incremental-delivery-proposal.md",
-      "sha256": "468ab953d0eb22c993f58cf54122a89705e1d4647e8fa53cd78e2718b7afed0a"
+      "sha256": "39a1c1fbc672f23ee301fc5cfb665e2589c4898ac3e4bf733fe938f46e19ae32"
     },
     {
       "path": "docs/plans/linear-tracking.md",
-      "sha256": "13a66788c3f85a18c103ca619a77a4dd87001710a63f92cd3f806fd8172da6a7"
+      "sha256": "2a5da261269f1b1dcb236f0c697f24d9394703285f99c543db2d9ffac0ce9a31"
     },
     {
       "path": "docs/policy.md",
@@ -230,7 +254,7 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "88ce29d864649f30476e2db8bfe6bb1e98447ed3b8c4789c2544616c6fbe9ab3"
+      "sha256": "e26c521460ec09be637de364a24cc5c70d669a3c72e124f89e17769940436001"
     },
     {
       "path": "docs/spec_driven_development.md",
@@ -246,11 +270,11 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "4b09af77553a866d65f7e05e6b185dd90db850cbf95d24853a98b6526f2330bb"
+      "sha256": "e4eda8794a8ad6caabf7c941e8d0651e35c4108502b37f5a682cecbc9ee89eb6"
     },
     {
       "path": "docs/workflow_preparation/how_to_guide.md",
-      "sha256": "6ece337babcfb9b42bb65f8f8807a1e448c3b9c1e10c3e8238350affd495d0a7"
+      "sha256": "6dbe8a07c3c7393de2e8d6a196cca6356d7238f695fcb510084fb694d93b791f"
     },
     {
       "path": "prototypes/terminal/session-task-management.html",
