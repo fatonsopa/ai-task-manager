@@ -158,7 +158,7 @@
     },
     {
       "path": "docs/implementation_plan.md",
-      "sha256": "618702d2c2d743f00444e219b14db7b381a61d451a8141d4e9b52df1d7d8672b"
+      "sha256": "7fe3d41111f2efe402ed228dcf2ee2861b5ef72a3464961ae49a0033da333229"
     },
     {
       "path": "docs/independent_review/how_to_guide.md",
@@ -217,8 +217,12 @@
       "sha256": "04c6a7c844c68dd6d1a175e6d54399abd2d7db792300c8f5dfd5b3ed05588c5e"
     },
     {
+      "path": "docs/plans/deliveries/DP04-handoff.md",
+      "sha256": "601b4030785ca1dbf0d22c09618ead93c67cf85a2c9d3c64b8b84382ae91c2c8"
+    },
+    {
       "path": "docs/plans/deliveries/DP04.md",
-      "sha256": "1be7dd73607644aa0e6a9b64c50edc4fbc1b6ea699beec7bcd5ba41cd862eb69"
+      "sha256": "aa31fb4b45990aa12a47c349665c078b4588b04efa50ab3c0d3739b62a00a20a"
     },
     {
       "path": "docs/plans/delivery-learning-loop.md",
@@ -242,7 +246,7 @@
     },
     {
       "path": "docs/plans/incremental-delivery-proposal.md",
-      "sha256": "17af89a8a28ed9c1409362ea42ff32d483572aa5eb35014273a9cc07065e8199"
+      "sha256": "05c9ed558967029603095c98b784b031eaaacd96c11f5778e17cbdb4295ac210"
     },
     {
       "path": "docs/plans/linear-tracking.md",
@@ -254,7 +258,7 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "23d8e6e1e8e2ef921d72f83bd12dbacda66e532d443bcd89e36a89204800e36b"
+      "sha256": "19cbc6b71de5b135288ffa92c4da8efe014ec53d622601af07a0c944e27d6231"
     },
     {
       "path": "docs/spec_driven_development.md",
@@ -270,7 +274,7 @@
     },
     {
       "path": "docs/test_status_report.md",
-      "sha256": "e4eda8794a8ad6caabf7c941e8d0651e35c4108502b37f5a682cecbc9ee89eb6"
+      "sha256": "e2d8de1577be6bbdae7b7470b394b04a2f1839b14112341231df97ab49f67404"
     },
     {
       "path": "docs/workflow_preparation/how_to_guide.md",
