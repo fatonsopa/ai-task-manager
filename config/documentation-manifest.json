@@ -154,7 +154,7 @@
     },
     {
       "path": "docs/high_level_document.md",
-      "sha256": "4baebd8e2e6b67a6548b12d67090ba2e126f2b4ea30b160d73c77b6ab832aa32"
+      "sha256": "e93eb7fe8236dcf132c529feaa6560c3b1c76bb2572ab1eb06a6352983bc87f4"
     },
     {
       "path": "docs/implementation_plan.md",
@@ -254,7 +254,7 @@
     },
     {
       "path": "docs/readme.md",
-      "sha256": "2193aa2ba2320deea0cfc54883b090c49c3bc8ce512dfce395a70cd4969b0876"
+      "sha256": "23d8e6e1e8e2ef921d72f83bd12dbacda66e532d443bcd89e36a89204800e36b"
     },
     {
       "path": "docs/spec_driven_development.md",
