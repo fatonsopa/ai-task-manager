@@ -1,5 +1,6 @@
 """Actual owned kernel handles plus labelled refusal controls; no host/model call."""
 
+import os
 import select
 import time
 from dataclasses import replace
@@ -167,13 +168,27 @@ def test_generation_checks_retain_parent_without_reaping(native, monkeypatch):
 def test_unknown_stop_retains_watch_and_confirmed_stop_closes_it(native, monkeypatch):
     process, _, _ = native()
     watch = process.native_exit
-    with monkeypatch.context() as scoped:
-        scoped.setattr(
-            process.group,
-            "stop",
-            lambda: GroupStop(False, GroupObservation(False, reason="authored_unknown")),
-        )
-        assert not process.stop().confirmed
+    unknown = GroupStop(False, GroupObservation(False, reason="authored_unknown"))
+    try:
+        with monkeypatch.context() as scoped:
+            scoped.setattr(process.group, "stop", lambda: unknown)
+            assert process.stop() is unknown
+            assert not watch.closed and not process._closed
+        # A repeated transport shutdown retains the original uncertain outcome.
+        # It cannot turn a later fixture observation into product stop evidence.
+        assert process.stop() is unknown
         assert not watch.closed and not process._closed
-    assert process.stop().confirmed
-    assert watch.closed and process._closed
+    finally:
+        stopped = process.group.stop()
+        assert stopped.confirmed
+        process.group.reap_exited_leader()
+        watch.close()
+        process.native_input.close()
+        process.process.stdout.close()
+        os.close(process._relay_ready_fd)
+        process._relay_ready_fd = None
+        assert process.stop() is unknown
+    confirmed, _, _ = native()
+    confirmed_watch = confirmed.native_exit
+    assert confirmed.stop().confirmed
+    assert confirmed_watch.closed and confirmed._closed
