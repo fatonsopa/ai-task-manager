@@ -114,7 +114,7 @@ def owned(tmp_path, *, shape=None, webhooks=0, comments=0):
         assert not provider.thread.is_alive()
 
 
-def test_PF01_actual_frozen_schema_preserves_full_failure_and_preparation_pass(tmp_path):
+def test_PF01_actual_frozen_single_team_schema_supports_both_profiles(tmp_path):
     source = os.environ.get("DP01_ACTUAL_SHAPE_FILE")
     if not source:
         pytest.skip("Explicit frozen actual schema diagnosis required; no live lookup")
@@ -123,13 +123,15 @@ def test_PF01_actual_frozen_schema_preserves_full_failure_and_preparation_pass(t
         {"type": "Webhook", "missing": ["teamIds"], "actual_type": "Webhook"}
     ]
     with owned(tmp_path, shape=actual["raw_shape"]) as p:
-        with pytest.raises(DriverRefused, match="fixture_shape_unsupported"):
-            p.client().preflight()
+        # Preserve the historical missing-field diagnosis. Current full setup uses
+        # the supported single team/allPublicTeams contract, not phantom teamIds.
+        assert p.client().preflight().schema_sha256
         preparation = p.client(profile="preparation")
         assert preparation.preflight().schema_sha256
         assert preparation.profile == "preparation"
         assert [row[0]["query"] for row in p.provider.requests] == [
             SHAPE,
+            OPERATIONS["identity"],
             PREPARATION_SHAPE,
             # The profile uses the original fixed identity query.
             OPERATIONS["identity"],

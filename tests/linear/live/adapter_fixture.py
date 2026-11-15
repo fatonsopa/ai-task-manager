@@ -51,7 +51,6 @@ class AdapterProvider(ProviderFixture):
                 **values,
                 "creator": {"id": EXPECTED.viewer_id},
                 "team": {"id": values["teamId"]},
-                "teamIds": None,
                 "updatedAt": self.tick(),
                 "archivedAt": None,
             }

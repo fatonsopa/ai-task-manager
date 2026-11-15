@@ -341,6 +341,24 @@ def test_a14_a16_disabled_hook_and_secret_not_in_journal(adapter):
     assert b"AUTHORED_NOT_LIVE" not in ledger.path.read_bytes()
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("team", {"id": str(uuid4())}),
+        ("allPublicTeams", True),
+        ("resourceTypes", ["Issue", "Comment"]),
+    ],
+)
+def test_single_team_webhook_scope_changes_still_refuse(adapter, field, value):
+    admin, _, ledger, provider, _, candidate, _ = ready(adapter, webhook=True)
+    provider.webhooks[candidate][field] = value
+    with pytest.raises(DriverRefused, match="fixture_metadata_scope_mismatch"):
+        admin.read("webhook", candidate)
+    assert ledger.resource(candidate)["state"] == "active"
+    assert operations(provider).count(OPERATIONS["webhook_create"]) == 1
+    assert OPERATIONS["webhook_update"] not in operations(provider)
+
+
 @pytest.mark.parametrize("target", ["expired", "url", "run", "scope", "candidate", "missing"])
 def test_a15_endpoint_admission_is_bound_and_fails_before_effect(adapter, target):
     admin, graphql, ledger, provider, endpoint, candidate, now = ready(adapter)

@@ -132,7 +132,6 @@ class FixtureAdministration:
             elif kind == "webhook":
                 if (
                     item.get("team", {}).get("id") != scope.team
-                    or item["teamIds"] not in (None, [], [scope.team])
                     or item["allPublicTeams"] is not False
                     or item["resourceTypes"] != ["Issue"]
                     or type(item["enabled"]) is not bool

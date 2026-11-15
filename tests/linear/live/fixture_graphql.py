@@ -45,7 +45,7 @@ OPERATIONS = {
     ),
     "webhook_metadata": (
         "query FixtureWebhookMetadata($id: String!) { viewer { id } organization "
-        "{ id } webhook(id: $id) { id creator { id } team { id } teamIds "
+        "{ id } webhook(id: $id) { id creator { id } team { id } "
         "allPublicTeams enabled resourceTypes url updatedAt archivedAt } }"
     ),
     "webhook_marker": (
@@ -95,7 +95,6 @@ REQUIRED = {
         "id",
         "creator",
         "team",
-        "teamIds",
         "allPublicTeams",
         "enabled",
         "resourceTypes",
