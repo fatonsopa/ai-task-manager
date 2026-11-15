@@ -379,7 +379,9 @@ class ProviderJournal:
                 (subject, "wake_failed", error_kind),
             )
 
-    def status_receipt(self, scope, task, operation, snapshot, *, connection=None):
+    def status_receipt(
+        self, scope, task, operation, snapshot, *, connection=None, native_type=None
+    ):
         from ai_task_manager.domains.work.models import valid_display_identifier
 
         if not valid_display_identifier(snapshot.identifier):
@@ -412,6 +414,8 @@ class ProviderJournal:
             "display_identifier": snapshot.identifier,
             "source_revision": snapshot.revision,
         }
+        if native_type is not None:
+            payload["native_type"] = native_type
         with self.transaction() as conn:
             return self._proof(conn, "provider_status", scope, task.id, payload)
 
@@ -621,7 +625,9 @@ class ProviderJournal:
                 )
             ]
 
-    def begin_send(self, scope, operation, candidate_id=None, *, connection_digest=None):
+    def begin_send(
+        self, scope, operation, candidate_id=None, *, connection_digest=None, native_type=None
+    ):
         with self.transaction() as conn:
             scope_text = encoded(asdict(scope))
             old = conn.execute(
@@ -651,7 +657,26 @@ class ProviderJournal:
                     connection_digest,
                 ),
             )
+            if native_type is not None:
+                conn.execute(
+                    "INSERT INTO history(subject,stage,detail) VALUES(?,?,?)",
+                    (send_id, "native_type_intent", encoded(native_type)),
+                )
             return send_id
+
+    def native_type_binding(self, scope, send_id):
+        with self.transaction() as conn:
+            if not conn.execute(
+                "SELECT 1 FROM sends WHERE id=? AND scope=?", (send_id, encoded(asdict(scope)))
+            ).fetchone():
+                raise LinearError("native_type_send_missing", uncertain=True)
+            rows = conn.execute(
+                "SELECT detail FROM history WHERE subject=? AND stage='native_type_intent'",
+                (send_id,),
+            ).fetchall()
+            if len(rows) > 1:
+                raise LinearError("native_type_intent_ambiguous", uncertain=True)
+            return json.loads(rows[0][0]) if rows else None
 
     def record_scope_response(self, scope, send_id, metadata):
         """Preserve a returned effect identity without foreign response content."""

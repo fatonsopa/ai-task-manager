@@ -72,8 +72,15 @@ class Reconciliation:
             or task.decision_revision != operation.payload["decision_revision"]
         ):
             raise LinearError("stale_recovery_authority", uncertain=True)
+        native_type = self.journal.native_type_binding(scope, sends[-1]["id"])
+        if native_type is not None:
+            typed = self.client.verify_native_type(known_id, native_type)
+            if typed != readback:
+                raise LinearError("native_type_readback_race", uncertain=True)
         check_authority()
-        ref = self.journal.status_receipt(scope, task, operation, readback, connection=connection)
+        ref = self.journal.status_receipt(
+            scope, task, operation, readback, connection=connection, native_type=native_type
+        )
         check_authority()
         confirmed = self.core.intake.confirm_status(
             handle,

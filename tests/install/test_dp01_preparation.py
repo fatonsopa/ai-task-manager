@@ -317,7 +317,9 @@ def installed(request):
             assert not provider.thread.is_alive()
             assert not folder.exists()
         if saved is not None:
-            row = read_private(saved)
+            # This owned machine report may exceed the public request-size cap;
+            # it is retained evidence, not imported product input or authority.
+            row = json.loads(saved.read_text())
             write_private(
                 saved,
                 {**row, "provider_thread_stopped": True, "temporary_state_removed": True},

@@ -8,7 +8,7 @@ import time
 import pytest
 
 from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
-from tests.application.helpers import reviewed_control
+from tests.application.helpers import FEATURE_BODY, reviewed_control
 from tests.existing.test_installed_protocol import installed as installed_candidate  # noqa: F401
 from tests.linear.test_decision_publication import fields
 from tests.session_observations.test_decision_recipient import (
@@ -57,12 +57,14 @@ def retained_journey(current_candidate, installed, installed_candidate):  # noqa
 
 def test_installed_creator_choice_preserves_task_owner(installed):  # noqa: F811
     p = installed
-    writing = p.approved()
+    writing = p.approved(body=FEATURE_BODY.removeprefix("Type: Feature\n\n"))
     task = p.prepare(
         "task_submit", {"writing_ref": writing["approval_ref"], "operation_key": "decision-task"}
     )["data"]
     sentinel = "00000000-0000-4000-8000-000000000700"
-    p.provider.issues[task["issue_id"]]["decision_labels"] = [sentinel]
+    type_labels = list(p.provider.issues[task["issue_id"]].get("decision_labels", []))
+    assert len(type_labels) == 1
+    p.provider.issues[task["issue_id"]]["decision_labels"] = type_labels + [sentinel]
 
     def publish(key):
         prepared = p.prepare(
@@ -179,7 +181,9 @@ def test_installed_creator_choice_preserves_task_owner(installed):  # noqa: F811
 
     choose(one, "owner-cannot-impersonate", recipient=p.config, denied=True)
     choose(one, "resolve-one")
-    assert p.provider.issues[task["issue_id"]]["decision_labels"] == [sentinel]
+    assert p.provider.issues[task["issue_id"]]["decision_labels"] == sorted(
+        type_labels + [sentinel]
+    )
     assert p.prepare("task_decision_request", request_one)["data"]["decision_state"] == "resolved"
     assert len(p.provider.comments) == 1
     assert all(
