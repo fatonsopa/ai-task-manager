@@ -22,9 +22,7 @@ from ai_task_manager.storage import work
 from tests.application.helpers import reviewed_control
 from tests.complete_cycle.test_bootstrap import boot  # noqa: F401
 
-BODY = """Type: Chore
-
-## Description
+BODY = """## Description
 
 Correct the boundary behavior in chunks.py.
 

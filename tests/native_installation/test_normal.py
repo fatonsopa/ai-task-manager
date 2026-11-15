@@ -295,7 +295,8 @@ def actual_accounting_graph(tmp_path):
     core.now = datetime.now(UTC).timestamp()
     core.capacity = CapacityPolicy("claude", 2, 2)
     core.core = core.new_core()
-    task = core.queued()
+    # This graph checks shared accounting and authority, not confined code commands.
+    task = core.queued(code=False)
     attempt = core.core.execution.reserve(
         core.handle,
         task.id,
