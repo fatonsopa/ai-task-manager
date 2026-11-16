@@ -169,7 +169,7 @@ def load_service(
         from ai_task_manager.adapters.workflow_control.client import WorkflowClient
 
         workflows = WorkflowClient(config_file, asdict(core.session_binding(handle)[1]))
-    return ApplicationService(
+    service = ApplicationService(
         core,
         handle,
         writer=writer,
@@ -186,3 +186,32 @@ def load_service(
         dependencies=dependencies,
         workflows=workflows,
     )
+
+    if config.get("linear"):
+        from ai_task_manager.application.linear_sync.inbound import InboundDrain
+        from ai_task_manager.application.linear_sync.outbound import OutboundDrain
+        from ai_task_manager.application.linear_sync.progress import ProgressPublisher
+        from ai_task_manager.application.workflows.inspection import current_grant
+
+        def current_provider_authority():
+            seal.check()
+            claim_store.check()
+            current_grant(service)
+            seal.check()
+            claim_store.check()
+
+        if isinstance(provider, OutboundDrain):
+            provider.check_authority = current_provider_authority
+        if isinstance(inbound, InboundDrain):
+            inbound.check_authority = current_provider_authority
+        if publisher is not None:
+
+            def guarded_publisher(*args, **kwargs):
+                current_provider_authority()
+                value = publisher(*args, **kwargs)
+                if isinstance(value, ProgressPublisher):
+                    value.check_authority = current_provider_authority
+                return value
+
+            service.publisher = guarded_publisher
+    return service

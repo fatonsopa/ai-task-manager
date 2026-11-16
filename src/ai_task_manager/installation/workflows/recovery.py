@@ -66,7 +66,7 @@ def recover(config_file, installation_file, value):
     """Trusted operator API; public JSON supplies selection, never authority."""
     value = request(value)
     spec = Installation(
-        installation_file, config_file, retained=value["action"] in {"inspect", "stop"}
+        installation_file, config_file, retained=value["action"] in {"inspect", "resume", "stop"}
     )
     config = read_private(config_file)
     from ai_task_manager.adapters.workflow_control.lineage import resolve_control
@@ -186,6 +186,11 @@ def _cold(config_file, installation_file, value, control, activated):
             return envelope
         if value["action"] == "stop":
             return recovery.stop(service)
+        from .provider_recovery import reconcile_original
+
+        reconciled = reconcile_original(recovery, service, row)
+        if reconciled is not None:
+            return reconciled
         recovery.authorize(service)
         reference = recovery.reference
     # The replacement must acquire the original setup lock itself. Never hold it

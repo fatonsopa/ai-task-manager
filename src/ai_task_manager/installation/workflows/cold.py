@@ -57,7 +57,7 @@ class ColdRecovery:
         """The explicit operator interface records a fresh, finite stop/resume intent."""
         from .recovery import owner_state
 
-        spec = Installation(installation_file, config_file, retained=True)
+        Installation(installation_file, config_file, retained=True)
         config = read_private(config_file)
         journal = AuthorityJournal.open_existing(
             config["authority_database"], config["authority_key"]
@@ -75,9 +75,9 @@ class ColdRecovery:
             }
         )
         now = time.time()
-        deadline = min(now + 30, spec.data["deadline"]) if value["action"] == "resume" else now + 30
-        if deadline <= now:
-            raise AccessDenied("Expired execution permission cannot be resumed")
+        # This finite authority can observe and settle retained effects. Execution
+        # still needs the unchanged original grant in authorize().
+        deadline = now + 30
         data = {
             "config": file_binding(config_file),
             "installation": file_binding(installation_file),
@@ -88,6 +88,14 @@ class ColdRecovery:
             "request": value,
             "deadline": deadline,
             "operator": {"uid": os.getuid(), "pid": os.getpid()},
+            "enrollment": history(journal, config["grant_ref"])
+            if config.get("grant_ref")
+            else None,
+            "enrollment_revocation": history(
+                journal, "session-revoked:" + digest(config["grant_ref"])
+            )
+            if config.get("grant_ref")
+            else None,
         }
         ref = PREFIX + str(uuid4())
         bind_record(journal, ref, data)

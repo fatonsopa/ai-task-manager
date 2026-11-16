@@ -10,10 +10,18 @@ from .observations import ownership_removal, record_scope_removal
 
 class OutboundDrain:
     def __init__(
-        self, core, client, journal, *, adapter_id="linear-outbound", wake_inbound=lambda: None
+        self,
+        core,
+        client,
+        journal,
+        *,
+        adapter_id="linear-outbound",
+        wake_inbound=lambda: None,
+        check_authority=lambda: None,
     ):
         self.core, self.client, self.journal, self.adapter_id = core, client, journal, adapter_id
         self.wake_inbound = wake_inbound
+        self.check_authority = check_authority
 
     def _wake(self, operation_id):
         try:
@@ -62,7 +70,9 @@ class OutboundDrain:
             raise LinearError("native_type_approval_scope_changed")
         return self.client.native_type(approved["native_task_type"])
 
-    def run_once(self, handle, *, task_id=None):
+    def run_once(self, handle, *, task_id=None, check_authority=None):
+        check_authority = check_authority or self.check_authority
+        check_authority()
         operation = self.core.sync.claim(handle, self.adapter_id, task_id=task_id)
         if operation is None:
             return None
@@ -155,6 +165,7 @@ class OutboundDrain:
                 if operation.kind == "create_backlog" and self.client.create_capability
                 else None
             )
+            check_authority()
             send_id = self.journal.begin_send(
                 scope,
                 operation,
@@ -163,6 +174,17 @@ class OutboundDrain:
                 native_type=native_type,
             )
             with owned_request(self.journal, scope, operation, send_id):
+                check_authority()
+                current = self.core.get_task(handle, task.id)
+                if (
+                    current.version != task.version
+                    or current.decision_revision != task.decision_revision
+                    or (
+                        current.human_hold
+                        and not self.core.sync.authorizes_hold_publication(handle, operation.id)
+                    )
+                ):
+                    raise LinearError("stale_outbound_authority")
                 if operation.kind == "create_backlog":
                     options = {"native_type": native_type} if native_type is not None else {}
                     result = (
@@ -202,6 +224,7 @@ class OutboundDrain:
                 scope, task, operation, readback, connection=connection, native_type=native_type
             )
             self.journal.finish_send(send_id, "readback", readback)
+            check_authority()
             confirmed = self.core.intake.confirm_status(
                 handle,
                 task.id,
@@ -239,6 +262,28 @@ class OutboundDrain:
                 "error": category,
             }
 
+    def reconcile_pending(self, handle, task_id, *, check_authority=None):
+        """Read retained sends without issuing another provider mutation."""
+        from .reconcile import Reconciliation
+
+        check_authority = check_authority or self.check_authority
+        check_authority()
+        task = self.core.get_task(handle, task_id)
+        if task.sync_state == SyncState.CONFIRMED:
+            return task
+        operations = [
+            op
+            for op in self.core.sync.list_operations(handle)
+            if op.task_id == task_id
+            and not op.fenced_by
+            and op.state in {"failed", "uncertain", "leased"}
+        ]
+        if len(operations) != 1:
+            raise LinearError("synchronization_pending", uncertain=True)
+        return Reconciliation(self.core, self.client, self.journal).recover_outbound(
+            handle, operations[0].id, check_authority=check_authority
+        )
+
     def confirm_pending(self, handle, task_id):
         task = self.core.get_task(handle, task_id)
         if task.sync_state == SyncState.CONFIRMED:
@@ -246,6 +291,8 @@ class OutboundDrain:
         result = self.run_once(handle, task_id=task_id)
         if result and result["state"] == "confirmed":
             return result["task"]
+        if result is None:
+            return self.reconcile_pending(handle, task_id)
         raise LinearError(
             result["error"] if result else "synchronization_pending",
             uncertain=not result or result["state"] == "uncertain",

@@ -226,8 +226,11 @@ class WorkflowDriver:
             ]
             if matches:
                 return {"desired": "Done", "reconciled": True}
-        elif name == "confirm" and task.sync_state == "confirmed":
-            return {"observed": task.observed_status, "reconciled": True}
+        elif name == "confirm":
+            if task.sync_state != "confirmed" and hasattr(self.provider, "reconcile_pending"):
+                task = self.provider.reconcile_pending(self.handle, task.id)
+            if task.sync_state == "confirmed":
+                return {"observed": task.observed_status, "reconciled": True}
         return None
 
     def run(self, ref):
@@ -456,7 +459,9 @@ class WorkflowDriver:
             from ai_task_manager.supervisor.models import RuntimeUncertain
 
             return {
-                "state": "uncertain" if isinstance(error, RuntimeUncertain) else "blocked",
+                "state": "uncertain"
+                if isinstance(error, RuntimeUncertain) or getattr(error, "uncertain", False) is True
+                else "blocked",
                 "reason": type(error).__name__,
                 "detail": str(error),
                 "workflow": ref,

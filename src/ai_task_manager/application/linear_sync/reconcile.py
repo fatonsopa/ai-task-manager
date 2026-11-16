@@ -15,7 +15,31 @@ class Reconciliation:
     def __init__(self, core, client, journal):
         self.core, self.client, self.journal = core, client, journal
 
-    def retry_unsent(self, handle, operation_id):
+    def _current_operation(self, handle, operation, check_authority):
+        check_authority()
+        current = next(
+            (item for item in self.core.sync.list_operations(handle) if item.id == operation.id),
+            None,
+        )
+        task = self.core.get_task(handle, operation.task_id)
+        if (
+            current is None
+            or current.fenced_by
+            or current.payload != operation.payload
+            or current.attempt_count != operation.attempt_count
+            or task.version != operation.payload["task_version"]
+            or task.decision_revision != operation.payload["decision_revision"]
+            or task.desired_status != operation.payload["desired_status"]
+            or (
+                task.human_hold
+                and not self.core.sync.authorizes_hold_publication(handle, operation.id)
+            )
+        ):
+            raise LinearError("stale_recovery_authority", uncertain=True)
+        return task
+
+    def retry_unsent(self, handle, operation_id, *, check_authority=lambda: None):
+        check_authority()
         _, scope = self.core.session_binding(handle)
         operation = next(
             (item for item in self.core.sync.list_operations(handle) if item.id == operation_id),
@@ -23,15 +47,11 @@ class Reconciliation:
         )
         if operation is None or operation.fenced_by:
             raise LinearError("operation_not_recoverable")
-        task = self.core.get_task(handle, operation.task_id)
-        if (
-            task.version != operation.payload["task_version"]
-            or task.human_hold
-            or task.decision_revision != operation.payload["decision_revision"]
-        ):
-            raise LinearError("stale_recovery_authority")
+        self._current_operation(handle, operation, check_authority)
         ref = self.journal.unsent_receipt(scope, operation)
+        self._current_operation(handle, operation, check_authority)
         self.core.sync.reconcile_retry(handle, operation.id, ref)
+        check_authority()
 
     def recover_outbound(self, handle, operation_id, *, check_authority=lambda: None):
         check_authority()
@@ -41,21 +61,21 @@ class Reconciliation:
         )
         if operation is None or operation.fenced_by:
             raise LinearError("operation_not_recoverable")
-        task = self.core.get_task(handle, operation.task_id)
-        sends = [
-            x
-            for x in self.journal.sends(scope)
-            if x["operation_id"] == operation.id and (x["snapshot"] or x["candidate_id"])
-        ]
+        task = self._current_operation(handle, operation, check_authority)
+        sends = [x for x in self.journal.sends(scope) if x["operation_id"] == operation.id]
         if not sends:
-            # Client-selected UUID support is disabled. A lost create response cannot be guessed.
+            raise LinearError("mutation_not_sent", uncertain=True)
+        if request_in_flight(self.journal, scope, operation):
+            raise LinearError("outbound_still_running", uncertain=True)
+        send = sends[-1]
+        known_id = json.loads(send["snapshot"])["id"] if send["snapshot"] else send["candidate_id"]
+        if known_id is None and operation.kind != "create_backlog":
+            known_id = task.issue_id
+        if not known_id:
+            # Missing create identity cannot be inferred from a title or matching fields.
             raise LinearError("creation_identity_uncertain", uncertain=True)
-        known_id = (
-            json.loads(sends[-1]["snapshot"])["id"]
-            if sends[-1]["snapshot"]
-            else sends[-1]["candidate_id"]
-        )
         connection = self.client.check_connection(scope, refresh=True)
+        self._current_operation(handle, operation, check_authority)
         self.journal.bind_connection(scope, connection)
         if any(row["connection_digest"] != connection.digest for row in sends):
             raise LinearError("agent_connection_changed", uncertain=True)
@@ -63,25 +83,17 @@ class Reconciliation:
             readback = self.client.require_delegate(self.client.read_issue(known_id))
         except LinearError as exc:
             raise LinearError("creation_identity_uncertain", uncertain=True) from exc
-        if (
-            task.version != operation.payload["task_version"]
-            or (
-                task.human_hold
-                and not self.core.sync.authorizes_hold_publication(handle, operation.id)
-            )
-            or task.decision_revision != operation.payload["decision_revision"]
-        ):
-            raise LinearError("stale_recovery_authority", uncertain=True)
-        native_type = self.journal.native_type_binding(scope, sends[-1]["id"])
+        task = self._current_operation(handle, operation, check_authority)
+        native_type = self.journal.native_type_binding(scope, send["id"])
         if native_type is not None:
             typed = self.client.verify_native_type(known_id, native_type)
+            self._current_operation(handle, operation, check_authority)
             if typed != readback:
                 raise LinearError("native_type_readback_race", uncertain=True)
-        check_authority()
         ref = self.journal.status_receipt(
             scope, task, operation, readback, connection=connection, native_type=native_type
         )
-        check_authority()
+        self._current_operation(handle, operation, check_authority)
         confirmed = self.core.intake.confirm_status(
             handle,
             task.id,
@@ -91,7 +103,10 @@ class Reconciliation:
             f"linear-recover:{operation.id}:{operation.attempt_count}",
         )
         check_authority()
-        self.journal.finish_send(sends[-1]["id"], "confirmed", readback)
+        current = self.core.get_task(handle, task.id)
+        if current != confirmed:
+            raise LinearError("stale_recovery_authority", uncertain=True)
+        self.journal.finish_send(send["id"], "confirmed", readback)
         return confirmed
 
     def repair_pending_create(

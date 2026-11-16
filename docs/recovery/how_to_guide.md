@@ -1,12 +1,12 @@
 # Recorded workflow recovery
 
-Type: How-to Guide (HTG). Scope: current live-owner recovery and the DP05-T02 cold recovery candidate.
+Type: How-to Guide (HTG). Scope: accepted S1 owner recovery and the T03 retained-provider component, pending independent review.
 
 ## Before you begin
 
-Use the exact installed candidate package, original private service configuration and original installation file. Preserve the original workflow reference and operation key from the interrupted request. Live-owner observation and execution require current enrollment. Cold execution also requires the original unexpired native permission. The explicit cold stop port uses separate finite operator authority to settle an exactly recorded obligation, including after its execution grant expires or is revoked. Do not copy an installation or extend its deadline to make it eligible.
+Use the exact installed candidate package, original private service configuration and original installation file. Preserve the original workflow reference and operation key from the interrupted request. Live-owner observation and execution require current enrollment. Cold execution also requires the original unexpired native permission. Cold `resume` first uses separate finite observation/settlement authority for retained provider effects; this does not renew execution permission. The explicit cold stop port uses separate finite operator authority to settle an exactly recorded obligation, including after its execution grant expires or is revoked. Do not copy an installation or extend its deadline to make it eligible.
 
-The candidate supports live-owner continuation, verified cold replacement and owned stop. Successors and resource retirement remain later DP05 work. Cold recovery requires the complete original installation, store, key and controller witnesses recorded before interruption. Older rows without those facts need explicit reconciliation; this procedure does not backfill them. Ordinary run/resume retains its existing contract. Genuine S1 qualification is still pending; follow the finite recipe below only after its exact inputs are admitted.
+The candidate supports live-owner continuation, verified cold replacement and owned stop. Successors and resource retirement remain later DP05 work. Cold recovery requires the complete original installation, store, key and controller witnesses recorded before interruption. Older rows without those facts need explicit reconciliation; this procedure does not backfill them. Ordinary run/resume retains its existing contract. Genuine S1 qualification is accepted at its recorded host/profile scope. T03 provider recovery remains a component candidate; genuine S2 qualification belongs to T05. Future genuine effects still need the finite admission described below.
 
 ## Steps
 
@@ -26,6 +26,12 @@ The candidate supports live-owner continuation, verified cold replacement and ow
 
 3. Review the reported state and current human instructions. If continuation remains appropriate, change only `action` to `resume` and run the same command. A verified cold replacement uses a different actual owner process, follows signed routing in the original authority journal and preserves the original configuration and execution deadline. The controller decides the next eligible step. A human hold, reassignment, changed scope, missing review or uncertain effect may keep it blocked.
 
+   Before any replacement execution, cold `resume` reads the selected task's retained provider operations and receipts under a separate 30-second capability. A known completed mutation is confirmed by its original identity and canonical readback without another send. A proven unsent operation can send only under the unchanged, still-valid original execution grant. Missing create identity or a lost label response without a saved effect response stays uncertain; do not search by title or repeat the mutation.
+
+   Read each entry in `provider_recovery`. Comment, label and choice stages are separate: recovering a comment does not send a pending label, and a choice keeps its original human source and key. A completed effect claim is released only when its original forward binding proves that exact publication or choice has finished. Missing legacy claim facts remain protected. New publication intents bind their original task version and human state; an older intent without those facts cannot authorize a remaining send. Only the selected task's inbound receipts are drained, preserving received/applied identity across restart.
+
+   If readback settles retained effects after execution expires or is revoked, expect `original_execution_unavailable`, a checkpoint and exit 4. This is useful provider settlement, not a new worker or execution permission. An `unsent` entry preserves journal evidence of no recorded send without rearming the operation under expired authority. `provider_reconciliation_pending` retains an unsent stage or uncertain effect. A changed enrollment, task version, human decision or ownership during readback stops dependent settlement. Preserve the result and original histories; do not renew the old grant.
+
    To stop an interrupted worker after its owner is verified dead, use `action: stop` with the same workflow reference and key. Recovery records a stop intent, asks the original retained harness to stop itself and observes every applicable component before Core settlement. The result must report complete quiescence. Missing native, authentication, container, reviewer or merge facts keep the obligation blocked. A recorded stop fences later execution of that same workflow.
 
    After repeated owner replacements, keep the same request. Recovery checks the retained author and reviewer controllers against their original signed activations and the verified replacement lineage. Do not rewrite a controller record to name the latest owner.
@@ -40,13 +46,13 @@ The candidate supports live-owner continuation, verified cold replacement and ow
 
 ## Confirm success
 
-Compare the workflow/task/plan/key/deadline and existing attempt with the original request. Inspection must preserve attempt and effect counts. Resume must retain completed stages and produce the ordinary current result, including any required wait. Verify actual Core/CLI/provider facts for the stage being claimed. A command's zero exit or a recorded step is not proof of business completion, provider execution, lead acknowledgement or human acceptance.
+Compare the workflow/task/plan/key/deadline and existing attempt with the original request. Inspection must preserve attempt and effect counts. Resume must retain completed stages and produce the ordinary current result, including any required wait. For provider reconciliation, compare the original operation/publication identity with canonical readback and verify that known effects were not sent again. Compare inbound receipt and application records separately. Preserve unrelated comments/labels and every original choice/key. Verify actual Core/CLI/provider facts for the stage being claimed. A command's zero exit or a recorded step is not proof of business completion, provider execution, lead acknowledgement or human acceptance.
 
 ## If it fails
 
 Retain the exact command, original identities, deadline, result and current observations. A missing reply may follow an effect; use the same reference and key to inspect the recorded owner before deciding the next action. Do not reset journals, launch an owner outside the recovery interface, signal recorded PIDs, remove endpoints by assumption, copy resources or renew old authority.
 
-An unknown owner, missing original witness, changed file or unavailable component observation remains blocked. An expired installation cannot resume execution. Keep retained work and resources protected when stop evidence is incomplete; a successful stop retains task worktrees, databases and original journals. The [workflow recovery Interface Contract (IC)](interface_contract.md) describes the current boundary.
+An unknown owner, missing original witness, changed file or unavailable component observation remains blocked. An expired or revoked execution grant cannot resume execution; the explicit cold provider pass can still settle known effects under its separate current observation authority. Keep retained work and resources protected when stop evidence is incomplete; a successful stop retains task worktrees, databases and original journals. The [workflow recovery Interface Contract (IC)](interface_contract.md) describes the current boundary.
 
 ## Prepare genuine interruption qualification
 

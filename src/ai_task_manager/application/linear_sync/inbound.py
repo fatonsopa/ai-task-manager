@@ -21,8 +21,10 @@ class InboundDrain:
         clock,
         authorized_actors,
         evidence_for=lambda task, event: {},
+        check_authority=None,
     ):
         self.core, self.client, self.journal = core, client, journal
+        self.check_authority = check_authority
         self.clock, self.authorized_actors, self.evidence_for = (
             clock,
             frozenset(authorized_actors),
@@ -56,7 +58,7 @@ class InboundDrain:
             raise LinearError("staged_readback_changed")
         return self.journal.prose_readback_receipt(scope, task, snapshot)
 
-    def next_receipt(self, handle):
+    def next_receipt(self, handle, *, task_ids=None):
         """Choose eligible durable work without reading the provider.
 
         A checkpoint waiting for an outbound outcome is only a scheduling hint.
@@ -65,6 +67,10 @@ class InboundDrain:
         """
         _, scope = self.core.session_binding(handle)
         rows = self.journal.deliveries(scope)
+        if task_ids is not None:
+            selected = frozenset(task_ids)
+            issues = {task.issue_id for task in self.core.list_tasks(handle) if task.id in selected}
+            rows = [row for row in rows if json.loads(row["payload"])["data"]["id"] in issues]
         operations = None
         now = self.clock()
         fresh = {}
@@ -119,14 +125,15 @@ class InboundDrain:
             return row["id"]
         return None
 
-    def run_once(self, handle, worker_id="linear-inbound", *, check_authority=None):
+    def run_once(self, handle, worker_id="linear-inbound", *, check_authority=None, task_ids=None):
         # The installed owner supplies its existing local enrollment/source
         # check. It is a consumption guard, never a new authority issuer.
+        check_authority = check_authority or self.check_authority
         if check_authority is not None:
             check_authority()
         worker_id = f"{worker_id}:{uuid4()}"
         _, scope = self.core.session_binding(handle)
-        receipt_id = self.next_receipt(handle)
+        receipt_id = self.next_receipt(handle, task_ids=task_ids)
         if receipt_id is None:
             return None
         receipt = self.journal.claim_delivery(scope, worker_id, self.clock(), receipt_id=receipt_id)

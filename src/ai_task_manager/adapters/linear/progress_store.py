@@ -1,5 +1,6 @@
 """Durable, scoped progress publication intents and retained attempts."""
 
+import json
 import time
 from dataclasses import asdict
 from uuid import uuid4
@@ -11,6 +12,17 @@ from .receipts import digest, encoded
 
 
 class ProgressStore:
+    @classmethod
+    def open_existing(cls, journal, *, clock=time.time):
+        value = cls.__new__(cls)
+        value.journal, value.clock = journal, clock
+        with journal.transaction() as conn:
+            if [tuple(row) for row in conn.execute("SELECT version FROM progress_metadata")] != [
+                (2,)
+            ]:
+                raise LinearError("unsupported_progress_schema")
+        return value
+
     def __init__(self, journal, *, clock=time.time):
         self.journal, self.clock = journal, clock
         with journal.transaction() as conn:
@@ -52,6 +64,27 @@ class ProgressStore:
                     "resolution_key IS NOT NULL"
                 )
                 conn.execute("UPDATE progress_metadata SET version=2")
+
+    @staticmethod
+    def retained(journal, scope, task_id):
+        """Read existing publication history without creating or migrating it."""
+        with journal.transaction() as conn:
+            if not conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='progress_metadata'"
+            ).fetchone():
+                return []
+            if [tuple(row) for row in conn.execute("SELECT version FROM progress_metadata")] != [
+                (2,)
+            ]:
+                raise LinearError("unsupported_progress_schema")
+            return [
+                dict(row)
+                for row in conn.execute(
+                    "SELECT * FROM progress_publications WHERE scope=? AND task_id=? "
+                    "ORDER BY rowid",
+                    (encoded(asdict(scope)), task_id),
+                )
+            ]
 
     def submit(self, scope, task_id, operation_key, payload):
         if not isinstance(operation_key, str) or not operation_key.strip():
@@ -213,8 +246,8 @@ class ProgressStore:
             (scope_text, issue_id),
         ).fetchone()
 
-    def decision_claim(self, scope, publication_id, owner):
-        import json
+    def decision_claim(self, scope, publication_id, owner, *, intent=None):
+        intent = intent or {"kind": "publication"}
 
         with self.journal.transaction() as conn:
             row = conn.execute(
@@ -239,7 +272,82 @@ class ProgressStore:
                 "UPDATE progress_publications SET effect_owner=?,effect_lease=? WHERE id=?",
                 (owner, self.clock() + 120, anchor["id"]),
             )
+            conn.execute(
+                "INSERT INTO progress_history(publication_id,state,recorded_at,detail) "
+                "VALUES(?,?,?,?)",
+                (
+                    publication_id,
+                    "effect-owner",
+                    self.clock(),
+                    encoded(
+                        {
+                            "scope": encoded(asdict(scope)),
+                            "anchor": anchor["id"],
+                            "owner": owner,
+                            "fingerprint": row["fingerprint"],
+                            "intent": intent,
+                        }
+                    ),
+                ),
+            )
             return anchor["id"]
+
+    def release_completed_effect(self, scope, publication_id):
+        """Release a forward-bound completed claim; missing owner history stays protected."""
+        with self.journal.transaction() as conn:
+            row = conn.execute(
+                "SELECT * FROM progress_publications WHERE scope=? AND id=?",
+                (encoded(asdict(scope)), publication_id),
+            ).fetchone()
+            if row is None or row["state"] != "confirmed" or row["label_state"] != "confirmed":
+                return False
+            anchor = self._anchor(
+                conn, encoded(asdict(scope)), json.loads(row["payload"])["issue_id"]
+            )
+            if anchor is None or not anchor["effect_owner"]:
+                return False
+            owners = [
+                json.loads(r[0])
+                for r in conn.execute(
+                    "SELECT detail FROM progress_history WHERE publication_id=? "
+                    "AND state='effect-owner'",
+                    (publication_id,),
+                )
+                if json.loads(r[0]).get("owner") == anchor["effect_owner"]
+            ]
+            if len(owners) != 1:
+                return False
+            fact = owners[0]
+            if any(
+                fact.get(k) != value
+                for k, value in {
+                    "scope": encoded(asdict(scope)),
+                    "anchor": anchor["id"],
+                    "fingerprint": row["fingerprint"],
+                }.items()
+            ):
+                return False
+            intent = fact.get("intent", {})
+            complete = (intent == {"kind": "publication"} and row["decision_state"] == "open") or (
+                intent.get("kind") == "resolution"
+                and row["decision_state"] == "resolved"
+                and intent.get("operation_key") == row["resolution_key"]
+                and encoded(intent.get("resolution")) == row["resolution"]
+            )
+            if not complete:
+                return False
+            changed = conn.execute(
+                "UPDATE progress_publications SET effect_owner=NULL,effect_lease=NULL "
+                "WHERE id=? AND effect_owner=?",
+                (anchor["id"], fact["owner"]),
+            ).rowcount
+            if changed:
+                conn.execute(
+                    "INSERT INTO progress_history(publication_id,state,recorded_at,detail) "
+                    "VALUES(?,?,?,?)",
+                    (publication_id, "effect-owner-reconciled", self.clock(), encoded(fact)),
+                )
+            return bool(changed)
 
     def decision_release(self, anchor_id, owner):
         with self.journal.transaction() as conn:

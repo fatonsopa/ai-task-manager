@@ -275,10 +275,15 @@ def test_comment_readback_failure_recovers_original_id_without_duplicate(env, mo
     monkeypatch.setattr(rig.client, "read_comment", original)
     recovered = publisher.recover(rig.handle, first["id"])
     assert (
-        recovered["state"] == "confirmed"
+        recovered["comment_state"] == "confirmed"
+        and recovered["label_state"] == "pending"
         and recovered["comment_id"] == first["comment_id"]
         and len(rig.provider.comments) == 1
     )
+    assert not any("mutation DecisionLabelsUpdate" in r["query"] for r, _ in rig.provider.requests)
+    # Continuing the remaining mutation is an explicit normal publication call.
+    continued = publisher.publish_pending(rig.handle, first["id"])
+    assert continued["state"] == "confirmed" and len(rig.provider.comments) == 1
 
 
 def test_lost_label_reply_remains_uncertain_and_is_not_blindly_resent(env, monkeypatch):
@@ -412,3 +417,146 @@ def test_resolution_keys_remain_independent_per_scope(env):
     with pytest.raises(NotFound):
         publisher.store.get(rig.scope, second["id"])
     assert first["id"] != second["id"] and len(rig.provider.comments) == 1
+
+
+def test_t03_saved_label_response_recovers_without_repeating_either_effect(env, monkeypatch):
+    rig, task, publisher, _ = env
+    sentinel = uid(701)
+    rig.provider.issues[task.issue_id]["decision_labels"] = [sentinel]
+    original = publisher.store.label_stage
+
+    def crash(scope, publication, state, response=None):
+        if state == "confirmed":
+            raise RuntimeError("after saved label response")
+        return original(scope, publication, state, response)
+
+    monkeypatch.setattr(publisher.store, "label_stage", crash)
+    with pytest.raises(RuntimeError):
+        request(env, "retained-label")
+    row = ProgressStore.retained(rig.journal, rig.scope, task.id)[0]
+    assert row["label_state"] == "sent" and row["label_response"]
+    before = len([r for r, _ in rig.provider.requests if "mutation" in r["query"]])
+    publisher.store = ProgressStore.open_existing(rig.journal, clock=lambda: rig.now)
+    recovered = publisher.recover(rig.handle, row["id"])
+    assert recovered["state"] == "confirmed" and recovered["id"] == row["id"]
+    assert recovered["operation_key"] == "retained-label"
+    assert len(rig.provider.comments) == 1
+    assert set(rig.provider.issues[task.issue_id]["decision_labels"]) == {sentinel, uid(600)}
+    assert len([r for r, _ in rig.provider.requests if "mutation" in r["query"]]) == before
+
+
+def test_t03_resolution_restart_reuses_original_choice_and_key(env, monkeypatch):
+    from ai_task_manager.adapters.decisions import human
+    from ai_task_manager.adapters.decisions.authority import HumanInstruction
+
+    rig, task, publisher, _ = env
+    row = request(env, "original-choice-request")
+    instruction = HumanInstruction(
+        rig.scope,
+        task.id,
+        task.observed_status,
+        task.decision_revision,
+        "Authored original choice",
+        "authored-choice",
+        task.version,
+        task.prose_digest,
+        None,
+        row["id"],
+        "A",
+        row["fingerprint"],
+    )
+    observations = SimpleNamespace(verify_instruction=lambda _: instruction, journal=object())
+    monkeypatch.setattr(
+        publisher.store,
+        "finish_resolution",
+        lambda *a: (_ for _ in ()).throw(RuntimeError("after label settlement")),
+    )
+    with pytest.raises(RuntimeError):
+        publisher.resolve_decision(
+            rig.handle, row["id"], "original-human-ref", "original-choice-key", observations
+        )
+    retained = publisher.store.get(rig.scope, row["id"])
+    assert retained["decision_state"] == "resolving" and retained["label_state"] == "confirmed"
+    before = len([r for r, _ in rig.provider.requests if "mutation" in r["query"]])
+
+    # This authored observation source returns only the exact original choice.
+    # It supplies no genuine human receipt or provider-acceptance evidence.
+    def original_choice(journal, reference):
+        assert journal is observations.journal and reference == "original-human-ref"
+        return instruction
+
+    monkeypatch.setattr(human, "verify_receipt", original_choice)
+    publisher.store = ProgressStore.open_existing(rig.journal, clock=lambda: rig.now)
+    recovered = publisher.recover(rig.handle, row["id"], observations=observations)
+    assert recovered["decision_state"] == "resolved"
+    assert recovered["resolution_key"] == "original-choice-key"
+    assert recovered["resolution"] == retained["resolution"]
+    again = publisher.recover(rig.handle, row["id"], observations=observations)
+    assert again["resolution"] == retained["resolution"]
+    assert len([r for r, _ in rig.provider.requests if "mutation" in r["query"]]) == before
+
+
+@pytest.mark.parametrize("original_owner_fact", [True, False])
+def test_t03_completed_effect_claim_recovers_only_with_original_forward_history(
+    env, monkeypatch, original_owner_fact
+):
+    rig, task, publisher, _ = env
+    monkeypatch.setattr(
+        publisher.store,
+        "decision_release",
+        lambda *a: (_ for _ in ()).throw(RuntimeError("after last effect before owner release")),
+    )
+    with pytest.raises(RuntimeError):
+        request(env, "closed-effect")
+    row = ProgressStore.retained(rig.journal, rig.scope, task.id)[0]
+    assert row["state"] == row["label_state"] == "confirmed" and row["effect_owner"]
+    if not original_owner_fact:
+        # Model an older original journal without forward claim facts. Recovery
+        # must preserve the busy owner instead of backfilling a new witness.
+        with rig.journal.transaction() as conn:
+            conn.execute("DELETE FROM progress_history WHERE state='effect-owner'")
+    before = len([r for r, _ in rig.provider.requests if "mutation" in r["query"]])
+    publisher.store = ProgressStore.open_existing(rig.journal, clock=lambda: rig.now)
+    recovered = publisher.recover(rig.handle, row["id"])
+    assert recovered["state"] == "confirmed"
+    assert bool(recovered["effect_owner"]) is (not original_owner_fact)
+    assert len([r for r, _ in rig.provider.requests if "mutation" in r["query"]]) == before
+    if original_owner_fact:
+        assert request(env, "next-owned-publication")["state"] == "confirmed"
+        assert len(rig.provider.comments) == 2
+    else:
+        with pytest.raises(LinearError, match="decision_issue_effect_busy"):
+            request(env, "next-owned-publication")
+        assert len(rig.provider.comments) == 1
+        with rig.journal.transaction() as conn:
+            assert (
+                conn.execute(
+                    "SELECT COUNT(*) FROM progress_history WHERE state='effect-owner'"
+                ).fetchone()[0]
+                == 0
+            )
+
+
+def test_t03_human_change_fences_an_original_unstarted_label_stage(env, monkeypatch):
+    rig, task, publisher, _ = env
+    read = rig.client.read_comment
+    monkeypatch.setattr(
+        rig.client, "read_comment", lambda _: (_ for _ in ()).throw(LinearError("lost readback"))
+    )
+    first = request(env, "before-human-change")
+    monkeypatch.setattr(rig.client, "read_comment", read)
+    recovered = publisher.recover(rig.handle, first["id"])
+    assert recovered["comment_state"] == "confirmed" and recovered["label_state"] == "pending"
+    current = rig.current(task)
+    proof = rig.proof(
+        "human_decision", task.id, {"previous_revision": current.decision_revision, "hold": True}
+    )
+    rig.core.decisions.record(rig.handle, task.id, current.version, proof, rig.key())
+    before = len([r for r, _ in rig.provider.requests if "mutation" in r["query"]])
+    with pytest.raises(ApprovalRequired, match="version or human decision changed"):
+        publisher.publish_pending(rig.handle, first["id"])
+    assert len([r for r, _ in rig.provider.requests if "mutation" in r["query"]]) == before
+    assert (
+        rig.current(task).human_hold
+        and publisher.store.get(rig.scope, first["id"])["label_state"] == "pending"
+    )

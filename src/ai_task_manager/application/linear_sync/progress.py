@@ -95,6 +95,7 @@ class ProgressPublisher:
         renderer=None,
         clock=None,
         check_authority=lambda: None,
+        existing_only=False,
     ):
         self.core, self.client = core, client
         self.check_authority = check_authority
@@ -102,7 +103,9 @@ class ProgressPublisher:
         self.approval_policy, self.approvals = approval_policy, approvals or RejectProofs()
         self.approval_context = approval_context
         self.renderer = renderer or LinearMarkdownRenderer()
-        self.store = ProgressStore(journal, **({"clock": clock} if clock else {}))
+        self.store = (ProgressStore.open_existing if existing_only else ProgressStore)(
+            journal, **({"clock": clock} if clock else {})
+        )
 
     def _approved(self, prose, approval_ref):
         if isinstance(prose, TaskProse) and prose.required_work == ("decision",):
@@ -174,6 +177,9 @@ class ProgressPublisher:
             "connection_digest": self.client.check_connection(scope).digest,
             "issue_id": task.issue_id,
             "task_prose_digest": task.prose_digest,
+            "task_version": task.version,
+            "decision_revision": task.decision_revision,
+            "human_hold": task.human_hold,
             "prose": asdict(TaskProse(prose.title, rendered.body, False, prose.required_work)),
             "representation": rendered.representation,
             "digest": digest,
@@ -188,13 +194,25 @@ class ProgressPublisher:
             payload,
         )
 
-    def _context(self, handle, row):
+    def _context(self, handle, row, *, read_only=False):
         _, scope = self.core.session_binding(handle)
         task = self.core.get_task(handle, row["task_id"])
         self._bound(scope, task)
         import json
 
         payload = json.loads(row["payload"])
+        witness = {"task_version", "decision_revision", "human_hold"}
+        if witness <= payload.keys():
+            if (task.version, task.decision_revision, task.human_hold) != (
+                payload["task_version"],
+                payload["decision_revision"],
+                payload["human_hold"],
+            ):
+                raise ApprovalRequired(
+                    "Original publication task version or human decision changed"
+                )
+        elif not read_only:
+            raise ApprovalRequired("Original publication version witness is unavailable")
         prose = TaskProse(
             **{**payload["prose"], "required_work": tuple(payload["prose"]["required_work"])}
         )
@@ -291,10 +309,18 @@ class ProgressPublisher:
         row = self.submit(handle, task_id, prose, approval_ref, operation_key)
         return self.publish_pending(handle, row["id"])
 
+    def _recovery_context(self, handle, row):
+        self.check_authority()
+        task, payload = self._context(handle, row, read_only=True)
+        current = self.core.get_task(handle, task.id)
+        if current != task:
+            raise ApprovalRequired("Task changed during publication recovery")
+        return task, payload
+
     def _recover_comment(self, handle, publication_id):
         _, scope = self.core.session_binding(handle)
         row = self.store.get(scope, publication_id)
-        task, payload = self._context(handle, row)
+        task, payload = self._recovery_context(handle, row)
         if row["state"] == "confirmed":
             return row
         comment_id = row["comment_id"] or row["candidate_id"]
@@ -306,9 +332,15 @@ class ProgressPublisher:
         readback = self.client.read_comment(comment_id)
         self.check_authority()
         self._validate_readback(scope, task, payload, readback)
-        self.check_authority()
+        current, _ = self._recovery_context(handle, self.store.get(scope, publication_id))
+        if current != task:
+            raise ApprovalRequired("Task changed during publication recovery")
         receipt_ref = self.journal.progress_receipt(scope, task, publication_id, readback)
+        self.check_authority()
+        if self.core.get_task(handle, task.id) != task:
+            raise ApprovalRequired("Task changed before publication settlement")
         self.core.sync.record_progress_publication(handle, task.id, receipt_ref)
+        self.check_authority()
         return self.store.finish(scope, publication_id, "confirmed")
 
     def retry_unsent(self, handle, publication_id):
@@ -389,14 +421,17 @@ class ProgressPublisher:
             scope, "decision", prose, purpose="decision", task=task, decision=metadata
         )
 
-    def _decision_context(self, handle, row):
-        task, payload = self._context(handle, row)
+    def _decision_context(self, handle, row, *, read_only=False):
+        task, payload = self._context(handle, row, read_only=read_only)
         if "decision" not in payload:
             raise ApprovalRequired("Not a decision request")
         self.check_authority()
+        original = task
         context = self.client.decision_context(task.issue_id)
         self.check_authority()
-        task, payload = self._context(handle, row)
+        task, payload = self._context(handle, row, read_only=read_only)
+        if task != original:
+            raise ApprovalRequired("Task changed during decision readback")
         m = payload["decision"]
         if (
             context["recipient"] != m["recipient"]
@@ -409,11 +444,33 @@ class ProgressPublisher:
             raise ApprovalRequired("Current decision recipient, authority or work changed")
         return task, payload, context
 
-    def _label(self, handle, row, *, add):
+    def _label(self, handle, row, *, add, read_only=False):
         _, scope = self.core.session_binding(handle)
-        task, payload, context = self._decision_context(handle, row)
+        task, payload, context = self._decision_context(handle, row, read_only=read_only)
         label = payload["decision"]["label_id"]
         present = label in context["labels"]
+        if read_only:
+            if row["label_state"] not in {"sent", "uncertain", "confirmed"}:
+                return self._decision_view(row)
+            if row["label_state"] != "confirmed" and not row["label_response"]:
+                return self._decision_view(row)
+            if present != add:
+                raise LinearError("decision_label_readback_conflict", uncertain=True)
+            if row["label_response"]:
+                import json
+
+                response = json.loads(row["label_response"])
+                if (label in response["labels"]) != add or context["issue"].revision < response[
+                    "revision"
+                ]:
+                    raise LinearError("decision_label_response_changed", uncertain=True)
+            current, _ = self._recovery_context(handle, row)
+            if current != task:
+                raise ApprovalRequired("Task changed during label recovery")
+            self.check_authority()
+            if row["label_state"] != "confirmed":
+                self.store.label_stage(scope, row["id"], "confirmed")
+            return self._decision_view(self.store.get(scope, row["id"]))
         if row["label_state"] in {"sent", "uncertain"}:
             if not row["label_response"]:
                 return self._decision_view(row)  # Lost label reply is not a completed mutation.
@@ -459,14 +516,57 @@ class ProgressPublisher:
         finally:
             self.store.decision_release(anchor, owner)
 
-    def recover(self, handle, publication_id):
+    def recover(self, handle, publication_id, *, observations=None):
+        """Confirm original effects by readback; never start a remaining label stage."""
+        import json
+
+        self.check_authority()
         _, scope = self.core.session_binding(handle)
         row = self.store.get(scope, publication_id)
-        return (
-            self.publish_pending(handle, publication_id)
-            if row["decision_state"] is not None
-            else self._recover_comment(handle, publication_id)
+        if row["state"] != "confirmed":
+            row = self._recover_comment(handle, publication_id)
+        if row["decision_state"] is None:
+            return row
+        if row["state"] != "confirmed":
+            return self._decision_view(row)
+        task, _, _ = self._decision_context(handle, row, read_only=True)
+        resolving = row["decision_state"] in {"resolving", "resolved"}
+        if resolving and (not row["resolution_key"] or not row["resolution"]):
+            raise ApprovalRequired("Original decision resolution identity is unavailable")
+        if resolving:
+            from ai_task_manager.adapters.decisions.human import verify_receipt
+
+            resolution = json.loads(row["resolution"])
+            if observations is None:
+                raise ApprovalRequired("Original human choice source is unavailable")
+            observed = verify_receipt(observations.journal, resolution["human_ref"])
+            metadata = json.loads(row["payload"])["decision"]
+            if (
+                resolution["request_digest"] != row["fingerprint"]
+                or observed.scope != scope
+                or observed.task_id != task.id
+                or observed.prose_digest != task.prose_digest
+                or observed.revision != task.decision_revision
+                or observed.decision_request_id != row["id"]
+                or observed.decision_digest != row["fingerprint"]
+                or observed.decision_option_id != resolution["option_id"]
+                or (observed.decision_actor_id or observed.scope.principal)
+                != metadata["recipient"]["id"]
+                or resolution["option_id"] not in {o["id"] for o in metadata["options"]}
+            ):
+                raise ApprovalRequired("Original decision resolution changed")
+        result = self._label(
+            handle,
+            row,
+            add=self.store.open_decisions(scope, task.issue_id) > 0 if resolving else True,
+            read_only=True,
         )
+        if resolving and result["label_state"] == "confirmed":
+            self.check_authority()
+            self.store.finish_resolution(scope, publication_id)
+        self.check_authority()
+        self.store.release_completed_effect(scope, publication_id)
+        return self._decision_view(self.store.get(scope, publication_id))
 
     def resolve_decision(self, handle, publication_id, human_ref, operation_key, observations):
         import json
@@ -508,7 +608,16 @@ class ProgressPublisher:
         if row["decision_state"] == "resolved":
             return self._decision_view(row)
         owner = "decision-resolve:" + str(uuid4())
-        anchor = self.store.decision_claim(scope, publication_id, owner)
+        anchor = self.store.decision_claim(
+            scope,
+            publication_id,
+            owner,
+            intent={
+                "kind": "resolution",
+                "operation_key": operation_key,
+                "resolution": resolution,
+            },
+        )
         try:
             self.check_authority()
             self.store.record_resolution(scope, publication_id, operation_key, resolution)
