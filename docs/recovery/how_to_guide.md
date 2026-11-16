@@ -1,12 +1,12 @@
 # Recorded workflow recovery
 
-Type: How-to Guide (HTG). Scope: accepted S1 owner recovery and the T03 retained-provider component, pending independent review.
+Type: How-to Guide (HTG). Scope: accepted S1 owner recovery and the independently accepted T03 retained-provider component.
 
 ## Before you begin
 
 Use the exact installed candidate package, original private service configuration and original installation file. Preserve the original workflow reference and operation key from the interrupted request. Live-owner observation and execution require current enrollment. Cold execution also requires the original unexpired native permission. Cold `resume` first uses separate finite observation/settlement authority for retained provider effects; this does not renew execution permission. The explicit cold stop port uses separate finite operator authority to settle an exactly recorded obligation, including after its execution grant expires or is revoked. Do not copy an installation or extend its deadline to make it eligible.
 
-The candidate supports live-owner continuation, verified cold replacement and owned stop. Successors and resource retirement remain later DP05 work. Cold recovery requires the complete original installation, store, key and controller witnesses recorded before interruption. Older rows without those facts need explicit reconciliation; this procedure does not backfill them. Ordinary run/resume retains its existing contract. Genuine S1 qualification is accepted at its recorded host/profile scope. T03 provider recovery remains a component candidate; genuine S2 qualification belongs to T05. Future genuine effects still need the finite admission described below.
+The candidate supports live-owner continuation, verified cold replacement and owned stop. Successors and resource retirement remain later DP05 work. Cold recovery requires the complete original installation, store, key and controller witnesses recorded before interruption. Older rows without those facts need explicit reconciliation; this procedure does not backfill them. Ordinary run/resume retains its existing contract. Genuine S1 qualification is accepted at its recorded host/profile scope. T03 provider recovery is accepted at source/component scope; genuine S2 qualification belongs to T05. Future genuine effects still need the finite admission described below.
 
 ## Steps
 

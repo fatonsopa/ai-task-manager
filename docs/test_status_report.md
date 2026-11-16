@@ -487,3 +487,14 @@ Genuine qualification passes eleven canaries. Installed cold replacement/resume/
 The original replacement verifier failed on repeated resource observations. Independent canonical checks establish one unchanged physical pair across fifteen observations; the original failure and supplemental endpoint-absence failure remain failed. Independent task/resource sentinels remain unchanged. Three normal permissions, two conformance enrollments and four API/Core qualification sessions are revoked. Original deadlines, work, journals and the dead owner’s stale socket remain retained for T08. No authenticated human webhook actor or complete provider transport audit is claimed.
 
 Progress: 2/10 tasks (20%), 1/4 stories (25%) and 0/6 epic criteria (0%) accepted. Next: T03 retained provider-operation reconciliation. Primary proof: the existing private DP05-T02/DP05-S1 acceptance records and their `t02-genuine-outcome-review-1` assessment, qualification handoff and revocation receipt. Scope remains in the [DP05 Implementation Plan (IP)](plans/deliveries/DP05.md).
+
+
+### DP05-T03 — Retained provider reconciliation
+
+Accepted on 16 November 2026 at `3d30b85`: T03-A1–A3 and DP05-DOD-v1 pass at source/component scope. Source, wheel and noneditable installation match 343 runtime files and 40 locked distributions. The original selection reports forty passes with nine unchanged operator assertions reused. The R01 correction separately passes eleven targeted controls and one installed control; these overlap earlier checks and are not an accumulated total.
+
+Literal installed recovery preserves the original workflow/key, confirms the known operation after actual owner death and original expiry/revocation, and leaves the mutation count at three with zero native launches. Revocation during readback blocks settlement; a later finite observation preserves that revocation. Authored HTTP/native-refusal ports establish component behavior. Genuine S2 provider/model qualification remains T05. The original startup attempt remains starting/protected.
+
+Independent review found DP05-T03-R01, now fixed and independently re-reviewed: completed decision history survives a later valid request, shared-label change and legitimate task-version advance without new effects or release of another request’s claim. Pending, unknown, human, legacy and exact-owner guards remain. Both distinguishing baseline failures and earlier fixture/assertion/writing failures remain retained. Owned test children stopped; journals and protected unfinished state remain available to later consumers.
+
+Progress: 3/10 tasks (30%), 1/4 stories (25%) and 0/6 epic criteria (0%) accepted. Next: T04 partial-code and publication recovery. Primary proof: the existing private DP05-T03 acceptance record, `t03-review-1` and `t03-r01-review-1` assessments, and the original/corrected handoffs and exact package records.
