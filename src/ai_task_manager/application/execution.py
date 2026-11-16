@@ -315,6 +315,84 @@ class Execution:
                 raise EvidenceRequired("Reservation operation does not match its execution owner")
             return attempts.get(conn, sid, original.id)
 
+    def settle_unlaunched_reservation(
+        self,
+        handle,
+        attempt_id,
+        expected_version,
+        expected_decision_revision,
+        reservation_key,
+        reservation,
+        authorization_ref,
+        operation_key,
+        *,
+        inspect,
+    ):
+        """Settle exact pre-launch intent without claiming that a worker stopped."""
+        if (
+            not callable(inspect)
+            or type(reservation) is not dict
+            or set(reservation)
+            != {"command", "task_id", "host", "version", "revision", "decision_ref"}
+            or reservation["command"] != "reserve"
+            or not isinstance(authorization_ref, str)
+            or not authorization_ref.startswith("workflow-cold-recovery:")
+        ):
+            raise EvidenceRequired("Current original-reservation stop boundary required")
+        payload = {
+            "command": "stop_unlaunched_reservation",
+            "attempt_id": attempt_id,
+            "version": expected_version,
+            "revision": expected_decision_revision,
+            "reservation_key": reservation_key,
+            "reservation": reservation,
+            "authorization_ref": authorization_ref,
+        }
+
+        def action(conn, sid, scope):
+            attempt = attempts.get(conn, sid, attempt_id)
+            task = work.get(conn, sid, attempt.task_id)
+            self.c.check(task, expected_version, expected_decision_revision)
+            saved = work.replay(conn, sid, reservation_key, reservation)
+            if saved is None:
+                raise EvidenceRequired("Original committed reservation is unavailable")
+            original = attempts.attempt_from(saved)
+            if (
+                (original.id, original.task_id, original.session_id, original.host, original.state)
+                != (attempt.id, attempt.task_id, sid, attempt.host, A.RESERVED)
+                or attempt.state != A.RESERVED
+                or any(
+                    v is not None
+                    for v in (attempt.worker_id, attempt.worktree_id, attempt.database_id)
+                )
+                or conn.execute(
+                    "SELECT 1 FROM resource_leases WHERE attempt_id=? LIMIT 1", (attempt.id,)
+                ).fetchone()
+                or conn.execute(
+                    "SELECT 1 FROM checkpoints WHERE attempt_id=? LIMIT 1", (attempt.id,)
+                ).fetchone()
+            ):
+                raise EvidenceRequired("Only the original unlaunched reservation can settle here")
+            inspect()
+            attempt = replace(attempt, state=A.PAUSED, version=attempt.version + 1)
+            attempts.save(conn, attempt)
+            task = work.save(conn, replace(task, execution_state=A.PAUSED), task.version)
+            self.c.changed(
+                conn,
+                task,
+                "reservation_stopped",
+                {
+                    "attempt_id": attempt.id,
+                    "reservation_key": reservation_key,
+                    "authorization_ref": authorization_ref,
+                    "components_started": False,
+                },
+            )
+            inspect()
+            return asdict(attempt)
+
+        return attempts.attempt_from(self.c.mutation(handle, operation_key, payload, action))
+
     def start(
         self,
         handle,

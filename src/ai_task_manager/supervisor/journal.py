@@ -112,13 +112,17 @@ class RuntimeJournal:
         return data
 
     def attempt(self, attempt_id):
+        result = self.find_attempt(attempt_id)
+        if result is None:
+            raise RuntimeRefused("Runtime attempt is not registered")
+        return result
+
+    def find_attempt(self, attempt_id):
         with self.transaction() as conn:
             row = conn.execute(
                 "SELECT data FROM runtime_attempts WHERE id=?", (attempt_id,)
             ).fetchone()
-        if not row:
-            raise RuntimeRefused("Runtime attempt is not registered")
-        return json.loads(row[0])
+        return json.loads(row[0]) if row else None
 
     def intend(self, attempt_id, kind, data):
         self.attempt(attempt_id)

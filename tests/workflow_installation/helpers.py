@@ -126,7 +126,7 @@ def owner_main(root, socket_root, mode="valid"):
             source = source.replace(
                 'Path("src/a.txt").write_text("4")', 'Path("owned.py").write_text("answer = 42\\n")'
             )
-            if mode == "cold-active":
+            if mode in {"cold-active", "cold-lineage"}:
                 source = source.replace(
                     'Path("owned.py").write_text("answer = 42\\n")',
                     "import time;Path("
@@ -141,7 +141,9 @@ def owner_main(root, socket_root, mode="valid"):
         if claude:
             from tests.workflow_installation.code_controls import ClaudePermits
 
-            permits = ClaudePermits(root / "accounting")
+            permits = ClaudePermits(
+                root / ("accounting" if context.task.id == task.id else "reviewer-accounting")
+            )
         else:
             permits = AuthoredPermits(root / "accounting", deny=mode == "deny-native")
 
@@ -296,6 +298,29 @@ def owner_main(root, socket_root, mode="valid"):
     if mode == "wrong-source":
         spec["source_head"] = "0" * 40
     installation = root / "installation.json"
+    reviewed = reviewer_task = None
+    if mode == "cold-lineage":
+        reviewer_task = rig.queued(code=False)
+        reviewer_file = root / "reviewer.json"
+        reviewer_spec = {
+            **spec,
+            "task_id": reviewer_task.id,
+            "prose_digest": reviewer_task.prose_digest,
+            "state_root": str(root / "reviewer-state"),
+            "plan_ref": "reviewer",
+            "role": "reviewer",
+            "installation_path": str(reviewer_file),
+            "review_target": {
+                "task_id": task.id,
+                "prose_digest": task.prose_digest,
+                "source_head": base,
+            },
+        }
+        write_private(reviewer_file, reviewer_spec)
+        spec["reviewer_installation"] = file_binding(reviewer_file)
+        from ai_task_manager.installation.workflows import InstalledWorkflow
+
+        reviewed = InstalledWorkflow(config_file, reviewer_file, registry)
     spec["installation_path"] = str(installation)
     write_private(installation, spec)
     write_private(
@@ -312,7 +337,15 @@ def owner_main(root, socket_root, mode="valid"):
     signal.signal(signal.SIGTERM, lambda *args: stop.set())
     # The installed CLI intentionally accepts only a trusted in-process registry.
     # Its production default never imports this test helper or these controls.
-    if mode not in {"valid", "cold", "cold-active", "code", "code-restart", "recovery"}:
+    if mode not in {
+        "valid",
+        "cold",
+        "cold-active",
+        "cold-lineage",
+        "code",
+        "code-restart",
+        "recovery",
+    }:
         try:
             from ai_task_manager.installation.workflows import InstalledWorkflow
 
@@ -348,6 +381,74 @@ def owner_main(root, socket_root, mode="valid"):
             return observed
 
         InstalledCodeDelivery._step = lose_reply
+    if mode == "cold-lineage":
+        from ai_task_manager.adapters.workflow_control.owner import WorkflowOwner
+        from ai_task_manager.adapters.workflow_control.recovery import physical
+
+        original_serve = WorkflowOwner._serve
+
+        def with_reviewer(self, stop=None, ready=None):
+            def start_reviewer():
+                parent = self.service.workflows.driver.runtime.workers.hosts.journal
+                peer_root = Path(reviewed.spec.data["state_root"])
+                parent._append(
+                    "trace",
+                    {
+                        "effect": "reviewer_state_created",
+                        "installation": spec["reviewer_installation"],
+                        "task_id": reviewer_task.id,
+                        "scope": spec["scope"],
+                        "files": {
+                            "runtime": physical(reviewed.journal.path),
+                            "host": physical(reviewed.host_journal.path),
+                            "runtime_key": file_binding(peer_root / "runtime.key"),
+                            "host_key": file_binding(reviewed.host_journal.key_path),
+                        },
+                    },
+                )
+                current = reviewed.service.core.get_task(reviewed.service.handle, reviewer_task.id)
+                decision = reviewed.service.decisions.decision(
+                    reviewed.service.scope,
+                    current,
+                    "In Progress",
+                    "start",
+                    grant_ref="authored-grant",
+                )
+                attempt = reviewed.workers.start(
+                    reviewed.service.handle,
+                    current.id,
+                    "claude",
+                    expected_version=current.version,
+                    decision_revision=current.decision_revision,
+                    decision_ref=decision,
+                    operation_key="reviewer-start",
+                )
+                write_private(
+                    root / "reviewer-ready.json", {"task_id": current.id, "attempt_id": attempt.id}
+                )
+
+            def admitted():
+                workers = self.service.workflows.driver.runtime.workers
+                starting = workers.start
+
+                def author_then_reviewer(*args, **kwargs):
+                    attempt = starting(*args, **kwargs)
+                    start_reviewer()
+                    return attempt
+
+                workers.start = author_then_reviewer
+                if ready:
+                    ready()
+
+            try:
+                return original_serve(self, stop, admitted)
+            except BaseException:
+                import traceback
+
+                traceback.print_exc()
+                raise
+
+        WorkflowOwner._serve = with_reviewer
     if mode == "recovery":
         # A recorded, unexecuted intent is enough for refusal boundaries. Do not
         # launch an unrelated synthetic native worker in every negative case.

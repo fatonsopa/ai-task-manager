@@ -121,6 +121,26 @@ class ManagedWorkers:
             )
         if self.journal.clock() >= self.deadline:
             raise AccessDenied("Original managed deadline expired during start preparation")
+        import os
+
+        from ai_task_manager.adapters.workflow_control.identity import process_start
+
+        sid, scope = self.core.session_binding(handle)
+        controller = {"pid": os.getpid(), "start": process_start(os.getpid())}
+        self.hosts.journal.intend(
+            "managed-reservation:" + operation_key,
+            {
+                "task_id": task_id,
+                "host": host,
+                "scope": asdict(scope),
+                "version": expected_version,
+                "revision": decision_revision,
+                "decision_ref": decision_ref,
+                "reservation_key": operation_key + ":reserve",
+                "controller": controller,
+                "deadline": self.deadline,
+            },
+        )
         attempt = self.core.execution.reserve(
             handle,
             task_id,
@@ -134,17 +154,13 @@ class ManagedWorkers:
         sid, scope = self.core.session_binding(handle)
         # Failure here means an existing intent, not permission to abort its other owner.
         owner = self.journal.claim(attempt, asdict(scope), deadline=self.deadline)
-        import os
-
-        from ai_task_manager.adapters.workflow_control.identity import process_start
-
         self.hosts.journal.intend(
             "managed-owner:" + attempt.id,
             {
                 "attempt_id": attempt.id,
                 "worker_id": owner["worker_id"],
                 "scope": asdict(scope),
-                "controller": {"pid": os.getpid(), "start": process_start(os.getpid())},
+                "controller": controller,
                 "components": ["harness", "native", "commands", "collectors", "merge"],
             },
         )

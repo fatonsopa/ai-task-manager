@@ -28,6 +28,10 @@ The candidate supports live-owner continuation, verified cold replacement and ow
 
    To stop an interrupted worker after its owner is verified dead, use `action: stop` with the same workflow reference and key. Recovery records a stop intent, asks the original retained harness to stop itself and observes every applicable component before Core settlement. The result must report complete quiescence. Missing native, authentication, container, reviewer or merge facts keep the obligation blocked. A recorded stop fences later execution of that same workflow.
 
+   After repeated owner replacements, keep the same request. Recovery checks the retained author and reviewer controllers against their original signed activations and the verified replacement lineage. Do not rewrite a controller record to name the latest owner.
+
+   If startup stopped before component registration, the workflow's start result may still be pending even though Core committed a reservation. Use the same `stop` request. A confirmed pre-launch disposition reports the original attempt, `disposition: unlaunched_reservation`, `components_started: false`, and whether a runtime claim was recorded. Core pauses that original reservation without creating worker or stop receipts. Missing original forward evidence or any ambiguous launch history keeps the reservation protected; do not create a replacement witness or run another worker to resolve it.
+
 4. Preserve the returned workflow identity and separate observed result. Repeating this request continues or returns its recorded work; it does not authorize another attempt or resend an unknown effect.
 
 ## Confirm success

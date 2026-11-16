@@ -32,6 +32,9 @@ def cold_owner(tmp_path, request):
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": os.devnull,
     }
+    selection = getattr(request, "param", "cold")
+    mode, additions = selection if type(selection) is tuple else (selection, {})
+    env.update(additions)
     output = (root / "owner.log").open("wb")
     child = subprocess.Popen(
         [
@@ -41,7 +44,7 @@ def cold_owner(tmp_path, request):
             "import sys;owner_main(*sys.argv[1:])",
             str(root),
             sockets.name,
-            getattr(request, "param", "cold"),
+            mode,
         ],
         stdout=output,
         stderr=output,

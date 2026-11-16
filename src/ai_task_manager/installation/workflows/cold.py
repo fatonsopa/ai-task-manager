@@ -271,8 +271,57 @@ class ColdRecovery:
         self.check()
         row = store.read(self.data["request"]["workflow_ref"], scope)
         if row["owner"] is not None:
-            expected = {**self.witness["owner"], "instance": self.previous["instance"]}
+            expected = row.get("claim_controller")
+            if type(expected) is not dict:
+                raise EvidenceRequired("Original workflow claim controller is unavailable")
+            self.verify_controller(
+                {k: v for k, v in expected.items() if k != "instance"},
+                instance=expected.get("instance"),
+            )
             store.release_dead_claim(row["id"], scope, row["owner"], expected, self.check)
+
+    def verify_controller(self, controller, *, instance=None):
+        """Retain an exact controller only through its original signed owner lineage."""
+        from ai_task_manager.adapters.workflow_control.lineage import verified_controls
+
+        from .recovery import owner_state
+
+        self.check()
+        if type(controller) is not dict or set(controller) != {"pid", "start"}:
+            raise EvidenceRequired("Original controller identity is unavailable")
+        if controller == self.witness["owner"]:
+            if instance is not None and instance != self.previous["instance"]:
+                raise AccessDenied("Original controller instance changed")
+            return
+        for control in verified_controls(self.config_file):
+            activated = history(self.journal, activation_reference(self.config_file, control))
+            if activated is None or activated.get("recovery", {}).get("owner") != controller:
+                continue
+            witness = activated["recovery"]
+            descriptor = read_private(control["record"])
+            expected = {
+                "config": self.data["config"],
+                "scope": self.spec.data["scope"],
+                "source": self.data["source"],
+                "instance": control["instance"],
+                "deadline": self.spec.data["deadline"],
+            }
+            if (
+                any(activated.get(k) != v for k, v in expected.items())
+                or any(
+                    descriptor.get(k) != expected[k]
+                    for k in ("config", "scope", "source", "instance")
+                )
+                or {"pid": descriptor.get("pid"), "start": descriptor.get("start")} != controller
+                or any(
+                    witness.get(k) != self.witness[k] for k in ("installation", "workflow", "files")
+                )
+                or (instance is not None and instance != control["instance"])
+                or owner_state(descriptor, witness) not in {"dead", "reused"}
+            ):
+                raise AccessDenied("Retained original controller history changed")
+            return
+        raise EvidenceRequired("Controller is outside the verified original owner lineage")
 
     def stop(self, service):
         """Observe all original components before issuing a current Core outcome."""
@@ -305,13 +354,20 @@ class ColdRecovery:
         root = Path(self.spec.data["state_root"])
         journal = RuntimeJournal.open_existing(root / "runtime.sqlite")
         hosts = HostJournal.open_existing(root / "host.sqlite", root / "host.key")
-        owner = journal.attempt(attempt.id)
+        owner = journal.find_attempt(attempt.id)
         managed = hosts.intent("managed-owner:" + attempt.id)
+        if managed is None:
+            return self._stop_prelaunch(service, row, attempt, journal, hosts, owner)
+        if owner is None:
+            raise EvidenceRequired(
+                "Managed ownership without original runtime history is ambiguous"
+            )
+        self.verify_controller(managed.get("controller"))
         if managed is None or managed != {
             "attempt_id": attempt.id,
             "worker_id": owner["worker_id"],
             "scope": self.spec.data["scope"],
-            "controller": self.witness["owner"],
+            "controller": managed["controller"],
             "components": ["harness", "native", "commands", "collectors", "merge"],
         }:
             raise EvidenceRequired("Complete original managed component ownership is unavailable")
@@ -414,12 +470,12 @@ class ColdRecovery:
             }
         )
 
-    def _reservation(self, service, row):
+    def _reservation_binding(self, service, row):
         pending = row["steps"].get("start")
         if pending is None:
             if row["steps"]:
                 raise EvidenceRequired("Original reservation history is unavailable")
-            return None
+            return None, []
         events = service.core.notifications.list_events(service.handle)
         cursor = pending["payload"]["cursor"]
         original = next(
@@ -433,13 +489,26 @@ class ColdRecovery:
         ]
         if original is None or len(reserved) > 1:
             raise EvidenceRequired("Original reservation is ambiguous")
+        return {
+            "command": "reserve",
+            "task_id": row["task_id"],
+            "host": row["plan"]["host"],
+            "version": original.payload["task_version"],
+            "revision": row["decision_revision"],
+            "decision_ref": pending["payload"]["decision_ref"],
+        }, reserved
+
+    def _reservation(self, service, row):
+        binding, reserved = self._reservation_binding(service, row)
+        if binding is None:
+            return None
         attempt = service.core.execution.existing_reservation(
             service.handle,
             row["task_id"],
             row["plan"]["host"],
-            original.payload["task_version"],
-            row["decision_revision"],
-            pending["payload"]["decision_ref"],
+            binding["version"],
+            binding["revision"],
+            binding["decision_ref"],
             row["id"] + ":start:reserve",
         )
         if attempt is None:
@@ -449,6 +518,117 @@ class ColdRecovery:
         if len(reserved) != 1 or reserved[0].payload["attempt_id"] != attempt.id:
             raise EvidenceRequired("Original reserved attempt identity changed")
         return attempt.id
+
+    def _stop_prelaunch(self, service, row, attempt, journal, hosts, owner):
+        import json
+        from contextlib import ExitStack
+
+        from ai_task_manager.application.service.models import result
+
+        binding, events = self._reservation_binding(service, row)
+        key = row["id"] + ":start:reserve"
+        original = hosts.intent("managed-reservation:" + row["id"] + ":start")
+        expected = {k: v for k, v in (binding or {}).items() if k != "command"}
+        if (
+            original is None
+            or binding is None
+            or len(events) != 1
+            or events[0].payload["attempt_id"] != attempt.id
+        ):
+            raise EvidenceRequired("Original pre-launch reservation witness is unavailable")
+        self.verify_controller(original.get("controller"))
+        if original != {
+            **expected,
+            "scope": self.spec.data["scope"],
+            "reservation_key": key,
+            "deadline": self.spec.data["deadline"],
+            "controller": original["controller"],
+        }:
+            raise AccessDenied("Original pre-launch reservation binding changed")
+        if owner is not None and any(
+            owner.get(k) != v
+            for k, v in {
+                "attempt_id": attempt.id,
+                "task_id": attempt.task_id,
+                "host": attempt.host,
+                "scope": self.spec.data["scope"],
+                "deadline": self.spec.data["deadline"],
+            }.items()
+        ):
+            raise AccessDenied("Original pre-launch runtime claim differs")
+
+        def contains(value):
+            if type(value) is dict:
+                return any(contains(v) for v in value.values())
+            if type(value) is list:
+                return any(contains(v) for v in value)
+            return value == attempt.id
+
+        with ExitStack() as stack:
+            runtime = stack.enter_context(_existing(self.witness["files"]["runtime"], "runtime"))
+            host = stack.enter_context(_existing(self.witness["files"]["host"], "host"))
+
+            def inspect():
+                self.check()
+                saved = runtime.execute(
+                    "SELECT data FROM runtime_attempts WHERE id=?", (attempt.id,)
+                ).fetchone()
+                if (json.loads(saved[0]) if saved else None) != owner:
+                    raise EvidenceRequired("Original pre-launch runtime claim changed")
+                for table in ("runtime_effects", "runtime_observations"):
+                    if runtime.execute(
+                        "SELECT 1 FROM " + table + " WHERE attempt_id=? LIMIT 1", (attempt.id,)
+                    ).fetchone():
+                        raise EvidenceRequired("Runtime effects prevent pre-launch settlement")
+                for table in ("runtime_receipts",):
+                    if any(
+                        contains(json.loads(r[0]))
+                        for r in runtime.execute("SELECT data FROM " + table)
+                    ):
+                        raise EvidenceRequired("Runtime receipts prevent pre-launch settlement")
+                for table in ("host_intents", "host_records"):
+                    if any(
+                        contains(json.loads(r[0]))
+                        for r in host.execute("SELECT data FROM " + table)
+                    ):
+                        raise EvidenceRequired("Component history prevents pre-launch settlement")
+
+            inspect()
+            prior = [
+                e
+                for e in service.core.notifications.list_events(service.handle)
+                if e.task_id == attempt.task_id
+                and e.kind == "reservation_stopped"
+                and e.payload.get("attempt_id") == attempt.id
+                and e.payload.get("reservation_key") == key
+            ]
+            if attempt.state == "reserved":
+                task = service.core.get_task(service.handle, attempt.task_id)
+                attempt = service.core.execution.settle_unlaunched_reservation(
+                    service.handle,
+                    attempt.id,
+                    task.version,
+                    task.decision_revision,
+                    key,
+                    binding,
+                    self.reference,
+                    self.reference + ":reservation-stop",
+                    inspect=inspect,
+                )
+            elif attempt.state != "paused" or len(prior) != 1:
+                raise EvidenceRequired("Original reservation has another disposition")
+            inspect()
+        return result(
+            {
+                "workflow": row["id"],
+                "attempt_id": attempt.id,
+                "state": attempt.state,
+                "quiescent": True,
+                "components_started": False,
+                "runtime_registered": owner is not None,
+                "disposition": "unlaunched_reservation",
+            }
+        )
 
     def _related_stopped(self, service, traces):
         """Reviewer tasks keep their own recorded attempts and stop obligations."""
@@ -506,9 +686,10 @@ class ColdRecovery:
                 attempt = service.core.get_attempt(service.handle, attempt_id)
                 owner = journal.attempt(attempt_id)
                 managed = hosts.intent("managed-owner:" + attempt_id)
+                if managed:
+                    self.verify_controller(managed.get("controller"))
                 if (
                     not managed
-                    or managed.get("controller") != self.witness["owner"]
                     or managed.get("scope") != self.spec.data["scope"]
                     or managed.get("worker_id") != owner["worker_id"]
                     or attempt.task_id != spec.data["task_id"]

@@ -64,7 +64,7 @@ def install():
         executable_hash = hashlib.sha256(executable.read_bytes()).hexdigest()
 
         def prepare(context):
-            permits = ClaudePermits(root / "cold-accounting")
+            permits = ClaudePermits(root / ("cold-accounting-" + str(os.getpid())))
 
             def policy(host, pair):
                 from ai_task_manager.adapters.hosts.bridge.admission import MANAGED_TOOLS
@@ -121,6 +121,53 @@ def install():
 
     composition.load_service = load
     native.resolve = resolve
+    seconds = os.environ.get("COLD_TEST_REPLACEMENT_SECONDS")
+    if seconds:
+        from threading import Timer
+
+        from ai_task_manager.installation import workflows
+
+        launching = workflows.launch
+
+        def bounded(*args, **kwargs):
+            if kwargs.get("recovery") is not None:
+                ready = kwargs.get("ready")
+
+                def admitted():
+                    Timer(float(seconds), kwargs["stop"].set).start()
+                    if ready:
+                        ready()
+
+                kwargs["ready"] = admitted
+            return launching(*args, **kwargs)
+
+        workflows.launch = bounded
+    crash = os.environ.get("COLD_TEST_CRASH")
+    if crash:
+        from ai_task_manager.application.execution import Execution
+        from ai_task_manager.supervisor.journal import RuntimeJournal
+
+        reserving, claiming = Execution.reserve, RuntimeJournal.claim
+
+        def reserve(self, *args, **kwargs):
+            result = reserving(self, *args, **kwargs)
+            if crash == "after_reserve":
+                Path(self.c.db.path).parent.joinpath("crashed.json").write_text(
+                    json.dumps({"attempt_id": result.id})
+                )
+                os._exit(86)
+            return result
+
+        def claim(self, attempt, *args, **kwargs):
+            result = claiming(self, attempt, *args, **kwargs)
+            if crash == "after_claim":
+                self.path.parent.parent.joinpath("crashed.json").write_text(
+                    json.dumps({"attempt_id": attempt.id})
+                )
+                os._exit(87)
+            return result
+
+        Execution.reserve, RuntimeJournal.claim = reserve, claim
     if os.environ.get("COLD_TEST_UNKNOWN_INVENTORY") == "1":
         from ai_task_manager.adapters.process import recovery
         from ai_task_manager.adapters.process.groups import GroupObservation

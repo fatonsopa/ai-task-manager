@@ -14,7 +14,7 @@ def replacement_reference(config_file, control):
     )
 
 
-def resolve_control(config_file):
+def verified_controls(config_file):
     from .identity import file_binding, settings, source_digest
 
     config = read_private(config_file)
@@ -23,10 +23,11 @@ def resolve_control(config_file):
     if not pointers.intersection(config):
         # Older direct owner adapters have no replacement authority at all.
         # Their existing descriptor is still checked by OwnerBinding.
-        return control
+        return [control]
     if not pointers <= config.keys():
         raise AccessDenied("Complete original replacement authority is required")
     key = Path(config["authority_key"]).read_bytes()
+    controls = [control]
     with sqlite3.connect(
         Path(config["authority_database"]).as_uri() + "?mode=ro", uri=True
     ) as conn:
@@ -37,7 +38,7 @@ def resolve_control(config_file):
             ).fetchone()
             link = _verified_history(saved, key, reference)
             if link is None:
-                return control
+                return controls
             if (
                 link["config"] != file_binding(config_file)
                 or link["source"] != source_digest()
@@ -62,4 +63,9 @@ def resolve_control(config_file):
             if successor["instance"] == control["instance"]:
                 raise AccessDenied("Owner replacement lineage cannot repeat an instance")
             control = successor
+            controls.append(control)
     raise AccessDenied("Owner replacement lineage exceeds its finite bound")
+
+
+def resolve_control(config_file):
+    return verified_controls(config_file)[-1]
