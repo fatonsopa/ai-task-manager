@@ -1,6 +1,6 @@
 # Recorded workflow recovery
 
-Type: How-to Guide (HTG). Scope: accepted S1 owner recovery and the independently accepted T03 retained-provider component.
+Type: How-to Guide (HTG). Scope: accepted S1 owner recovery, the independently accepted T03 retained-provider component and the T04 code-continuation component candidate.
 
 ## Before you begin
 
@@ -31,6 +31,10 @@ The candidate supports live-owner continuation, verified cold replacement and ow
    Read each entry in `provider_recovery`. Comment, label and choice stages are separate: recovering a comment does not send a pending label, and a choice keeps its original human source and key. A completed effect claim is released only when its original forward binding proves that exact publication or choice has finished. Missing legacy claim facts remain protected. New publication intents bind their original task version and human state; an older intent without those facts cannot authorize a remaining send. Only the selected task's inbound receipts are drained, preserving received/applied identity across restart.
 
    If readback settles retained effects after execution expires or is revoked, expect `original_execution_unavailable`, a checkpoint and exit 4. This is useful provider settlement, not a new worker or execution permission. An `unsent` entry preserves journal evidence of no recorded send without rearming the operation under expired authority. `provider_reconciliation_pending` retains an unsent stage or uncertain effect. A changed enrollment, task version, human decision or ownership during readback stops dependent settlement. Preserve the result and original histories; do not renew the old grant.
+
+   For code work, keep the original branch, dirty/untracked files, database, candidate and completed work units. Resume can continue the remaining check, merge and provider stages through this same command. New code plans bind their original merge/check journals before merge effects; missing or replaced stores and older plans without those bindings stay protected. Do not recreate them or copy a candidate into a new workflow.
+
+   A pending commit with the new forward protocol marker can continue only when its component intent was never admitted and the original snapshot and execution authority still match. Known commit/publication effects use their original operation and actual repository evidence. Preserve unknown hook/publication outcomes for reconciliation. Completed author and reviewer stages remain recorded; a saved check is usable only for its exact current inputs. A committed Git publication can still have pending provider confirmation and retained cleanup obligations. Do not report those later stages as complete from the commit alone.
 
    To stop an interrupted worker after its owner is verified dead, use `action: stop` with the same workflow reference and key. Recovery records a stop intent, asks the original retained harness to stop itself and observes every applicable component before Core settlement. The result must report complete quiescence. Missing native, authentication, container, reviewer or merge facts keep the obligation blocked. A recorded stop fences later execution of that same workflow.
 
