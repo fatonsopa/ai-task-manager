@@ -48,7 +48,8 @@ def owner_main(root, socket_root, mode="valid"):
     rig = r.rig
     rig.now = time.time()
     rig.policy = ApprovalPolicy("a" * 64, "b" * 64, "c" * 64)
-    rig.capacity = CapacityPolicy("claude" if mode.startswith("code") else "codex", 2, 2)
+    claude = mode.startswith(("code", "cold"))
+    rig.capacity = CapacityPolicy("claude" if claude else "codex", 2, 2)
     rig.core = rig.new_core()
     code = mode.startswith("code")
     task = rig.queued(code=code)
@@ -87,9 +88,9 @@ def owner_main(root, socket_root, mode="valid"):
         (profile / name).write_text("{}" if name == "auth.json" else "")
         (profile / name).chmod(0o600)
     settings = (
-        None if code else CodexSettings(CodexHomeBoundary(profile), "synthetic-no-model", "high")
+        None if claude else CodexSettings(CodexHomeBoundary(profile), "synthetic-no-model", "high")
     )
-    if code:
+    if claude:
         profile = home / ".claude_fixture"
         profile.mkdir(mode=0o700)
     executable = root / "synthetic-cli"
@@ -99,7 +100,7 @@ def owner_main(root, socket_root, mode="valid"):
         + "\n"
         + Path(__file__).parents[1].joinpath("hosts/fixture_cli.py").read_text()
     )
-    if code:
+    if claude:
         source = Path(__file__).parents[1].joinpath("hosts/fixture_claude_bootstrap.py").read_text()
         assignment = (
             task.title
@@ -118,12 +119,26 @@ def owner_main(root, socket_root, mode="valid"):
             + '            Path("src").mkdir(exist_ok=True)\n'
             + '            Path("src/a.txt").write_text("4")',
         )
+        if not code:
+            source = source.replace(
+                'Path("src").mkdir(exist_ok=True)', 'Path(".").mkdir(exist_ok=True)'
+            )
+            source = source.replace(
+                'Path("src/a.txt").write_text("4")', 'Path("owned.py").write_text("answer = 42\\n")'
+            )
+            if mode == "cold-active":
+                source = source.replace(
+                    'Path("owned.py").write_text("answer = 42\\n")',
+                    "import time;Path("
+                    + repr(str(root / "native-entered"))
+                    + ").write_text('ready');time.sleep(20)",
+                )
         executable.write_text("#!" + sys.executable + "\n" + source)
     executable.chmod(0o700)
     executable_hash = hashlib.sha256(executable.read_bytes()).hexdigest()
 
     def prepare(context):
-        if code:
+        if claude:
             from tests.workflow_installation.code_controls import ClaudePermits
 
             permits = ClaudePermits(root / "accounting")
@@ -131,7 +146,7 @@ def owner_main(root, socket_root, mode="valid"):
             permits = AuthoredPermits(root / "accounting", deny=mode == "deny-native")
 
         def policy(host, pair):
-            if code:
+            if claude:
                 from ai_task_manager.adapters.hosts.bridge.admission import MANAGED_TOOLS
 
                 env = clean_environment(home, claude_profile=profile)
@@ -187,12 +202,12 @@ def owner_main(root, socket_root, mode="valid"):
 
     native = NativeRegistration(
         "authored-native",
-        "claude" if code else "codex",
-        NativeProfile("claude-opus-5-5" if code else settings.model, "high"),
+        "claude" if claude else "codex",
+        NativeProfile("claude-opus-5-5" if claude else settings.model, "high"),
         claude_account_hash(
             {"email": "fixture@example.invalid", "orgId": "authored-org", "userId": "authored-user"}
         )
-        if code
+        if claude
         else digest(ACCOUNT),
         NativeSourcePins({str(executable): executable_hash}),
         prepare,
@@ -297,7 +312,7 @@ def owner_main(root, socket_root, mode="valid"):
     signal.signal(signal.SIGTERM, lambda *args: stop.set())
     # The installed CLI intentionally accepts only a trusted in-process registry.
     # Its production default never imports this test helper or these controls.
-    if mode not in {"valid", "code", "code-restart", "recovery"}:
+    if mode not in {"valid", "cold", "cold-active", "code", "code-restart", "recovery"}:
         try:
             from ai_task_manager.installation.workflows import InstalledWorkflow
 
@@ -348,6 +363,7 @@ def owner_main(root, socket_root, mode="valid"):
                 write_private(root / "recovery-intent.json", {"workflow_ref": workflow})
                 if ready:
                     ready()
+
             return original_serve(self, stop, admitted)
 
         WorkflowOwner._serve = with_intent

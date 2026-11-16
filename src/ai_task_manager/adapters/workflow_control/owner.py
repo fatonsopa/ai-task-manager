@@ -28,7 +28,9 @@ from .identity import (
 
 
 class WorkflowOwner:
-    def __init__(self, service, config_file, *, deadline, clock=time.time, installation=None):
+    def __init__(
+        self, service, config_file, *, deadline, clock=time.time, installation=None, recovery=None
+    ):
         if type(deadline) not in {int, float} or not math.isfinite(deadline) or deadline <= clock():
             raise AccessDenied("The owner requires an original finite future deadline")
         self.installation = installation
@@ -41,6 +43,15 @@ class WorkflowOwner:
         self.seal = FileSeal(config_file)
         self.config = read_private(config_file)
         self.settings = settings(self.config.get("workflow_control"))
+        self.recovery = recovery
+        if recovery is not None:
+            from ai_task_manager.installation.workflows.cold import ColdRecovery
+
+            if type(recovery) is not ColdRecovery:
+                raise AccessDenied("A current original-owner recovery capability is required")
+            recovery.authorize(service)
+            recovery.release_claim(service.workflows.driver.store, service.scope)
+            self.settings = recovery.successor
         if str(service.core.context.db.path) != self.config["core_database"]:
             raise AccessDenied("Owner Core does not match its sealed claim store")
         from ai_task_manager.application.workflows.service import WorkflowService
@@ -90,6 +101,33 @@ class WorkflowOwner:
                 "workflow": dict(physical(store.path), store_id=store.store_id),
                 "owner": {"pid": os.getpid(), "start": process_start(os.getpid())},
             }
+            root = Path(self.installation.data["state_root"])
+            candidates = {
+                "core": self.config["core_database"],
+                "workflow": store.path,
+                "runtime": root / "runtime.sqlite",
+                "host": root / "host.sqlite",
+                "runtime_key": root / "runtime.key",
+                "host_key": root / "host.key",
+                "review_key": root / "review.key",
+                "session": self.config["session_file"],
+                "authority": self.config["authority_database"],
+                "authority_key": self.config["authority_key"],
+            }
+            if self.config.get("linear"):
+                candidates["provider"] = self.config["linear"]["journal"]
+                candidates["dependency"] = self.config["linear"]["journal"] + ".dependencies.sqlite"
+                candidates["dependency_key"] = (
+                    self.config["linear"]["journal"] + ".dependencies.key"
+                )
+            if self.config.get("writer"):
+                candidates["writer"] = self.config["writer"]["journal"]
+                candidates["writer_key"] = self.config["writer"]["key"]
+            if all(Path(p).exists() for p in candidates.values()):
+                activation["recovery"]["files"] = {
+                    k: (file_binding(p) if k.endswith("_key") or k == "session" else physical(p))
+                    for k, p in candidates.items()
+                }
         bind_record(
             self.service.decisions.journal,
             activation_reference(self.config_file, self.settings),
@@ -113,6 +151,8 @@ class WorkflowOwner:
             write_private(record, descriptor)
             listener.listen(8)
             listener.settimeout(0.1)
+            if self.recovery is not None:
+                self.recovery.publish(self.service, descriptor)
             if ready:
                 ready()
             slots = BoundedSemaphore(4)

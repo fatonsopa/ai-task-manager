@@ -52,6 +52,19 @@ class ClaudeAuthProbe:
             )
         group = OwnedProcessGroup(process)
         group.capture()
+        from dataclasses import asdict
+
+        self.journal._append(
+            "trace",
+            {
+                "effect": "auth_process_created",
+                "binding": asdict(binding),
+                "invocation": permit.reference,
+                "pid": process.pid,
+                "start_identity": group.start_identity,
+                "group": group.group_id,
+            },
+        )
         completion = supervise(
             group,
             timeout_seconds=max(0, end - self.journal.clock()),

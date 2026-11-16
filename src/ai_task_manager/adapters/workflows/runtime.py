@@ -120,7 +120,13 @@ class ManagedWorkerPort:
     def pair(self, attempt_id):
         dispatch = self.workers.dispatches.get(attempt_id)
         if dispatch is None:
-            raise RuntimeUncertain("Actual native owner is unavailable")
+            stops = self.workers.journal.observations(attempt_id, "runtime_outcome")
+            complete = [row for row in stops if row.get("managed_stop") is True]
+            if not complete or complete[-1].get("quiescent") is not True:
+                raise RuntimeUncertain("Actual native owner is unavailable")
+            # Reconstruct only resources of a completely stopped attempt. This
+            # creates no dispatch, child handle, lease or permission to execute.
+            return self.workers.resources.reconcile(attempt_id)
         self.workers.resources.verify(dispatch.resources)
         return dispatch.resources
 

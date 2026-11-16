@@ -27,7 +27,7 @@ from ai_task_manager.application.workflows.driver import WorkflowDriver
 from ai_task_manager.application.workflows.models import WorkflowPlans
 from ai_task_manager.application.workflows.reviews import ReviewedEvidence
 from ai_task_manager.application.workflows.service import WorkflowService
-from ai_task_manager.config.files import private_path
+from ai_task_manager.config.files import private_path, read_private
 from ai_task_manager.config.service import load_service
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.storage.workflows import WorkflowStore
@@ -60,8 +60,22 @@ class NoCommands:
 
 class InstalledWorkflow:
     def __init__(
-        self, config_file, installation_file, registry=None, *, service_options=None, reviews=None
+        self,
+        config_file,
+        installation_file,
+        registry=None,
+        *,
+        service_options=None,
+        reviews=None,
+        recovery=None,
     ):
+        self.recovery = recovery
+        if recovery is not None:
+            from .cold import ColdRecovery
+
+            if type(recovery) is not ColdRecovery:
+                raise AccessDenied("Typed current original-owner recovery required")
+            recovery.validate_stores()
         self.spec = spec = Installation(installation_file, config_file)
         # This gate precedes provider authentication or resource/native effects.
         self.registry = registry or NativeRegistry()
@@ -79,12 +93,14 @@ class InstalledWorkflow:
 
         configuration = read_private(config_file)
         control = configuration.get("workflow_control", {})
-        if any(Path(control.get(name, "/__missing__")).exists() for name in ("record", "endpoint")):
+        if recovery is None and any(
+            Path(control.get(name, "/__missing__")).exists() for name in ("record", "endpoint")
+        ):
             raise AccessDenied("Existing owner state requires verified recovery, never replacement")
         options = dict(
             self.registry.service_options if service_options is None else service_options
         )
-        if {"workflow_factory", "workers_factory"} & options.keys():
+        if {"workflow_factory", "workers_factory", "existing_only"} & options.keys():
             raise AccessDenied("Installation owns its worker and workflow composition")
         dependencies = options.get("dependencies_factory")
         if dependencies is None:
@@ -94,7 +110,9 @@ class InstalledWorkflow:
             config = read_private(config_file)
             if not config.get("linear"):
                 raise Unavailable("Configured real provider and dependency integration required")
-            components = options.get("linear_components") or LinearComponents(config["linear"])
+            components = options.get("linear_components") or LinearComponents(
+                config["linear"], existing_only=recovery is not None
+            )
             options["linear_components"] = components
             dependencies = components.dependencies
 
@@ -104,11 +122,16 @@ class InstalledWorkflow:
 
         options["dependencies_factory"] = dependent
         options["workflow_factory"] = self._compose
+        options["existing_only"] = recovery is not None
         self.service = load_service(config_file, **options)
         self.service.workers = self.workers
         self.service.dependencies = self.dependencies
         self.owner = WorkflowOwner(
-            self.service, config_file, deadline=spec.data["deadline"], installation=spec
+            self.service,
+            config_file,
+            deadline=spec.data["deadline"],
+            installation=spec,
+            recovery=recovery,
         )
 
     def _compose(self, core, handle, decisions, provider, unused):
@@ -138,18 +161,32 @@ class InstalledWorkflow:
         if git(Path(d["repository"]), "rev-parse", "HEAD") != d["source_head"]:
             raise AccessDenied("Installed repository source changed")
         root = Path(d["state_root"])
-        root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if self.recovery is None:
+            root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if root.stat().st_mode & 0o077:
             raise AccessDenied("Installed worker state must be private")
-        self.journal = RuntimeJournal(root / "runtime.sqlite")
-        self.host_journal = HostJournal(root / "host.sqlite", root / "host.key")
+        self.journal = (RuntimeJournal.open_existing if self.recovery else RuntimeJournal)(
+            root / "runtime.sqlite"
+        )
+        self.host_journal = (HostJournal.open_existing if self.recovery else HostJournal)(
+            root / "host.sqlite", root / "host.key"
+        )
         self.resources = ResourceManager(
             self.journal,
             root / "resources",
             Path(d["repository"]),
             metadata_paths=(core.context.db.path, root / "workflow.sqlite", self.host_journal.path),
+            existing_only=self.recovery is not None,
         )
-        self.processes = ProcessRuntime(self.journal, root / "outputs")
+        control_parent = Path(
+            read_private(self.spec.config_seal.path)["workflow_control"]["endpoint"]
+        ).parent.resolve()
+        self.processes = ProcessRuntime(
+            self.journal,
+            root / "outputs",
+            recovery_directory=control_parent,
+            existing_only=self.recovery is not None,
+        )
         context = NativeContext(
             core,
             handle,
@@ -192,7 +229,10 @@ class InstalledWorkflow:
             model_profiles={self.native.host: self.native.profile},
         )
         proofs = RuntimeProofs(
-            self.journal, root / "runtime.key", host_startups=self.factory.startup_verifier
+            self.journal,
+            root / "runtime.key",
+            host_startups=self.factory.startup_verifier,
+            existing_only=self.recovery is not None,
         )
         prompt = (
             task.title
@@ -248,7 +288,9 @@ class InstalledWorkflow:
             return self.native.fingerprint + ":" + plan.digest
 
         runtime = ManagedWorkerPort(self.workers, binding)
-        self.store = WorkflowStore(root / "workflow.sqlite")
+        self.store = (
+            self.recovery.store() if self.recovery else WorkflowStore(root / "workflow.sqlite")
+        )
         inspector = RepositoryInspector(runtime)
         # Full original approved prose, not a private expected-answer evaluator.
         criteria = {
@@ -277,8 +319,6 @@ class InstalledWorkflow:
             )
             routes.append(EvidenceRoute(PREFIX, KINDS, reviewer))
         core.context.evidence = EvidenceRouter(routes)
-        from ai_task_manager.config.files import read_private
-
         grant = read_private(self.spec.config_seal.path).get("grant_ref")
         from ai_task_manager.application.commits import WorkerCommits
 
@@ -359,6 +399,7 @@ class InstalledWorkflow:
             code_delivery=code_delivery,
             recovery_history=history,
             decisions=decision_lookup,
+            owner_identity=self._owner_identity,
         )
         from ai_task_manager.installation.native.reviewer import NormalReviewerFactory
 
@@ -370,6 +411,22 @@ class InstalledWorkflow:
             {task.id: plan.id},
             reviewer_owner=factory if isinstance(factory, NormalReviewerFactory) else None,
         )
+
+    def _owner_identity(self):
+        import os
+
+        from ai_task_manager.adapters.workflow_control.identity import process_start
+
+        control = (
+            self.recovery.successor
+            if self.recovery
+            else read_private(self.spec.config_seal.path)["workflow_control"]
+        )
+        return {
+            "pid": os.getpid(),
+            "start": process_start(os.getpid()),
+            "instance": control["instance"],
+        }
 
     def _review_source(self, root, *, deadline=None):
         from ai_task_manager.adapters.workflow_reviews.capture_store import (

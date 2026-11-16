@@ -35,6 +35,7 @@ class HostProcess:
         clock=time.time,
         boundary=lambda: None,
         invocation=None,
+        ownership_observer=None,
     ):
         if (
             isinstance(deadline, bool)
@@ -59,6 +60,7 @@ class HostProcess:
         self.stop_evidence = None
         self.process = self.group = self.identity = self.native_exit = None
         self.invocation = invocation
+        self.ownership_observer = ownership_observer
         self._bound_invocation = invocation
         if invocation is not None:
             from ..bridge.invocations import InitializationInvocation
@@ -162,6 +164,8 @@ class HostProcess:
             ):
                 raise RuntimeUncertain("Actual native process ownership is not established")
             self.identity = ProcessIdentity(native.pid, native.start_identity, self.group.group_id)
+            if self.ownership_observer is not None:
+                self.ownership_observer(self)
             self.native_exit = NativeExitWatch.capture(self)
             self._relay_ready_fd, read_fd = read_fd, -1
             self._relay_nonce = nonce

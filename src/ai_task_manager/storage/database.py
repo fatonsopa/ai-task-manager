@@ -68,6 +68,18 @@ CREATE TABLE external_observations(id TEXT PRIMARY KEY,
 class Database:
     """A connection per unit of work; SQLite serializes independent writers."""
 
+    @classmethod
+    def open_existing(cls, path, *, guard):
+        """Use an enrolled current store without initialization or migration."""
+        value = cls.__new__(cls)
+        value.path, value.guard = str(Path(path).absolute()), guard
+        value._active_transactions = set()
+        value._existing_only = True
+        with value.transaction() as conn:
+            if [tuple(r) for r in conn.execute("SELECT version FROM metadata")] != [(5,)]:
+                raise SchemaError("Current original task store required")
+        return value
+
     def __init__(self, path: str | Path, *, guard=None):
         self.path = str(path)
         self.guard = guard
@@ -163,7 +175,13 @@ class Database:
         return rows[0][0]
 
     def connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path, timeout=10, isolation_level=None)
+        existing = getattr(self, "_existing_only", False)
+        conn = sqlite3.connect(
+            Path(self.path).as_uri() + "?mode=rw" if existing else self.path,
+            uri=existing,
+            timeout=10,
+            isolation_level=None,
+        )
         conn.row_factory = sqlite3.Row
         from ai_task_manager.storage.scheduling_schema import register
 

@@ -306,7 +306,10 @@ class NormalReviewerFactory:
             Path(d["repository"]),
             metadata_paths=(core.context.db.path, host_journal.path),
         )
-        runtime = ProcessRuntime(journal, root / "outputs")
+        control_parent = Path(
+            read_private(self.author.config.path)["workflow_control"]["endpoint"]
+        ).parent.resolve()
+        runtime = ProcessRuntime(journal, root / "outputs", recovery_directory=control_parent)
         authority = registration.prepare(
             NativeContext(
                 core, handle, task, journal, host_journal, resources, runtime, d["deadline"]
@@ -333,6 +336,26 @@ class NormalReviewerFactory:
         )
         proofs = RuntimeProofs(
             journal, root / "runtime.key", host_startups=factory.startup_verifier
+        )
+        from ai_task_manager.adapters.workflow_control.recovery import physical
+
+        parent = HostJournal.open_existing(
+            Path(author["state_root"]) / "host.sqlite", Path(author["state_root"]) / "host.key"
+        )
+        parent._append(
+            "trace",
+            {
+                "effect": "reviewer_state_created",
+                "installation": file_binding(spec.seal.path),
+                "task_id": task.id,
+                "scope": d["scope"],
+                "files": {
+                    "runtime": physical(journal.path),
+                    "host": physical(host_journal.path),
+                    "runtime_key": file_binding(root / "runtime.key"),
+                    "host_key": file_binding(host_journal.key_path),
+                },
+            },
         )
         if any(
             r.prefix == "runtime-proof:" or r.kinds & RUNTIME_KINDS

@@ -134,6 +134,20 @@ class ManagedWorkers:
         sid, scope = self.core.session_binding(handle)
         # Failure here means an existing intent, not permission to abort its other owner.
         owner = self.journal.claim(attempt, asdict(scope), deadline=self.deadline)
+        import os
+
+        from ai_task_manager.adapters.workflow_control.identity import process_start
+
+        self.hosts.journal.intend(
+            "managed-owner:" + attempt.id,
+            {
+                "attempt_id": attempt.id,
+                "worker_id": owner["worker_id"],
+                "scope": asdict(scope),
+                "controller": {"pid": os.getpid(), "start": process_start(os.getpid())},
+                "components": ["harness", "native", "commands", "collectors", "merge"],
+            },
+        )
         waiting = native = pair = None
         try:
             if self.authorities is not None:

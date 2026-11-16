@@ -1,5 +1,7 @@
 """Host watchdog: an untrusted container cannot kill its deadline/cleanup owner."""
 
+import hashlib
+import hmac
 import json
 import os
 import resource
@@ -64,6 +66,13 @@ def main():
             result["container"] = cleanup(plan)
         except Exception as error:
             result["container"] = {"confirmed_stop": False, "error": type(error).__name__}
+        if "recovery_key" in plan:
+            raw = json.dumps(
+                result, sort_keys=True, separators=(",", ":"), allow_nan=False
+            ).encode()
+            result["recovery_mac"] = hmac.new(
+                bytes.fromhex(plan["recovery_key"]), raw, hashlib.sha256
+            ).hexdigest()
         publish(plan["result"], result)
         # Keep our own anchor alive through cleanup, then terminate only this group.
         signal.signal(signal.SIGTERM, signal.SIG_IGN)

@@ -21,7 +21,9 @@ RUNTIME_KINDS = frozenset({"worker_start", "resources_ready", "attempt_outcome"}
 class RuntimeProofs:
     prefix = "runtime-proof:"
 
-    def __init__(self, journal, key_path: Path, *, fixture_hosts=(), host_startups=None):
+    def __init__(
+        self, journal, key_path: Path, *, fixture_hosts=(), host_startups=None, existing_only=False
+    ):
         self.journal = journal
         self.fixture_hosts = frozenset(fixture_hosts)
         if any(
@@ -31,8 +33,15 @@ class RuntimeProofs:
             raise RuntimeRefused("Model hosts cannot be configured as fixture harnesses")
         self.host_startups = host_startups or RejectHostStartup()
         self._key_path = Path(key_path)
-        self._key_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if existing_only:
+            from ai_task_manager.config.files import private_path
+
+            private_path(self._key_path)
+        else:
+            self._key_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         try:
+            if existing_only:
+                raise FileExistsError()
             fd = os.open(self._key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         except FileExistsError:
             pass
@@ -111,7 +120,7 @@ class RuntimeProofs:
             {"ready": True, "worktree_id": fact["worktree_id"], "database_id": fact["database_id"]},
         )
 
-    def outcome(self, scope, attempt_id, observation_id):
+    def outcome(self, scope, attempt_id, observation_id, *, not_after=None):
         fact = self.journal.observation(
             observation_id, attempt_id=attempt_id, kind="runtime_outcome"
         )
@@ -125,9 +134,19 @@ class RuntimeProofs:
             attempt_id,
             fact,
             {"state": fact["state"], "quiescent": fact["quiescent"]},
+            not_after=not_after,
         )
 
-    def _from_observation(self, kind, scope, attempt_id, fact, extra):
+    def _from_observation(self, kind, scope, attempt_id, fact, extra, *, not_after=None):
+        if not_after is not None:
+            import math
+
+            if (
+                type(not_after) not in {int, float}
+                or not math.isfinite(not_after)
+                or not_after <= self.journal.clock()
+            ):
+                raise EvidenceRequired("Current settlement authority expired")
         owner = self.journal.attempt(attempt_id)
         if asdict(scope) != owner["scope"]:
             raise EvidenceRequired("Runtime scope does not match the registered attempt")
@@ -154,6 +173,8 @@ class RuntimeProofs:
         # Completed observations must remain usable to settle after the work deadline.
         if kind == "attempt_outcome":
             data["expires_at"] = self.journal.clock() + 60
+            if not_after is not None:
+                data["expires_at"] = min(data["expires_at"], not_after)
         signature = hmac.new(self._key, canonical(data).encode(), hashlib.sha256).hexdigest()
         with self.journal.transaction() as conn:
             conn.execute(

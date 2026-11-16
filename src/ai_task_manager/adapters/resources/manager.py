@@ -23,12 +23,17 @@ class ResourceManager:
         metadata_paths=(),
         release_policy=None,
         removal_verifier=None,
+        existing_only=False,
     ):
         self.journal = journal
         self.root = Path(root).absolute()
         if self.root.is_symlink() or self.root.resolve() != self.root:
             raise RuntimeRefused("Owned resource root must have no symlink components")
-        self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if existing_only:
+            if not self.root.is_dir() or self.root.stat().st_mode & 0o077:
+                raise RuntimeRefused("Original owned resource directory is unavailable")
+        else:
+            self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.git = GitWorktrees(repository)
         self.databases = SQLiteFixtures((*metadata_paths, journal.path))
         self.release_policy = release_policy or DeliveryReleasePolicy(self.git.repository)

@@ -30,10 +30,14 @@ class WaitingWorker:
 
 
 class ProcessRuntime:
-    def __init__(self, journal, directory, *, recovery_directory=None):
+    def __init__(self, journal, directory, *, recovery_directory=None, existing_only=False):
         self.journal = journal
         self.directory = Path(directory).absolute()
-        self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if existing_only:
+            if not self.directory.is_dir() or self.directory.stat().st_mode & 0o077:
+                raise RuntimeRefused("Original process output directory is unavailable")
+        else:
+            self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.workers = {}
         self.recovery_directory = Path(recovery_directory) if recovery_directory else None
 

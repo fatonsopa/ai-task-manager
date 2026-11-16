@@ -75,6 +75,11 @@ class AuthorityJournal:
             if parent.is_symlink() or parent.stat().st_mode & 0o077:
                 raise AccessDenied("Authority storage requires a private owned directory")
         value.clock, value._key = clock, value.key_path.read_bytes()
+        info = value.path.stat()
+        value._existing_identity = info.st_dev, info.st_ino
+        from ai_task_manager.adapters.workflow_control.recovery import physical
+
+        value._existing_binding = physical(path)
         if len(value._key) != 32:
             raise AccessDenied("Authority key is invalid")
         with value.transaction() as conn:
@@ -85,10 +90,25 @@ class AuthorityJournal:
 
     @contextmanager
     def transaction(self):
-        conn = sqlite3.connect(self.path, timeout=10)
+        identity = getattr(self, "_existing_identity", None)
+        if identity is not None:
+            info = private_path(self.path).stat()
+            if (info.st_dev, info.st_ino) != identity:
+                raise AccessDenied("Original authority store changed")
+        conn = sqlite3.connect(
+            self.path.as_uri() + "?mode=rw" if identity else self.path,
+            uri=identity is not None,
+            timeout=10,
+        )
         try:
             conn.execute("BEGIN IMMEDIATE")
+            if identity:
+                from ai_task_manager.adapters.workflow_control.recovery import _probe
+
+                _probe(conn, self._existing_binding, "authority")
             yield conn
+            if identity:
+                _probe(conn, self._existing_binding, "authority")
             conn.commit()
         except BaseException:
             conn.rollback()

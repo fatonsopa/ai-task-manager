@@ -104,9 +104,13 @@ def verify_claim_store(database, journal):
     return guard
 
 
-def open_claim_store(path, journal):
+def open_claim_store(path, journal, *, existing_only=False):
     guard = ClaimStore(path, journal, journal.claim_store())
     guard.check()
-    database = Database(path, guard=guard.check)
+    database = (
+        Database.open_existing(path, guard=guard.check)
+        if existing_only
+        else Database(path, guard=guard.check)
+    )
     database.claim_context = guard.context
     return database, guard

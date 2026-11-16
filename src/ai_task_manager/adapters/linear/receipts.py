@@ -63,6 +63,17 @@ CREATE TABLE ignored_deliveries(scope TEXT NOT NULL, delivery_id TEXT NOT NULL,
 
 
 class ProviderJournal:
+    @classmethod
+    def open_existing(cls, path, *, clock=time.time):
+        from ai_task_manager.adapters.workflow_control.recovery import physical
+
+        value = cls.__new__(cls)
+        value.path, value.clock = str(Path(path).absolute()), clock
+        value._existing_binding = physical(path)
+        with value.transaction():
+            pass
+        return value
+
     def __init__(self, path, *, clock=time.time):
         self.path = str(path)
         self.clock = clock
@@ -108,11 +119,23 @@ class ProviderJournal:
 
     @contextmanager
     def transaction(self):
-        conn = sqlite3.connect(self.path, isolation_level=None, timeout=10)
+        binding = getattr(self, "_existing_binding", None)
+        conn = sqlite3.connect(
+            Path(self.path).as_uri() + "?mode=rw" if binding else self.path,
+            uri=binding is not None,
+            isolation_level=None,
+            timeout=10,
+        )
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("BEGIN IMMEDIATE")
+            if binding:
+                from ai_task_manager.adapters.workflow_control.recovery import _probe
+
+                _probe(conn, binding, "provider")
             yield conn
+            if binding:
+                _probe(conn, binding, "provider")
             conn.commit()
         except BaseException:
             conn.rollback()

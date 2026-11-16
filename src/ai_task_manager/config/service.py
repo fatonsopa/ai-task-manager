@@ -36,6 +36,7 @@ def load_service(
     scheduling_sources=None,
     dependencies_factory=None,
     workflow_factory=None,
+    existing_only=False,
 ):
     """Factories are trusted installer/host arguments, never JSON import paths."""
     seal = FileSeal(config_file)
@@ -85,12 +86,16 @@ def load_service(
 
     capacity_policies = policies(config)
     private_path(config["core_database"])
-    journal = AuthorityJournal(config["authority_database"], config["authority_key"])
-    database, claim_store = open_claim_store(config["core_database"], journal)
+    journal = (AuthorityJournal.open_existing if existing_only else AuthorityJournal)(
+        config["authority_database"], config["authority_key"]
+    )
+    database, claim_store = open_claim_store(
+        config["core_database"], journal, existing_only=existing_only
+    )
     require_installed(database, capacity_policies)
     components = linear_components
     if config.get("linear"):
-        components = components or LinearComponents(config["linear"])
+        components = components or LinearComponents(config["linear"], existing_only=existing_only)
         if components.configuration_hash != digest(config["linear"]):
             raise AccessDenied("Linear composition does not match sealed configuration")
         selected_connection = components.client.agent_connection
@@ -132,7 +137,9 @@ def load_service(
         package = WriterPackage(Path(values["root"]).resolve(), values["python"], values["pins"])
         writer = WritingService(
             package,
-            AuthorityJournal(values["journal"], values["key"]),
+            (AuthorityJournal.open_existing if existing_only else AuthorityJournal)(
+                values["journal"], values["key"]
+            ),
             values["sessions_root"],
             renderer,
         )

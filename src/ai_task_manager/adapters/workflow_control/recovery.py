@@ -61,7 +61,7 @@ def stopped_owner(history, scope):
 def _probe(conn, binding, name):
     if physical(binding["path"]) != binding:
         raise AccessDenied("Original recovery journal was replaced")
-    table, version = _DATABASES[name]
+    table, version = ("authority_version", 2) if name == "authority" else _DATABASES[name]
     if [tuple(r) for r in conn.execute(f"SELECT version FROM {table}")] != [(version,)]:
         raise AccessDenied("Recovery journal schema is unknown")
     if conn.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
@@ -107,7 +107,8 @@ class RecoveryHistory:
         )
 
     def capture(self, scope):
-        descriptor = OwnerBinding(self.config_file, asdict(scope)).check()
+        binding = OwnerBinding(self.config_file, asdict(scope))
+        descriptor = binding.check()
         config = read_private(self.config_file)
         if (
             str(Path(self.paths["core"]).absolute()) != config["core_database"]
@@ -117,7 +118,7 @@ class RecoveryHistory:
         return {
             "version": 1,
             "files": {name: physical(path) for name, path in self.paths.items()},
-            "owner": file_binding(config["workflow_control"]["record"]),
+            "owner": file_binding(binding.settings["record"]),
             "descriptor": descriptor,
         }
 

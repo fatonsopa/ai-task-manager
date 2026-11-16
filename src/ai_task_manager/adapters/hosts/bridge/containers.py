@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ai_task_manager.adapters.process.groups import OwnedProcessGroup, require_group_monitoring
+from ai_task_manager.adapters.workflow_control.identity import file_binding
 from ai_task_manager.config.files import digest, read_private, write_private
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.observability.failures import FailureStage, capture_failure
@@ -183,6 +184,7 @@ class DockerCommands:
             "deadline": self.deadline,
             "directory": str(directory),
             "input": manifest,
+            "recovery_key": secrets.token_hex(32),
         }
         key = "container:" + operation_key
         if not self.journal.intend(key, record):
@@ -196,6 +198,7 @@ class DockerCommands:
             "deadline": min(self.deadline, self.journal.clock() + plan.seconds + 3),
             "result": str(directory / "cleanup.json"),
             "security": security,
+            "recovery_key": record["recovery_key"],
         }
         write_private(directory / "watch.json", config)
         process = None
@@ -235,6 +238,7 @@ class DockerCommands:
                     "pid": process.pid,
                     "start_identity": group.start_identity,
                     "group": initial.record(),
+                    "watch": file_binding(directory / "watch.json"),
                 },
             )
             return self._wait(self.jobs[key], boundary, effect_boundary, config)

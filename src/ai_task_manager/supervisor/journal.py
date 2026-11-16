@@ -22,6 +22,17 @@ def digest(value):
 
 
 class RuntimeJournal:
+    @classmethod
+    def open_existing(cls, path, *, clock=time.time):
+        from ai_task_manager.adapters.workflow_control.recovery import physical
+
+        value = cls.__new__(cls)
+        value.path, value.clock = Path(path).absolute(), clock
+        value._existing_binding = physical(path)
+        with value.transaction():
+            pass
+        return value
+
     def __init__(self, path: Path, *, clock=time.time):
         self.path = Path(path).absolute()
         self.clock = clock
@@ -52,12 +63,24 @@ class RuntimeJournal:
 
     @contextmanager
     def transaction(self):
-        conn = sqlite3.connect(self.path, timeout=10, isolation_level=None)
+        binding = getattr(self, "_existing_binding", None)
+        conn = sqlite3.connect(
+            self.path.as_uri() + "?mode=rw" if binding else self.path,
+            uri=binding is not None,
+            timeout=10,
+            isolation_level=None,
+        )
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("PRAGMA busy_timeout=10000")
             conn.execute("BEGIN IMMEDIATE")
+            if binding:
+                from ai_task_manager.adapters.workflow_control.recovery import _probe
+
+                _probe(conn, binding, "runtime")
             yield conn
+            if binding:
+                _probe(conn, binding, "runtime")
             conn.commit()
         except BaseException:
             conn.rollback()

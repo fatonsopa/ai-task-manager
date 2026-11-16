@@ -24,6 +24,7 @@ class WorkflowDriver:
         faults=None,
         recovery_history=None,
         code_delivery=None,
+        owner_identity=None,
     ):
         self.core, self.handle, self.store, self.plans = core, handle, store, plans
         self.runtime, self.repository, self.provider = runtime, repository, provider
@@ -31,6 +32,7 @@ class WorkflowDriver:
         self.commits = commits
         self.code_delivery = code_delivery
         self.recovery_history = recovery_history
+        self.owner_identity = owner_identity
         self.clock = clock or core.context.clock
         self.session_id, self.scope = core.session_binding(handle)
 
@@ -230,7 +232,12 @@ class WorkflowDriver:
 
     def run(self, ref):
         owner = str(uuid4())
-        self.store.claim(ref, self.scope, owner)
+        self.store.claim(
+            ref,
+            self.scope,
+            owner,
+            controller=self.owner_identity() if self.owner_identity else None,
+        )
         try:
             for _ in range(self._context(ref)[2].max_steps):
                 row, task, plan = self._context(ref)

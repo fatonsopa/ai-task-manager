@@ -311,7 +311,8 @@ class NormalInvocationController:
 
         require(
             type(invocation) is InvocationBinding
-            and type(not_after) in {int, float} and math.isfinite(not_after)
+            and type(not_after) in {int, float}
+            and math.isfinite(not_after)
             and not_after <= invocation.deadline,
             "Original finite identity parent authority required",
         )
@@ -320,10 +321,13 @@ class NormalInvocationController:
             self._current(conn)
             row = self._owned(conn, invocation.call_id, invocation.worker_identity, "running")
             require(
-                row["uses_worker"] and not row["process_stopped"]
-                and InvocationBinding.observed({
-                    "run_id": self.store.binding.store_id, "policy_revision": 1, "call": row
-                }) == invocation and self.clock().timestamp() < not_after,
+                row["uses_worker"]
+                and not row["process_stopped"]
+                and InvocationBinding.observed(
+                    {"run_id": self.store.binding.store_id, "policy_revision": 1, "call": row}
+                )
+                == invocation
+                and self.clock().timestamp() < not_after,
                 "Original identity parent, scope or validity changed",
             )
 
@@ -331,8 +335,10 @@ class NormalInvocationController:
             validate(conn)
             deadline = min(not_after, self.permission["deadline"])
         with self.store.identity_acquisition(
-            not_after=deadline, clock=lambda: self.clock().timestamp(),
-            cancelled=cancelled, validate=validate,
+            not_after=deadline,
+            clock=lambda: self.clock().timestamp(),
+            cancelled=cancelled,
+            validate=validate,
         ):
             # The body performs each admission/launch/accounting operation once.
             # Only its zero-effect writer acquisition may wait.
@@ -346,7 +352,15 @@ class NormalInvocationController:
         return self.record_outcome(invocation.call_id, invocation=invocation, **observed)
 
     def record_outcome(
-        self, call_id, *, outcome, process_stopped, evidence_ref, invocation=None, cancelled=None
+        self,
+        call_id,
+        *,
+        outcome,
+        process_stopped,
+        evidence_ref,
+        invocation=None,
+        cancelled=None,
+        settlement_check=None,
     ):
         require(
             outcome in {"succeeded", "failed", "interrupted", "unknown"}
@@ -369,11 +383,16 @@ class NormalInvocationController:
                 current = self._current(conn, admission=False)
                 original = self.store.read(conn, "native_calls", call_id)
                 require(
-                    original is not None and original["permission_ref"] == self.reference
-                    and InvocationBinding.observed({
-                        "run_id": self.store.binding.store_id, "policy_revision": 1,
-                        "call": original,
-                    }) == invocation,
+                    original is not None
+                    and original["permission_ref"] == self.reference
+                    and InvocationBinding.observed(
+                        {
+                            "run_id": self.store.binding.store_id,
+                            "policy_revision": 1,
+                            "call": original,
+                        }
+                    )
+                    == invocation,
                     "Original native settlement owner or deadline differs",
                 )
                 deadline = min(invocation.deadline, current["deadline"])
@@ -383,6 +402,9 @@ class NormalInvocationController:
                 "cancelled": cancelled,
             }
         with self.store.transaction(**wait) as conn:
+            if settlement_check is not None:
+                require(callable(settlement_check), "Current settlement guard must be callable")
+                settlement_check()
             # Settlement remains possible after expiry/revocation; it cannot launch work.
             self._current(conn, admission=False)
             row = self.store.read(conn, "native_calls", call_id)
@@ -398,9 +420,10 @@ class NormalInvocationController:
             )
             if invocation is not None:
                 require(
-                    InvocationBinding.observed({
-                        "run_id": self.store.binding.store_id, "policy_revision": 1, "call": row
-                    }) == invocation,
+                    InvocationBinding.observed(
+                        {"run_id": self.store.binding.store_id, "policy_revision": 1, "call": row}
+                    )
+                    == invocation,
                     "Native settlement owner, scope or original deadline changed",
                 )
             row.update(
@@ -423,6 +446,8 @@ class NormalInvocationController:
                     "evidence_ref": evidence_ref,
                 },
             )
+            if settlement_check is not None:
+                settlement_check()
             return row
 
     def _abort_unreturned_claims(self, rows, *, worker_identity, evidence_ref):

@@ -110,6 +110,11 @@ class OwnerBinding:
 
     def check(self):
         self.seal.check()
+        from .lineage import resolve_control
+
+        current = resolve_control(self.config_file)
+        if current != self.settings:
+            self.settings, self.record_seal = current, None
         if self.record_seal is None:
             self.record_seal = FileSeal(self.settings["record"])
         self.record_seal.check()

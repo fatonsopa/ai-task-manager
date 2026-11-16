@@ -188,6 +188,7 @@ class ManagedNativeHost:
             clock=self.journal.clock,
             boundary=native_boundary,
             invocation=invocation,
+            ownership_observer=self._record_process_owner,
         )
         self.process_registry.attach(self.binding.attempt_id, self.process)
         transcript = OwnedTranscript(self.process, self.journal, self.binding)
@@ -254,6 +255,21 @@ class ManagedNativeHost:
         if not self.startup.ready_ref:
             raise AccessDenied("Native host did not emit authenticated session startup")
         return self.startup.ready_ref
+
+    def _record_process_owner(self, process):
+        self.journal._append(
+            "trace",
+            {
+                "effect": "native_process_created",
+                "binding": asdict(self.binding),
+                "native": asdict(process.identity),
+                "relay": {
+                    "pid": process.process.pid,
+                    "start_identity": process.group.start_identity,
+                    "group": process.group.group_id,
+                },
+            },
+        )
 
     def admit(self, handle, dispatch, attempt):
         gateway = ManagedToolGateway(

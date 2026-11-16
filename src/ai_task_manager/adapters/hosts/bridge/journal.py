@@ -45,9 +45,14 @@ class HostJournal:
             if parent.is_symlink() or parent.stat().st_mode & 0o077:
                 raise AccessDenied("Host storage needs a private owned directory")
         value.clock = clock
+        from ai_task_manager.adapters.workflow_control.recovery import physical
+
+        value._existing_binding = physical(path)
         value._key = value.key_path.read_bytes()
         if len(value._key) != 32:
             raise AccessDenied("Invalid host journal key")
+        with value.transaction():
+            pass
         return value
 
     def __init__(self, path, key_path, *, clock=time.time):
@@ -103,10 +108,21 @@ class HostJournal:
 
     @contextmanager
     def transaction(self):
-        conn = sqlite3.connect(self.path, timeout=10)
+        binding = getattr(self, "_existing_binding", None)
+        conn = sqlite3.connect(
+            self.path.as_uri() + "?mode=rw" if binding else self.path,
+            uri=binding is not None,
+            timeout=10,
+        )
         try:
             conn.execute("BEGIN IMMEDIATE")
+            if binding:
+                from ai_task_manager.adapters.workflow_control.recovery import _probe
+
+                _probe(conn, binding, "host")
             yield conn
+            if binding:
+                _probe(conn, binding, "host")
             conn.commit()
         except BaseException:
             conn.rollback()

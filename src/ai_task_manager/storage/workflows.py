@@ -132,7 +132,9 @@ class WorkflowStore:
             self.path.as_uri() + "?mode=rw"
             if getattr(self, "_existing_only", False)
             else self.path,
-            uri=getattr(self, "_existing_only", False), isolation_level=None, timeout=2,
+            uri=getattr(self, "_existing_only", False),
+            isolation_level=None,
+            timeout=2,
         )
         conn.row_factory = sqlite3.Row
         try:
@@ -312,7 +314,7 @@ class WorkflowStore:
                 raise AccessDenied("Scoped workflow is unavailable")
             return row["operation_key"]
 
-    def claim(self, reference, scope, owner):
+    def claim(self, reference, scope, owner, *, controller=None):
         self.read(reference, scope)
         with self.transaction() as conn:
             if conn.execute(
@@ -324,6 +326,28 @@ class WorkflowStore:
             ).rowcount
             if changed != 1:
                 raise AccessDenied("Another or unresolved controller owns this workflow")
+            if controller is not None:
+                body = json.loads(
+                    conn.execute("SELECT body FROM runs WHERE id=?", (reference,)).fetchone()[0]
+                )
+                body["claim_controller"] = controller
+                conn.execute("UPDATE runs SET body=? WHERE id=?", (canonical(body), reference))
+
+    def release_dead_claim(self, reference, scope, owner, controller, check):
+        """Release only an exact forward claim after its trusted owner check."""
+        with self.transaction() as conn:
+            row = conn.execute(
+                "SELECT owner,body FROM runs WHERE id=? AND scope=?",
+                (reference, canonical(asdict(scope))),
+            ).fetchone()
+            if (
+                row is None
+                or row["owner"] != owner
+                or json.loads(row["body"]).get("claim_controller") != controller
+            ):
+                raise AccessDenied("Original controller claim is missing or changed")
+            check()
+            conn.execute("UPDATE runs SET owner=NULL WHERE id=? AND owner=?", (reference, owner))
 
     def release(self, reference, owner):
         with self.transaction() as conn:

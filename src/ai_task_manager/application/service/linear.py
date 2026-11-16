@@ -100,7 +100,7 @@ class CredentialEnvironment:
 
 
 class LinearComponents:
-    def __init__(self, config, *, client_factory=None):
+    def __init__(self, config, *, client_factory=None, existing_only=False):
         connection_keys = {"agent_connection"}
         file_keys = {"expected", "credential_file", "credential_key", "journal"} | connection_keys
         environment_keys = {"expected", "credential_environment", "journal"} | connection_keys
@@ -147,9 +147,13 @@ class LinearComponents:
         parent = Path(config["journal"]).parent
         if not parent.is_dir() or parent.is_symlink() or parent.stat().st_mode & 0o077:
             raise AccessDenied("Linear journal requires private operator storage")
-        self.journal = ProviderJournal(config["journal"])
+        self.journal = (ProviderJournal.open_existing if existing_only else ProviderJournal)(
+            config["journal"]
+        )
         dependency_path = Path(config["journal"])
-        self.scheduling_sources = DependencyReceipts(
+        self.scheduling_sources = (
+            DependencyReceipts.open_existing if existing_only else DependencyReceipts
+        )(
             dependency_path.with_name(dependency_path.name + ".dependencies.sqlite"),
             dependency_path.with_name(dependency_path.name + ".dependencies.key"),
         )

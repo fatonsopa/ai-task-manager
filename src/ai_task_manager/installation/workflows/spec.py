@@ -26,14 +26,14 @@ class BoundFile(FileSeal):
 
 
 class Installation:
-    def __init__(self, path, config_file, *, clock=time.time):
+    def __init__(self, path, config_file, *, clock=time.time, retained=False):
         self.seal = BoundFile(path)
         self.config_seal = BoundFile(config_file)
         data = read_private(path)
         schema = json.loads(Path(__file__).with_name("schema.json").read_text())
         if list(Draft202012Validator(schema).iter_errors(data)):
             raise ValidationError("Installation does not match the closed workflow schema")
-        if data["version"] is True or data["deadline"] <= clock():
+        if data["version"] is True or (not retained and data["deadline"] <= clock()):
             raise ValidationError("Installation needs an original finite future deadline")
         if data["installation_path"] != str(self.seal.path):
             raise AccessDenied("Copied installation path does not hold this registration")

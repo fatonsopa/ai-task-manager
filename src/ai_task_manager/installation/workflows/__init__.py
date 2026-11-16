@@ -23,13 +23,19 @@ def launch(
     stop=None,
     ready=None,
     reviews=None,
+    recovery=None,
 ):
     if registry is None:
         from ai_task_manager.installation.native import resolve
 
         registry = resolve(config_file, installation_file, service_options=service_options)
     installed = InstalledWorkflow(
-        config_file, installation_file, registry, service_options=service_options, reviews=reviews
+        config_file,
+        installation_file,
+        registry,
+        service_options=service_options,
+        reviews=reviews,
+        recovery=recovery,
     )
     installed.serve(stop, ready)
     shutdown = installed.owner.shutdown_result

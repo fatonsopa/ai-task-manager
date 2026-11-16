@@ -34,6 +34,23 @@ def test_settled_runtime_recovery_uses_observed_outcome(rr):
     }
 
 
+def test_current_stop_receipt_cannot_outlive_its_separate_authority(rr):
+    dispatch = rr.start()
+    stopped = rr.supervisor.stop(rr.rig.handle, dispatch, operation_key=rr.rig.key())
+    until = rr.rig.now + 1
+    reference = rr.proofs.outcome(
+        rr.rig.scope, dispatch.attempt_id, stopped.observation_id, not_after=until
+    )
+    assert rr.proofs.verify_evidence(reference).expires_at == until
+    rr.rig.now += 2
+    with pytest.raises(EvidenceRequired):
+        rr.proofs.verify_evidence(reference)
+    with pytest.raises(EvidenceRequired, match="settlement authority expired"):
+        rr.proofs.outcome(
+            rr.rig.scope, dispatch.attempt_id, stopped.observation_id, not_after=until
+        )
+
+
 def test_registered_intent_prevents_competing_effect_after_lost_reply(rr):
     task, attempt = rr.rig.reserved()
     owner = rr.journal.claim(attempt, asdict(rr.rig.scope), deadline=rr.rig.now + 30)
