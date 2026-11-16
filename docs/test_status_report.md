@@ -509,3 +509,16 @@ Actual owner death and installed original-key recovery/replay preserve dirty/unt
 Original source, fixture, package-verifier and writing-metadata failures remain retained. Both final owners are observed absent; worktrees, candidate, databases and histories remain available to later consumers. Legacy missing witnesses and uncertain host-only commit outcomes remain protected. No original grant or deadline was renewed.
 
 Progress: 4/10 tasks (40%), 1/4 stories (25%) and 0/6 epic criteria (0%) accepted. Next: T05 genuine installed partial-effect recovery. Primary proof: the private DP05-T04 acceptance record, `t04-review-1` assessment and original handoff/package/writing/disposition records.
+
+
+### DP05-T05 — Native qualification blocked
+
+On hold on 16 November 2026. T05-A1/A2 remain unrun; T05-A3 is incomplete. The required genuine provider/code recovery scenarios have not started because no complete current-runtime native capability was enrolled. Accepted T03/T04 component evidence remains valid; T05, S2 and the epic are not accepted.
+
+Three current-runtime capability captures failed with RuntimeUncertain: the first exceeded its original 35-second assignment allowance; the second correctly denied an invalid acknowledgement but did not complete the turn within 90 seconds; the last exceeded its original 30-second neutral-turn allowance before any canary assignment. The one-case denial diagnostic completed in 14.45 seconds and created zero enrollment. The underlying completion cause remains unresolved; these results do not prove account rejection, rate limiting or a product denial defect.
+
+All 29 recorded calls across the three failed captures and one diagnostic stopped; all four probe permissions are revoked and all four driver PIDs are absent. No business project/task, normal execution permission, owner or container was created. The two unused case admissions are withdrawn, with their previous approved bytes and original 19:49:53 UTC expiry retained. Source remains `44b26449`, using the accepted 343-file wheel and 40 locked distributions. No product suite, package rebuild or unrelated review was repeated.
+
+Native retries have stopped. Resume T05 only after the native completion prerequisite is addressed, with a fresh registered finite assignment and supported current capability/admission. Reuse the accepted component evidence and prepared fixture inputs; never revive a failed capture or withdrawn admission. Primary evidence is `.local/worktrees/dp05-t05-v1/.local/t05/handoff.json`, its linked original result records and the current case admission files.
+
+Accepted progress: 4/10 tasks (40%), 1/4 stories (25%), 0/6 epic criteria (0%). DP06 implementation and final DP05 acceptance remain pending.
