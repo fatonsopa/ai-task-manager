@@ -50,6 +50,7 @@ class ManagedWorkers:
         base="HEAD",
         dependencies=None,
         decision_preparation=None,
+        reservation_recovery=None,
     ):
         if isinstance(deadline, bool) or not math.isfinite(deadline) or deadline <= journal.clock():
             raise AccessDenied("Managed workers require the original finite future deadline")
@@ -65,6 +66,7 @@ class ManagedWorkers:
         self.failure_diagnostics = []
         self.diagnostics_truncated = False
         self.decision_preparation = self._decision_preparation = decision_preparation
+        self.reservation_recovery = reservation_recovery
         if dependencies is not None:
             self.bind_dependencies(dependencies)
 
@@ -127,20 +129,29 @@ class ManagedWorkers:
 
         sid, scope = self.core.session_binding(handle)
         controller = {"pid": os.getpid(), "start": process_start(os.getpid())}
-        self.hosts.journal.intend(
-            "managed-reservation:" + operation_key,
-            {
-                "task_id": task_id,
-                "host": host,
-                "scope": asdict(scope),
-                "version": expected_version,
-                "revision": decision_revision,
-                "decision_ref": decision_ref,
-                "reservation_key": operation_key + ":reserve",
-                "controller": controller,
-                "deadline": self.deadline,
-            },
-        )
+        reservation = {
+            "task_id": task_id,
+            "host": host,
+            "scope": asdict(scope),
+            "version": expected_version,
+            "revision": decision_revision,
+            "decision_ref": decision_ref,
+            "reservation_key": operation_key + ":reserve",
+            "controller": controller,
+            "deadline": self.deadline,
+        }
+        identity = "managed-reservation:" + operation_key
+        original = self.hosts.journal.intent(identity)
+        if original is not None and original != reservation and self.reservation_recovery:
+            from ai_task_manager.config.files import digest
+
+            self.reservation_recovery(original, reservation)
+            self.hosts.journal.intend(
+                "managed-reservation-retry:" + digest({"identity": identity, "owner": controller}),
+                {"original": identity, **reservation},
+            )
+        else:
+            self.hosts.journal.intend(identity, reservation)
         attempt = self.core.execution.reserve(
             handle,
             task_id,

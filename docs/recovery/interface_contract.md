@@ -1,7 +1,7 @@
 # Workflow recovery contract
 
 Status: DP05-T02 source candidate. Cold replacement and owned stop have authored component controls; genuine S1 qualification remains open. Successors and resource retirement remain later DP05 work.
-Type: Interface Contract (IC). Sources: [DP05 Implementation Plan (IP)](../plans/deliveries/DP05.md), T01-A1–A3 and T02-A1–A3, parent DP05-S1; R03/R14/R15/R27/R36. The current correction addresses findings DP05-T02-R01 and DP05-T02-R02 and still requires independent review.
+Type: Interface Contract (IC). Sources: [DP05 Implementation Plan (IP)](../plans/deliveries/DP05.md), T01-A1–A3 and T02-A1–A3, parent DP05-S1; R03/R14/R15/R27/R36. The current correction addresses findings DP05-T02-R01, DP05-T02-R02 and DP05-T02-R03 and still requires independent review.
 
 ## Scope and authority
 
@@ -26,6 +26,10 @@ A cold `resume` requires current same-session enrollment and the original unexpi
 A retained author, reviewer or workflow claim may name an earlier owner in the verified signed replacement lineage. Recovery checks that controller's original activation, preserved descriptor, installation and physical source bindings, and confirms that the original process is no longer that owner. It preserves the original controller record; the latest owner does not replace its identity. An unrelated controller remains refused.
 
 The pre-launch path requires an original signed `managed-reservation:` intent recorded before Core reservation. Recovery resolves the exact committed Core operation and event, confirms the dead controller through that same lineage, and holds the original runtime and host journals while checking related component intents, effects, observations and receipts. Any matching fact blocks this pre-launch path. Core independently requires the original reserved attempt with no worker, resource lease or checkpoint. It pauses that same attempt and records `reservation_stopped`; it creates no runtime attempt, managed-owner record, process observation or runtime outcome receipt. An existing runtime claim remains unchanged, and a missing claim stays missing.
+
+The same pre-launch boundary applies to each configured reviewer. Recovery resolves that reviewer's own signed reservation key, task and committed Core operation, then checks its original physical runtime and host journals. It does not create a parent workflow start record for the reviewer. Every reviewer must establish this disposition or complete component-stop evidence before parent settlement.
+
+When the original pending start has no committed reservation, a verified replacement may retry its saved intent under current execution authority. It verifies the original decision, task version, key, deadline and empty reservation history. The first controller's signed pre-reservation witness remains unchanged. A separate signed retry witness records the replacement's actual identity, followed by its ordinary managed-owner record after reservation and runtime claim. A known reservation, related runtime ownership or ambiguous history blocks this retry; it never authorizes another worker for a committed reservation.
 
 A confirmed pre-launch response has `disposition: unlaunched_reservation`, `components_started: false`, the original `attempt_id`, and Boolean `runtime_registered`. The last field describes a controller journal claim, not a launched worker. This path is available only when the original forward witness exists. Older or incomplete reservations without it remain protected; recovery never backfills a witness. Related launch effects, observations, receipts or ambiguous history require the component-stop evidence contract and block this pre-launch disposition.
 

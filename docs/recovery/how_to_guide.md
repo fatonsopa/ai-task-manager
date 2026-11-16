@@ -32,6 +32,10 @@ The candidate supports live-owner continuation, verified cold replacement and ow
 
    If startup stopped before component registration, the workflow's start result may still be pending even though Core committed a reservation. Use the same `stop` request. A confirmed pre-launch disposition reports the original attempt, `disposition: unlaunched_reservation`, `components_started: false`, and whether a runtime claim was recorded. Core pauses that original reservation without creating worker or stop receipts. Missing original forward evidence or any ambiguous launch history keeps the reservation protected; do not create a replacement witness or run another worker to resolve it.
 
+   The same pre-launch checks apply to a configured reviewer through its own original reservation key and journals. The parent stop remains blocked until every reviewer and other applicable consumer is reconciled.
+
+   If the interrupted start committed only its signed intent and Core has no reservation, use `resume` only while current execution authority still permits it. Recovery keeps the original decision, key, deadline and first-owner witness, and records the replacement's actual ownership separately. A committed or uncertain reservation cannot use this path to launch another worker.
+
 4. Preserve the returned workflow identity and separate observed result. Repeating this request continues or returns its recorded work; it does not authorize another attempt or resend an unknown effect.
 
 ## Confirm success

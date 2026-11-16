@@ -266,6 +266,13 @@ class InstalledWorkflow:
             base=d["source_head"],
             dependencies=self.dependencies,
             decision_preparation=authority.decision_preparation,
+            reservation_recovery=(
+                lambda original, current: self.recovery.retry_reservation(
+                    self.service, self.journal, original, current
+                )
+            )
+            if self.recovery
+            else None,
         )
         self.factory.commands = self.workers
         plan = self.spec.plan(self.native.host)

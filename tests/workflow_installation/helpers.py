@@ -299,7 +299,7 @@ def owner_main(root, socket_root, mode="valid"):
         spec["source_head"] = "0" * 40
     installation = root / "installation.json"
     reviewed = reviewer_task = None
-    if mode == "cold-lineage":
+    if mode in {"cold-lineage", "cold-reviewer"}:
         reviewer_task = rig.queued(code=False)
         reviewer_file = root / "reviewer.json"
         reviewer_spec = {
@@ -320,9 +320,33 @@ def owner_main(root, socket_root, mode="valid"):
         spec["reviewer_installation"] = file_binding(reviewer_file)
         from ai_task_manager.installation.workflows import InstalledWorkflow
 
-        reviewed = InstalledWorkflow(config_file, reviewer_file, registry)
+        if mode == "cold-lineage":
+            reviewed = InstalledWorkflow(config_file, reviewer_file, registry)
+        write_private(root / "reviewer-task.json", {"task_id": reviewer_task.id})
     spec["installation_path"] = str(installation)
     write_private(installation, spec)
+    if mode == "cold-reviewer":
+        from types import SimpleNamespace
+
+        from ai_task_manager.installation.native import resolver as resolver_module
+        from ai_task_manager.installation.native import reviewer as reviewer_module
+        from ai_task_manager.installation.native.reviewer import NormalReviewerFactory
+        from ai_task_manager.installation.workflows.spec import Installation
+
+        sealed = Installation(installation, config_file)
+        # Authored manifest/service ports feed the actual normal reviewer factory
+        # and NativeReviewCapture producer; they do not establish native qualification.
+        manifest = SimpleNamespace(
+            installation=SimpleNamespace(path=installation),
+            config=SimpleNamespace(path=config_file),
+            data=spec,
+            check=sealed.check,
+        )
+        registry.reviewer_factory = NormalReviewerFactory(manifest, service_options=options)
+        reviewer_module.load_service = lambda *a, **kw: __import__(
+            "ai_task_manager.config.service", fromlist=["load_service"]
+        ).load_service(*a, **{**options, **kw})
+        resolver_module.resolve = lambda *a, **kw: registry
     write_private(
         root / "prepared.json",
         {
@@ -342,6 +366,7 @@ def owner_main(root, socket_root, mode="valid"):
         "cold",
         "cold-active",
         "cold-lineage",
+        "cold-reviewer",
         "code",
         "code-restart",
         "recovery",
