@@ -476,3 +476,14 @@ Accepted on 16 November 2026 at `a4f9afd8bf45443ba0b51c5fa4c2bdd6fdb1c3f1`: T01-
 Independent review found DP05-T01-R01, now fixed and independently re-reviewed with all three criteria met; structural acceptance passes. Original missing-dependency, read-shape regression and authored native protected-source/ACL failures remain retained. The passing positive uses real local mechanical/Core/Git/resource/process components and authored provider observations. It establishes no genuine native/provider execution, cold restart or S1 acceptance. Owned local test processes are stopped; worktrees, journals and package evidence remain retained for the next consumer.
 
 Progress: 1/10 tasks (10%), 0/4 stories (0%) and 0/6 epic criteria (0%) accepted. Next: T02 cold owner/worker reconciliation and genuine installed interruption/stop qualification. Primary proof: `.local/delivery-learning/20261116-dp05-v1/DP05-T01-accepted.json` and its linked original review/test/package records; scope and acceptance remain in the [DP05 Implementation Plan (IP)](plans/deliveries/DP05.md).
+
+
+### DP05-S1 — Interrupted owner recovery
+
+Accepted on 16 November 2026 at `82299734`: T02-A1–A3, S1-A1–A3 and DP05-DOD-v1 pass. The unchanged `ddc952d` runtime matches the wheel and installation across 342 files and 40 distributions. Sixteen selected source checks and sixteen installed checks pass; compatible earlier reviews and controls are reused.
+
+Genuine qualification passes eleven canaries. Installed cold replacement/resume/replay preserves the original workflow, attempt, key, deadline and exact report. Active-native interruption/stop/replay pauses the original attempt, retains the cancellation hold and releases its leases. A separate resume blocks for human_or_assignment_change before expiry. All 27 current native calls stopped; original owners/harnesses are stopped. Semantic review and business completion remain pending in the retained fixture.
+
+The original replacement verifier failed on repeated resource observations. Independent canonical checks establish one unchanged physical pair across fifteen observations; the original failure and supplemental endpoint-absence failure remain failed. Independent task/resource sentinels remain unchanged. Three normal permissions, two conformance enrollments and four API/Core qualification sessions are revoked. Original deadlines, work, journals and the dead owner’s stale socket remain retained for T08. No authenticated human webhook actor or complete provider transport audit is claimed.
+
+Progress: 2/10 tasks (20%), 1/4 stories (25%) and 0/6 epic criteria (0%) accepted. Next: T03 retained provider-operation reconciliation. Primary proof: the existing private DP05-T02/DP05-S1 acceptance records and their `t02-genuine-outcome-review-1` assessment, qualification handoff and revocation receipt. Scope remains in the [DP05 Implementation Plan (IP)](plans/deliveries/DP05.md).
