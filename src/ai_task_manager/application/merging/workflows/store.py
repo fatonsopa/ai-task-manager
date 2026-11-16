@@ -77,6 +77,19 @@ class MergeWorkflowStore:
         self._save(ref, row, dict(facts, owner=owner))
         return owner
 
+    def release_dead_claim(self, ref, expected, check):
+        """Transfer control only after the installed owner verifies its lineage."""
+        row = self.journal.current(ref)
+        facts = row["facts"]["merge_workflow"]
+        if facts["owner"] != expected or expected is None:
+            raise AccessDenied("Original merge controller claim changed")
+        check(expected)
+        self._save(
+            ref,
+            row,
+            dict(facts, owner=None, owner_history=[*facts.get("owner_history", []), expected]),
+        )
+
     def update(self, ref, expected_owner, **changes):
         row = self.journal.current(ref)
         facts = row["facts"]["merge_workflow"]

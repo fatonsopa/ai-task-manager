@@ -71,8 +71,10 @@ class MergeWorkflowService(WorkflowService):
         publication_lifecycle=None,
         maximum_attempts=1,
         publication_worktree=None,
+        recover_claim=None,
     ):
         self.core, self.handle, self.plan = core, handle, plan
+        self.recover_claim = self._recover_claim_bound = recover_claim
         self.original_plan = plan
         if type(maximum_attempts) is not int or not 1 <= maximum_attempts <= 4:
             raise AccessDenied("Installed candidate attempts must be an integer from 1 to 4")
@@ -97,6 +99,8 @@ class MergeWorkflowService(WorkflowService):
             raise AccessDenied("Installed merge plan outlives the current owner admission")
 
     def _scope(self):
+        if self.recover_claim is not self._recover_claim_bound:
+            raise AccessDenied("Installed merge recovery owner changed")
         if self.publication_worktree != self._publication_worktree_bound:
             raise AccessDenied("Installed publication worktree changed")
         if self.maximum_attempts != self._maximum_attempts:
@@ -404,6 +408,8 @@ class MergeWorkflowService(WorkflowService):
             raise AccessDenied("Merge workflow is not the current installed context")
         self.plan = current_plan(self.original_plan, row, maximum_attempts=self.maximum_attempts)
         self.references.add(workflow_ref)
+        if row["owner"] is not None and self.recover_claim is not None:
+            self.store.release_dead_claim(workflow_ref, row["owner"], self.recover_claim)
         owner = self.store.claim(workflow_ref)
         ref = workflow_ref
         try:
@@ -496,7 +502,7 @@ class MergeWorkflowService(WorkflowService):
                             "candidate_" + candidate.status,
                         )
                     self.candidate.store.owner(candidate.operation_ref)
-                    self.candidate.reconcile(candidate.operation_ref)
+                    self.candidate.reconcile(candidate.operation_ref, self.plan.grant)
                     self._ready()
                     if self.candidate_reviews is not None:
                         review = self.candidate_reviews.read(task, candidate)
@@ -511,21 +517,24 @@ class MergeWorkflowService(WorkflowService):
                             {"commit": candidate.commit},
                             lambda: review,
                         )
+                    prepared_check = self.check_inputs.prepare(
+                        self.candidate.profile,
+                        self.plan.grant,
+                        candidate,
+                        ref + ":checks:" + self.plan.grant.digest,
+                    )
                     check_plan = self._step(
                         ref,
                         owner,
                         "check_plan",
                         {"candidate": candidate.commit},
-                        lambda: {
-                            "ref": self.check_inputs.prepare(
-                                self.candidate.profile,
-                                self.plan.grant,
-                                candidate,
-                                ref + ":checks:" + self.plan.grant.digest,
-                            )
-                        },
+                        lambda: {"ref": prepared_check},
                     )
                     check_ref = check_plan["ref"]
+                    if check_ref != prepared_check:
+                        raise AccessDenied(
+                            "Retained check plan differs from exact candidate inputs"
+                        )
                     b = self.plan.grant.binding
                     check_scope = Scope(b.principal_id, b.project_id, b.session_id, b.task_id)
 
@@ -569,6 +578,10 @@ class MergeWorkflowService(WorkflowService):
                     candidate = CandidateResult(**steps["candidate"]["result"])
                     check_ref = steps["check_plan"]["result"]["ref"]
                     intent = steps["publication_intent"]["result"]
+                if fence_step is not None:
+                    self.check_inputs.restore(
+                        self.candidate.profile, self.plan.grant, candidate, check_ref
+                    )
                 g = self.plan.grant
 
                 def begin_context():

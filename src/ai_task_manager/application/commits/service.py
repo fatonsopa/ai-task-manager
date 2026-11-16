@@ -78,6 +78,7 @@ class WorkerCommits:
             raise EvidenceRequired("Code commits require installed verified checks")
         snapshot = self.git.snapshot(pair.worktree, plan.allowed_files)
         return {
+            "commit_protocol": 1,
             "task_id": task.id,
             "task_version": task.version,
             "attempt_id": attempt.id,
@@ -205,6 +206,10 @@ class WorkerCommits:
     def reconcile(self, row, plan, intent):
         _, attempt, pair, fact = self._current(row, plan)
         original = self.journal.effect(attempt.id, "worker-commit-intent")
+        if original is None and intent.get("commit_protocol") == 1:
+            # The component writes this intent before any staging, check or hook.
+            # Revalidate the original snapshot; no external effect was admitted.
+            return self.run(row, plan, intent)
         candidate = self.journal.effect(attempt.id, "worker-commit-candidate")
         if original != intent or candidate is None:
             raise RuntimeUncertain(

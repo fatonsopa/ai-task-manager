@@ -489,3 +489,39 @@ def test_human_hold_during_hook_stops_commit_and_retains_resources(project, tmp_
     processes = project.rr.journal.observations(pair.attempt_id, "worker-git-result")
     final = [r for r in processes if r["stage"] == "commit"][-1]
     assert final["outcome"] == "interrupted" and final["group"]["confirmed_stop"]
+
+
+@pytest.mark.parametrize("change", ["none", "content", "legacy"])
+def test_pending_workflow_commit_before_component_intent_continues_owned_work(project, change):
+    row = project.execute_only()
+    pair = project.runtime.pair(row["attempt_id"])
+    intent = project.commits.prepare(row, project.plan)
+    if change == "legacy":
+        intent.pop("commit_protocol")
+    owner = "original-before-component"
+    project.store.claim(project.ref, project.rig.scope, owner)
+    project.store.intend(project.ref, owner, "worker-commit", intent)
+    project.store.release(project.ref, owner)
+    inode = pair.database.stat().st_ino
+    original = (pair.worktree / "result.py").read_bytes()
+    if change == "content":
+        (pair.worktree / "result.py").write_text("Retained changed work\n")
+    result = project.driver.run(project.ref)
+    if change == "legacy":
+        assert result["state"] == "uncertain", result
+        assert project.checks.calls == 0
+        assert project.rr.journal.effect(pair.attempt_id, "worker-commit-intent") is None
+        assert (pair.worktree / "result.py").read_bytes() == original
+        return
+    if change == "content":
+        assert result["state"] == "blocked" and result["reason"] == "AccessDenied", result
+        assert project.checks.calls == 0
+        assert (pair.worktree / "result.py").read_text() == "Retained changed work\n"
+        assert project.rr.journal.effect(pair.attempt_id, "worker-commit-intent") is None
+        assert pair.database.stat().st_ino == inode
+        return
+    assert_host_refusal(project, result)
+    assert project.checks.calls == 1
+    assert pair.database.stat().st_ino == inode
+    assert (pair.worktree / "result.py").read_bytes() == original
+    assert len(project.rr.runtime.workers) == 1

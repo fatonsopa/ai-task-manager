@@ -48,6 +48,8 @@ class NativeContext:
     resources: object
     runtime: object
     deadline: float
+    recovery: object = None
+    code_history: object = None
 
 
 class NoCommands:
@@ -196,6 +198,7 @@ class InstalledWorkflow:
             self.resources,
             self.processes,
             d["deadline"],
+            recovery=self.recovery,
         )
         authority = self.native.prepare(context)
         if type(authority) is not NativeAuthorities:

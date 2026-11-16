@@ -90,6 +90,19 @@ class CheckStore:
                 raise SchemaError("Invalid checks store identity") from None
             self.store_id = rows[0][1]
 
+    @classmethod
+    def open_existing(cls, binding, *, faults=None):
+        """Open the original enrolled store without initialization or migration."""
+        value = cls.__new__(cls)
+        value.path, value.faults = Path(binding["path"]).absolute(), faults
+        value.file_identity = value._identity()
+        if list(value.file_identity) != [binding["device"], binding["inode"]]:
+            raise AccessDenied("Original retained store file changed")
+        value.store_id = binding["store_id"]
+        with value._transaction():
+            pass
+        return value
+
     def _identity(self):
         s = private_path(self.path).stat()
         return s.st_dev, s.st_ino
@@ -112,7 +125,12 @@ class CheckStore:
     def _transaction(self, *, write=True):
         if self._identity() != self.file_identity:
             raise AccessDenied("Checks store file identity changed")
-        conn = sqlite3.connect(self.path, timeout=5 if write else 0, isolation_level=None)
+        conn = sqlite3.connect(
+            self.path.as_uri() + "?mode=rw",
+            uri=True,
+            timeout=5 if write else 0,
+            isolation_level=None,
+        )
         conn.row_factory = sqlite3.Row
         committing = False
         try:

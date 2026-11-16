@@ -288,6 +288,14 @@ class ColdRecovery:
             )
             store.release_dead_claim(row["id"], scope, row["owner"], expected, self.check)
 
+    def merge_controller(self, owner):
+        """Verify the saved merge controller without adopting any child process."""
+        if type(owner) is not dict or set(owner) != {"id", "pid", "birth"}:
+            raise EvidenceRequired("Original merge controller identity is unavailable")
+        self.verify_controller(
+            {"pid": owner["pid"], "start": owner["birth"]}, published=True
+        )
+
     def verify_controller(self, controller, *, instance=None, published=False):
         """Retain an exact controller only through its original signed owner lineage."""
         from ai_task_manager.adapters.workflow_control.lineage import verified_controls

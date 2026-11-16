@@ -225,9 +225,14 @@ class CodeProvisioning:
         if (
             current != context.task
             or current.human_hold
-            or current.delivered_once
-            or current.observed_status != "In Progress"
-            or current.sync_state != "confirmed"
+            or (
+                not context.code_history
+                and (
+                    current.delivered_once
+                    or current.observed_status != "In Progress"
+                    or current.sync_state != "confirmed"
+                )
+            )
             or context.core.context.clock() >= context.deadline
         ):
             raise AccessDenied("Current unexpired owned code task is required")
@@ -256,12 +261,21 @@ class CodeProvisioning:
         owner = CandidateCheckOwner(
             self, context, profile, catalogs, publication_worktree=publication_worktree
         )
+        if context.code_history and context.code_history["checks"]["path"] != str(
+            owner.root / "results.sqlite"
+        ):
+            raise AccessDenied("Retained check store belongs to another installation")
         checks = MergeChecks(
-            CheckStore(owner.root / "results.sqlite"), owner, owner, catalogs=catalogs
+            CheckStore.open_existing(context.code_history["checks"])
+            if context.code_history
+            else CheckStore(owner.root / "results.sqlite"),
+            owner,
+            owner,
+            catalogs=catalogs,
         )
         return CodeCapabilities(
             profile,
-            CandidateChecks(checks, owner.discover),
+            CandidateChecks(checks, owner.discover, owner.restore),
             tuple(self.data["required_hooks"]),
             self.data["attempts"],
             publication_worktree,
@@ -297,7 +311,11 @@ class CandidateCheckOwner:
         self.source, self.context, self.profile, self.catalogs = source, context, profile, catalogs
         self.publication_worktree = publication_worktree
         self.root = Path(context.host_journal.path).parent / "candidate-checks"
-        self.root.mkdir(mode=0o700, exist_ok=True)
+        if context.code_history:
+            if not self.root.is_dir() or not (self.root / "containers").is_dir():
+                raise AccessDenied("Original candidate check resources are missing")
+        else:
+            self.root.mkdir(mode=0o700, exist_ok=True)
         command = source.commands.data
         self.runner = DockerCommands(
             context.host_journal,
@@ -324,7 +342,7 @@ class CandidateCheckOwner:
             self.runner.maximum_jobs,
         )
 
-    def _current(self):
+    def _current(self, *, retained=False):
         if (
             self.source,
             self.context,
@@ -352,22 +370,37 @@ class CandidateCheckOwner:
             raise AccessDenied("Original installed code-check deadline expired")
         task = c.core.get_task(c.handle, c.task.id)
         self.source.registration.require(c.core, c.handle, task)
-        if (
-            task.human_hold
-            or task.delivered_once
-            or task.observed_status != "In Progress"
-            or task.sync_state != "confirmed"
+        if task.human_hold or (
+            not retained
+            and (
+                task.delivered_once
+                or task.observed_status != "In Progress"
+                or task.sync_state != "confirmed"
+            )
         ):
             raise AccessDenied("Current owned code task is not available for checks")
         return task
 
     def discover(self, candidate):
-        self._current()
+        self._select(candidate)
+        self._require_new_work()
+        if not self._verify_source():
+            raise AccessDenied("Published candidate permits only retained evidence consumption")
+        return self._discovery(self._units())
+
+    def restore(self, candidate):
+        self._select(candidate, retained=True)
+        self._verify_source()
+
+    def _select(self, candidate, *, retained=False):
+        self._current(retained=retained)
         c = self.context
         path = Path(c.host_journal.path).parent / "merge/journal.sqlite"
         if not path.is_file():
             raise AccessDenied("Original candidate journal is required for check discovery")
-        store = CandidateStore(Journal(path))
+        store = CandidateStore(
+            Journal.open_existing(c.code_history["merge"]) if c.code_history else Journal(path)
+        )
         data = store.get(candidate.operation_ref)
         store.owner(candidate.operation_ref)
         if data.get("result") != asdict(candidate) or candidate.status != "ready":
@@ -401,13 +434,6 @@ class CandidateCheckOwner:
             Path(candidate.path), candidate.candidate_ref, data["resource"]["physical"]
         )
         self.selected = (candidate, grant, pair, cp, store)
-        self._require_new_work()
-        if not self._verify_source():
-            raise AccessDenied(
-                "Published candidate permits evidence consumption, not new discovery"
-            )
-        units = self._units()
-        return self._discovery(units)
 
     def _discovery(self, units):
         return Discovery(
@@ -418,11 +444,23 @@ class CandidateCheckOwner:
         )
 
     def _verify_source(self):
-        task = self._current()
+        task = self._current(retained=True)
         candidate, grant, pair, cp, store = self.selected
         c = self.context
         attempt = c.core.get_attempt(c.handle, pair.attempt_id)
         scope = c.core.session_binding(c.handle)[1]
+        published = self._published(candidate, grant, cp, store)
+        delivered = (
+            published
+            and task.delivered_once
+            and any(
+                event.task_id == task.id
+                and event.kind == "transition_requested"
+                and event.payload.get("decision_ref") == grant.decision_ref
+                and event.payload.get("cause") == "merge"
+                for event in c.core.notifications.list_events(c.handle)
+            )
+        )
         if (
             (
                 grant.binding.task_id,
@@ -440,8 +478,14 @@ class CandidateCheckOwner:
                 task.prose_digest,
                 self.source.registration.fingerprint,
             )
-            or (task.version, attempt.version, task.decision_revision)
-            != (grant.task_version, grant.attempt_version, grant.decision_revision)
+            or (attempt.version, task.decision_revision)
+            != (grant.attempt_version, grant.decision_revision)
+            or (task.version != grant.task_version and not delivered)
+            or (task.delivered_once and not delivered)
+            or (
+                not task.delivered_once
+                and (task.observed_status != "In Progress" or task.sync_state != "confirmed")
+            )
             or attempt.state != "done"
         ):
             raise AccessDenied("Candidate check authority or version changed")

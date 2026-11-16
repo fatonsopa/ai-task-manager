@@ -198,10 +198,14 @@ class InstalledCodeDelivery:
         self.store.finish(row["id"], owner, name, observed)
         return observed
 
-    def _capabilities(self, attempt, pair):
+    def _capabilities(self, attempt, pair, history=None):
         if attempt.id not in self.capabilities:
             value = self.registration.prepare(
-                replace(self.context, task=self.core.get_task(self.handle, attempt.task_id))
+                replace(
+                    self.context,
+                    task=self.core.get_task(self.handle, attempt.task_id),
+                    code_history=history,
+                )
             )
             self.resources.verify(pair)
             if type(value) is not CodeCapabilities:
@@ -226,12 +230,16 @@ class InstalledCodeDelivery:
                 return observed
 
             self.capabilities[attempt.id] = replace(
-                value, checks=CandidateChecks(wrapped, discover)
+                value, checks=CandidateChecks(wrapped, discover, value.checks.select_retained)
             )
         return self.capabilities[attempt.id]
 
     def _component(self, row, plan, attempt, pair, commit, retained):
-        capability = self._capabilities(attempt, pair)
+        prior = row["steps"].get("code-plan")
+        history = prior["payload"].get("history") if prior else None
+        if prior and self.context.recovery is not None and history is None:
+            raise EvidenceRequired("Original code store bindings are unavailable")
+        capability = self._capabilities(attempt, pair, history)
         profile = capability.profile
         worktree_id = resource_alias("worktree", pair.worktree_id)
         repository_id = resource_alias("repository", str(self.resources.git.repository))
@@ -246,9 +254,13 @@ class InstalledCodeDelivery:
         if record["target_ref"] != self.registration.data["target_ref"]:
             raise AccessDenied("Installed code target differs from the enrolled Git profile")
         root = Path(self.context.host_journal.path).parent / "merge"
-        root.mkdir(mode=0o700, exist_ok=True)
         candidates = root / "candidates"
-        candidates.mkdir(mode=0o700, exist_ok=True)
+        if history:
+            if not root.is_dir() or not candidates.is_dir():
+                raise EvidenceRequired("Original merge resources are missing")
+        else:
+            root.mkdir(mode=0o700, exist_ok=True)
+            candidates.mkdir(mode=0o700, exist_ok=True)
         candidate_profile = CandidateProfile(
             profile,
             worktree_id,
@@ -303,8 +315,12 @@ class InstalledCodeDelivery:
             or g.binding.source_digest != self.registration.fingerprint
         ):
             raise AccessDenied("Saved merge grant differs from exact installed code policy")
+        if history and history["merge"]["path"] != str(root / "journal.sqlite"):
+            raise AccessDenied("Retained merge journal belongs to another installation")
         candidate = CandidateService(
-            Journal(root / "journal.sqlite"),
+            Journal.open_existing(history["merge"])
+            if history
+            else Journal(root / "journal.sqlite"),
             candidate_profile,
             CoreCandidateAuthority(self.core, self.handle, self.resources, pair),
             process_factory=CandidateProcesses,
@@ -326,6 +342,9 @@ class InstalledCodeDelivery:
             publication_lifecycle=self.freshness,
             maximum_attempts=capability.maximum_attempts,
             publication_worktree=capability.publication_worktree,
+            recover_claim=(
+                self.context.recovery.merge_controller if self.context.recovery else None
+            ),
         )
         self.components[row["id"]] = component
         return component
@@ -435,8 +454,27 @@ class InstalledCodeDelivery:
             selected = {
                 "registration": self.registration.fingerprint,
                 "commit": commit,
-                "plan": asdict(component.plan),
+                "plan": asdict(component.original_plan),
             }
+            if prior and "history" in prior["payload"]:
+                selected["history"] = prior["payload"]["history"]
+            elif prior is None:
+                merge_store = component.store.journal
+                check_store = component.check_inputs.checks.store
+                selected["history"] = {
+                    "merge": {
+                        "path": str(merge_store.path),
+                        "device": merge_store.identity[0],
+                        "inode": merge_store.identity[1],
+                        "store_id": merge_store.store_id,
+                    },
+                    "checks": {
+                        "path": str(check_store.path),
+                        "device": check_store.file_identity[0],
+                        "inode": check_store.file_identity[1],
+                        "store_id": check_store.store_id,
+                    },
+                }
             self._step(row, owner, "code-plan", selected, lambda: {"installed": True})
             self.resources.verify(pair)
             # Both independent semantic waits and all downstream check consumers
