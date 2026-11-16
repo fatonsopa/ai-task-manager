@@ -1,5 +1,6 @@
 """Actual waiting-worker launch and complete owned-group supervision."""
 
+import hashlib
 import json
 import math
 import os
@@ -7,6 +8,7 @@ import secrets
 import selectors
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,19 +30,52 @@ class WaitingWorker:
 
 
 class ProcessRuntime:
-    def __init__(self, journal, directory):
+    def __init__(self, journal, directory, *, recovery_directory=None):
         self.journal = journal
         self.directory = Path(directory).absolute()
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.workers = {}
+        self.recovery_directory = Path(recovery_directory) if recovery_directory else None
 
     def launch_waiting(self, attempt_id, *, startup_timeout=2):
         require_group_monitoring()
         owner = self.journal.attempt(attempt_id)
         if self.journal.clock() >= owner["deadline"]:
             raise RuntimeRefused("Runtime deadline expired before startup")
+        recovery = None
+        specification_file = None
+        if self.recovery_directory is not None:
+            parent = self.recovery_directory
+            if (
+                parent.resolve() != parent
+                or parent.stat().st_uid != os.getuid()
+                or parent.stat().st_mode & 0o077
+            ):
+                raise RuntimeRefused("Recovery control requires its original private directory")
+            path = parent / ("h" + secrets.token_hex(4))
+            if len(os.fsencode(path)) > 100 or path.exists() or path.is_symlink():
+                raise RuntimeRefused("Recovery control endpoint is unavailable")
+            recovery = {
+                "path": str(path),
+                "token": secrets.token_hex(32),
+                "attempt_id": attempt_id,
+                "source_sha256": hashlib.sha256(
+                    Path(__file__).with_name("worker.py").read_bytes()
+                ).hexdigest(),
+            }
+            specification_file = tempfile.TemporaryFile(dir=self.directory)
+            os.fchmod(specification_file.fileno(), 0o600)
+            specification_file.write(json.dumps(recovery).encode())
+            specification_file.flush()
+            specification_file.seek(0)
         self.journal.intend(
-            attempt_id, "launch", {"kind": "waiting_harness", "worker_id": owner["worker_id"]}
+            attempt_id,
+            "launch",
+            {
+                "kind": "waiting_harness",
+                "worker_id": owner["worker_id"],
+                **({"recovery": recovery} if recovery else {}),
+            },
         )
         nonce = secrets.token_urlsafe(32)
         stdout, stderr = (
@@ -61,13 +96,17 @@ class ProcessRuntime:
                         str(write_fd),
                         nonce,
                         str(owner["deadline"] - self.journal.clock()),
+                        *([str(specification_file.fileno())] if specification_file else []),
                     ],
                     stdin=subprocess.PIPE,
                     stdout=out,
                     stderr=err,
                     cwd=self.directory,
                     env={"PATH": os.defpath},
-                    pass_fds=(write_fd,),
+                    pass_fds=(
+                        write_fd,
+                        *([specification_file.fileno()] if specification_file else []),
+                    ),
                     start_new_session=True,
                 )
             os.close(write_fd)
@@ -101,6 +140,11 @@ class ProcessRuntime:
                 or not group.start_identity
             ):
                 raise RuntimeUncertain("Waiting-harness identity was not confirmed")
+            if recovery is not None:
+                from ai_task_manager.adapters.workflow_control.identity import endpoint_binding
+
+                if data.get("recovery_control") != endpoint_binding(recovery["path"]):
+                    raise RuntimeUncertain("Waiting-harness recovery endpoint is not confirmed")
             observation = self.journal.observe(
                 attempt_id,
                 "harness_ready",
@@ -111,6 +155,7 @@ class ProcessRuntime:
                     "nonce_matched": True,
                     "runtime_stage": "waiting_harness_initialized",
                     "model_execution": "not_started",
+                    **({"recovery_control": data["recovery_control"]} if recovery else {}),
                 },
             )
             worker = WaitingWorker(attempt_id, process, group, nonce, observation, stdout, stderr)
@@ -131,6 +176,8 @@ class ProcessRuntime:
                 )
             raise
         finally:
+            if specification_file is not None:
+                specification_file.close()
             os.close(read_fd)
             if write_fd >= 0:
                 os.close(write_fd)
