@@ -1,7 +1,7 @@
 # Workflow recovery contract
 
-Status: DP05-T02 source candidate. Cold replacement and owned stop have authored component controls; genuine S1 qualification remains open. Successors and resource retirement remain later DP05 work.
-Type: Interface Contract (IC). Sources: [DP05 Implementation Plan (IP)](../plans/deliveries/DP05.md), T01-A1–A3 and T02-A1–A3, parent DP05-S1; R03/R14/R15/R27/R36. The current correction addresses findings DP05-T02-R01, DP05-T02-R02 and DP05-T02-R03 and still requires independent review.
+Status: DP05-T02 source/component candidate with independent review complete. Cold replacement and owned stop have authored component controls; genuine S1 qualification remains open. Successors and resource retirement remain later DP05 work.
+Type: Interface Contract (IC). Sources: [DP05 Implementation Plan (IP)](../plans/deliveries/DP05.md), T01-A1–A3 and T02-A1–A3, parent DP05-S1; R03/R14/R15/R27/R36. Findings DP05-T02-R01, DP05-T02-R02 and DP05-T02-R03 are independently reviewed as fixed at source/component scope; genuine S1 qualification remains open.
 
 ## Scope and authority
 
