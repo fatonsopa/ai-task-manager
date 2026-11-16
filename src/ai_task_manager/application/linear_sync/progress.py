@@ -523,6 +523,10 @@ class ProgressPublisher:
         self.check_authority()
         _, scope = self.core.session_binding(handle)
         row = self.store.get(scope, publication_id)
+        if self.store.settled(scope, publication_id):
+            self.core.get_task(handle, row["task_id"])
+            self.check_authority()
+            return self._decision_view(self.store.get(scope, publication_id))
         if row["state"] != "confirmed":
             row = self._recover_comment(handle, publication_id)
         if row["decision_state"] is None:
@@ -573,8 +577,16 @@ class ProgressPublisher:
 
         from ai_task_manager.adapters.decisions.human import verify_receipt
 
+        self.check_authority()
         _, scope = self.core.session_binding(handle)
         row = self.store.get(scope, publication_id)
+        if row["decision_state"] is not None and self.store.settled(scope, publication_id):
+            resolution = json.loads(row["resolution"])
+            if row["resolution_key"] != operation_key or resolution["human_ref"] != human_ref:
+                raise ApprovalRequired("Resolution differs from the original key/source")
+            self.core.get_task(handle, row["task_id"])
+            self.check_authority()
+            return self._decision_view(self.store.get(scope, publication_id))
         task, payload, _ = self._decision_context(handle, row)
         if row["state"] != "confirmed":
             raise ApprovalRequired("Decision comment is not confirmed")

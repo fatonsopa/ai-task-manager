@@ -66,7 +66,7 @@ class ProgressStore:
                 conn.execute("UPDATE progress_metadata SET version=2")
 
     @staticmethod
-    def retained(journal, scope, task_id):
+    def retained(journal, scope, task_id, *, unfinished_only=False):
         """Read existing publication history without creating or migrating it."""
         with journal.transaction() as conn:
             if not conn.execute(
@@ -84,7 +84,63 @@ class ProgressStore:
                     "ORDER BY rowid",
                     (encoded(asdict(scope)), task_id),
                 )
+                if not unfinished_only
+                or not ProgressStore._settled(conn, encoded(asdict(scope)), row)
             ]
+
+    @staticmethod
+    def _settled(conn, scope_text, row):
+        if row["state"] != "confirmed" or not (row["comment_id"] or row["candidate_id"]):
+            return False
+        if row["decision_state"] is None:
+            return True
+        if row["decision_state"] != "resolved" or row["label_state"] != "confirmed":
+            return False
+        if not row["resolution_key"] or not row["resolution"]:
+            return False
+        try:
+            payload, resolution = json.loads(row["payload"]), json.loads(row["resolution"])
+            if (
+                set(resolution) != {"human_ref", "option_id", "request_digest"}
+                or not all(isinstance(value, str) and value for value in resolution.values())
+                or resolution["request_digest"] != row["fingerprint"]
+                or resolution["option_id"] not in {o["id"] for o in payload["decision"]["options"]}
+            ):
+                return False
+        except (KeyError, TypeError, ValueError):
+            return False
+        anchor = ProgressStore._anchor(conn, scope_text, payload["issue_id"])
+        if anchor is None:
+            return False
+        if not anchor["effect_owner"]:
+            return True
+        # Another request's shared claim does not reopen this completed one.
+        claims = conn.execute(
+            "SELECT h.publication_id,h.detail,p.fingerprint FROM progress_history h "
+            "JOIN progress_publications p ON p.id=h.publication_id "
+            "WHERE h.state='effect-owner' AND p.scope=? "
+            "AND json_extract(p.payload,'$.issue_id')=? "
+            "AND json_extract(h.detail,'$.owner')=?",
+            (scope_text, payload["issue_id"], anchor["effect_owner"]),
+        ).fetchall()
+        if len(claims) != 1 or claims[0]["publication_id"] == row["id"]:
+            return False
+        claim = json.loads(claims[0]["detail"])
+        return (
+            claim.get("scope") == scope_text
+            and claim.get("anchor") == anchor["id"]
+            and claim.get("fingerprint") == claims[0]["fingerprint"]
+            and claim.get("intent", {}).get("kind") in {"publication", "resolution"}
+        )
+
+    def settled(self, scope, publication_id):
+        """Replay released completion history without reinterpreting current aggregate state."""
+        with self.journal.transaction() as conn:
+            row = conn.execute(
+                "SELECT * FROM progress_publications WHERE id=? AND scope=?",
+                (publication_id, encoded(asdict(scope))),
+            ).fetchone()
+            return row is not None and self._settled(conn, encoded(asdict(scope)), row)
 
     def submit(self, scope, task_id, operation_key, payload):
         if not isinstance(operation_key, str) or not operation_key.strip():

@@ -30,7 +30,7 @@ def reconcile_original(recovery, service, row):
         and operation.state != "confirmed"
     ]
     journal, client = service.provider.journal, service.provider.client
-    publications = ProgressStore.retained(journal, service.scope, task_id)
+    publications = ProgressStore.retained(journal, service.scope, task_id, unfinished_only=True)
     deliveries = service.inbound.next_receipt(service.handle, task_ids=(task_id,))
     if not operations and not publications and deliveries is None:
         return None

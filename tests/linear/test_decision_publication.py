@@ -560,3 +560,156 @@ def test_t03_human_change_fences_an_original_unstarted_label_stage(env, monkeypa
         rig.current(task).human_hold
         and publisher.store.get(rig.scope, first["id"])["label_state"] == "pending"
     )
+
+
+@pytest.mark.parametrize("advance_version", [False, True])
+def test_r01_released_resolution_survives_next_request_and_version_advance(
+    env, monkeypatch, tmp_path, advance_version
+):
+    """Authored HTTP/human/observation ports; completed history must remain history."""
+    import time
+
+    from ai_task_manager.adapters.decisions.authority import HumanInstruction
+    from ai_task_manager.adapters.decisions.observations import intent
+    from ai_task_manager.application.service.facade import ApplicationService
+    from ai_task_manager.installation.workflows import provider_recovery
+
+    rig, task, publisher, approvals = env
+    first = request(env, "resolved-a")
+    choice = HumanInstruction(
+        rig.scope,
+        task.id,
+        task.observed_status,
+        task.decision_revision,
+        "Authored original choice",
+        "authored",
+        task.version,
+        task.prose_digest,
+        None,
+        first["id"],
+        "A",
+        first["fingerprint"],
+    )
+    observations = SimpleNamespace(verify_instruction=lambda _: choice, journal=object())
+    from ai_task_manager.adapters.decisions import human
+
+    def original_choice(journal, reference):
+        assert journal is observations.journal and reference == "choice-a"
+        return choice
+
+    monkeypatch.setattr(human, "verify_receipt", original_choice)
+    publisher.resolve_decision(rig.handle, first["id"], "choice-a", "resolve-a", observations)
+    completed = publisher.store.get(rig.scope, first["id"])
+    assert completed["decision_state"] == "resolved" and completed["effect_owner"] is None
+    assert uid(600) not in json.loads(completed["label_response"])["labels"]
+    original = {
+        k: completed[k]
+        for k in (
+            "id",
+            "fingerprint",
+            "comment_id",
+            "operation_key",
+            "resolution_key",
+            "resolution",
+            "label_response",
+        )
+    }
+    if advance_version:
+        current = rig.current(task)
+        proof = rig.proof(
+            "human_decision",
+            task.id,
+            {
+                "previous_revision": current.decision_revision,
+                "hold": True,
+            },
+        )
+        rig.core.decisions.record(rig.handle, task.id, current.version, proof, rig.key())
+        assert rig.current(task).version > json.loads(completed["payload"])["task_version"]
+    second = request((rig, rig.current(task), publisher, approvals), "open-b")
+    assert (
+        second["decision_state"] == "open"
+        and uid(600) in rig.provider.issues[task.issue_id]["decision_labels"]
+    )
+    mutations = sum("mutation" in q["query"] for q, _ in rig.provider.requests)
+    config_file = tmp_path / "authored-recovery.json"
+    config = {"linear": {"authored": True}, "grant_ref": "authored-enrollment"}
+    enrollment = {
+        "scope": asdict(rig.scope),
+        "config_path": str(config_file),
+        "config_intent": intent(config),
+        "provider": asdict(rig.client.binding.expected),
+    }
+    workflow = {"id": "authored-workflow", "task_id": task.id, "steps": {}}
+    authority = object()
+    recovery = SimpleNamespace(
+        config=config,
+        config_file=config_file,
+        journal=authority,
+        data={"enrollment": enrollment, "enrollment_revocation": None},
+        spec=SimpleNamespace(data={"deadline": time.time() - 1, "scope": asdict(rig.scope)}),
+        check_service=lambda _: workflow,
+    )
+    monkeypatch.setattr(provider_recovery, "installed_authority", lambda _: None)
+    monkeypatch.setattr(
+        provider_recovery,
+        "history",
+        lambda journal, ref: enrollment if ref == config["grant_ref"] else None,
+    )
+    writer = SimpleNamespace(approvals_for_decisions=lambda *args: approvals)
+    service = ApplicationService(
+        rig.core,
+        rig.handle,
+        provider=rig.outbound,
+        inbound=rig.inbound,
+        seal=SimpleNamespace(check=lambda: None),
+        writer=writer,
+        decisions=SimpleNamespace(observations=observations),
+    )
+    recovered = provider_recovery.reconcile_original(recovery, service, workflow)
+    assert recovered["data"]["reason"] == "original_execution_unavailable", recovered
+    assert recovered["data"]["provider_recovery"] == [
+        {"publication_id": second["id"], "state": "confirmed"}
+    ]
+    replay = publisher.recover(rig.handle, first["id"], observations=observations)
+    assert replay["decision_state"] == "resolved" and {k: replay[k] for k in original} == original
+    resolved = publisher.resolve_decision(
+        rig.handle, first["id"], "choice-a", "resolve-a", observations
+    )
+    assert {k: resolved[k] for k in original} == original
+    with pytest.raises(ApprovalRequired, match="original key/source"):
+        publisher.resolve_decision(
+            rig.handle, first["id"], "choice-a", "different-key", observations
+        )
+    with pytest.raises(ApprovalRequired, match="original key/source"):
+        publisher.resolve_decision(
+            rig.handle, first["id"], "different-choice", "resolve-a", observations
+        )
+    # B can own the shared anchor while A remains released history. Replaying
+    # A must neither reinterpret B's label nor release B's unfinished claim.
+    owner = "decision-resolve:authored-b"
+    anchor = publisher.store.decision_claim(
+        rig.scope,
+        second["id"],
+        owner,
+        intent={
+            "kind": "resolution",
+            "operation_key": "resolve-b",
+            "resolution": {
+                "human_ref": "choice-b",
+                "option_id": "B",
+                "request_digest": second["fingerprint"],
+            },
+        },
+    )
+    try:
+        replay = publisher.recover(rig.handle, first["id"], observations=observations)
+        assert (
+            replay["decision_state"] == "resolved" and {k: replay[k] for k in original} == original
+        )
+        assert publisher.store.get(rig.scope, first["id"])["effect_owner"] == owner
+    finally:
+        publisher.store.decision_release(anchor, owner)
+    assert publisher.store.get(rig.scope, second["id"])["decision_state"] == "open"
+    assert uid(600) in rig.provider.issues[task.issue_id]["decision_labels"]
+    assert sum("mutation" in q["query"] for q, _ in rig.provider.requests) == mutations
