@@ -498,3 +498,14 @@ Literal installed recovery preserves the original workflow/key, confirms the kno
 Independent review found DP05-T03-R01, now fixed and independently re-reviewed: completed decision history survives a later valid request, shared-label change and legitimate task-version advance without new effects or release of another request’s claim. Pending, unknown, human, legacy and exact-owner guards remain. Both distinguishing baseline failures and earlier fixture/assertion/writing failures remain retained. Owned test children stopped; journals and protected unfinished state remain available to later consumers.
 
 Progress: 3/10 tasks (30%), 1/4 stories (25%) and 0/6 epic criteria (0%) accepted. Next: T04 partial-code and publication recovery. Primary proof: the existing private DP05-T03 acceptance record, `t03-review-1` and `t03-r01-review-1` assessments, and the original/corrected handoffs and exact package records.
+
+
+### DP05-T04 — Partial code and publication recovery
+
+Accepted on 16 November 2026 at `e9335e7`: T04-A1–A3 and DP05-DOD-v1 pass at source/component scope. Independent assessment is complete and accepted. The unchanged `6af1050` runtime matches the noneditable wheel and installation across 343 files and 40 locked distributions. Fifty-one affected checks pass; later targeted forward-intent, store, crash and installed checks retain their individual bindings and overlap that selection. They are not an accumulated test total.
+
+Actual owner death and installed original-key recovery/replay preserve dirty/untracked work, the original completed unit, candidate/check identity and all fifteen stopped native permission calls while completing remaining merge/provider stages. Actual Git publication stays distinct from pending provider confirmation and independent retirement. These controls use authored provider/native ports; the one-unit positive does not demonstrate a multi-unit subset or genuine S2 execution. T05 remains required.
+
+Original source, fixture, package-verifier and writing-metadata failures remain retained. Both final owners are observed absent; worktrees, candidate, databases and histories remain available to later consumers. Legacy missing witnesses and uncertain host-only commit outcomes remain protected. No original grant or deadline was renewed.
+
+Progress: 4/10 tasks (40%), 1/4 stories (25%) and 0/6 epic criteria (0%) accepted. Next: T05 genuine installed partial-effect recovery. Primary proof: the private DP05-T04 acceptance record, `t04-review-1` assessment and original handoff/package/writing/disposition records.
