@@ -164,7 +164,7 @@ class WorkflowService:
 
         @contextmanager
         def claimed():
-            if not lock.acquire(timeout=120):
+            if not lock.acquire(blocking=False):
                 raise RuntimeRefused("Current task request is still owned")
             try:
                 yield

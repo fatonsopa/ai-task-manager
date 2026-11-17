@@ -57,6 +57,10 @@ def launch(
         )
         installed.service.workflows.check_owner_deadline(installed.spec.data["deadline"])
         installed.owner.member_installations = tuple(members)
+    if recovery is not None:
+        for member in (installed, *members):
+            if member.retained is not None:
+                recovery.release_retained_claim(member.spec, member.service)
     if recovery is not None and installed.owner.recovery is None:
         recovery.authorize(installed.service)
         installed.owner.recovery = recovery

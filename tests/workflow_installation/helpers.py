@@ -311,7 +311,7 @@ def owner_main(root, socket_root, mode="valid"):
     if mode == "wrong-source":
         spec["source_head"] = "0" * 40
     installation = root / "installation.json"
-    if mode == "cold-concurrent":
+    if mode.startswith("cold-concurrent"):
         second = rig.queued(code=False)
         second_repo = root / "second-source"
         subprocess.run(["git", "clone", "-q", "--no-hardlinks", str(r.repo), str(second_repo)], check=True)
@@ -350,6 +350,20 @@ def owner_main(root, socket_root, mode="valid"):
         write_private(root / "reviewer-task.json", {"task_id": reviewer_task.id})
     spec["installation_path"] = str(installation)
     write_private(installation, spec)
+    if mode == "cold-concurrent-claim":
+        from ai_task_manager.storage.workflows import WorkflowStore
+
+        original_release = WorkflowStore.release
+
+        def retain_owned_claim(store, reference, owner):
+            if store.path.parent == root / "installed-state" and not (root / "claim-entered").exists():
+                (root / "claim-entered").write_text(reference)
+                end = time.monotonic() + 15
+                while time.monotonic() < end:
+                    time.sleep(0.05)
+            return original_release(store, reference, owner)
+
+        WorkflowStore.release = retain_owned_claim
     if mode == "cold-reviewer":
         from types import SimpleNamespace
 
@@ -390,6 +404,7 @@ def owner_main(root, socket_root, mode="valid"):
         "valid",
         "cold",
         "cold-concurrent",
+        "cold-concurrent-claim",
         "cold-active",
         "cold-lineage",
         "cold-reviewer",

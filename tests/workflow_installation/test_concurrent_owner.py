@@ -17,9 +17,14 @@ def test_installed_two_task_public_run_resume_and_reader(installed):  # noqa: F8
     root, _, _ = installed
     tasks = [json.loads((root / name).read_text()) for name in ("prepared.json", "second-prepared.json")]
     requests = [{"task_id": task["task_id"], "plan_ref": task["plan_ref"], "operation_key": "two-task:" + str(i)} for i, task in enumerate(tasks)]
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        active = [pool.submit(cli, installed, "workflow", "run", data) for data in requests]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        active = [pool.submit(cli, installed, "workflow", "run", requests[0])]
         try:
+            limit = time.monotonic() + 12
+            while not list((root / "entered").glob("*")) and not active[0].done() and time.monotonic() < limit:
+                time.sleep(0.03)
+            assert len(list((root / "entered").glob("*"))) == 1, [json.loads(f.result().stdout) for f in active if f.done()]
+            active.append(pool.submit(cli, installed, "workflow", "run", requests[1]))
             limit = time.monotonic() + 12
             while time.monotonic() < limit:
                 if len(list((root / "entered").glob("*"))) == 2:
@@ -27,18 +32,30 @@ def test_installed_two_task_public_run_resume_and_reader(installed):  # noqa: F8
                 if any(f.done() for f in active):
                     break
                 time.sleep(0.03)
-            assert len(list((root / "entered").glob("*"))) == 2, [f.result() for f in active if f.done()]
+            assert len(list((root / "entered").glob("*"))) == 2, [json.loads(f.result().stdout) for f in active if f.done()]
             assert all(not f.done() for f in active)
             with sqlite3.connect(root / "core.sqlite") as db:
                 rows = [json.loads(row[0]) for row in db.execute("SELECT data FROM attempts WHERE active=1")]
             assert len(rows) == 2 and {row["task_id"] for row in rows} == {t["task_id"] for t in tasks}
             for field in ("worker_id", "worktree_id", "database_id"):
                 assert len({row[field] for row in rows}) == 2 and all(row[field] for row in rows)
+            retries = [pool.submit(cli, installed, "workflow", "run", data) for data in requests]
+            for retry in retries:
+                refused = retry.result(timeout=5)
+                body = json.loads(refused.stdout or refused.stderr)
+                assert refused.returncode == 4 and body["error"]["message"] == "Current task request is still owned", body
+            assert all(not f.done() for f in active)
             started = time.monotonic()
             for task in tasks:
                 shown = cli(installed, "task", "show", {"task_id": task["task_id"]})
                 body = json.loads(shown.stdout or shown.stderr)
                 assert body["data"]["execution_state"] == "running", body
+            for state in ("installed-state", "second-state"):
+                with sqlite3.connect(root / state / "workflow.sqlite") as db:
+                    reference = db.execute("SELECT id FROM runs").fetchone()[0]
+                observed = cli(installed, "workflow", "inspect", {"workflow_ref": reference})
+                body = json.loads(observed.stdout or observed.stderr)
+                assert observed.returncode == 0 and body["data"]["workflow"] == reference, body
             assert time.monotonic() - started < 8
         finally:
             (root / "release-workers").write_text("release owned fixture barrier\n")
@@ -164,3 +181,55 @@ def test_recovery_core_guard_preserves_unknown_schema(tmp_path):
         with _existing(binding, "core"):
             pytest.fail("Missing Core history recreated")
     assert not path.exists()
+
+
+@pytest.mark.parametrize("cold_owner", [("cold-concurrent-claim", {"COLD_TEST_REPLACEMENT_SECONDS": "4"})], indirect=True)
+@pytest.mark.parametrize("foreign", [False, True])
+def test_stopped_owner_held_sibling_claim(cold_owner, foreign):  # noqa: F811
+    from ai_task_manager.adapters.workflow_control.identity import process_start
+    from ai_task_manager.adapters.workflow_control.lineage import resolve_control
+    from ai_task_manager.config.files import read_private
+    from tests.workflows.test_review_corrections import wait_closed
+    import os
+
+    root, owner, call = cold_owner
+    tasks = [read_private(root / name) for name in ("prepared.json", "second-prepared.json")]
+    requests = [{"task_id": task["task_id"], "plan_ref": task["plan_ref"],
+                 "operation_key": "held-member:" + str(i)} for i, task in enumerate(tasks)]
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(call, "run", requests[0], installed=False)
+        end = time.monotonic() + 12
+        while not (root / "claim-entered").exists() and time.monotonic() < end:
+            time.sleep(0.03)
+        assert (root / "claim-entered").exists()
+        _, second = call("run", requests[1], installed=False)
+        assert second["ok"] and second["data"]["state"] == "awaiting_review", second
+        owner.kill()
+        owner.wait(timeout=5)
+        pending.result(timeout=5)
+    reference = (root / "claim-entered").read_text()
+    path = root / "installed-state/workflow.sqlite"
+    with sqlite3.connect(path) as db:
+        saved_owner, raw = db.execute("SELECT owner,body FROM runs WHERE id=?", (reference,)).fetchone()
+        assert saved_owner is not None
+        if foreign:
+            body = json.loads(raw)
+            body["claim_controller"] = {"pid": os.getpid(), "start": process_start(os.getpid()),
+                                        "instance": "foreign-live-controller"}
+            db.execute("UPDATE runs SET body=? WHERE id=?", (json.dumps(body), reference))
+    _, resumed = call("recover", {"action": "resume", "workflow_ref": second["data"]["workflow"],
+                                 "operation_key": requests[1]["operation_key"]})
+    assert resumed["ok"] and resumed["data"]["state"] == "awaiting_review", resumed
+    control = resolve_control(root / "service.json")
+    with sqlite3.connect(path) as db:
+        retained = db.execute("SELECT owner FROM runs WHERE id=?", (reference,)).fetchone()[0]
+    assert retained == (saved_owner if foreign else None)
+    _, sibling = call("resume", {"workflow_ref": reference}, installed=False)
+    if foreign:
+        assert not sibling["ok"], sibling
+    else:
+        assert sibling["ok"] and sibling["data"]["workflow"] == reference, sibling
+    wait_closed(control)
+    for state in ("installed-state", "second-state"):
+        with sqlite3.connect(root / state / "runtime.sqlite") as db:
+            assert db.execute("SELECT COUNT(*) FROM runtime_attempts").fetchone()[0] == 1

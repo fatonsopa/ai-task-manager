@@ -203,6 +203,36 @@ class ColdRecovery:
         binding = self.witness["workflow"]
         return WorkflowStore.open_existing(binding["path"], store_id=binding["store_id"])
 
+    def release_retained_claim(self, spec, service):
+        """Release one sibling lock only for its exact witnessed dead controller."""
+        from dataclasses import asdict
+        import json
+
+        from ai_task_manager.domains.checks.models import canonical
+
+        witness = self.retained_member(spec)
+        store = service.workflows.driver.store
+        binding = witness["workflow"]
+        if (str(store.path), store.store_id) != (binding["path"], binding["store_id"]):
+            raise AccessDenied("Retained member workflow store differs")
+        with store.transaction() as conn:
+            rows = conn.execute(
+                "SELECT id,owner,body FROM runs WHERE scope=? AND task_id=? "
+                "AND owner IS NOT NULL LIMIT 2",
+                (canonical(asdict(service.scope)), spec.data["task_id"]),
+            ).fetchall()
+        if len(rows) > 1:
+            raise EvidenceRequired("Retained member workflow claims are ambiguous")
+        expected = {**witness["owner"], "instance": self.previous["instance"]}
+        for row in rows:
+            body = json.loads(row["body"])
+            if body.get("claim_controller") != expected or body.get("plan_id") != spec.data["plan_ref"]:
+                continue
+            store.release_dead_claim(
+                row["id"], service.scope, row["owner"], expected,
+                lambda: self.retained_member(spec),
+            )
+
     def local_service(self):
         """Observation and stop require no provider client or execution enrollment."""
         from ai_task_manager.adapters.decisions.authority import DecisionAuthority
