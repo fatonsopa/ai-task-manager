@@ -249,11 +249,14 @@ class AttemptAuthority:
             self._schedule_next_refresh(value, preparation_started, preparation_clock)
             reference = "work-renewal:" + str(uuid4())
             self.registry._prepared[reference] = _Prepared(value, self, native)
-            self.check_prepared(native)
-            publication_attempted = True
-            view = core.scheduling.renew(self.handle, reference, key + ":commit")
-            publication_confirmed = True
-            self.continuity.acknowledge(native)
+            guard = self.native.startup.model_guard
+            model = guard.prepare_effect()
+            with guard.current_boundary(model):
+                self.check_prepared(native)
+                publication_attempted = True
+                view = core.scheduling.renew(self.handle, reference, key + ":commit")
+                publication_confirmed = True
+                self.continuity.acknowledge(native)
             self._current = native
             self._expires_at = value.expires_at
             # Include the actual publication/acknowledgement cost. A late local

@@ -182,7 +182,10 @@ def test_background_freshness_loss_records_unknown_and_retains_resource_ownershi
     assert stopped.state == "paused"
 
 
-def test_task_scoped_managed_lifecycle_renews_and_settles_retained_resources(composition, request):
+@pytest.mark.parametrize("contended", [False, True])
+def test_task_scoped_managed_lifecycle_renews_and_settles_retained_resources(
+    composition, request, monkeypatch, contended
+):
     """Complete local process/Core lifecycle with authored native/provider ports."""
     import secrets
     from dataclasses import asdict
@@ -285,7 +288,57 @@ def test_task_scoped_managed_lifecycle_renews_and_settles_retained_resources(com
     )
     assert attempt.state == "running"
     freshness = workers._freshness[attempt.id]
-    freshness.refresh()
+    if contended:
+        from threading import Thread, current_thread
+
+        guard = factory.owned[attempt.id].startup.model_guard
+        prepared = guard.prepare_effect()
+        held, release, preparing, proceed, completed = (Event() for _ in range(5))
+        failures = []
+        actual_prepare = guard.prepare_effect
+
+        def observed_prepare(*args, **kwargs):
+            if current_thread().name == "controlled-renewal":
+                preparing.set()
+                assert proceed.wait(5)
+            return actual_prepare(*args, **kwargs)
+
+        monkeypatch.setattr(guard, "prepare_effect", observed_prepare)
+
+        def hold_effect():
+            with guard.current_boundary(prepared):
+                held.set()
+                assert release.wait(5)
+
+        def renew_contended():
+            try:
+                freshness.refresh()
+            except BaseException as error:
+                failures.append(error)
+            finally:
+                completed.set()
+
+        holder = Thread(target=hold_effect)
+        renewal = Thread(target=renew_contended, name="controlled-renewal")
+        renewal.start()
+        try:
+            assert preparing.wait(3)
+            holder.start()
+            assert held.wait(3)
+            proceed.set()
+            assert not completed.is_set()
+            with r.db.transaction() as conn:
+                assert conn.execute("SELECT COUNT(*) FROM task_capabilities").fetchone()[0] == 1
+        finally:
+            proceed.set()
+            release.set()
+            if holder.ident is not None:
+                holder.join(5)
+            renewal.join(5)
+        assert not holder.is_alive() and not renewal.is_alive()
+        assert completed.is_set() and not failures
+    else:
+        freshness.refresh()
     events = [e for e in r.core.notifications.list_events(handle)
               if e.kind == "scheduling_authority_renewed"]
     assert events
@@ -311,5 +364,8 @@ def test_task_scoped_managed_lifecycle_renews_and_settles_retained_resources(com
     assert r.core.get_attempt(handle, attempt.id).state == "done"
     assert r.core.get_attempt(handle, prior.id).state == "paused"
     assert factory.owned[attempt.id].process._closed and freshness.close()
+    r.core.revoke_session(handle)
+    with pytest.raises(AccessDenied):
+        r.core.scheduling.renew(handle, reference, key)
     with r.db.transaction() as conn:
         assert conn.execute("SELECT COUNT(*) FROM resource_leases").fetchone()[0] == 0
