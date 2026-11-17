@@ -12,6 +12,11 @@ class Notifications:
             sid, _ = sessions.resolve(conn, handle)
             return events.list_events(conn, sid, after)
 
+    def get_event(self, handle, event_id):
+        with self.c.db.transaction() as conn:
+            sid, _ = sessions.resolve(conn, handle)
+            return events.get(conn, sid, event_id)
+
     def recover_acknowledge(self, handle, event_id, stage, proof_ref, operation_key):
         """Return only an exact completed receipt; this cannot admit a new effect."""
         payload = {

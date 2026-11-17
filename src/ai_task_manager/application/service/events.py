@@ -30,6 +30,9 @@ def event_list(service, data, invocation):
         if service.seal:
             service.seal.check()
         events = service.core.notifications.list_events(service.handle, data.get("after", 0))
+        if service.reporting is not None:
+            selected = service.reporting.check(service, "event_list", data)["event_id"]
+            events = [event for event in events if event.id == selected]
         if events or time.monotonic() >= deadline:
             return result([event_view(service, event) for event in events])
         time.sleep(min(0.1, max(0, deadline - time.monotonic())))

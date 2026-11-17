@@ -35,6 +35,7 @@ class ApplicationService:
         self.existing, self.claim_store = existing, claim_store
         self.dependencies = dependencies
         self.workflows = workflows
+        self.reporting = None
         self.session_id, self.scope = core.session_binding(handle)
 
     def confirm(self, task):
@@ -61,6 +62,8 @@ class ApplicationService:
             current_id, current_scope = self.core.session_binding(self.handle)
             if (current_id, current_scope) != (self.session_id, self.scope):
                 raise ValidationError("Session binding changed")
+            if self.reporting is not None:
+                self.reporting.check(self, operation, data)
             forward = getattr(self.workflows, "forward", None)
             if forward is not None:
                 return forward(operation, data)
@@ -119,4 +122,6 @@ class ApplicationService:
             return failure(error)
 
     def _invoke(self, operation, data, invocation):
+        if self.reporting is not None:
+            self.reporting.check(self, operation, data)
         return HANDLERS[operation](self, data, invocation)

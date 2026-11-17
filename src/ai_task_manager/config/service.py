@@ -57,6 +57,7 @@ def load_service(
         "session_observations",
         "receiver_file",
         "capacity_policies",
+        "reporting_ref",
     }
     if (
         not isinstance(config, dict)
@@ -85,7 +86,7 @@ def load_service(
     # Version-two task authority consumes retained history, including Writer.
     # The marker is read before any constructor could initialize a missing file.
     capability = SessionFile(config["session_file"]).read()
-    if capability["version"] == 2:
+    if capability["version"] == 2 or config.get("reporting_ref"):
         existing_only = True
 
     from ai_task_manager.config.capacity import policies, require_installed
@@ -194,6 +195,14 @@ def load_service(
         dependencies=dependencies,
         workflows=workflows,
     )
+
+    if config.get("reporting_ref"):
+        from ai_task_manager.application.service.reporting import ReportingBoundary
+
+        if config.get("workflow_control") or config["reporting_ref"] != config.get("grant_ref"):
+            raise AccessDenied("Reporting configuration cannot route through a workflow owner")
+        service.reporting = ReportingBoundary(journal, config["reporting_ref"])
+        service.reporting.check(service, "session_show", {})
 
     if config.get("linear"):
         from ai_task_manager.application.linear_sync.inbound import InboundDrain

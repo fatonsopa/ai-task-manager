@@ -44,10 +44,17 @@ def connect_lead(
     notifications = None
     try:
         notifications = NotificationObserver(transcript, startup, output)
+        from ai_task_manager.config.files import read_private
+
+        operations = (
+            ("session_show", "event_list")
+            if read_private(config_file).get("reporting_ref")
+            else ("session_show", "event_list", "task_list", "task_show")
+        )
         gateway = LeadToolGateway(
             slot,
             notifications,
-            allowed_operations=("session_show", "event_list", "task_list", "task_show"),
+            allowed_operations=operations,
             lead_enrollment_ref=lead_enrollment_ref,
         )
         return LeadConnection(slot, notifications, gateway, output)
