@@ -13,6 +13,7 @@ from ai_task_manager.domains.scheduling.models import SchedulingBlocked
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import AttemptState
 from ai_task_manager.observability.failures import FailureStage, capture_failure
+from ai_task_manager.storage.sessions import TaskSession
 
 
 class StartupAuthority:
@@ -36,11 +37,12 @@ class StartupAuthority:
     def check(self):
         self.registry.check()
         core = self.registry.core
+        session, scope = core.session_binding(self.handle)
         task = core.get_task(self.handle, self.task_id)
         attempt = core.get_attempt(self.handle, self.attempt_id)
         if (
             (self.registry, self.handle, self.runtime, self.deadline) != self._bound
-            or core.session_binding(self.handle) != (self.session, self.scope)
+            or (session, scope) != (self.session, self.scope)
             or self.runtime.attempt(self.attempt_id) != self.owner
             or self.owner["deadline"] != self.deadline
             or self.owner["task_id"] != self.task_id
@@ -53,7 +55,14 @@ class StartupAuthority:
             or task.human_hold
             or task.delivered_once
             or task.sync_state != "confirmed"
-            or task.observed_status != "Todo"
+            or (
+                task.observed_status != "Todo"
+                and not (
+                    isinstance(session, TaskSession)
+                    and self.task_id in session.task_ids
+                    and task.observed_status == "In Progress"
+                )
+            )
             or core.context.clock() >= self.deadline
         ):
             raise AccessDenied("Startup no longer has its original bounded task owner")

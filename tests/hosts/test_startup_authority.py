@@ -177,3 +177,100 @@ def test_sa09_collection_cost_cannot_cause_immediate_repeated_refresh(tmp_path, 
     view = provider.rig.core.scheduling.explain(provider.rig.handle, attempt.task_id)
     assert view["source_revision"] == 2
     no_started_worker(provider, attempt)
+
+
+def successor_startup(tmp_path):
+    """Authored current authority over an actually settled Core predecessor."""
+    import secrets
+
+    from ai_task_manager.adapters.linear.dependencies.source import DependencySource
+    from ai_task_manager.application.workflows.recovery import SuccessorAuthorization
+    from ai_task_manager.domains.work.models import Evidence, SessionHandle
+
+    provider = ProviderFixture(tmp_path / "provider")
+    r = provider.rig
+    task = provider.task(code=True)
+    task = r.transition(task, IssueStatus.TODO, "enqueue")
+    provider.sync(task)
+    provider.refresh(task)
+    task, prior = r.running(task)
+    task, prior = r.settle(task, prior, "paused")
+    provider.sync(task)
+    foreign = provider.task()
+    foreign = r.transition(foreign, IssueStatus.TODO, "enqueue")
+    provider.sync(foreign)
+    provider.refresh(foreign)
+    foreign, foreign_attempt = r.reserved(foreign)
+    decision = r.proof(
+        "decision", task.id,
+        {"target": "In Progress", "revision": task.decision_revision, "actor": "agent"},
+        expires_at=r.now + 180,
+    )
+    authorization = SuccessorAuthorization(
+        r.key(), r.scope, "workflow:predecessor", task.id, task.version,
+        task.decision_revision, "fresh-plan", "fresh-digest", "fresh-key",
+        r.now + 180, decision, tuple(task.required_work),
+    )
+    r.proofs.evidence[authorization.reference] = Evidence(
+        "workflow_successor", r.scope, task.id, asdict(authorization), authorization.expires_at
+    )
+    handle = SessionHandle(secrets.token_urlsafe(32))
+    r.core.revoke_session(r.handle)
+    r.core.admit_workflow_successor(
+        r.handle, handle, authorization, lambda *_: "workflow:successor"
+    )
+    source = DependencySource(r.core, handle, provider.client, provider.receipts)
+    current = r.core.get_task(handle, task.id)
+    source.refresh_for_start(
+        task.id, "workflow:successor:start",
+        expected_version=current.version, decision_revision=current.decision_revision,
+    )
+    current = r.core.get_task(handle, task.id)
+    attempt = r.core.execution.reserve(
+        handle, task.id, "host", current.version, current.decision_revision,
+        decision, "workflow:successor:start:reserve",
+    )
+    runtime = RuntimeJournal(tmp_path / "runtime.sqlite", clock=lambda: r.now)
+    runtime.claim(attempt, asdict(r.scope), deadline=r.now + 120)
+    runtime.claim(foreign_attempt, asdict(r.scope), deadline=r.now + 120)
+    registry = WorkAuthorities(r.core, source)
+    r.core.scheduling.renewals = registry
+    return provider, registry, handle, attempt, foreign_attempt, runtime
+
+
+def test_sa10_current_successor_starts_from_retained_in_progress(tmp_path):
+    provider, registry, handle, attempt, _, runtime = successor_startup(tmp_path)
+    startup = registry.starting(handle, attempt, runtime, provider.rig.now + 120)
+    assert startup.check().observed_status == "In Progress"
+    before = len(provider.calls)
+    startup.refresh()
+    startup.finish()
+    assert len(provider.calls) > before
+    assert provider.rig.core.get_attempt(handle, attempt.id).worker_id is None
+
+
+def test_sa11_ordinary_in_progress_still_refuses_startup(tmp_path):
+    from dataclasses import replace
+
+    from ai_task_manager.storage import work
+
+    provider, startup, attempt = owned(tmp_path)
+    r = provider.rig
+    sid, _ = r.core.session_binding(r.handle)
+    with r.db.transaction() as conn:
+        task = work.get(conn, sid, attempt.task_id)
+        work.save(conn, replace(task, observed_status="In Progress"), task.version)
+    before = len(provider.calls)
+    with pytest.raises(AccessDenied):
+        startup.refresh()
+    assert len(provider.calls) == before
+    no_started_worker(provider, attempt)
+
+
+def test_sa12_successor_cannot_start_a_foreign_task(tmp_path):
+    provider, registry, handle, _, foreign, runtime = successor_startup(tmp_path)
+    before = runtime.attempt(foreign.id)
+    calls = len(provider.calls)
+    with pytest.raises(AccessDenied):
+        registry.starting(handle, foreign, runtime, provider.rig.now + 120)
+    assert runtime.attempt(foreign.id) == before and len(provider.calls) == calls
