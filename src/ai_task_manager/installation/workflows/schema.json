@@ -352,6 +352,31 @@
     "code_digest": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "resource_locks": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "prefixItems": [
+          {
+            "enum": [
+              "migration",
+              "test",
+              "resource"
+            ]
+          },
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        ],
+        "items": false
+      }
     }
   },
   "dependentRequired": {

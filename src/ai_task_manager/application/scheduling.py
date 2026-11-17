@@ -422,10 +422,11 @@ class Scheduling:
         if candidates is None:
             candidates = self._candidates(conn, task.session_id, scope)
         eligible = self._selection_ready(conn, scope, task)
+        resources = self.c.execution.resource_state(conn, scope, task) if eligible else None
         selected = bool(candidates and candidates[0][0] == task.id)
         if active and readiness.state == "ready" and not task.human_hold:
             selection_state = active.state
-        elif not eligible:
+        elif not eligible or resources == "unknown":
             selection_state = "blocked"
         else:
             selection_state = "ready" if selected else "waiting"
@@ -441,7 +442,9 @@ class Scheduling:
             "queue_sequence": store.queue_sequence(conn, task.id),
             "selection_state": selection_state,
             "waiting_reason": (
-                "fair_turn" if eligible and wait["bypasses"] >= policy.FAIR_BYPASSES
+                "resource_declaration_unavailable" if resources == "unknown"
+                else "resource_conflict" if resources == "occupied"
+                else "fair_turn" if eligible and wait["bypasses"] >= policy.FAIR_BYPASSES
                 else "priority_order" if eligible and not selected else None
             ),
             "eligible_since": wait["eligible_since"],
@@ -518,6 +521,8 @@ class Scheduling:
             task = work.get(conn, sid, row[0])
             if not self._selection_ready(conn, scope, task, selected):
                 continue
+            if self.c.execution.resource_state(conn, scope, task) != "ready":
+                continue
             current = store.current(conn, task.id)
             order = store.queue_sequence(conn, task.id)
             if order is not None:
@@ -530,6 +535,7 @@ class Scheduling:
         if readiness.state != "ready":
             raise SchedulingBlocked("; ".join(x.release_condition for x in readiness.blockers))
         if phase == "reserve":
+            self.c.execution.require_resources(conn, scope, task)
             candidates = self._candidates(conn, task.session_id, scope, task.id)
             if not candidates or candidates[0][0] != task.id:
                 raise SchedulingBlocked("An earlier eligible queue item has priority")

@@ -18,6 +18,7 @@ class WorkflowPlan:
     deadline: float
     max_steps: int = 16
     commit_checks: tuple[str, ...] = ()
+    resource_locks: tuple[tuple[str, str], ...] | None = None
 
     def __post_init__(self):
         for value in (self.id, self.command_ref, self.host, self.base):
@@ -40,10 +41,23 @@ class WorkflowPlan:
             identifier(reference)
         if not set(self.artifacts) <= set(self.allowed_files):
             raise ValidationError("Artifacts must belong to the trusted allowed file set")
+        if self.resource_locks is not None:
+            if (type(self.resource_locks) is not tuple
+                    or len(self.resource_locks) > 256
+                    or len(set(self.resource_locks)) != len(self.resource_locks)):
+                raise ValidationError("Distinct bounded trusted resource locks are required")
+            for pair in self.resource_locks:
+                if (type(pair) is not tuple or len(pair) != 2
+                        or pair[0] not in {"migration", "test", "resource"}):
+                    raise ValidationError("Unsupported trusted resource lock")
+                identifier(pair[1])
 
     @property
     def digest(self):
-        return fingerprint(asdict(self))
+        value = asdict(self)
+        if self.resource_locks is None:
+            value.pop("resource_locks")
+        return fingerprint(value)
 
 
 class WorkflowPlans:

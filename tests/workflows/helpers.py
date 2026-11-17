@@ -17,7 +17,7 @@ from tests.runtime.helpers import ProviderFixture, RuntimeRig
 
 
 class WorkflowFixture:
-    def __init__(self, path, *, program=None, max_steps=16):
+    def __init__(self, path, *, program=None, max_steps=16, resource_locks=()):
         path.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.rr = RuntimeRig(path)
         self.rig = r = self.rr.rig
@@ -52,6 +52,7 @@ class WorkflowFixture:
             ("result.txt",),
             r.now + 120,
             max_steps,
+            resource_locks=resource_locks,
         )
         self.plans = WorkflowPlans((self.plan,))
         self.driver = self.new_driver()

@@ -52,6 +52,14 @@ class LocalSupervisorPort:
         supervisor.accounting = commands
 
     def binding(self, task, plan):
+        from .resources import bind_resources
+
+        def check(current, selected):
+            if current.prose_digest != task.prose_digest or selected != plan:
+                raise RuntimeRefused("Current mechanical plan declaration changed")
+
+        bind_resources(self.supervisor.core, task, plan,
+                       self.supervisor.resources.git.common, check)
         return self.commands.binding(plan.command_ref)
 
     def start(self, handle, task, plan, decision_ref, key):

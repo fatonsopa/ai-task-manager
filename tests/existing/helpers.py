@@ -30,7 +30,8 @@ from ai_task_manager.domains.work.models import (
     TaskProse,
 )
 from ai_task_manager.storage.database import Database
-from tests.domains.helpers import ProofFixture
+from tests.domains.helpers import AuthoredResourceDeclarations, ProofFixture
+from ai_task_manager.domains.scheduling.resources import AdmissionResources
 from tests.linear.helpers import CONNECTION, EXPECTED, STATES, ProviderFixture
 from tests.scheduling.helpers import SnapshotSource, seed_known_queue
 
@@ -237,6 +238,7 @@ class ExistingRig:
             ]
         )
         self.scheduling_sources = SnapshotSource()
+        self.resource_sources = AuthoredResourceDeclarations(time.time)
         self.core = Core(
             self.db,
             self.policy,
@@ -246,6 +248,7 @@ class ExistingRig:
             approvals=self.approvals,
             renderer=self.renderer,
             scheduling_sources=self.scheduling_sources,
+            resource_sources=self.resource_sources,
         )
         self.handle = self.core.register_session(
             self.journal.bind_principal(self.binding, self.scope)
@@ -285,6 +288,10 @@ class ExistingRig:
     def admit(self, issue_id, key=None):
         ref, prose, approval, selected = self.packet(issue_id)
         task = self.intake.admit(ref, prose, approval, selected, key or str(uuid4()))
+        self.resource_sources.rows[task.id] = AdmissionResources(
+            self.scope, task.id, task.prose_digest, task.decision_revision,
+            "authored-existing-project", (), (),
+        )
         # Record fixture knowledge without changing admission or replay history.
         if not hasattr(self, "known_dependencies"):
             self.known_dependencies = {}

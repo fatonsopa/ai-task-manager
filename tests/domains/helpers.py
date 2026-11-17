@@ -2,6 +2,7 @@
 
 from ai_task_manager.application.core import Core
 from ai_task_manager.application.intake import prose_digest
+from ai_task_manager.domains.scheduling.resources import AdmissionResources
 from ai_task_manager.domains.work.errors import (
     AccessDenied,
     ApprovalRequired,
@@ -41,6 +42,22 @@ class ProofFixture:
         return self.evidence[ref]
 
 
+class AuthoredResourceDeclarations:
+    """Only explicit fixture tasks have a known empty resource-lock set."""
+
+    def __init__(self, clock):
+        self.rows = {}
+        self.clock = clock
+
+    def read(self, scope, task):
+        from dataclasses import replace
+
+        if task.id not in self.rows:
+            raise EvidenceRequired("Authored resource declaration is unavailable")
+        return replace(self.rows[task.id], decision_revision=task.decision_revision,
+                       expires_at=self.clock() + 30)
+
+
 class Rig:
     def __init__(self, path, host_limit=2, project_limit=2, renderer=None):
         self.db = Database(path)
@@ -59,6 +76,8 @@ class Rig:
     def new_core(self):
         if not hasattr(self, "scheduling_sources"):
             self.scheduling_sources = SnapshotSource()
+        if not hasattr(self, "resource_sources"):
+            self.resource_sources = AuthoredResourceDeclarations(lambda: self.now)
         return Core(
             self.db,
             self.policy,
@@ -69,6 +88,7 @@ class Rig:
             renderer=self.renderer,
             clock=lambda: self.now,
             scheduling_sources=self.scheduling_sources,
+            resource_sources=self.resource_sources,
         )
 
     def key(self):
@@ -104,6 +124,11 @@ class Rig:
         )
         handle = handle or self.handle
         task = self.core.intake.submit(handle, prose, self.approval(prose), self.key())
+        scope = self.core.session_binding(handle)[1]
+        self.resource_sources.rows[task.id] = AdmissionResources(
+            scope, task.id, task.prose_digest, task.decision_revision, "authored-project", (), (),
+        )
+        self.core.execution.publish_resources(task)
         if not hasattr(self, "known_dependencies"):
             self.known_dependencies = {}
         self.known_dependencies[task.id] = ((), "normal")

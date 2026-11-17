@@ -33,6 +33,7 @@ class Core:
         renderer=None,
         clock=time.time,
         scheduling_sources=None,
+        resource_sources=None,
     ):
         reject = RejectProofs()
         db.clock = clock
@@ -50,7 +51,8 @@ class Core:
                 capacity.configure(conn, policy)
         self.intake = Intake(self.context)
         self.transitions = Transitions(self.context)
-        self.execution = Execution(self.context)
+        self.execution = Execution(self.context, resource_sources)
+        self.context.execution = self.execution
         self.publications = PublicationFences(self.context, self.execution)
         self.existing = ExistingIssues(self.context)
         self.decisions = Decisions(self.context)

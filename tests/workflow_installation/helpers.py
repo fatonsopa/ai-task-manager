@@ -275,6 +275,7 @@ def owner_main(root, socket_root, mode="valid"):
         "plan_ref": "installed-non-code",
         "files": ["owned.py"],
         "artifacts": ["owned.py"],
+        "resource_locks": [],
     }
     if code:
         spec.update(

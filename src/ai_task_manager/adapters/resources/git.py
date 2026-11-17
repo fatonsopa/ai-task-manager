@@ -21,7 +21,9 @@ def git(repository, *args):
 class GitWorktrees:
     def __init__(self, repository: Path):
         self.repository = Path(repository).resolve()
-        self.common = str(Path(git(self.repository, "rev-parse", "--git-common-dir")).resolve())
+        self.common = str(Path(git(
+            self.repository, "rev-parse", "--path-format=absolute", "--git-common-dir"
+        )).resolve())
 
     def create(self, path: Path, branch: str, base: str):
         if path.exists() or path.is_symlink():

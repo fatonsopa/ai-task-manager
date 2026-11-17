@@ -55,9 +55,9 @@ def require_quiescent(conn):
 
 def migrate(conn):
     version = conn.execute("SELECT version FROM metadata").fetchall()
-    if len(version) != 1 or version[0][0] not in {3, 4, 5}:
-        raise SchemaError("Scheduling migration requires schema 3, 4 or 5")
-    if version[0][0] in {4, 5}:
+    if len(version) != 1 or version[0][0] not in {3, 4, 5, 6}:
+        raise SchemaError("Scheduling migration requires schema 3, 4, 5 or 6")
+    if version[0][0] in {4, 5, 6}:
         validate(conn)
         return
     require_quiescent(conn)
