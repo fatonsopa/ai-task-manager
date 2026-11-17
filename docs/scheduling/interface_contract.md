@@ -17,7 +17,7 @@ The installed dependency integration supplies current complete provider observat
 | Application service / MCP | `task_list`, `task_show` | The same closed input schemas and structured result envelopes as CLI. Unknown request properties are refused. |
 | Ordinary managed lead | `task_list`, `task_show` | These existing read operations are selected from the sealed lead installation before native tool negotiation. Native permission, active account/model/startup, current provider enrollment and gateway scope remain required. |
 | Event-only reporting lead | Existing sealed event operations | A configuration with `reporting_ref` does not expose task reads. It cannot become an ordinary queue-reading lead by supplying another task identifier. |
-| Trusted operator | Existing `workflow_run` / `workflow run` | Exactly `task_id`, `plan_ref` and `operation_key`. Rechecks admission and starts only through the installed workflow. Lead selection is neither a reservation nor worker-start authority. |
+| Trusted operator | Existing `workflow_run` / `workflow run` | Exactly `task_id`, `plan_ref` and `operation_key`. CLI `workflow run` uses `--config` and `--input` through the retained owner; `--installation` belongs to the dedicated owner, lead-report and recovery commands. Rechecks admission and starts only through the installed workflow. Lead selection is neither a reservation nor worker-start authority. |
 
 The success envelope contains `ok: true`, `outcome` and `data`. A list also reports `quarantined_count`; foreign or quarantined prose is excluded. A `task_show` request for another scope is denied. Task and workflow IDs are opaque; titles and display identifiers do not grant access.
 
