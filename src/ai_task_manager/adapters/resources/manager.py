@@ -162,12 +162,13 @@ class ResourceManager:
         with self._consumer_boundary(pair.attempt_id, observe=observe):
             yield self.verify(pair)
 
-    def cleanup(self, core, handle, attempt_id):
+    def cleanup(self, core, handle, attempt_id, *, check=lambda: None):
         # Scope denial must precede creating any physical or journal fence.
         core.get_attempt(handle, attempt_id)
         self.journal.attempt(attempt_id)
         with self._consumer_boundary(attempt_id, exclusive=True):
-            return self._cleanup(core, handle, attempt_id)
+            check()
+            return self._cleanup(core, handle, attempt_id, check=check)
 
     @contextmanager
     def _consumer_boundary(self, attempt_id, *, exclusive=False, observe=None):
@@ -176,17 +177,19 @@ class ResourceManager:
         records = self.journal.observations(attempt_id, "consumer_fence")
         source_records = (
             self.journal.observations(fence_owner, "consumer_fence")
-            if fence_owner != attempt_id else []
+            if fence_owner != attempt_id
+            else []
         )
         if fence_owner != attempt_id and not source_records:
             raise RuntimeRefused("Original resource consumer fence history is unavailable")
         with consumer_boundary(
-            self.root, fence_owner, exclusive=exclusive,
+            self.root,
+            fence_owner,
+            exclusive=exclusive,
             existing_only=fence_owner != attempt_id or bool(records),
         ) as (physical, created):
             if source_records and any(
-                {key: record.get(key) for key in physical} != physical
-                for record in source_records
+                {key: record.get(key) for key in physical} != physical for record in source_records
             ):
                 raise RuntimeRefused("Original resource consumer fence identity changed")
             if records and any(
@@ -228,7 +231,7 @@ class ResourceManager:
                 self.journal.observe(attempt_id, "consumer_fence", physical)
             yield
 
-    def _cleanup(self, core, handle, attempt_id):
+    def _cleanup(self, core, handle, attempt_id, *, check=lambda: None):
         attempt = core.get_attempt(handle, attempt_id)
         task = core.get_task(handle, attempt.task_id)
         if attempt.state in ACTIVE_ATTEMPTS or task.execution_state in {"merging", "unknown"}:
@@ -245,10 +248,37 @@ class ResourceManager:
             raise RuntimeUncertain("Resource ownership is not confirmed")
         fact = records[-1]
         tree, db = Path(fact["worktree"]["path"]), Path(fact["database"]["path"])
+        # A successor can share these physical resources. Its consumers must
+        # have settled too; an old stopped attempt alone is insufficient.
+        with self.journal.transaction() as conn:
+            related = [
+                row[0]
+                for row in conn.execute(
+                    "SELECT id FROM runtime_attempts WHERE task_id=?", (attempt.task_id,)
+                )
+            ]
+        for related_id in related:
+            if related_id == attempt_id:
+                continue
+            intent = self.journal.effect(related_id, "resources")
+            if intent and intent.get("worktree") == str(tree):
+                other = core.get_attempt(handle, related_id)
+                stopped = self.journal.observations(related_id, "runtime_outcome")
+                if (
+                    other.state in ACTIVE_ATTEMPTS
+                    or not stopped
+                    or not stopped[-1].get("quiescent")
+                ):
+                    raise RuntimeRefused("Another resource consumer remains unresolved")
         # Observe the current commit; a worker may have committed since resource creation.
         if tree.exists():
             current = self.git.inspect(tree, fact["worktree"]["branch"], release=True)
             fact = {**fact, "worktree": {**fact["worktree"], "head": current["head"]}}
+        elif self.journal.effect(attempt_id, "remove_worktree"):
+            fact = {
+                **fact,
+                "worktree": self.journal.effect(attempt_id, "remove_worktree")["resource"],
+            }
         self.release_policy.authorize(core, handle, attempt, fact)
         # Revalidate confinement and both resources before the first deletion.
         for kind, path in (("worktree", tree), ("database", db)):
@@ -260,19 +290,43 @@ class ResourceManager:
                 if path.exists() or path.is_symlink():
                     raise RuntimeRefused("A new object occupies a removed resource path")
                 continue
+            removal = self.journal.effect(attempt_id, f"remove_{kind}")
+            if removal is not None:
+                if removal != {"resource": fact[kind]}:
+                    raise RuntimeRefused("Original removal intent differs from resource ownership")
+                if not path.exists() and not path.is_symlink():
+                    if kind == "worktree" and f"worktree {path}\n" in (
+                        self.git.registered_worktrees() + "\n"
+                    ):
+                        raise RuntimeUncertain(
+                            "Worktree removal is not confirmed by its repository"
+                        )
+                    check()
+                    self.journal.observe(
+                        attempt_id,
+                        f"{kind}_removed",
+                        {
+                            "path": str(path),
+                            "reconciled_original_intent": True,
+                        },
+                    )
+                    continue
             unchanged(path, fact[kind]["physical"])
             if kind == "worktree":
                 self.git.inspect(path, fact[kind]["branch"], release=True)
                 self.git.require_clean(path)
             else:
-                self.databases.inspect(path, attempt_id)
+                self.databases.inspect(path, fact["database"]["owner"])
         for kind, path, provider in (
             ("worktree", tree, self.git),
             ("database", db, self.databases),
         ):
             if not self.journal.observations(attempt_id, f"{kind}_removed"):
-                self.journal.intend(attempt_id, f"remove_{kind}", {"resource": fact[kind]})
+                check()
+                if self.journal.effect(attempt_id, f"remove_{kind}") is None:
+                    self.journal.intend(attempt_id, f"remove_{kind}", {"resource": fact[kind]})
                 provider.remove(path, fact[kind])
+                check()
                 self.journal.observe(attempt_id, f"{kind}_removed", {"path": str(path)})
         return {"worktree": "removed", "database": "removed"}
 

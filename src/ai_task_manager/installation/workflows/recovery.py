@@ -83,7 +83,9 @@ def recover(config_file, installation_file, value):
 
         return successor(config_file, installation_file, value)
     spec = Installation(
-        installation_file, config_file, retained=value["action"] in {"inspect", "resume", "stop"}
+        installation_file,
+        config_file,
+        retained=value["action"] in {"inspect", "resume", "stop", "retire"},
     )
     config = read_private(config_file)
     from ai_task_manager.adapters.workflow_control.lineage import resolve_control
@@ -182,16 +184,21 @@ def _cold(config_file, installation_file, value, control, activated):
 
     from .cold import ColdRecovery
 
-    if value["action"] not in {"inspect", "resume", "stop"}:
+    if value["action"] not in {"inspect", "resume", "stop", "retire"}:
         raise Unavailable("The selected recovery action is not installed")
     with setup_lock(config_file):
         recovery = ColdRecovery.admit(config_file, installation_file, value, control, activated)
         recovery.validate_stores()
-        service = (
-            load_service(config_file, workflow_factory=lambda *_: None, existing_only=True)
-            if value["action"] == "resume"
-            else recovery.local_service()
-        )
+        if value["action"] == "retire":
+            from .retirement import observation_service
+
+            service = observation_service(recovery)
+        else:
+            service = (
+                load_service(config_file, workflow_factory=lambda *_: None, existing_only=True)
+                if value["action"] == "resume"
+                else recovery.local_service()
+            )
         row = recovery.check_service(service)
         if value["action"] == "inspect":
             envelope = inspect_row(service.core, service.handle, row, value["operation_key"])
@@ -200,9 +207,17 @@ def _cold(config_file, installation_file, value, control, activated):
                 "callable": True,
                 "effect_eligibility": "requires_complete_owned_stop",
             }
+            envelope["data"]["action_availability"]["retire"] = {
+                "callable": True,
+                "effect_eligibility": "requires_stopped_owned_merged_resources",
+            }
             return envelope
         if value["action"] == "stop":
             return recovery.stop(service)
+        if value["action"] == "retire":
+            from .retirement import retire
+
+            return retire(recovery, service, row)
         from .provider_recovery import reconcile_original
 
         reconciled = reconcile_original(recovery, service, row)

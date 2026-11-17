@@ -99,6 +99,42 @@ class Core:
 
         return admit(self, old_handle, new_handle, authorization, publish)
 
+    def retirement_subject(self, old_handle, observation_ref, attempt_id):
+        """Read one retained task and attempt; never restore execution authority."""
+        import json
+
+        from ai_task_manager.domains.work.errors import AccessDenied
+        from ai_task_manager.domains.work.models import Scope
+
+        with self.context.db.transaction() as conn:
+            row = conn.execute(
+                "SELECT id,scope FROM sessions WHERE token_hash=?",
+                (sessions.token_hash(old_handle.token),),
+            ).fetchone()
+            allowed = None
+            if row is None:
+                row = conn.execute(
+                    "SELECT s.id,s.scope,c.task_ids FROM task_capabilities c "
+                    "JOIN sessions s ON s.id=c.session_id WHERE c.token_hash=?",
+                    (sessions.token_hash(old_handle.token),),
+                ).fetchone()
+                if row is not None:
+                    allowed = json.loads(row["task_ids"])
+            if row is None:
+                raise AccessDenied("Original Core retirement identity is unavailable")
+            scope = Scope(**json.loads(row["scope"]))
+            proof = self.context.evidence.verify_evidence(observation_ref)
+            self.context.proof(
+                observation_ref, "workflow_retirement_observation", scope, proof.subject
+            )
+            if allowed is not None and proof.subject not in allowed:
+                raise AccessDenied("Retirement observation belongs to another task family")
+            task = work.get(conn, row["id"], proof.subject)
+            attempt = attempts.get(conn, row["id"], attempt_id)
+            if attempt.task_id != task.id:
+                raise AccessDenied("Retirement attempt belongs to another task")
+            return task, attempt
+
     def revoke_session(self, handle):
         with self.context.db.transaction() as conn:
             sid, _ = sessions.resolve(conn, handle)

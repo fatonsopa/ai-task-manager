@@ -68,6 +68,9 @@ class GitWorktrees:
         ):
             raise RuntimeRefused("Uncommitted work prevents resource removal")
 
+    def registered_worktrees(self):
+        return release_git(self.repository, "worktree", "list", "--porcelain")
+
     def remove(self, path: Path, receipt):
         unchanged(path, receipt["physical"])
         observed = self.inspect(path, receipt["branch"], release=True)
