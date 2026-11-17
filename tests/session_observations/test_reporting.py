@@ -131,7 +131,10 @@ def test_reporting_fences_current_task_and_replaced_capability(retained):
     assert not s.call("event_list", {})["ok"]
 
 
-def test_reporting_connected_native_receipt_consumer(tmp_path):
+@pytest.mark.parametrize(
+    "changed_before_output", [False, True], ids=["retained-positive", "changed-task-zero-output"]
+)
+def test_reporting_connected_native_receipt_consumer(tmp_path, changed_before_output):
     import os
 
     from ai_task_manager.adapters.hosts.bridge.human import OperatorChannel
@@ -224,6 +227,20 @@ def test_reporting_connected_native_receipt_consumer(tmp_path):
                 "text": f"Event {event.id} completed; evidence is retained.",
             },
         )
+        if changed_before_output:
+            import select
+
+            from ai_task_manager.storage import work
+
+            with old.core.context.db.transaction() as conn:
+                task = old.core.get_task(old.handle, event.task_id, connection=conn)
+                work.save(conn, task, task.version)
+            with pytest.raises(AccessDenied, match="task version"):
+                gateway.publish(event.id)
+            assert not select.select([master], [], [], 0)[0]
+            assert "user_reported" not in old.core.notifications.receipts(old.handle, event.id)
+            process.stop()
+            return
         gateway.publish(event.id)
         cold = load_service(config, linear_components=p.components())
         assert set(cold.core.notifications.receipts(cold.handle, event.id)) == {
@@ -247,3 +264,32 @@ def test_reporting_connected_native_receipt_consumer(tmp_path):
             except StopIteration:
                 pass
         p.close()
+
+
+def test_reporting_direct_configured_business_consumers_refuse(retained):
+    from ai_task_manager.application.linear_sync.inbound import InboundDrain
+    from ai_task_manager.application.linear_sync.outbound import OutboundDrain
+
+    p, old, event, destination = retained
+    reporting_setup(
+        destination,
+        p.config,
+        event_id=event.id,
+        deadline=time.time() + 60,
+        operation_key="report",
+        components=p.components(),
+    )
+    s = load_service(destination, linear_components=p.components())
+    assert isinstance(s.provider, OutboundDrain)
+    assert isinstance(s.inbound, InboundDrain)
+    before = old.core.sync.list_operations(old.handle)
+    requests = p.requests
+    for effect in (
+        lambda: s.provider.run_once(s.handle),
+        lambda: s.inbound.run_once(s.handle),
+        lambda: s.publisher(),
+    ):
+        with pytest.raises(AccessDenied, match="provider business effects"):
+            effect()
+    assert p.requests == requests
+    assert old.core.sync.list_operations(old.handle) == before

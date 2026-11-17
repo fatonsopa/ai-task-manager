@@ -213,6 +213,12 @@ def load_service(
         def current_provider_authority():
             seal.check()
             claim_store.check()
+            from ai_task_manager.adapters.decisions.observations import current_enrollment
+
+            if current_enrollment(journal, service.grant_ref).get("kind") == "event_reporting":
+                raise AccessDenied(
+                    "Event reporting authority cannot authorize provider business effects"
+                )
             current_grant(service)
             seal.check()
             claim_store.check()

@@ -100,6 +100,8 @@ class ManagedServiceSlot:
                     raise AccessDenied("Public report differs from the current scoped event")
                 notifications.startup.policy.check()
                 notifications.startup.assert_stable()
+                if service.reporting is not None:
+                    service.reporting.check(service, "event_acknowledge", {"event_id": event_id})
             return notifications.publish(event_id)
 
     def call(self, generation, operation, data):
