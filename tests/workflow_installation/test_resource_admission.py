@@ -24,3 +24,12 @@ def test_normal_installed_plan_declaration_is_visible_to_separate_service_core(i
     result = json.loads(public.stdout or public.stderr)
     assert public.returncode == 0, result
     assert result["data"]["scheduling"]["selection_state"] == view["selection_state"]
+    events = cli(installed, "event", "list", {})
+    event_result = json.loads(events.stdout or events.stderr)
+    assert events.returncode == 0, event_result
+    declaration = next(item for item in event_result["data"]
+                       if item["kind"] == "scheduling_resources_declared")
+    assert declaration["payload"] == {"resources_declared": True}
+    retained = reader.core.notifications.get_event(reader.handle, declaration["id"])
+    assert retained.payload["declaration"]["repository"]
+    assert retained.payload["declaration"]["witnesses"]

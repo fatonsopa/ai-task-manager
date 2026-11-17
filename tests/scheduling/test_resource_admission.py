@@ -1,7 +1,7 @@
 """Real Core transactions cover declared conflicts and retained unknown owners."""
 
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
+from dataclasses import asdict, replace
 from threading import Barrier
 from types import SimpleNamespace
 
@@ -10,9 +10,10 @@ import pytest
 from ai_task_manager.application.core import Core
 from ai_task_manager.application.service.facade import ApplicationService
 from ai_task_manager.domains.scheduling.resources import RejectResourceDeclarations
-from ai_task_manager.domains.work.errors import CapacityExceeded, EvidenceRequired, WorkError
+from ai_task_manager.domains.work.errors import AccessDenied, CapacityExceeded, EvidenceRequired, WorkError
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.storage.database import Database
+from ai_task_manager.installation.native.lead_startup import projected_event
 
 from .test_guards import reserve
 from .helpers import declare
@@ -196,3 +197,40 @@ def test_partial_setup_keeps_unknown_claim_until_confirmed_stop(rig, partial):
     task, attempt = rig.settle(task, attempt, "failed", quiescent=True)
     with rig.db.transaction() as conn:
         assert conn.execute("SELECT count(*) FROM resource_leases WHERE attempt_id=?", (attempt.id,)).fetchone()[0] == 0
+
+
+def test_R02_public_event_chain_hides_private_resource_witnesses(rig):
+    task = rig.queued()
+    declaration(rig, task, files=("src/private.txt",), locks=(("test", "private-test"),),
+                repository="/private/repository")
+    rig.resource_sources.rows[task.id] = replace(
+        rig.resource_sources.rows[task.id],
+        witnesses=(("/private/sealed-plan.json", 19, 23, "private-sha256"),),
+    )
+    rig.core.execution.publish_resources(task)
+    service = ApplicationService(rig.core, rig.handle)
+    events = rig.core.notifications.list_events(rig.handle)
+    private = next(event for event in reversed(events)
+                   if event.kind == "scheduling_resources_declared")
+    ordinary = next(event for event in events if event.kind != "scheduling_resources_declared")
+    receipts = rig.core.notifications.receipts(rig.handle, private.id)
+    public = projected_event(service.call, private.id, task.id)
+    assert public == {**asdict(private), "payload": {"resources_declared": True}}
+    assert projected_event(service.call, ordinary.id, task.id) == asdict(ordinary)
+    assert rig.core.notifications.get_event(rig.handle, private.id) == private
+    assert private.payload["declaration"]["repository"] == "/private/repository"
+    assert private.payload["declaration"]["witnesses"][0][0] == "/private/sealed-plan.json"
+    assert rig.core.notifications.receipts(rig.handle, private.id) == receipts
+    proof = rig.proof("external_observation", task.id, {
+        "issue_id": task.issue_id, "source_revision": "9999-reassigned",
+        "status": "Todo", "assigned_to_owner": False,
+    })
+    rig.core.external.observe(rig.handle, task.id, task.version, task.decision_revision,
+                              proof, "R02-reassigned")
+    quarantined = service.call("event_list", {})
+    view = next(item for item in quarantined["data"] if item["id"] == private.id)
+    assert view["payload"] == {"quarantined": True, "ownership_reconciliation_required": True}
+    with pytest.raises(AccessDenied, match="absent or quarantined"):
+        projected_event(service.call, private.id, task.id)
+    assert rig.core.notifications.get_event(rig.handle, private.id) == private
+    assert rig.core.notifications.receipts(rig.handle, private.id) == receipts

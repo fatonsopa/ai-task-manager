@@ -117,6 +117,8 @@ def attempt_view(service, attempt):
 
 def event_view(service, event):
     data = asdict(event)
+    if event.kind == "scheduling_resources_declared":
+        data["payload"] = {"resources_declared": True}
     if event.task_id:
         task = service.core.get_task(service.handle, event.task_id)
         if quarantined(service, task):
