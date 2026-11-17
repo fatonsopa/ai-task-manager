@@ -182,7 +182,7 @@ class RuntimeProofs:
             )
         return ref
 
-    def verify_evidence(self, proof_ref):
+    def verify_evidence(self, proof_ref, *, historical=False):
         if not isinstance(proof_ref, str) or not proof_ref.startswith(self.prefix):
             raise EvidenceRequired("Unknown runtime reference")
         with self.journal.transaction() as conn:
@@ -198,7 +198,7 @@ class RuntimeProofs:
                 not hmac.compare_digest(expected, row[1])
                 or data["issuer"] != "runtime-v1"
                 or data["kind"] not in RUNTIME_KINDS
-                or data["expires_at"] <= self.journal.clock()
+                or (not historical and data["expires_at"] <= self.journal.clock())
                 or (
                     data["kind"] == "worker_start"
                     and (

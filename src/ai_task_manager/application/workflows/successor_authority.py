@@ -31,6 +31,8 @@ def admit(core, old_handle, new_handle, authorization, publish):
         if old is None or Scope(**json.loads(old["scope"])) != a.scope:
             raise AccessDenied("Original Core session identity is unavailable")
         sid = old["id"]
+        if conn.execute("SELECT 1 FROM sessions WHERE token_hash=?", (sessions.token_hash(new_handle.token),)).fetchone():
+            raise AccessDenied("Successor capability cannot reuse an original session token")
         exists = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_capabilities'").fetchone()
         if exists:
             prior = conn.execute("SELECT * FROM task_capabilities WHERE reference=?", (a.reference,)).fetchone()

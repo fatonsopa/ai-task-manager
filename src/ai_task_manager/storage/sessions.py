@@ -21,6 +21,10 @@ class TaskSession(str):
         value.reference, value.task_ids = reference, frozenset(task_ids)
         return value
 
+    def __deepcopy__(self, memo):
+        # Stored task/attempt identities retain the original scalar session ID.
+        return str(self)
+
 
 def permits(session_id, task_id):
     return not isinstance(session_id, TaskSession) or task_id in session_id.task_ids
@@ -44,6 +48,23 @@ def require_request(conn, session_id, payload):
             ).fetchone()
             task_id = row[0] if row else None
     require_task(session_id, task_id)
+
+
+def permits_delivery(conn, session_id, payload):
+    if not isinstance(session_id, TaskSession):
+        return True
+    data = payload.get("data") if isinstance(payload, dict) else None
+    issue_id = data.get("id") if isinstance(data, dict) else None
+    if not isinstance(issue_id, str) or not issue_id:
+        return False
+    rows = conn.execute("SELECT id FROM tasks WHERE session_id=? AND issue_id=?",
+                        (session_id, issue_id)).fetchall()
+    return len(rows) == 1 and permits(session_id, rows[0][0])
+
+
+def require_delivery(conn, session_id, payload):
+    if not permits_delivery(conn, session_id, payload):
+        raise AccessDenied("Successor capability does not authorize this inbound delivery")
 
 
 def token_hash(token: str) -> str:

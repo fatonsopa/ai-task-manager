@@ -27,6 +27,12 @@ ACTIONS = frozenset({"inspect", "resume", "stop", "successor", "retire"})
 
 
 def request(value):
+    if (type(value) is dict and value.get("version") == 2
+            and set(value) == {"version", "action", "workflow_ref", "operation_key", "authorization_ref"}
+            and value["action"] == "successor"
+            and all(type(value[k]) is str and 1 <= len(value[k]) <= 256
+                    for k in ("workflow_ref", "operation_key", "authorization_ref"))):
+        return value
     if (
         type(value) is not dict
         or set(value) != {"action", "workflow_ref", "operation_key"}
@@ -65,6 +71,9 @@ def owner_state(descriptor, activation):
 def recover(config_file, installation_file, value):
     """Trusted operator API; public JSON supplies selection, never authority."""
     value = request(value)
+    if value.get("version") == 2:
+        from .successor import recover as successor
+        return successor(config_file, installation_file, value)
     spec = Installation(
         installation_file, config_file, retained=value["action"] in {"inspect", "resume", "stop"}
     )

@@ -130,6 +130,7 @@ class Synchronization:
     def ingest(self, handle, delivery_id, payload, ingress_ref):
         with self.c.db.transaction() as conn:
             sid, scope = sessions.resolve(conn, handle)
+            sessions.require_delivery(conn, sid, payload)
             proof = self.c.proof(ingress_ref, "provider_ingress", scope, delivery_id)
             if proof.payload.get("payload_digest") != fingerprint(payload):
                 raise EvidenceRequired("Ingress evidence does not match the authenticated payload")
@@ -149,6 +150,7 @@ class Synchronization:
                 for row in conn.execute(
                     "SELECT * FROM inbox WHERE session_id=? ORDER BY rowid", (sid,)
                 )
+                if sessions.permits_delivery(conn, sid, json.loads(row["payload"]))
             ]
 
     def mark_applied(self, handle, delivery_id, proof_ref):
@@ -156,9 +158,12 @@ class Synchronization:
             sid, scope = sessions.resolve(conn, handle)
             proof = self.c.proof(proof_ref, "ingress_applied", scope, delivery_id)
             row = conn.execute(
-                "SELECT digest FROM inbox WHERE session_id=? AND delivery_id=?",
+                "SELECT digest,payload FROM inbox WHERE session_id=? AND delivery_id=?",
                 (sid, delivery_id),
             ).fetchone()
+            if row:
+                import json
+                sessions.require_delivery(conn, sid, json.loads(row["payload"]))
             if not row or proof.payload.get("payload_digest") != row[0]:
                 raise ValidationError("Applied receipt must match a durable inbound delivery")
             conn.execute(

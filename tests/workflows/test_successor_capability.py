@@ -103,3 +103,32 @@ def test_partial_successor_publishes_one_head_and_retains_original_history(admis
     with store.transaction() as conn:
         assert conn.execute("SELECT count(*) FROM recoveries").fetchone()[0] == 1
         assert conn.execute("SELECT run_id FROM workflow_heads").fetchone()[0] == successor
+
+
+def test_R01_successor_inbound_is_limited_to_original_task_family(admission):
+    from ai_task_manager.storage.work import fingerprint
+    r, selected, foreign, a, handle = admission
+    # Seed original history before revocation through the retained Core fixture.
+    with r.db.transaction() as conn:
+        sid = conn.execute("SELECT id FROM sessions").fetchone()[0]
+        from ai_task_manager.storage.outbox import ingest
+        own = {"data": {"id": selected.issue_id}, "body": "selected"}
+        other = {"data": {"id": foreign.issue_id}, "body": "foreign"}
+        ingest(conn, sid, "delivery-A", own)
+        ingest(conn, sid, "delivery-B", other)
+    r.core.admit_workflow_successor(r.handle, handle, a, lambda *_: "workflow:new")
+    rows = r.core.sync.inbound(handle)
+    assert [(row["delivery_id"], row["payload"]) for row in rows] == [("delivery-A", own)]
+    for delivery, payload in (("delivery-A", own), ("delivery-B", other)):
+        ingress = r.proof("provider_ingress", delivery, {"payload_digest": fingerprint(payload)})
+        applied = r.proof("ingress_applied", delivery, {"payload_digest": fingerprint(payload)})
+        if delivery == "delivery-A":
+            assert r.core.sync.ingest(handle, delivery, payload, ingress) is False
+            r.core.sync.mark_applied(handle, delivery, applied)
+        else:
+            with pytest.raises(AccessDenied):
+                r.core.sync.ingest(handle, delivery, payload, ingress)
+            with pytest.raises(AccessDenied):
+                r.core.sync.mark_applied(handle, delivery, applied)
+    with r.db.transaction() as conn:
+        assert conn.execute("SELECT state FROM inbox WHERE delivery_id='delivery-B'").fetchone()[0] == "received"
