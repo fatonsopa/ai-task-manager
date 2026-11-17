@@ -10,7 +10,7 @@ import pytest
 from ai_task_manager.application.core import Core
 from ai_task_manager.application.service.facade import ApplicationService
 from ai_task_manager.domains.scheduling.resources import RejectResourceDeclarations
-from ai_task_manager.domains.work.errors import CapacityExceeded, EvidenceRequired
+from ai_task_manager.domains.work.errors import CapacityExceeded, EvidenceRequired, WorkError
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.storage.database import Database
 
