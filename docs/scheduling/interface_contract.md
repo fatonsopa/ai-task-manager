@@ -35,7 +35,7 @@ The `scheduling` object accompanies the task's actual `observed_status`, `sync_s
 | `eligible_since`, `wait_seconds` | Start of the current continuous eligibility epoch and nonnegative elapsed wait, using the configured Core clock in seconds. Both return null outside a current eligible waiting epoch. Ordinary installations use the same clock basis as dependency expiry. |
 | `bypasses` | Nonnegative count of committed later-queued higher-priority admissions during that epoch. Failed capacity/claim attempts and replay do not increment it. |
 | `fair_turn_due` | True when a currently eligible task has at least four counted bypasses. The oldest qualifying waiter has precedence among promoted tasks. |
-| `waiting_reason` | `fair_turn`, `priority_order` or null. Read it with readiness, hold, synchronization and ownership facts; it is not a complete independent authorization verdict. |
+| `waiting_reason` | `fair_turn`, `priority_order`, `resource_conflict`, `resource_declaration_unavailable` or null. Read it with readiness, hold, synchronization and ownership facts; it is not a complete independent authorization verdict. |
 | `admission_requires_capacity` | True: selection remains subject to atomic capacity and other current admission checks. |
 
 Routine observations and restart preserve a still-valid waiting epoch. Expiry, dependency loss, changed approved work or a current human hold ends it. Higher priority does not preempt an active attempt. A failed/canceled/held/missing/foreign or ambiguous predecessor is not success; only the declared verified unit, merge or complete-work milestone can release its dependent task.
