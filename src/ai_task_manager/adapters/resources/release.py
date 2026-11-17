@@ -19,6 +19,8 @@ class DeliveryReleasePolicy:
 
     def authorize(self, core, handle, attempt, resources):
         task = core.get_task(handle, attempt.task_id)
+        if task.sync_state != "confirmed":
+            raise RuntimeRefused("Current resource ownership is foreign or unconfirmed")
         if task.code_bearing and not (
             task.delivered_once
             or (task.observed_status == "Canceled" and task.sync_state == "confirmed")
@@ -27,8 +29,11 @@ class DeliveryReleasePolicy:
         # Cancellation never grants permission to discard unmerged committed work.
         try:
             release_git(
-                self.repository, "merge-base", "--is-ancestor",
-                resources["worktree"]["head"], self.integration_ref,
+                self.repository,
+                "merge-base",
+                "--is-ancestor",
+                resources["worktree"]["head"],
+                self.integration_ref,
             )
         except RuntimeRefused as error:
             raise RuntimeRefused("Unmerged resource commits require preservation") from error

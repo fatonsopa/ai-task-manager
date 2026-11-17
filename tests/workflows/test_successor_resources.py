@@ -36,7 +36,9 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(
 
             r.now = time.time()
             for name, value in [
-                ("src/a.txt", "0"), ("tests/a.txt", "4"), ("config/checks.json", "{}")
+                ("src/a.txt", "0"),
+                ("tests/a.txt", "4"),
+                ("config/checks.json", "{}"),
             ]:
                 path = rr.repo / name
                 path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -110,7 +112,8 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(
         old_row = store.read(predecessor, r.scope)
         if prior_lineage:
             store.lineage(
-                task.id, original.attempt_id,
+                task.id,
+                original.attempt_id,
                 rr.resources.git.inspect(pair.worktree, "managed/" + original.attempt_id),
             )
         with store.transaction() as conn:
@@ -223,11 +226,17 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(
                 assert rr.journal.observations(new_attempt.id, "consumer_fence") == receipts
             finally:
                 retained.rename(fence)
-            with consumer_boundary(
-                rr.resources.root, original.attempt_id, existing_only=True
-            ) as (physical, created):
+            with consumer_boundary(rr.resources.root, original.attempt_id, existing_only=True) as (
+                physical,
+                created,
+            ):
                 assert not created and (physical["device"], physical["inode"]) == identity
                 rr.resources.verify(inherited)
+            # A DONE author still owns later commit/check/container obligations.
+            rr.journal.intend(new_attempt.id, "worker-commit-intent", {"pending": True})
+            with pytest.raises(RuntimeRefused, match="Another worker commit"):
+                rr.resources.cleanup(r.core, handle, original.attempt_id)
+            assert pair.worktree.exists() and pair.database.exists()
         if code:
             # R06: the installed delivery consumer sees the new attempt's full
             # own lifecycle, rather than only the final author checkpoint.
@@ -272,13 +281,22 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(
             docker = Path("/usr/local/bin/docker").resolve()
             endpoint = "unix://" + str(Path.home().joinpath(".docker/run/docker.sock").resolve())
             container = WorkerGitContainer(
-                rr.journal, tmp_path / "contained-git", docker=docker,
-                docker_sha256=sha(docker.read_bytes()), endpoint=endpoint, image=IMAGE,
-                resource_root=rr.resources.root, deadline=time.time() + 120,
+                rr.journal,
+                tmp_path / "contained-git",
+                docker=docker,
+                docker_sha256=sha(docker.read_bytes()),
+                endpoint=endpoint,
+                image=IMAGE,
+                resource_root=rr.resources.root,
+                deadline=time.time() + 120,
                 run_id="r06-connected-" + str(prior_lineage),
             )
             commits = WorkerCommits(
-                r.core, handle, runtime, rr.journal, ConfinedWorkerGit(rr.journal, container),
+                r.core,
+                handle,
+                runtime,
+                rr.journal,
+                ConfinedWorkerGit(rr.journal, container),
                 checks=FixedChecks(rr.repo / "verify.py"),
             )
             driver.commits = ResourceWorkerCommits(commits, rr.resources)
@@ -291,12 +309,17 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(
             actual_observations = rr.journal.observations
             with monkeypatch.context() as missing:
                 missing.setattr(
-                    rr.journal, "observations",
-                    lambda attempt, kind: []
-                    if (attempt, kind) == (original.attempt_id, "consumer_fence")
-                    else actual_observations(attempt, kind),
+                    rr.journal,
+                    "observations",
+                    lambda attempt, kind: (
+                        []
+                        if (attempt, kind) == (original.attempt_id, "consumer_fence")
+                        else actual_observations(attempt, kind)
+                    ),
                 )
-                with pytest.raises(RuntimeRefused, match="Original resource consumer fence history"):
+                with pytest.raises(
+                    RuntimeRefused, match="Original resource consumer fence history"
+                ):
                     driver.commits.prepare(row, fresh)
             intent = driver.commits.prepare(row, fresh)
             assert intent["worktree"]["branch"] == "managed/" + original.attempt_id
@@ -354,41 +377,61 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(
             tree_id = resource_alias("worktree", inherited.worktree_id)
             repo_id = resource_alias("repository", str(rr.repo))
             record = profile.enroll(
-                inherited.worktree, worktree_id=tree_id, repository_id=repo_id,
+                inherited.worktree,
+                worktree_id=tree_id,
+                repository_id=repo_id,
                 target_ref="refs/heads/integration",
             )
             directory = tmp_path / "candidates"
             directory.mkdir(mode=0o700)
             current = r.core.get_task(handle, task.id)
             binding = Binding(
-                task.id, new_attempt.id, r.scope.principal, r.scope.logical_session,
-                r.scope.project, current.prose_digest, sha(CHILD), tree_id, repo_id,
+                task.id,
+                new_attempt.id,
+                r.scope.principal,
+                r.scope.logical_session,
+                r.scope.project,
+                current.prose_digest,
+                sha(CHILD),
+                tree_id,
+                repo_id,
                 resource_alias("database", inherited.database_id),
-                record["configuration_digest"], "candidate:r06",
+                record["configuration_digest"],
+                "candidate:r06",
             )
             grant = CandidateGrant(
-                binding, "refs/heads/managed/" + original.attempt_id,
-                git(inherited.worktree, "rev-parse", "HEAD"), base,
-                current.version, new_attempt.version, current.decision_revision,
-                r.decision(current, "In Dev", actor="model"), "lead:r06-control",
+                binding,
+                "refs/heads/managed/" + original.attempt_id,
+                git(inherited.worktree, "rev-parse", "HEAD"),
+                base,
+                current.version,
+                new_attempt.version,
+                current.decision_revision,
+                r.decision(current, "In Dev", actor="model"),
+                "lead:r06-control",
             )
             evidence = MergeEvidence(clock=lambda: r.now)
-            r.core.context.evidence = EvidenceRouter([
-                *r.core.context.evidence.routes,
-                EvidenceRoute(
-                    "merge-publication:", frozenset({"merge", "publication_intent"}), evidence
-                ),
-            ])
+            r.core.context.evidence = EvidenceRouter(
+                [
+                    *r.core.context.evidence.routes,
+                    EvidenceRoute(
+                        "merge-publication:", frozenset({"merge", "publication_intent"}), evidence
+                    ),
+                ]
+            )
             journal = Journal(tmp_path / "merge/journal.sqlite")
             candidates = CandidateService(
-                journal, CandidateProfile(profile, tree_id, repo_id, directory),
+                journal,
+                CandidateProfile(profile, tree_id, repo_id, directory),
                 CoreCandidateAuthority(r.core, handle, rr.resources, inherited),
                 process_factory=CandidateProcesses,
             )
             executor = OutsideExecutor(tmp_path / "check-evidence")
             guard = Guard(source=sha(CHILD))
             checks = MergeChecks(
-                CheckStore(tmp_path / "checks/results.sqlite"), guard, executor,
+                CheckStore(tmp_path / "checks/results.sqlite"),
+                guard,
+                executor,
                 catalogs=catalogs(tmp_path, project=r.scope.project),
             )
 
@@ -402,8 +445,15 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(
             )
             merge_plan = MergePlan("fresh-r06-merge", grant, r.now + 100)
             workflow = MergeWorkflowService(
-                r.core, handle, merge_plan, candidates, CandidateChecks(checks, discover),
-                ProviderFixture(r), evidence, candidate_reviews=reviews, clock=lambda: r.now,
+                r.core,
+                handle,
+                merge_plan,
+                candidates,
+                CandidateChecks(checks, discover),
+                ProviderFixture(r),
+                evidence,
+                candidate_reviews=reviews,
+                clock=lambda: r.now,
             )
             try:
                 delivered = workflow.run(task.id, merge_plan.id, "r06-publish")

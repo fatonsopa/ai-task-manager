@@ -11,6 +11,7 @@ from .test_cleanup_helpers import stopped
 @pytest.mark.parametrize("kind", ["worktree", "database"])
 def test_original_removal_intent_reconciles_lost_reply_without_resend(rr, monkeypatch, kind):
     dispatch = rr.start(rr.rig.queued(code=False))
+    rr.admit(dispatch)
     rr.supervisor.stop(rr.rig.handle, dispatch, operation_key=rr.rig.key())
     pair = dispatch.resources
     rr.resources.release_policy = DeliveryReleasePolicy(rr.repo)
@@ -65,3 +66,24 @@ def test_missing_removal_intent_does_not_convert_absence_to_success(rr):
     with pytest.raises((RuntimeRefused, FileNotFoundError)):
         rr.resources.cleanup(rr.rig.core, rr.rig.handle, pair.attempt_id)
     assert pair.worktree.exists()
+
+
+def test_delivered_merged_resource_with_foreign_current_ownership_is_protected(rr):
+    from dataclasses import replace
+
+    pair = stopped(rr)
+    task = rr.rig.core.get_task(rr.rig.handle, rr.journal.attempt(pair.attempt_id)["task_id"])
+
+    class CurrentForeignProvider:
+        def get_task(self, handle, task_id):
+            return replace(task, delivered_once=True, sync_state="foreign")
+
+    fact = rr.resources.verify(pair)
+    with pytest.raises(RuntimeRefused, match="foreign or unconfirmed"):
+        DeliveryReleasePolicy(rr.repo).authorize(
+            CurrentForeignProvider(),
+            rr.rig.handle,
+            rr.rig.core.get_attempt(rr.rig.handle, pair.attempt_id),
+            fact,
+        )
+    assert pair.worktree.exists() and pair.database.exists()

@@ -7,6 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+from tests.workflows.test_cold_operator import cold_owner as cold_owner
+
 
 @pytest.mark.parametrize("cold_owner", ["cold-active"], indirect=True)
 def test_installed_retirement_lost_reply_and_original_key_replay(cold_owner):

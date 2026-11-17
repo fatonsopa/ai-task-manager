@@ -270,6 +270,12 @@ class ResourceManager:
                     or not stopped[-1].get("quiescent")
                 ):
                     raise RuntimeRefused("Another resource consumer remains unresolved")
+                if self.journal.effect(
+                    related_id, "worker-commit-intent"
+                ) is not None and not self.journal.observations(
+                    related_id, "worker-commit-complete"
+                ):
+                    raise RuntimeRefused("Another worker commit retains the shared resources")
         # Observe the current commit; a worker may have committed since resource creation.
         if tree.exists():
             current = self.git.inspect(tree, fact["worktree"]["branch"], release=True)
