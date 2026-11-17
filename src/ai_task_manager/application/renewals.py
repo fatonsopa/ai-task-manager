@@ -8,7 +8,7 @@ from ai_task_manager.domains.work.errors import EvidenceRequired
 from ai_task_manager.domains.work.models import AttemptState as A
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.domains.work.models import SyncState
-from ai_task_manager.storage import attempts, work
+from ai_task_manager.storage import attempts, sessions, work
 from ai_task_manager.storage import scheduling as store
 
 
@@ -112,15 +112,15 @@ def renew(scheduling, handle, observation_ref, operation_key):
         )
         return scheduling._view(conn, scope, task)
 
-    result = scheduling.c.mutation(
-        handle,
-        operation_key,
-        {
-            "command": "renew_work_authority",
-            "observation_ref": observation_ref,
-        },
-        action,
-    )
+    payload = {"command": "renew_work_authority", "observation_ref": observation_ref}
+    with scheduling.c.db.transaction() as conn:
+        session_id, _ = sessions.resolve(conn, handle)
+    if isinstance(session_id, sessions.TaskSession):
+        value = scheduling.renewals.verify_renewal(observation_ref)
+        if type(value) is not WorkRenewal:
+            raise EvidenceRequired("A typed current execution observation is required")
+        payload.update(task_id=value.task_id, attempt_id=value.attempt_id)
+    result = scheduling.c.mutation(handle, operation_key, payload, action)
     if result["state"] != "ready":
         raise SchedulingBlocked("Changed dependencies fenced this execution; reconcile before work")
     return result

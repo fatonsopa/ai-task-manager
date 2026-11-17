@@ -213,3 +213,21 @@ def test_fresh_revision_at_same_clock_instant_never_extends_freshness_by_replay(
     with pytest.raises(SchedulingBlocked):
         renew(rig, source)
     assert rig.core.scheduling.explain(rig.handle, task.id)["expires_at"] == first["expires_at"]
+
+
+def test_ordinary_renewal_retains_original_request_fingerprint_and_replay(rig):
+    from ai_task_manager.storage.work import fingerprint
+
+    task, attempt = rig.running()
+    source = AuthoredRenewals(observation(rig, task, attempt))
+    key = rig.key()
+    first = renew(rig, source, key)
+    with rig.db.transaction() as conn:
+        recorded = conn.execute(
+            "SELECT fingerprint FROM operations WHERE key=?", (key,)
+        ).fetchone()[0]
+    assert recorded == fingerprint({
+        "command": "renew_work_authority", "observation_ref": "authored-renewal"
+    })
+    source.callback = lambda: pytest.fail("A recorded ordinary renewal must replay unchanged")
+    assert renew(rig, source, key) == first

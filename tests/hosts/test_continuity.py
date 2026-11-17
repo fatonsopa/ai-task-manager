@@ -180,3 +180,136 @@ def test_background_freshness_loss_records_unknown_and_retains_resource_ownershi
     assert not (workers.dispatches[attempt.id].resources.worktree / "owned.py").exists()
     stopped = workers.stop(handle, attempt.id, operation_key="recover-freshness-loss")
     assert stopped.state == "paused"
+
+
+def test_task_scoped_managed_lifecycle_renews_and_settles_retained_resources(composition, request):
+    """Complete local process/Core lifecycle with authored native/provider ports."""
+    import secrets
+    from dataclasses import asdict
+
+    from ai_task_manager.adapters.proofs.router import EvidenceRoute, EvidenceRouter
+    from ai_task_manager.adapters.proofs.store import RUNTIME_KINDS
+    from ai_task_manager.application.workflows.recovery import SuccessorAuthorization
+    from ai_task_manager.domains.work.models import Evidence, SessionHandle
+    from ai_task_manager.storage.work import fingerprint
+
+    value = composition()
+    runtime, task, _, workers, factory, _, _ = value
+    r = runtime.rig
+    workers.deadline = runtime.journal.clock() + 55
+    prior = start(value)
+    original = workers.dispatches[prior.id].resources
+    (original.worktree / "retained.txt").write_text("retained local fixture work\n")
+    assert workers.stop(r.handle, prior.id, operation_key="settle-predecessor").state == "paused"
+    task = r.core.get_task(r.handle, task.id)
+    r.core.context.evidence = EvidenceRouter([
+        EvidenceRoute("runtime-proof:", RUNTIME_KINDS, workers.proofs),
+        EvidenceRoute("fixture:", frozenset({
+            "provider_status", "decision", "human_decision", "workflow_successor"
+        }), r.proofs),
+    ])
+    expires = r.core.context.clock() + 120
+    decision = r.proof("decision", task.id, {
+        "target": "In Progress", "revision": task.decision_revision, "actor": "agent"
+    }, expires_at=expires)
+    authorization = SuccessorAuthorization(
+        r.key(), r.scope, "workflow:predecessor", task.id, task.version,
+        task.decision_revision, "fresh-plan", "fresh-digest", "fresh-key",
+        expires, decision, tuple(task.required_work),
+    )
+    r.proofs.evidence[authorization.reference] = Evidence(
+        "workflow_successor", r.scope, task.id, asdict(authorization), expires
+    )
+    handle = SessionHandle(secrets.token_urlsafe(32))
+    r.core.revoke_session(r.handle)
+    r.core.admit_workflow_successor(
+        r.handle, handle, authorization, lambda *_: "workflow:successor-local"
+    )
+    runtime.resources.successor_sources[task.id] = prior.id
+    from dataclasses import replace
+
+    from ai_task_manager.adapters.hosts.bridge.codex_home import CodexHomeBoundary
+    from ai_task_manager.adapters.hosts.bridge.codex_settings import CodexSettings
+    from ai_task_manager.adapters.hosts.bridge.controller import ManagedHostFactory
+    from ai_task_manager.adapters.hosts.bridge.policy import policy_digest
+    from ai_task_manager.adapters.proofs.store import RuntimeProofs
+    from ai_task_manager.supervisor.managed import ManagedWorkers
+
+    original_factory = factory
+    original_policy = factory.policies("codex", original)
+    settings = CodexSettings(
+        CodexHomeBoundary(original_policy.codex_settings.sources.home),
+        original_policy.model, original_policy.effort,
+    )
+
+    def successor_policy(host, pair):
+        policy = original_factory.policies(host, pair)
+        return replace(policy, codex_settings=settings, configuration_digest=policy_digest(
+            host, policy.executable_sha256, dict(policy.environment), pair.worktree,
+            {"codex_settings": settings.fingerprint}, model=policy.model, effort=policy.effort,
+        ))
+
+    factory = ManagedHostFactory(
+        r.core, runtime.resources, original_factory.journal,
+        original_factory.root / "successor", successor_policy,
+        original_factory.permits, original_factory.accounts,
+    )
+
+    def close_native():
+        for native in factory.owned.values():
+            if native.process is not None and not native.process._closed:
+                native.stop()
+
+    request.addfinalizer(close_native)
+    proofs = RuntimeProofs(
+        runtime.journal, workers.proofs._key_path,
+        host_startups=factory.startup_verifier, existing_only=True,
+    )
+    r.core.context.evidence = EvidenceRouter([
+        EvidenceRoute("runtime-proof:", RUNTIME_KINDS, proofs),
+        EvidenceRoute("fixture:", frozenset({
+            "provider_status", "decision", "human_decision", "workflow_successor"
+        }), r.proofs),
+    ])
+    workers = ManagedWorkers(
+        r.core, runtime.journal, runtime.resources, runtime.runtime, proofs,
+        workers.provider, factory, deadline=workers.deadline,
+        principal_ref="fixture-successor-principal", executions=workers.executions,
+        dependencies=AuthoredDependencyCollection(r.core, handle),
+    )
+    factory.commands = workers
+    attempt = workers.start(
+        handle, task.id, "codex", expected_version=task.version,
+        decision_revision=task.decision_revision, decision_ref=decision,
+        operation_key="workflow:successor-local:start",
+    )
+    assert attempt.state == "running"
+    freshness = workers._freshness[attempt.id]
+    freshness.refresh()
+    events = [e for e in r.core.notifications.list_events(handle)
+              if e.kind == "scheduling_authority_renewed"]
+    assert events
+    reference = events[-1].payload["observation_ref"]
+    with r.db.transaction() as conn:
+        key, recorded = conn.execute(
+            "SELECT key,fingerprint FROM operations WHERE key LIKE 'work-freshness:%:commit' "
+            "ORDER BY rowid DESC LIMIT 1"
+        ).fetchone()
+    assert recorded == fingerprint({
+        "command": "renew_work_authority", "observation_ref": reference,
+        "task_id": task.id, "attempt_id": attempt.id,
+    })
+    before = len(events)
+    assert r.core.scheduling.renew(handle, reference, key)["state"] == "ready"
+    assert len([e for e in r.core.notifications.list_events(handle)
+                if e.kind == "scheduling_authority_renewed"]) == before
+    pair = workers.dispatches[attempt.id].resources
+    assert pair.worktree == original.worktree and pair.database == original.database
+    workers.execute_reviewed(handle, attempt.id, "assignment", "successor-owned-assignment")
+    assert (pair.worktree / "owned.py").read_text() == "answer = 42\n"
+    assert (pair.worktree / "retained.txt").read_text() == "retained local fixture work\n"
+    assert r.core.get_attempt(handle, attempt.id).state == "done"
+    assert r.core.get_attempt(handle, prior.id).state == "paused"
+    assert factory.owned[attempt.id].process._closed and freshness.close()
+    with r.db.transaction() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM resource_leases").fetchone()[0] == 0
