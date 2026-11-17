@@ -132,3 +132,86 @@ def test_R01_successor_inbound_is_limited_to_original_task_family(admission):
                 r.core.sync.mark_applied(handle, delivery, applied)
     with r.db.transaction() as conn:
         assert conn.execute("SELECT state FROM inbox WHERE delivery_id='delivery-B'").fetchone()[0] == "received"
+
+
+def test_R01_provider_selection_and_retry_preserve_foreign_receipts(admission, tmp_path):
+    import json
+    from ai_task_manager.adapters.linear.receipts import ProviderJournal
+    from ai_task_manager.application.linear_sync.inbound import InboundDrain
+    r, selected, foreign, a, handle = admission
+    journal = ProviderJournal(tmp_path / "provider.sqlite")
+    rows = []
+    for number, task in enumerate((selected, foreign)):
+        payload = {"data": {"id": task.issue_id, "updatedAt": "2026-11-17T12:00:00Z"}, "marker": number}
+        row, _ = journal.accept_delivery(r.scope, f"delivery-{number}", json.dumps(payload).encode(), payload)
+        rows.append(row)
+    r.core.admit_workflow_successor(r.handle, handle, a, lambda *_: "workflow:new")
+    drain = InboundDrain(r.core, None, journal, clock=lambda: r.now, authorized_actors=())
+    assert drain.next_receipt(handle) == rows[0]["id"]
+    with journal.transaction() as conn:
+        conn.execute("UPDATE deliveries SET state='applied' WHERE id=?", (rows[0]["id"],))
+        conn.execute("UPDATE deliveries SET state='conflict' WHERE id=?", (rows[1]["id"],))
+    before = journal.deliveries(r.scope)[1]
+    assert drain.next_receipt(handle) is None
+    assert drain.run_once(handle) is None
+    with pytest.raises(AccessDenied):
+        drain.retry_conflict(handle, rows[1]["id"])
+    assert journal.deliveries(r.scope)[1] == before
+
+
+def test_R02_predecessor_writer_protocol_cannot_reset_or_mutate_after_admission(admission):
+    import sqlite3
+    from ai_task_manager.storage.scheduling_schema import register as scheduling
+    from ai_task_manager.storage.publication_schema import register as publication
+    r, selected, _, a, handle = admission
+    r.core.admit_workflow_successor(r.handle, handle, a, lambda *_: "workflow:new")
+    with sqlite3.connect(r.db.path) as old:
+        scheduling(old); publication(old)
+        before = old.execute("SELECT token_hash,revoked FROM sessions").fetchall()
+        assert old.execute("SELECT id FROM tasks WHERE id=?", (selected.id,)).fetchone()
+        for command, parameters in (("UPDATE sessions SET revoked=0,token_hash='replacement'", ()),
+                                    ("UPDATE tasks SET version=version+1 WHERE id=?", (selected.id,))):
+            with pytest.raises(sqlite3.OperationalError, match="aitm_successor_writer_protocol"):
+                old.execute(command, parameters)
+        assert old.execute("SELECT token_hash,revoked FROM sessions").fetchall() == before
+    assert r.core.get_task(handle, selected.id).id == selected.id
+
+
+def test_publication_lost_core_commit_and_concurrent_exact_retry_keep_one_successor(admission, tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    from ai_task_manager.application.workflows.models import WorkflowPlan
+    from ai_task_manager.application.workflows.recovery import admit_successor
+    from ai_task_manager.storage.workflows import WorkflowStore
+    r, selected, _, a, handle = admission
+    root = tmp_path / "retained"
+    root.mkdir(mode=0o700)
+    store = WorkflowStore(root / "workflow.sqlite")
+    old = WorkflowPlan("old", "assignment", "fixture", "base", ("result",), ("result",), r.now - 1)
+    ref = store.create(r.scope, selected, old, "old-key")
+    plan = replace(old, id="fresh", deadline=a.expires_at)
+    a = replace(a, predecessor=ref, plan_ref=plan.id, plan_digest=plan.digest)
+    r.proofs.evidence[a.reference] = Evidence("workflow_successor", r.scope, selected.id, asdict(a), a.expires_at)
+    original_admit = r.core.admit_workflow_successor
+    def fail(old_handle, new_handle, authority, publish):
+        def interrupted(*args):
+            publish(*args)
+            raise RuntimeError("Lost Core commit after workflow publication")
+        return original_admit(old_handle, new_handle, authority, interrupted)
+    r.core.admit_workflow_successor = fail
+    boundary = SimpleNamespace(check=lambda *_: None, check_locked=lambda *_: None, boundary=lambda *_: nullcontext())
+    with pytest.raises(RuntimeError, match="Lost Core commit"):
+        admit_successor(r.core, r.handle, handle, store, a, plan, "runtime", boundary)
+    recorded = store.recovery_result(r.scope, ref, asdict(a))
+    assert recorded is not None
+    with pytest.raises(AccessDenied):
+        r.core.get_task(handle, selected.id)
+    r.core.admit_workflow_successor = original_admit
+    def retry(_):
+        return admit_successor(r.core, r.handle, handle, store, a, plan, "runtime", boundary)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert list(pool.map(retry, range(2))) == [recorded, recorded]
+    assert r.core.get_task(handle, selected.id).id == selected.id
+    with store.transaction() as conn:
+        assert conn.execute("SELECT count(*) FROM recoveries").fetchone()[0] == 1

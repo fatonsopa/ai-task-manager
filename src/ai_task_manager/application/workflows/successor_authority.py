@@ -83,6 +83,8 @@ def admit(core, old_handle, new_handle, authorization, publish):
             for operation in ("INSERT", "UPDATE", "DELETE"):
                 conn.execute(trigger_sql("task_capabilities", operation))
                 conn.execute(writer_trigger("task_capabilities", operation))
+            from ai_task_manager.storage.successor_schema import install
+            install(conn)
         for prior in conn.execute("SELECT reference,task_ids FROM task_capabilities WHERE session_id=? AND revoked=0", (sid,)).fetchall():
             subjects = set(json.loads(prior["task_ids"]))
             if subjects & set(allowed):
