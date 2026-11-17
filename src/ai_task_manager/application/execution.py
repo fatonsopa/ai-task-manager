@@ -266,6 +266,7 @@ class Execution:
             attempt = Attempt(str(uuid4()), task.id, sid, host, A.RESERVED, task.decision_revision)
             attempts.insert(conn, attempt)
             scheduling.bind_attempt(conn, attempt.id, task.id, graph_version)
+            self.c.scheduling.admitted(conn, scope, task)
             task = work.save(conn, replace(task, execution_state=A.RESERVED), task.version)
             self.c.changed(
                 conn,

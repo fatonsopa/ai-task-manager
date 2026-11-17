@@ -96,3 +96,26 @@ def queue_sequence(conn, task_id):
                 and (version - 1, revision) in intents):
             return row[0]
     return None
+
+
+def wait_state(conn, task_id):
+    row = conn.execute(
+        "SELECT payload FROM events WHERE task_id=? AND kind='scheduling_wait_changed' "
+        "ORDER BY sequence DESC LIMIT 1", (task_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    payload = json.loads(row[0])
+    return {key: payload[key] for key in (
+        "eligible_since", "bypasses", "expires_at", "prose_digest",
+    )}
+
+
+def record_wait(conn, task, state):
+    """Persist changed queue facts in the existing transactional event stream."""
+    if wait_state(conn, task.id) != state:
+        from . import events
+
+        events.append(conn, task.session_id, task.id, "scheduling_wait_changed", {
+            **state, "task_version": task.version, "decision_revision": task.decision_revision,
+        })

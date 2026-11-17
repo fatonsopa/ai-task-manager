@@ -131,9 +131,19 @@ def evaluate(snapshot, completions, now):
     return Readiness("blocked" if blockers else "ready", tuple(blockers))
 
 
-def ordered(items):
+FAIR_BYPASSES = 4
+
+
+def ordered(items, bypasses=None):
     """Items contain only authorized session task IDs, priority and queue sequence."""
+    bypasses = bypasses or {}
     for task_id, priority, sequence in items:
-        if not text(task_id) or priority not in PRIORITIES or type(sequence) is not int or sequence < 1:
+        if (not text(task_id) or priority not in PRIORITIES
+                or type(sequence) is not int or sequence < 1):
             raise ValidationError("Priority and attributable original queue order are required")
-    return sorted(items, key=lambda item: (PRIORITIES[item[1]], item[2], item[0]))
+        if type(bypasses.get(task_id, 0)) is not int or bypasses.get(task_id, 0) < 0:
+            raise ValidationError("A committed nonnegative bypass count is required")
+    return sorted(items, key=lambda item: (
+        (0, item[2], item[0]) if bypasses.get(item[0], 0) >= FAIR_BYPASSES
+        else (1, PRIORITIES[item[1]], item[2], item[0])
+    ))

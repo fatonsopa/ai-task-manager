@@ -1,5 +1,6 @@
 """Scoped dependency application boundary; external observation happens elsewhere."""
 
+import json
 from dataclasses import asdict
 
 from ai_task_manager.domains.scheduling import policy
@@ -12,7 +13,7 @@ from ai_task_manager.domains.scheduling.models import (
     SchedulingBlocked,
 )
 from ai_task_manager.domains.work.errors import EvidenceRequired, StaleVersion
-from ai_task_manager.domains.work.models import DELIVERED, SyncState
+from ai_task_manager.domains.work.models import DELIVERED, Scope, SyncState
 from ai_task_manager.domains.work.models import AttemptState as A
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.storage import attempts, events, issue_claims, sessions, work
@@ -412,11 +413,22 @@ class Scheduling:
             )
             return payload
 
-    def _view(self, conn, scope, task):
+    def _view(self, conn, scope, task, *, candidates=None):
         current = store.current(conn, task.id)
         active = attempts.active(conn, task.id)
         readiness = self._readiness(conn, scope, task, active)
         snapshot = current["snapshot"] if current else None
+        wait = self._wait(conn, scope, task)
+        if candidates is None:
+            candidates = self._candidates(conn, task.session_id, scope)
+        eligible = self._selection_ready(conn, scope, task)
+        selected = bool(candidates and candidates[0][0] == task.id)
+        if active and readiness.state == "ready" and not task.human_hold:
+            selection_state = active.state
+        elif not eligible:
+            selection_state = "blocked"
+        else:
+            selection_state = "ready" if selected else "waiting"
         return {
             "task_id": task.id,
             "task_version": task.version,
@@ -427,6 +439,19 @@ class Scheduling:
             "priority": snapshot.priority if snapshot else None,
             "expires_at": snapshot.expires_at if snapshot else None,
             "queue_sequence": store.queue_sequence(conn, task.id),
+            "selection_state": selection_state,
+            "waiting_reason": (
+                "fair_turn" if eligible and wait["bypasses"] >= policy.FAIR_BYPASSES
+                else "priority_order" if eligible and not selected else None
+            ),
+            "eligible_since": wait["eligible_since"],
+            "wait_seconds": (
+                max(0.0, self.c.clock() - wait["eligible_since"])
+                if wait["eligible_since"] is not None else None
+            ),
+            "bypasses": wait["bypasses"],
+            "fair_turn_due": eligible and wait["bypasses"] >= policy.FAIR_BYPASSES,
+            "admission_requires_capacity": True,
         }
 
     def explain(self, handle, task_id):
@@ -434,28 +459,71 @@ class Scheduling:
             sid, scope = sessions.resolve(conn, handle)
             return self._view(conn, scope, work.get(conn, sid, task_id))
 
+    def _selection_ready(self, conn, scope, task, selected=None):
+        return (
+            task.queued_once
+            and not task.human_hold
+            and not task.delivered_once
+            and task.sync_state == SyncState.CONFIRMED
+            and not attempts.active(conn, task.id)
+            and (task.observed_status == S.TODO or task.id == selected)
+            and self._readiness(conn, scope, task).state == "ready"
+            and store.queue_sequence(conn, task.id) is not None
+        )
+
+    def _wait(self, conn, scope, task):
+        prior = store.wait_state(conn, task.id)
+        if (prior and self._selection_ready(conn, scope, task)
+                and prior["expires_at"] > self.c.clock()
+                and prior["prose_digest"] == task.prose_digest):
+            return prior
+        return {"eligible_since": None, "bypasses": 0}
+
+    def _record_wait(self, conn, scope, task, *, increment=False):
+        prior = store.wait_state(conn, task.id)
+        eligible = self._selection_ready(conn, scope, task)
+        if not eligible and prior is None:
+            return
+        now = self.c.clock()
+        continuous = bool(
+            eligible and prior and prior["eligible_since"] is not None
+            and prior["expires_at"] >= now
+            and prior["prose_digest"] == task.prose_digest
+        )
+        snapshot = store.current(conn, task.id)
+        store.record_wait(conn, task, {
+            "eligible_since": prior["eligible_since"] if continuous else now if eligible else None,
+            "bypasses": (prior["bypasses"] if continuous else 0) + int(increment and eligible),
+            "expires_at": snapshot["snapshot"].expires_at if eligible else 0,
+            "prose_digest": task.prose_digest,
+        })
+
+    def admitted(self, conn, scope, selected):
+        """Only a successful canonical admission can advance another task's wait."""
+        current = store.current(conn, selected.id)["snapshot"]
+        sequence = store.queue_sequence(conn, selected.id)
+        for task_id, priority, queued in self._candidates(conn, selected.session_id, scope):
+            task = work.get(conn, selected.session_id, task_id)
+            self._record_wait(conn, scope, task, increment=(
+                queued < sequence
+                and policy.PRIORITIES[current.priority] < policy.PRIORITIES[priority]
+            ))
+
     def _candidates(self, conn, sid, scope, selected=None):
         result = []
+        bypasses = {}
         for row in conn.execute("SELECT id FROM tasks WHERE session_id=?", (sid,)).fetchall():
             if not sessions.permits(sid, row[0]):
                 continue
             task = work.get(conn, sid, row[0])
-            if (
-                not task.queued_once
-                or task.human_hold
-                or task.delivered_once
-                or task.sync_state != SyncState.CONFIRMED
-                or attempts.active(conn, task.id)
-                or (task.observed_status != S.TODO and task.id != selected)
-            ):
-                continue
-            if self._readiness(conn, scope, task).state != "ready":
+            if not self._selection_ready(conn, scope, task, selected):
                 continue
             current = store.current(conn, task.id)
             order = store.queue_sequence(conn, task.id)
             if order is not None:
                 result.append((task.id, current["snapshot"].priority, order))
-        return policy.ordered(result)
+                bypasses[task.id] = self._wait(conn, scope, task)["bypasses"]
+        return policy.ordered(result, bypasses)
 
     def require(self, conn, scope, task, phase, attempt=None, *, session_id=None):
         readiness = self._readiness(conn, scope, task, attempt, session_id)
@@ -470,16 +538,19 @@ class Scheduling:
     def ordered(self, handle):
         with self.c.db.transaction() as conn:
             sid, scope = sessions.resolve(conn, handle)
+            candidates = self._candidates(conn, sid, scope)
             items = [
-                self._view(conn, scope, work.get(conn, sid, row[0]))
+                self._view(conn, scope, work.get(conn, sid, row[0]), candidates=candidates)
                 for row in conn.execute(
                     "SELECT id FROM tasks WHERE session_id=?", (sid,)
                 ).fetchall()
                 if sessions.permits(sid, row[0])
             ]
+            positions = {item[0]: index for index, item in enumerate(candidates)}
             return sorted(
                 items,
                 key=lambda x: (
+                    positions.get(x["task_id"], len(positions)),
                     policy.PRIORITIES.get(x["priority"], 99),
                     x["queue_sequence"] if x["queue_sequence"] is not None else 2**63,
                     x["task_id"],
@@ -487,6 +558,12 @@ class Scheduling:
             )
 
     def source_changed(self, conn, task, event):
+        if event.kind == "scheduling_wait_changed":
+            return
+        session = conn.execute("SELECT scope FROM sessions WHERE id=?", (task.session_id,)).fetchone()
+        scope = Scope(**json.loads(session[0]))
+        if store.current(conn, task.id):
+            self._record_wait(conn, scope, task)
         if event.kind.startswith("scheduling_") or event.kind == "dependency_inputs_changed":
             return
         for dependent_id in store.dependents(conn, task.id, task.session_id):
@@ -495,6 +572,8 @@ class Scheduling:
                     "SELECT session_id FROM tasks WHERE id=?", (dependent_id,)
                 ).fetchone()
                 if row:
+                    dependent = work.get(conn, row[0], dependent_id)
+                    self._record_wait(conn, scope, dependent)
                     events.append(
                         conn,
                         row[0],

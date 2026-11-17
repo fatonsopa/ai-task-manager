@@ -63,8 +63,10 @@ def task_view(service, task):
             ],
         }
     data["scheduling"] = readiness
-    if readiness["state"] != "ready":
+    if readiness["state"] != "ready" or readiness.get("selection_state") == "blocked":
         data["activity"], data["work_authorized"] = "blocked", False
+    elif readiness.get("selection_state") == "waiting":
+        data["activity"], data["work_authorized"] = "waiting", False
     if task.execution_state in ACTIVE_ATTEMPTS and (
         task.human_hold or task.sync_state != "confirmed"
     ):
