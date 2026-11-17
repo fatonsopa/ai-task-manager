@@ -577,3 +577,19 @@ Independent native review found no supported actionable findings; its structural
 The reviewed code is fast-forwarded into `delivery/dp06`. No product native/provider/container effects occurred in T01. The delivery lead retains the clean implementation/review worktrees, disposable fixture databases, environment, package and original evidence for the next consumer. Primary acceptance: `.local/delivery-learning/20261117-dp06-v1/DP06-T01-accepted.json`. Genuine installed queue decisions and S1 acceptance remain T02; no story or epic criterion is completed by this task alone.
 
 Accepted delivery counts: 1/9 tasks (11.1%), 0/4 stories (0%) and 0/6 epic criteria (0%). Next: T02 installed queue-decision and genuine managed-lead demonstration.
+
+<a id="dp06-t02-installed-decisions"></a>
+
+### DP06-T02 and DP06-S1 — Installed queue decisions
+
+DONE - DP06-T02 and DP06-S1 accepted on 17 November 2026: T02-A1–A3, S1-A1–A3 and DP06-DOD-v1 pass at their declared scope. Reviewed source and checked operating guidance are integrated into `delivery/dp06` at `bcda757`; runtime is `5bb82af`. Linear TST-420 and TST-415 are Done, with original parent relationships, ownership, delegation and criterion links confirmed by readback.
+
+The wheel SHA-256 is `22a1b9dee31b4dc2fdf0a854f30c84782a1e7115070292d17778b3e33bdea6ee`. All 350 runtime files match source, wheel and noneditable CPython 3.13.13 installation; 40 distributions match the unchanged lock. The current affected installed selection passes 28 cases. Earlier `fa58a83` installed predecessor-release and fairness cases are reused only for unchanged behavior, retaining their original bindings. Overlapping batches are not summed; original failures remain retained.
+
+Actual worker and lead capability captures pass in 120.13 and 50.36 seconds, with 17 and nine stopped call rows respectively. In G3, the real lead truthfully refused an expired dependency observation; the separate operator path started a real worker, produced the expected three-line report and reached awaiting review. Supported cold recovery confirms all components quiescent. In G4, real queue-read tools and current trusted observations support the public model's positive eligible-task selection. These separately identified observations satisfy T02-A2; they do not prove concurrent delivery or performance budgets.
+
+G4 remains a failed reporting attempt: its 520-request ordinary allowance was exhausted, the final command exited 5, assignment outcome is unknown but stopped, and no user-reported receipt exists. G3 separately has delivered, acknowledged and user-reported receipts. Independent review accepts the six exact behavior criteria without relabelling G4's report successful. All current normal permissions and capture enrollments are revoked, and owned provider resources are archived with readback. G3's uncommitted report, worktree and database remain protected by the original-key retirement guard under the delivery lead. The report is unreviewed and is not delivered work; its conditional resume action remains with the original disposition.
+
+Primary proof: existing private `DP06-T02-accepted.json`, `DP06-S1-accepted.json`, independent `t02-outcome-review` report/check, confirmed Linear closure and linked original installed/G3/G4 records under `.local/delivery-learning/20261117-dp06-v1/`. The [scheduling How-to Guide (HTG)](scheduling/how_to_guide.md) explains bounded current-grant observation during startup; the [Interface Contract (IC)](scheduling/interface_contract.md) preserves read-only selection and guarded operator start.
+
+Accepted delivery counts: 2/9 tasks (22.2%), 1/4 stories (25%) and 0/6 epic criteria (0%). Next: T03 finite capacity and atomic conflict reservations. S2–S4, genuine concurrent delivery and measured performance remain open.
