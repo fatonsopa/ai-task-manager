@@ -1,12 +1,12 @@
 # Recorded workflow recovery
 
-Type: How-to Guide (HTG). Scope: accepted S1 owner recovery, the independently accepted T03 retained-provider component and the independently accepted T04 code-continuation component.
+Type: How-to Guide (HTG). Scope: supported DP05 owner recovery, original-effect reconciliation, partial-code continuation, explicit successors, owned retirement and reporting.
 
 ## Before you begin
 
 Use the exact installed candidate package, original private service configuration and original installation file. Preserve the original workflow reference and operation key from the interrupted request. Live-owner observation and execution require current enrollment. Cold execution also requires the original unexpired native permission. Cold `resume` first uses separate finite observation/settlement authority for retained provider effects; this does not renew execution permission. The explicit cold stop port uses separate finite operator authority to settle an exactly recorded obligation, including after its execution grant expires or is revoked. Do not copy an installation or extend its deadline to make it eligible.
 
-The candidate supports live-owner continuation, verified cold replacement and owned stop. Version-two successor admission and genuine expiry/revocation execution are accepted under T06/T07 and DP05-S3. Resource retirement is the current T08 candidate, pending independent assessment. Cold recovery requires the complete original installation, store, key and controller witnesses recorded before interruption. Older rows without those facts need explicit reconciliation; this procedure does not backfill them. Ordinary run/resume retains its existing contract. Genuine S1 qualification is accepted at its recorded host/profile scope. T03 provider recovery and T04 code continuation retain their accepted component evidence. T05/S2 genuine publication, outage readback and supervisor replacement/replay are independently accepted on 17 November 2026 at that declared profile scope. Future genuine effects still need the finite admission described below.
+The candidate supports live-owner continuation, verified cold replacement and owned stop. Version-two successor admission and genuine expiry/revocation execution are accepted under T06/T07 and DP05-S3. Owned resource retirement and original-key readback are independently accepted under T08. Exact-event lead reporting is independently accepted under T09; use the linked reporting procedure with current finite authority. Cold recovery requires the complete original installation, store, key and controller witnesses recorded before interruption. Older rows without those facts need explicit reconciliation; this procedure does not backfill them. Ordinary run/resume retains its existing contract. Genuine S1 qualification is accepted at its recorded host/profile scope. T03 provider recovery and T04 code continuation retain their accepted component evidence. T05/S2 genuine publication, outage readback and supervisor replacement/replay are independently accepted on 17 November 2026 at that declared profile scope. Future genuine effects still need the finite admission described below.
 
 ## Steps
 
@@ -62,7 +62,7 @@ The command retains branches and coordinator journals. It does not archive provi
 
 ## Admit a successor
 
-Use this procedure after the original execution expires or is revoked and the owner, effects and resources have been reconciled. Preserve every original file, key, deadline, failure and revocation. A held, delivered, foreign or uncertain task cannot obtain a successor. This component procedure does not establish genuine successor execution; T07 owns that qualification.
+Use this procedure after the original execution expires or is revoked and the owner, effects and resources have been reconciled. Preserve every original file, key, deadline, failure and revocation. A held, delivered, foreign or uncertain task cannot obtain a successor. T07 separately demonstrates genuine expiry and revoked-predecessor successor execution. Component controls retain their declared authored external-port limits.
 
 1. Stage a separate private service configuration and unused owner/capability paths. Keep the original Core, authority, provider and Writer histories, repository, state root, approved write scope and required reviewer task identities. Use the normal sealed native inputs for the fresh plan; never copy or extend an old permission. Keep the original configuration and installation unchanged.
 
