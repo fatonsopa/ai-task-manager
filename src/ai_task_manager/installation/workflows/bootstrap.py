@@ -51,27 +51,60 @@ def prepare(config_file, request):
     if operation == "task_submit" and ({"parent_task_id", "followup_ref"} & data.keys()):
         raise AccessDenied("Initial preparation cannot admit delivered follow-up work")
     with _initial_service(config_file) as (service, control, grant):
-        service.core.intake.require_settled_preparation(service.handle)
         reference = "workflow-bootstrap:" + digest(
             {"instance": control["instance"], "request": request}
         )
-        bind_record(
-            service.decisions.journal,
-            reference,
-            {
-                "config": file_binding(config_file),
-                "session": service.session_id,
-                "owner_instance": control["instance"],
-                "operation": operation,
-                "request_digest": digest(request),
-                "expires_at": grant.expires_at,
-            },
-        )
+        original = {
+            "config": file_binding(config_file), "session": service.session_id,
+            "owner_instance": control["instance"], "operation": operation,
+            "request_digest": digest(request), "expires_at": grant.expires_at,
+        }
+        try:
+            service.core.intake.require_settled_preparation(service.handle)
+        except EvidenceRequired:
+            if (
+                operation != "task_action"
+                or history(service.decisions.journal, reference) != original
+            ):
+                raise
+            return _reconcile_prepared_enqueue(service, data)
+        bind_record(service.decisions.journal, reference, original)
         result = service.call(operation, data)
         service.decisions.observations.verify_enrollment(service.grant_ref)
         service.seal.check()
         service.claim_store.check()
         return result
+
+
+def _reconcile_prepared_enqueue(service, data):
+    """Read back an original enqueue; this route cannot send or retry a mutation."""
+    from ai_task_manager.application.service.invocations import Invocation
+    from ai_task_manager.application.service.models import result, validate
+    from ai_task_manager.application.service.projection import task_view
+
+    validate("task_action", data)
+    invocation = Invocation(
+        service.decisions.journal, service.scope, "task_action", data["operation_key"], data,
+        claim_store=service.claim_store.context if service.claim_store else None, existing=True,
+    )
+
+    def missing():
+        raise EvidenceRequired("Original enqueue decision receipt is unavailable")
+
+    decision = invocation.reference("decision", missing)
+    task = service.core.transitions.prepared_enqueue(service.handle, data, decision)
+
+    def check():
+        service.decisions.observations.verify_enrollment(service.grant_ref)
+        service.seal.check()
+        service.claim_store.check()
+
+    check()
+    task = service.provider.reconcile_pending(service.handle, task.id, check_authority=check)
+    check()
+    envelope = result(task_view(service, task))
+    invocation.finish(envelope)
+    return envelope
 
 
 @contextmanager

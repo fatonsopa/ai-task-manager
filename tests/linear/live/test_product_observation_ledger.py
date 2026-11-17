@@ -110,3 +110,21 @@ def test_recovery_window_retains_original_binding_and_cumulative_caps(tmp_path):
     clock[0] = args["deadline"]
     with pytest.raises(DriverRefused, match="deadline_expired"):
         reopened._time()
+
+
+def test_product_marker_preserves_the_approved_provider_checkpoint_line():
+    from .fixture_admin import product_run_marker
+
+    run_id = str(uuid4())
+    assert product_run_marker("Fresh provider recovery fixture " + run_id + ".", run_id)
+    assert product_run_marker("Fixture run: " + run_id, run_id)
+
+
+def test_product_marker_refuses_foreign_missing_and_arbitrary_identity():
+    from .fixture_admin import product_run_marker
+
+    run_id = str(uuid4())
+    assert not product_run_marker("Fresh provider recovery fixture " + str(uuid4()) + ".", run_id)
+    assert not product_run_marker("Mention " + run_id + " without the exact marker.", run_id)
+    assert not product_run_marker("Fixture run: ", "")
+    assert not product_run_marker("Fixture run: arbitrary", "arbitrary")

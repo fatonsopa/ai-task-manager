@@ -15,6 +15,20 @@ from .ledger import DriverRefused, Limits, uuid
 from .receiver import receiver_route
 
 
+def product_run_marker(body, run_id):
+    """Accept only the two approved exact lines for this canonical run UUID."""
+    try:
+        if uuid(run_id) != run_id:
+            return False
+    except DriverRefused:
+        return False
+    lines = body.splitlines()
+    return any(line in lines for line in (
+        "Fixture run: " + run_id,
+        "Fresh provider recovery fixture " + run_id + ".",
+    ))
+
+
 @dataclass(frozen=True)
 class VerifiedEndpoint:
     url: str
@@ -461,7 +475,7 @@ class FixtureAdministration:
                     "code_bearing": task.code_bearing,
                     "required_work": list(task.required_work),
                 }
-                or "Fixture run: " + self.ledger.run_id not in task.body.splitlines()
+                or not product_run_marker(task.body, self.ledger.run_id)
             ):
                 raise DriverRefused("current_product_approval_required")
             prose = TaskProse(task.title, task.body, task.code_bearing, task.required_work)

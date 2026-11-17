@@ -1,6 +1,6 @@
 from dataclasses import asdict, replace
 
-from ai_task_manager.domains.work.errors import InvalidTransition
+from ai_task_manager.domains.work.errors import EvidenceRequired, InvalidTransition
 from ai_task_manager.domains.work.existing import readback_context
 from ai_task_manager.domains.work.models import (
     AttemptState,
@@ -9,7 +9,7 @@ from ai_task_manager.domains.work.models import (
 )
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.domains.work.transitions import check_transition
-from ai_task_manager.storage import attempts, issue_claims, work
+from ai_task_manager.storage import attempts, issue_claims, sessions, work
 
 from .existing_issues import ExistingIssues
 from .transition_evidence import destination_facts
@@ -18,6 +18,47 @@ from .transition_evidence import destination_facts
 class Transitions:
     def __init__(self, context):
         self.c = context
+
+    def prepared_enqueue(self, handle, data, decision_ref):
+        """Select only an unchanged committed enqueue with one unfinished status send."""
+        from .intake import Intake
+
+        payload = {
+            "command": "transition", "task_id": data["task_id"],
+            "target": S.TODO, "cause": Cause.ENQUEUE,
+            "version": data["expected_version"], "revision": data["decision_revision"],
+            "decision_ref": decision_ref,
+            "evidence_refs": {key: value for key, value in data.get("evidence_refs", {}).items()
+                              if key != "existing_source"},
+        }
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            prior = work.replay(conn, sid, data["operation_key"], payload)
+            if prior is None:
+                raise EvidenceRequired("Original enqueue was not committed")
+            task = work.get(conn, sid, data["task_id"])
+            self.c.check(task, prior["version"], data["decision_revision"])
+            self.c.decision(conn, task, scope, decision_ref, S.TODO)
+            pending = Intake._unsettled_preparation(conn, sid)
+            if (
+                task.human_hold or task.issue_id != prior["issue_id"]
+                or task.prose_digest != prior["prose_digest"]
+                or task.desired_status != S.TODO or task.sync_state == SyncState.CONFIRMED
+                or len(pending) != 1
+            ):
+                raise EvidenceRequired("Original enqueue no longer has its exact pending task")
+            operation = pending[0]
+            if (
+                operation.task_id != task.id or operation.kind != "set_status"
+                or operation.fenced_by or operation.state not in {"leased", "uncertain"}
+                or operation.attempt_count < 1
+                or operation.payload.get("task_version") != task.version
+                or operation.payload.get("decision_revision") != task.decision_revision
+                or operation.payload.get("desired_status") != S.TODO
+                or operation.payload.get("issue_id") != task.issue_id
+            ):
+                raise EvidenceRequired("Only the original attempted enqueue may reconcile")
+            return task
 
     def transition(
         self,

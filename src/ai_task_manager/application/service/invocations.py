@@ -3,11 +3,13 @@
 import json
 
 from ai_task_manager.config.files import digest
-from ai_task_manager.domains.work.errors import IdempotencyConflict
+from ai_task_manager.domains.work.errors import EvidenceRequired, IdempotencyConflict
 
 
 class Invocation:
-    def __init__(self, journal, scope, operation, key, arguments, *, claim_store=None):
+    def __init__(
+        self, journal, scope, operation, key, arguments, *, claim_store=None, existing=False
+    ):
         self.journal = journal
         context = {"scope": vars(scope), "key": key}
         if claim_store is not None:
@@ -18,6 +20,8 @@ class Invocation:
             prior = conn.execute(
                 "SELECT fingerprint FROM invocations WHERE id=?", (self.id,)
             ).fetchone()
+            if existing and prior is None:
+                raise EvidenceRequired("Original invocation history is unavailable")
             if prior and prior[0] != self.fingerprint:
                 raise IdempotencyConflict("Operation key was reused with changed arguments")
             conn.execute(
