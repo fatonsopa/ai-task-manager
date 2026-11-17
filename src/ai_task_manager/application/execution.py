@@ -18,6 +18,10 @@ from ai_task_manager.domains.work.models import (
 from ai_task_manager.domains.work.models import AttemptState as A
 from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.domains.work.transitions import check_transition
+from ai_task_manager.domains.scheduling.resources import (
+    AdmissionResources, MissingResourceDeclaration, RejectResourceDeclarations,
+)
+from ai_task_manager.storage import admission_resources
 from ai_task_manager.storage import attempts, capacity, issue_claims, scheduling, sessions, work
 from ai_task_manager.storage.database import encode
 
@@ -25,8 +29,80 @@ from .existing_issues import ExistingIssues
 
 
 class Execution:
-    def __init__(self, context):
+    def __init__(self, context, resource_sources=None):
         self.c = context
+        self.resource_sources = resource_sources or RejectResourceDeclarations()
+
+    def declared_resources(self, scope, task):
+        value = self.resource_sources.read(scope, task)
+        if type(value) is not AdmissionResources:
+            raise EvidenceRequired("A trusted typed resource declaration is required")
+        return value.validate(scope, task, self.c.clock())
+
+    def publish_resources(self, task):
+        """Trusted setup records validated facts; this port grants no execution."""
+        import json
+
+        from ai_task_manager.domains.work.models import Scope
+
+        with self.c.db.transaction() as conn:
+            current = work.get(conn, task.session_id, task.id)
+            row = conn.execute("SELECT scope FROM sessions WHERE id=?", (task.session_id,)).fetchone()
+            scope = Scope(**json.loads(row[0]))
+            value = self.declared_resources(scope, current)
+            payload = json.loads(encode(asdict(value)))
+            if admission_resources.declared(conn, current.id) != payload:
+                self.c.changed(conn, current, "scheduling_resources_declared", {"declaration": payload})
+
+    def projected_resources(self, conn, scope, task):
+        from ai_task_manager.adapters.workflow_control.identity import file_binding
+        from ai_task_manager.domains.work.models import Scope
+
+        value = admission_resources.declared(conn, task.id)
+        if value is None:
+            raise MissingResourceDeclaration("Current installed resource declarations are unavailable")
+        value = dict(value)
+        value["scope"] = Scope(**value["scope"])
+        value["files"] = tuple(value["files"])
+        value["locks"] = tuple(tuple(pair) for pair in value["locks"])
+        value["witnesses"] = tuple(tuple(pair) for pair in value.get("witnesses", ()))
+        result = AdmissionResources(**value).validate(scope, task, self.c.clock())
+        for path, device, inode, sha256 in result.witnesses:
+            if file_binding(path) != {"path": path, "device": device, "inode": inode, "sha256": sha256}:
+                raise EvidenceRequired("Installed resource source changed")
+        return result
+
+    def require_resources(self, conn, scope, task):
+        declared = self.declared_resources(scope, task)
+        admission_resources.claims(conn, scope, declared, task_id=task.id)
+        return declared
+
+    def resource_state(self, conn, scope, task):
+        try:
+            try:
+                value = self.declared_resources(scope, task)
+            except MissingResourceDeclaration:
+                value = self.projected_resources(conn, scope, task)
+            admission_resources.claims(conn, scope, value, task_id=task.id)
+        except CapacityExceeded:
+            return "occupied"
+        except (EvidenceRequired, ValueError, TypeError, KeyError, OSError):
+            return "unknown"
+        return "ready"
+
+    def require_reserved_resources(self, handle, attempt_id, decision_ref):
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            attempt = attempts.get(conn, sid, attempt_id)
+            task = work.get(conn, sid, attempt.task_id)
+            self.c.decision(conn, task, scope, decision_ref, S.IN_PROGRESS,
+                            human=task.observed_status == S.IN_REVIEW)
+            if (attempt.state != A.RESERVED or task.human_hold or task.delivered_once
+                    or task.sync_state != SyncState.CONFIRMED
+                    or attempt.decision_revision != task.decision_revision):
+                raise InvalidTransition("Current queued reservation is required before startup")
+            self.require_open(conn, scope, task)
+            self.c.scheduling.require(conn, scope, task, "start", attempt)
 
     @staticmethod
     def require_open(conn, scope, task, publication_context=None):
@@ -263,10 +339,14 @@ class Execution:
                 raise CapacityExceeded("Task already owns an active or unresolved attempt")
             graph_version = self.c.scheduling.require(conn, scope, task, "reserve")
             capacity.check(conn, host, scope)
+            declared = self.declared_resources(scope, task)
+            admission_resources.claims(conn, scope, declared, task_id=task.id)
+            waiters = self.c.scheduling._candidates(conn, task.session_id, scope, task.id)
             attempt = Attempt(str(uuid4()), task.id, sid, host, A.RESERVED, task.decision_revision)
             attempts.insert(conn, attempt)
+            admission_resources.reserve(conn, scope, declared, attempt)
             scheduling.bind_attempt(conn, attempt.id, task.id, graph_version)
-            self.c.scheduling.admitted(conn, scope, task)
+            self.c.scheduling.admitted(conn, scope, task, waiters)
             task = work.save(conn, replace(task, execution_state=A.RESERVED), task.version)
             self.c.changed(
                 conn,
@@ -367,7 +447,8 @@ class Execution:
                     for v in (attempt.worker_id, attempt.worktree_id, attempt.database_id)
                 )
                 or conn.execute(
-                    "SELECT 1 FROM resource_leases WHERE attempt_id=? LIMIT 1", (attempt.id,)
+                    "SELECT 1 FROM resource_leases WHERE attempt_id=? AND kind!='admission' LIMIT 1",
+                    (attempt.id,)
                 ).fetchone()
                 or conn.execute(
                     "SELECT 1 FROM checkpoints WHERE attempt_id=? LIMIT 1", (attempt.id,)
@@ -377,6 +458,8 @@ class Execution:
             inspect()
             attempt = replace(attempt, state=A.PAUSED, version=attempt.version + 1)
             attempts.save(conn, attempt)
+            conn.execute("DELETE FROM resource_leases WHERE attempt_id=? AND kind='admission'",
+                         (attempt.id,))
             task = work.save(conn, replace(task, execution_state=A.PAUSED), task.version)
             self.c.changed(
                 conn,

@@ -62,6 +62,7 @@ class WorkerSupervisor:
             f"{operation_key}:reserve",
             **({"readback_ref": reserve_source} if source_readbacks is not None else {}),
         )
+        self.core.execution.require_reserved_resources(handle, attempt.id, decision_ref)
         _, scope = self.core.session_binding(handle)
         self.journal.claim(attempt, asdict(scope), deadline=deadline)
         worker = None

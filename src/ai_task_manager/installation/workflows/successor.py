@@ -632,6 +632,8 @@ def recover(config_file, installation_file, value):
         for field in ("allowed_files", "artifacts", "commit_checks"):
             if field in plan:
                 plan[field] = tuple(plan[field])
+        if plan.get("resource_locks") is not None:
+            plan["resource_locks"] = tuple(tuple(pair) for pair in plan["resource_locks"])
         old_handle = SessionHandle(read_private(original["session_file"])["capability"])
         new_handle = SessionHandle(read_private(fresh["session_file"])["capability"])
         reference = admit_successor(

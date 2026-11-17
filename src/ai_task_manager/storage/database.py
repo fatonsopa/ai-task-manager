@@ -76,7 +76,7 @@ class Database:
         value._active_transactions = set()
         value._existing_only = True
         with value.transaction() as conn:
-            if [tuple(r) for r in conn.execute("SELECT version FROM metadata")] != [(5,)]:
+            if [tuple(r) for r in conn.execute("SELECT version FROM metadata")] != [(6,)]:
                 raise SchemaError("Current original task store required")
         return value
 
@@ -102,13 +102,13 @@ class Database:
                     rows = conn.execute("SELECT version FROM metadata").fetchall()
                 except sqlite3.DatabaseError as exc:
                     raise SchemaError("Database is not an owned task store") from exc
-                if len(rows) != 1 or rows[0][0] not in {1, 2, 3, 4, 5}:
+                if len(rows) != 1 or rows[0][0] not in {1, 2, 3, 4, 5, 6}:
                     raise SchemaError("Unsupported task store schema")
                 if rows[0][0] < 4:
                     from ai_task_manager.storage.scheduling_schema import require_quiescent
 
                     require_quiescent(conn)
-                if rows[0][0] < 5:
+                if rows[0][0] < 6:
                     from ai_task_manager.storage.core_migration_image import preserve
 
                     preserve(conn, self.path, rows[0][0])
@@ -212,13 +212,13 @@ class Database:
             if self.guard:
                 self.guard(conn)
             versions = conn.execute("SELECT version FROM metadata").fetchall()
-            if len(versions) != 1 or versions[0][0] not in {1, 2, 3, 4, 5}:
+            if len(versions) != 1 or versions[0][0] not in {1, 2, 3, 4, 5, 6}:
                 raise SchemaError("Unsupported task store schema")
             if versions[0][0] >= 4:
                 from ai_task_manager.storage.scheduling_schema import validate
 
                 validate(conn)
-            if versions[0][0] == 5:
+            if versions[0][0] >= 5:
                 from ai_task_manager.storage.publication_schema import (
                     validate as validate_publication,
                 )

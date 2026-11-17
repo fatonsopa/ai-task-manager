@@ -275,7 +275,8 @@ def test_sticky_attempt_invalidation(variant, rig):
         rig.core.execution.validate_work_lease(rig.handle, attempt.id, attempt.version)
     assert active_count(rig) == 1
     with rig.db.transaction() as conn:
-        assert conn.execute("SELECT count(*) FROM resource_leases WHERE attempt_id=?", (attempt.id,)).fetchone()[0] == 2
+        assert conn.execute("SELECT count(*) FROM resource_leases WHERE attempt_id=?", (attempt.id,)).fetchone()[0] == 3
+        assert conn.execute("SELECT count(*) FROM resource_leases WHERE attempt_id=? AND kind='admission'", (attempt.id,)).fetchone()[0] == 1
 
 
 @pytest.mark.parametrize("variant", ["on_hold", "paused_attempt", "failed_attempt", "no_prior_queue"])

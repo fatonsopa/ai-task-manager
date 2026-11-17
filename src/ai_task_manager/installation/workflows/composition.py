@@ -348,6 +348,11 @@ class InstalledWorkflow:
                 raise AccessDenied("Current native task/plan binding differs")
             return self.native.fingerprint + ":" + plan.digest
 
+        from ai_task_manager.adapters.workflows.resources import bind_resources
+
+        witnesses = tuple(tuple(value[key] for key in ("path", "device", "inode", "sha256"))
+                          for value in (self.spec.seal.original, self.spec.config_seal.original))
+        bind_resources(core, task, plan, self.resources.git.common, binding, witnesses=witnesses)
         runtime = ManagedWorkerPort(self.workers, binding)
         self.store = (
             self.recovery.store()

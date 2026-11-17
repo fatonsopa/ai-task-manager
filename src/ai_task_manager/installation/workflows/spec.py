@@ -61,4 +61,6 @@ class Installation:
             tuple(d["files"]),
             tuple(d["artifacts"]),
             d["deadline"],
+            resource_locks=(tuple(tuple(pair) for pair in d["resource_locks"])
+                            if "resource_locks" in d else None),
         )
