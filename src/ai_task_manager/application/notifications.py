@@ -30,7 +30,7 @@ class Notifications:
             prior = work.replay(conn, sid, operation_key, payload)
             return prior["stage"] if prior is not None else None
 
-    def acknowledge(self, handle, event_id, stage, proof_ref, operation_key):
+    def acknowledge(self, handle, event_id, stage, proof_ref, operation_key, *, reporting=None):
         try:
             stage = ReceiptStage(stage)
         except ValueError as exc:
@@ -43,7 +43,17 @@ class Notifications:
         }
 
         def action(conn, sid, scope):
-            events.get(conn, sid, event_id)
+            event = events.get(conn, sid, event_id)
+            if reporting is not None:
+                task = work.get(conn, sid, event.task_id)
+                if (event.id, task.id, task.version, task.decision_revision, task.sync_state) != (
+                    reporting["event_id"],
+                    reporting["task_id"],
+                    reporting["task_version"],
+                    reporting["decision_revision"],
+                    "confirmed",
+                ):
+                    raise EvidenceRequired("Reporting task changed before receipt settlement")
             proof = self.c.proof(proof_ref, f"notification_{stage}", scope, event_id)
             if proof.payload.get("target_session_id") != sid:
                 raise EvidenceRequired("Notification proof belongs to another target session")

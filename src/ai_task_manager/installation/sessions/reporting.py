@@ -3,7 +3,6 @@
 import math
 import time
 from dataclasses import asdict
-from pathlib import Path
 
 from ai_task_manager.adapters.decisions.journal import AuthorityJournal
 from ai_task_manager.adapters.decisions.observations import PREFIX, bind_record, identity, intent
@@ -102,6 +101,8 @@ def setup(config_file, predecessor_config, *, event_id, deadline, operation_key,
             "task_version": task.version,
             "decision_revision": getattr(task, "decision_revision", 0),
         }
+        if deadline <= time.time():
+            raise AccessDenied("Reporting authority expired during current provider verification")
         seal.check()
         original_seal.check()
         bind_record(journal, reference, payload)

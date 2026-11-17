@@ -63,7 +63,14 @@ def event_acknowledge(service, data, invocation):
         proof,
     )
     stage = service.core.notifications.acknowledge(
-        service.handle, data["event_id"], data["stage"], proof, data["operation_key"]
+        service.handle,
+        data["event_id"],
+        data["stage"],
+        proof,
+        data["operation_key"],
+        reporting=service.reporting.check(service, "event_acknowledge", data)
+        if service.reporting
+        else None,
     )
     return result({"stage": stage})
 
