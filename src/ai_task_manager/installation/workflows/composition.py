@@ -114,12 +114,12 @@ class InstalledWorkflow:
             authority = AuthorityJournal.open_existing(
                 configuration["authority_database"], configuration["authority_key"]
             )
-            retained = history(
+            retained_history = history(
                 authority, "workflow-successor-store:" + digest(configuration["grant_ref"])
             )
-            if retained is None or retained["config"] != file_binding(config_file):
+            if retained_history is None or retained_history["config"] != file_binding(config_file):
                 raise AccessDenied("Original successor installation history is unavailable")
-            for binding in retained["files"].values():
+            for binding in retained_history["files"].values():
                 observed = (
                     file_binding(binding["path"])
                     if "sha256" in binding
@@ -128,7 +128,7 @@ class InstalledWorkflow:
                 if observed != binding:
                     raise AccessDenied("Original successor journal or key changed")
             self.successor_store = WorkflowStore.open_existing(
-                retained["workflow"]["path"], store_id=retained["workflow"]["store_id"]
+                retained_history["workflow"]["path"], store_id=retained_history["workflow"]["store_id"]
             )
 
         control = configuration.get("workflow_control", {})
