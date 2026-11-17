@@ -399,6 +399,7 @@ class InstalledWorkflow:
             )
             routes.append(EvidenceRoute(PREFIX, KINDS, reviewer))
         core.context.evidence = EvidenceRouter(routes)
+        self.review_issuer = reviewer
         grant = read_private(self.spec.config_seal.path).get("grant_ref")
         from ai_task_manager.application.commits import WorkerCommits
 

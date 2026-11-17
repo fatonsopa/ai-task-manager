@@ -456,11 +456,17 @@ class InstalledCodeDelivery:
                 self.issuer = issuer
                 # Replace only this installation's code-unit route on re-preparation.
                 routes = [r for r in self.core.context.evidence.routes if r.prefix != issuer.prefix]
-                self.core.context.evidence = EvidenceRouter(
-                    [
+                from .member_evidence import MemberMilestones
+
+                current_router = self.core.context.evidence
+                updated_routes = [
                         *routes,
                         EvidenceRoute(issuer.prefix, issuer.kinds, issuer),
                     ]
+                self.core.context.evidence = (
+                    current_router.with_routes(updated_routes)
+                    if isinstance(current_router, MemberMilestones)
+                    else EvidenceRouter(updated_routes)
                 )
                 completed = all(
                     unit in task.completed_work

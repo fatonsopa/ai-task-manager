@@ -130,6 +130,9 @@ class CodeWorkerUnitIssuer:
             )
         return output
 
+    def owns_reference(self, reference):
+        return isinstance(reference, str) and reference in self._prepared
+
     def verify_evidence(self, reference):
         self._current()
         value = self._prepared.get(reference) if isinstance(reference, str) else None

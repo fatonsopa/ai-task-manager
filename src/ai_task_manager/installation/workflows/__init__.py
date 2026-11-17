@@ -52,6 +52,12 @@ def launch(
             retained=recovery if selected != str(member.seal.path) else None,
         ))
     if members:
+        from .member_evidence import MemberMilestones
+
+        closed_members = (installed, *members)
+        for member in closed_members:
+            context = member.service.core.context
+            context.evidence = MemberMilestones(context.evidence.routes, closed_members)
         installed.service.workflows.bind_members(
             tuple(member.service.workflows for member in members), installed.spec.check,
         )
