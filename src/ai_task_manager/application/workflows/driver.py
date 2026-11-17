@@ -234,6 +234,12 @@ class WorkflowDriver:
         return None
 
     def run(self, ref):
+        row = self.store.read(ref, self.scope)
+        if row.get("succession", {}).get("version") == 2 and row["recovery_history"] is None:
+            if self.recovery_history is not None:
+                self.store.activate_successor(
+                    ref, self.scope, self.recovery_history.capture(self.scope)
+                )
         owner = str(uuid4())
         self.store.claim(
             ref,
@@ -304,7 +310,15 @@ class WorkflowDriver:
                     def action():
                         return self.provider.confirm_pending(self.handle, task.id)
                 elif attempt is None:
-                    if task.observed_status != IssueStatus.TODO or task.sync_state != "confirmed":
+                    if task.sync_state != "confirmed" or (
+                        task.observed_status != IssueStatus.TODO
+                        and not (
+                            row.get("succession", {}).get("version") == 2
+                            and task.observed_status
+                            in {IssueStatus.IN_PROGRESS, IssueStatus.ON_HOLD}
+                            and task.execution_state in {"paused", "failed", "canceled", "done"}
+                        )
+                    ):
                         return {
                             "state": "blocked",
                             "reason": "confirmed_queue_required",

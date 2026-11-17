@@ -55,7 +55,7 @@ class Execution:
         ):
             raise InvalidTransition("Work lease is no longer authorized")
         self.require_open(conn, scope, task)
-        self.c.scheduling.require(conn, scope, task, "lease", attempt)
+        self.c.scheduling.require(conn, scope, task, "lease", attempt, session_id=sid)
         return attempt
 
     def validate_work_lease(self, handle, attempt_id, expected_attempt_version):
@@ -129,7 +129,7 @@ class Execution:
             ):
                 raise InvalidTransition("Current stopped code worker is required for commit")
             self.require_open(conn, scope, task)
-            self.c.scheduling.require(conn, scope, task, "lease", attempt)
+            self.c.scheduling.require(conn, scope, task, "lease", attempt, session_id=sid)
             yield task, attempt, scope
 
     @contextmanager

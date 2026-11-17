@@ -23,7 +23,7 @@ class CodeCandidateReviews:
         self._bound = (core, handle, candidates, files, self.reviews)
         self._prepared = None
 
-    def read(self, task, candidate):
+    def read(self, task, candidate, *, retained=None):
         self._prepared = None
         if any(
             a is not b
@@ -104,6 +104,7 @@ class CodeCandidateReviews:
             "config",
         ):
             witnesses.append(FileWitness.capture(common / reference))
+        historical = retained[0] if retained else grant
         context = {
             "scope": asdict(scope),
             "review_kind": "code_candidate",
@@ -124,10 +125,10 @@ class CodeCandidateReviews:
             "source_version": {
                 "head": candidate.commit,
                 "tree": candidate.tree,
-                "grant_digest": grant.digest,
-                "task_version": task.version,
-                "attempt_version": attempt.version,
-                "decision_revision": task.decision_revision,
+                "grant_digest": historical.digest,
+                "task_version": historical.task_version,
+                "attempt_version": historical.attempt_version,
+                "decision_revision": historical.decision_revision,
             },
             "criteria": [[unit, task.title + "\n\n" + task.body] for unit in task.required_work],
         }
@@ -135,7 +136,24 @@ class CodeCandidateReviews:
             json.dumps(context, sort_keys=True, separators=(",", ":")), tuple(witnesses)
         )
         inspection.check()
-        captured = self.reviews.resolve(inspection)
+        if retained:
+            from dataclasses import replace
+
+            if (
+                replace(
+                    grant,
+                    task_version=historical.task_version,
+                    attempt_version=historical.attempt_version,
+                    decision_revision=historical.decision_revision,
+                    decision_ref=historical.decision_ref,
+                )
+                != historical
+            ):
+                raise EvidenceRequired("Retained review cannot change candidate scope or source")
+            reader = getattr(self.reviews, "restore", None)
+            captured = reader(inspection) if callable(reader) else None
+        else:
+            captured = self.reviews.resolve(inspection)
         if captured is None:
             self._prepared = None
             return None
@@ -143,7 +161,12 @@ class CodeCandidateReviews:
             type(captured) is not CapturedReview
             or captured.context_digest != inspection.digest
             or captured.reviewer_id == attempt.worker_id
-            or not captured.accepted(tuple(task.required_work), self.core.context.clock())
+            or not captured.accepted(
+                tuple(task.required_work),
+                min(self.core.context.clock(), captured.expires_at - 1)
+                if retained
+                else self.core.context.clock(),
+            )
         ):
             raise EvidenceRequired("Independent exact-candidate captured acceptance is required")
         _, current_scope = self.core.session_binding(self.handle)
@@ -167,14 +190,20 @@ class CodeCandidateReviews:
             "trace_sha256": captured.trace_sha256,
             "capture_sha256": captured.source_digest,
         }
-        self._prepared = (dict(result), inspection, captured)
+        if retained and result != retained[1]:
+            raise EvidenceRequired(
+                "Original completed review receipt differs from captured history"
+            )
+        self._prepared = (dict(result), inspection, captured, bool(retained))
         return result
 
     def check_prepared(self, commit):
         if self._prepared is None:
             raise EvidenceRequired("Exact candidate review must be prepared outside publication")
-        result, inspection, captured = self._prepared
-        if result["candidate_commit"] != commit or self.core.context.clock() >= captured.expires_at:
+        result, inspection, captured, historical = self._prepared
+        if result["candidate_commit"] != commit or (
+            not historical and self.core.context.clock() >= captured.expires_at
+        ):
             raise EvidenceRequired("Prepared candidate review is stale or expired")
         inspection.check()
         for witness in captured.witnesses:

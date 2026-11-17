@@ -72,7 +72,9 @@ class MergeWorkflowService(WorkflowService):
         maximum_attempts=1,
         publication_worktree=None,
         recover_claim=None,
+        successor=None,
     ):
+        self.successor = successor
         self.core, self.handle, self.plan = core, handle, plan
         self.recover_claim = self._recover_claim_bound = recover_claim
         self.original_plan = plan
@@ -144,6 +146,7 @@ class MergeWorkflowService(WorkflowService):
             self.candidate.profile,
             operation_key,
             maximum_attempts=self.maximum_attempts,
+            successor=self.successor,
         )
         return self.resume(ref)
 
@@ -505,7 +508,20 @@ class MergeWorkflowService(WorkflowService):
                     self.candidate.reconcile(candidate.operation_ref, self.plan.grant)
                     self._ready()
                     if self.candidate_reviews is not None:
-                        review = self.candidate_reviews.read(task, candidate)
+                        previous = row.get("predecessor")
+                        retained = None
+                        if previous and "candidate_review" in previous["steps"]:
+                            retained = (
+                                restore(
+                                    {
+                                        "id": "original",
+                                        "deadline": self.plan.deadline,
+                                        "grant": previous["request"]["grant"],
+                                    }
+                                ).grant,
+                                previous["steps"]["candidate_review"]["result"],
+                            )
+                        review = self.candidate_reviews.read(task, candidate, retained=retained)
                         if review is None:
                             return self._envelope(
                                 ref, "awaiting_review", "candidate_review_unavailable"
@@ -517,11 +533,26 @@ class MergeWorkflowService(WorkflowService):
                             {"commit": candidate.commit},
                             lambda: review,
                         )
-                    prepared_check = self.check_inputs.prepare(
-                        self.candidate.profile,
-                        self.plan.grant,
-                        candidate,
-                        ref + ":checks:" + self.plan.grant.digest,
+                    retained_check = (
+                        row.get("predecessor", {})
+                        .get("steps", {})
+                        .get("check_plan", {})
+                        .get("result")
+                    )
+                    prepared_check = (
+                        self.check_inputs.restore(
+                            self.candidate.profile,
+                            self.plan.grant,
+                            candidate,
+                            retained_check["ref"],
+                        )
+                        if retained_check
+                        else self.check_inputs.prepare(
+                            self.candidate.profile,
+                            self.plan.grant,
+                            candidate,
+                            ref + ":checks:" + self.plan.grant.digest,
+                        )
                     )
                     check_plan = self._step(
                         ref,
@@ -642,7 +673,9 @@ class MergeWorkflowService(WorkflowService):
                     # existing scoped publisher; reviewing it cannot authorize
                     # another Git effect or reinterpret the committed history.
                     if self.candidate_reviews is not None and not committed_replay:
-                        review = self.candidate_reviews.read(self._scope(), candidate)
+                        review = self.candidate_reviews.read(
+                            self._scope(), candidate, retained=retained
+                        )
                         saved = self.store.read(ref)["steps"].get("candidate_review")
                         if review is None or saved is None or saved["result"] != review:
                             raise EvidenceRequired(

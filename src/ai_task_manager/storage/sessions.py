@@ -39,8 +39,11 @@ def require_request(conn, session_id, payload):
     if not isinstance(session_id, TaskSession):
         return
     task_id = payload.get("task_id")
-    for field, table in (("attempt_id", "attempts"), ("operation_id", "outbox"),
-                         ("event_id", "events")):
+    for field, table in (
+        ("attempt_id", "attempts"),
+        ("operation_id", "outbox"),
+        ("event_id", "events"),
+    ):
         if task_id is None and payload.get(field):
             row = conn.execute(
                 f"SELECT task_id FROM {table} WHERE id=? AND session_id=?",
@@ -57,8 +60,9 @@ def permits_delivery(conn, session_id, payload):
     issue_id = data.get("id") if isinstance(data, dict) else None
     if not isinstance(issue_id, str) or not issue_id:
         return False
-    rows = conn.execute("SELECT id FROM tasks WHERE session_id=? AND issue_id=?",
-                        (session_id, issue_id)).fetchall()
+    rows = conn.execute(
+        "SELECT id FROM tasks WHERE session_id=? AND issue_id=?", (session_id, issue_id)
+    ).fetchall()
     return len(rows) == 1 and permits(session_id, rows[0][0])
 
 
@@ -88,8 +92,11 @@ def resolve(conn, handle: SessionHandle) -> tuple[str, Scope]:
                 (token_hash(handle.token),),
             ).fetchone()
             if delegated is not None:
-                return TaskSession(delegated["session_id"], delegated["reference"],
-                                   json.loads(delegated["task_ids"])), Scope(**json.loads(delegated["scope"]))
+                return TaskSession(
+                    delegated["session_id"],
+                    delegated["reference"],
+                    json.loads(delegated["task_ids"]),
+                ), Scope(**json.loads(delegated["scope"]))
         raise AccessDenied("Invalid or revoked session capability")
     return row["id"], Scope(**json.loads(row["scope"]))
 
@@ -103,9 +110,14 @@ def register(conn, scope: Scope, resume_evidence=None, resume_ref=None) -> Sessi
     row = conn.execute("SELECT id FROM sessions WHERE scope=?", (encoded,)).fetchone()
     token = secrets.token_urlsafe(32)
     if row:
-        if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_capabilities'").fetchone() and conn.execute(
-            "SELECT 1 FROM task_capabilities WHERE session_id=? LIMIT 1", (row["id"],)
-        ).fetchone():
+        if (
+            conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_capabilities'"
+            ).fetchone()
+            and conn.execute(
+                "SELECT 1 FROM task_capabilities WHERE session_id=? LIMIT 1", (row["id"],)
+            ).fetchone()
+        ):
             raise AccessDenied("A superseded session cannot be renewed or reset")
         if (
             resume_evidence is None

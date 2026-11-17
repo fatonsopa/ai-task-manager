@@ -21,9 +21,13 @@ def sha(path):
 
 
 class CaptureStore:
-    def __init__(self, root):
+    def __init__(self, root, *, existing_only=False):
         self.root = Path(root).absolute()
-        self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if existing_only:
+            if not self.root.is_dir():
+                raise EvidenceRequired("Original review capture directory is unavailable")
+        else:
+            self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.root.resolve() != self.root or self.root.stat().st_mode & 0o077:
             raise EvidenceRequired("Review captures require original private storage")
         self._root_identity = self._identity()
@@ -31,7 +35,7 @@ class CaptureStore:
         self.revoked = self.root / "revoked.json"
         # Any existing state makes this a reopen, including interrupted setup.
         # Missing authority files require explicit recovery, never regeneration.
-        if not any(self.root.iterdir()):
+        if not existing_only and not any(self.root.iterdir()):
             with self.key.open("xb") as stream:
                 self.key.chmod(0o600)
                 stream.write(os.urandom(32))
@@ -184,6 +188,11 @@ class NativeReviewSource:
         if (self.store, self.factory) != self._bound:
             raise EvidenceRequired("Trusted review registration changed")
         self.store.check_binding()
+
+    def restore(self, inspection):
+        """Read an original capture without invoking a producer or renewing it."""
+        self.check_binding()
+        return self.store.resolve(inspection)
 
     def resolve(self, inspection):
         self.check_binding()

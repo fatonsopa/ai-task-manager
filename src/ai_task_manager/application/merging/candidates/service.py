@@ -20,6 +20,7 @@ class CandidateService:
             )
         self.store, self.profile, self.authority = CandidateStore(journal), profile, authority
         self.grants = {}
+        self.successor_grants = {}
         self.runner = process_factory(self.store, profile, self.boundary, faults=faults)
 
     def _refs(self, grant):
@@ -333,10 +334,40 @@ class CandidateService:
         moved = self._refs(grant)
         return self._result(ref, moved or "ready", commit=commit, tree=tree)
 
+    def link_successor(self, reference, original, selected):
+        """Use a fresh task grant for the same retained owned candidate inputs."""
+        if (
+            replace(
+                selected,
+                task_version=original.task_version,
+                attempt_version=original.attempt_version,
+                decision_revision=original.decision_revision,
+                decision_ref=original.decision_ref,
+            )
+            != original
+        ):
+            raise AccessDenied("Successor candidate cannot change source, target or ownership")
+        self.authority.check_current(selected)
+        self.store.owner(reference)
+        if self.store.get(reference)["request"] != {
+            "grant": asdict(original),
+            "profile": self.profile.digest,
+        }:
+            raise AccessDenied("Original candidate grant differs from retained history")
+        self.successor_grants[reference] = (original, selected)
+        return self.reconcile(reference, selected)
+
     def reconcile(self, ref, grant=None):
         stored = self.store.get(ref)
         selected = grant if grant is not None else self.grants[ref]
-        if stored["request"] != {"grant": asdict(selected), "profile": self.profile.digest}:
+        recorded = selected
+        linked = self.successor_grants.get(ref)
+        if linked is not None:
+            original, current = linked
+            if selected != current:
+                raise AccessDenied("Current successor candidate authority changed")
+            recorded = original
+        if stored["request"] != {"grant": asdict(recorded), "profile": self.profile.digest}:
             raise IdempotencyConflict("Candidate recovery context differs from durable ownership")
         if grant is not None:
             self.grants[ref] = grant

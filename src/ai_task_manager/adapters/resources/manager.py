@@ -24,8 +24,10 @@ class ResourceManager:
         release_policy=None,
         removal_verifier=None,
         existing_only=False,
+        successor_sources=None,
     ):
         self.journal = journal
+        self.successor_sources = dict(successor_sources or {})
         self.root = Path(root).absolute()
         if self.root.is_symlink() or self.root.resolve() != self.root:
             raise RuntimeRefused("Owned resource root must have no symlink components")
@@ -41,6 +43,9 @@ class ResourceManager:
 
     def prepare(self, attempt_id, *, base="HEAD"):
         owner = self.journal.attempt(attempt_id)
+        source = self.successor_sources.get(owner["task_id"])
+        if source is not None:
+            return self._successor_resources(owner, source)
         worktree = confined(self.root, f"trees/{attempt_id}")
         database = confined(self.root, f"databases/{attempt_id}.sqlite")
         branch = f"managed/{attempt_id}"
@@ -61,7 +66,43 @@ class ResourceManager:
         self.journal.observe(attempt_id, "database_created", db)
         return self._ready(owner, tree, db)
 
-    def _ready(self, owner, tree, db):
+    def _successor_resources(self, owner, source):
+        """Transfer use of an explicitly admitted, settled task's owned resources.
+
+        Files, Git branch and database ownership markers remain unchanged. The
+        new runtime records the original physical owner instead of adopting or
+        recreating resources from paths supplied by a caller.
+        """
+        original = self.journal.attempt(source)
+        outcomes = self.journal.observations(source, "runtime_outcome")
+        if (
+            original["task_id"] != owner["task_id"]
+            or original["scope"] != owner["scope"]
+            or not outcomes
+            or outcomes[-1].get("quiescent") is not True
+        ):
+            raise RuntimeRefused("Successor resources require the same settled task owner")
+        pair = self.reconcile(source)
+        with self.use(pair):
+            fact = self.verify(pair)
+            resource_owner = fact.get("source_attempt", source)
+            self.journal.intend(
+                owner["attempt_id"],
+                "resources",
+                {
+                    "worktree": str(pair.worktree),
+                    "database": str(pair.database),
+                    "branch": fact["worktree"]["branch"],
+                    "base": fact["worktree"]["head"],
+                    "source_attempt": resource_owner,
+                    "predecessor_attempt": source,
+                },
+            )
+            return self._ready(
+                owner, fact["worktree"], fact["database"], source_attempt=resource_owner
+            )
+
+    def _ready(self, owner, tree, db, *, source_attempt=None):
         attempt_id = owner["attempt_id"]
         fact = {
             "worktree": tree,
@@ -72,6 +113,8 @@ class ResourceManager:
                 f"sqlite:{db['path']}:{db['physical']['device']}:{db['physical']['inode']}"
             ),
         }
+        if source_attempt is not None:
+            fact["source_attempt"] = source_attempt
         observation = self.journal.observe(attempt_id, "resources_ready", fact)
         return ResourcePair(
             attempt_id,
@@ -86,8 +129,9 @@ class ResourceManager:
         intent = self.journal.effect(attempt_id, "resources")
         if intent is None:
             raise RuntimeUncertain("No resource intent exists")
-        worktree = confined(self.root, f"trees/{attempt_id}")
-        database = confined(self.root, f"databases/{attempt_id}.sqlite")
+        source = intent.get("source_attempt", attempt_id)
+        worktree = confined(self.root, f"trees/{source}")
+        database = confined(self.root, f"databases/{source}.sqlite")
         if str(worktree) != intent["worktree"] or str(database) != intent["database"]:
             raise RuntimeRefused("Resource intent path changed")
         if not worktree.exists() or not database.exists():
@@ -95,7 +139,8 @@ class ResourceManager:
         return self._ready(
             self.journal.attempt(attempt_id),
             self.git.inspect(worktree, intent["branch"]),
-            self.databases.inspect(database, attempt_id),
+            self.databases.inspect(database, source),
+            source_attempt=source if source != attempt_id else None,
         )
 
     def verify(self, pair):
@@ -107,7 +152,7 @@ class ResourceManager:
                 raise RuntimeRefused("Resource path does not match its observation")
             unchanged(path, fact[kind]["physical"])
         self.git.inspect(pair.worktree, fact["worktree"]["branch"])
-        self.databases.inspect(pair.database, pair.attempt_id)
+        self.databases.inspect(pair.database, fact.get("source_attempt", pair.attempt_id))
         return fact
 
     @contextmanager
@@ -126,7 +171,9 @@ class ResourceManager:
 
     @contextmanager
     def _consumer_boundary(self, attempt_id, *, exclusive=False):
-        with consumer_boundary(self.root, attempt_id, exclusive=exclusive) as (physical, created):
+        intent = self.journal.effect(attempt_id, "resources") or {}
+        fence_owner = intent.get("source_attempt", attempt_id)
+        with consumer_boundary(self.root, fence_owner, exclusive=exclusive) as (physical, created):
             records = self.journal.observations(attempt_id, "consumer_fence")
             if records and any(
                 {key: record.get(key) for key in physical} != physical for record in records

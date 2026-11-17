@@ -237,8 +237,21 @@ class WorkflowStore:
             raise IdempotencyConflict("Expired workflow already has a different recovery")
         return row["successor"]
 
-    def recover(self, scope, predecessor, task, plan, key, runtime_digest, history, request, check,
-                *, settled=False):
+    def recover(
+        self,
+        scope,
+        predecessor,
+        task,
+        plan,
+        key,
+        runtime_digest,
+        history,
+        request,
+        check,
+        *,
+        settled=False,
+        retain_completed=False,
+    ):
         """Publish a successor only inside the application's guarded boundary."""
         with self.transaction() as conn:
             prior = self._recovery_result(conn, scope, predecessor, request)
@@ -261,10 +274,15 @@ class WorkflowStore:
                 (canonical(asdict(scope)), key),
             ).fetchone():
                 raise IdempotencyConflict("Recovery requires a new scoped operation key")
-            if not settled and conn.execute("SELECT 1 FROM lineage WHERE task_id=?", (task.id,)).fetchone():
+            if (
+                not settled
+                and conn.execute("SELECT 1 FROM lineage WHERE task_id=?", (task.id,)).fetchone()
+            ):
                 raise AccessDenied("Resource lineage prevents zero-effect recovery")
             steps = conn.execute("SELECT * FROM steps WHERE run_id=?", (predecessor,)).fetchall()
-            if not settled and any(row["name"] != "start" or row["result"] is not None for row in steps):
+            if not settled and any(
+                row["name"] != "start" or row["result"] is not None for row in steps
+            ):
                 raise AccessDenied("Only an unexecuted start intent can be recovered")
             check(json.loads(old["body"]))
             ref = "workflow:" + str(uuid4())
@@ -274,16 +292,30 @@ class WorkflowStore:
                     "version": 2,
                     "predecessor": predecessor,
                     "authorization": request,
-                    "retained": {"body": json.loads(old["body"]),
-                                 "steps": {step["name"]: {
-                                     "payload": json.loads(step["payload"]),
-                                     "result": json.loads(step["result"]) if step["result"] else None,
-                                 } for step in steps}},
+                    "retained": {
+                        "body": json.loads(old["body"]),
+                        "steps": {
+                            step["name"]: {
+                                "payload": json.loads(step["payload"]),
+                                "result": json.loads(step["result"]) if step["result"] else None,
+                            }
+                            for step in steps
+                        },
+                    },
                 }
             conn.execute(
                 "INSERT INTO runs VALUES(?,?,?,?,?,NULL)",
                 (ref, canonical(asdict(scope)), task.id, key, canonical(body)),
             )
+            if retain_completed:
+                body["attempt_id"] = json.loads(old["body"])["attempt_id"]
+                conn.execute("UPDATE runs SET body=? WHERE id=?", (canonical(body), ref))
+                for step in steps:
+                    if step["result"] is not None:
+                        conn.execute(
+                            "INSERT INTO steps VALUES(?,?,?,?)",
+                            (ref, step["name"], step["payload"], step["result"]),
+                        )
             conn.execute(
                 "INSERT INTO recoveries VALUES(?,?,?,?,?)",
                 (predecessor, ref, canonical(asdict(scope)), key, canonical(request)),
@@ -344,6 +376,49 @@ class WorkflowStore:
                 )
                 body["claim_controller"] = controller
                 conn.execute("UPDATE runs SET body=? WHERE id=?", (canonical(body), reference))
+
+    def activate_successor(self, reference, scope, history):
+        """Capture a new version-two owner's first forward witness exactly once."""
+        with self.transaction() as conn:
+            row = conn.execute(
+                "SELECT body FROM runs WHERE id=? AND scope=?",
+                (reference, canonical(asdict(scope))),
+            ).fetchone()
+            if row is None:
+                raise AccessDenied("Scoped successor is unavailable")
+            body = json.loads(row[0])
+            if body.get("succession", {}).get("version") != 2:
+                raise AccessDenied("Legacy history cannot receive a new ownership witness")
+            if body["recovery_history"] is not None:
+                if body["recovery_history"] != history:
+                    raise AccessDenied("Original successor owner history changed")
+                return
+            body["recovery_history"] = history
+            conn.execute("UPDATE runs SET body=? WHERE id=?", (canonical(body), reference))
+
+    def replace_successor_step(self, reference, owner, name, payload, result):
+        """Record fresh linked authority while preserving the predecessor step."""
+        with self.transaction() as conn:
+            row = conn.execute("SELECT body,owner FROM runs WHERE id=?", (reference,)).fetchone()
+            if row is None or row["owner"] != owner:
+                raise AccessDenied("Current successor owner changed")
+            body = json.loads(row["body"])
+            original = body.get("succession", {}).get("retained", {}).get("steps", {}).get(name)
+            current = conn.execute(
+                "SELECT payload,result FROM steps WHERE run_id=? AND name=?", (reference, name)
+            ).fetchone()
+            if (
+                name != "code-plan"
+                or original is None
+                or current is None
+                or json.loads(current["payload"]) != original["payload"]
+                or json.loads(current["result"]) != original["result"]
+            ):
+                raise AccessDenied("Only the exact inherited code authority may be linked once")
+            conn.execute(
+                "UPDATE steps SET payload=?,result=? WHERE run_id=? AND name=?",
+                (canonical(payload), canonical(result), reference, name),
+            )
 
     def release_dead_claim(self, reference, scope, owner, controller, check):
         """Release only an exact forward claim after its trusted owner check."""

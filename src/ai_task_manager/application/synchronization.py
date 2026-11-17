@@ -163,6 +163,7 @@ class Synchronization:
             ).fetchone()
             if row:
                 import json
+
                 sessions.require_delivery(conn, sid, json.loads(row["payload"]))
             if not row or proof.payload.get("payload_digest") != row[0]:
                 raise ValidationError("Applied receipt must match a durable inbound delivery")

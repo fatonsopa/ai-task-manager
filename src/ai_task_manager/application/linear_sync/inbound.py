@@ -34,10 +34,12 @@ class InboundDrain:
     def retry_conflict(self, handle, receipt_id):
         session_id, scope = self.core.session_binding(handle)
         from ai_task_manager.storage.sessions import TaskSession
+
         if isinstance(session_id, TaskSession):
             rows = self._scoped_deliveries(handle, self.journal.deliveries(scope))
             if receipt_id not in {row["id"] for row in rows}:
                 from ai_task_manager.domains.work.errors import AccessDenied
+
                 raise AccessDenied("Successor cannot retry another task's inbound receipt")
         self.journal.retry_delivery(scope, receipt_id)
 
@@ -67,10 +69,13 @@ class InboundDrain:
     def _scoped_deliveries(self, handle, rows):
         session_id, _ = self.core.session_binding(handle)
         from ai_task_manager.storage.sessions import TaskSession
+
         if not isinstance(session_id, TaskSession):
             return rows
         issues = {task.issue_id for task in self.core.list_tasks(handle)}
-        return [row for row in rows if json.loads(row["payload"]).get("data", {}).get("id") in issues]
+        return [
+            row for row in rows if json.loads(row["payload"]).get("data", {}).get("id") in issues
+        ]
 
     def next_receipt(self, handle, *, task_ids=None):
         """Choose eligible durable work without reading the provider.
@@ -157,6 +162,7 @@ class InboundDrain:
             # Selection was scoped before claiming; refuse any changed identity
             # before applying, ignoring, retrying or finishing a provider receipt.
             from ai_task_manager.domains.work.errors import AccessDenied
+
             raise AccessDenied("Claimed inbound receipt changed successor task scope")
         authority_lost = False
 

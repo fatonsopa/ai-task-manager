@@ -12,7 +12,7 @@ class MergeWorkflowStore:
     def __init__(self, journal):
         self.journal = journal
 
-    def create(self, plan, profile, operation_key, *, maximum_attempts=1):
+    def create(self, plan, profile, operation_key, *, maximum_attempts=1, successor=None):
         binding = plan.grant.binding
         key = "merge-workflow:" + digest(
             [
@@ -21,6 +21,7 @@ class MergeWorkflowStore:
                 binding.session_id,
                 binding.task_id,
                 profile.source["common_identity"],
+                *([successor[1]] if successor else []),
             ]
         )
         canonical = replace(
@@ -44,7 +45,37 @@ class MergeWorkflowStore:
                 raise IdempotencyConflict("Task has a different installed merge workflow")
         else:
             profile.validate()
-            self._save(ref, row, {"request": request, "owner": None, "steps": {}})
+            facts = {"request": request, "owner": None, "steps": {}}
+            if successor:
+                predecessor, authority = successor
+                previous = self.read(predecessor)
+                steps = previous["steps"]
+                if previous["owner"] is not None or any(
+                    name in steps
+                    for name in (
+                        "publication_intent",
+                        "publication_fence",
+                        "publication",
+                        "delivery",
+                    )
+                ):
+                    raise AccessDenied(
+                        "Frozen or unresolved publication cannot become fresh merge authority"
+                    )
+                if any(step["result"] is None for step in steps.values()):
+                    raise AccessDenied("Unresolved merge effects require original reconciliation")
+                facts["predecessor"] = {
+                    "workflow": predecessor,
+                    "authority": authority,
+                    "request": previous["request"],
+                    "steps": steps,
+                }
+                facts["steps"] = {name: dict(step) for name, step in steps.items()}
+                if "candidate" in facts["steps"]:
+                    facts["steps"]["candidate"] = dict(
+                        facts["steps"]["candidate"], payload={"grant": plan.digest}
+                    )
+            self._save(ref, row, facts)
         return ref
 
     def read(self, ref):

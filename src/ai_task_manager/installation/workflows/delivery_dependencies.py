@@ -53,20 +53,29 @@ class DeliveryDependencies:
             return
         if task.observed_status != "In Progress" or task.sync_state != "confirmed":
             raise AccessDenied("Delivery dependency observation requires confirmed current work")
+        from ai_task_manager.storage.sessions import TaskSession
+
+        successor = (
+            isinstance(self.scope[0], TaskSession)
+            and self._row.get("succession", {}).get("version") == 2
+        )
         before = self.core.scheduling.explain(self.handle, task.id)
         now = self.core.context.clock()
         if self._graph is None:
             self._graph = before["graph_version"]
         elif self._graph != before["graph_version"]:
             raise AccessDenied("Original delivery dependency graph changed")
-        if before["state"] != "ready" or not before["expires_at"] or before["expires_at"] <= now:
+        bootstrap = successor and self._graph == before["graph_version"]
+        if (
+            before["state"] != "ready" or not before["expires_at"] or before["expires_at"] <= now
+        ) and not bootstrap:
             raise AccessDenied("Expired or unknown dependency authority cannot be revived")
         started = time.monotonic()
-        collection_end = min(before["expires_at"], self.deadline)
+        collection_end = self.deadline if bootstrap else min(before["expires_at"], self.deadline)
         after = None
         for _ in range(3):
             task, _ = self._facts()
-            self._collection_current(before, started, collection_end)
+            self._collection_current(before, started, collection_end, bootstrap=bootstrap)
             key = "delivery-dependencies:" + str(uuid4())
             try:
                 prepared = self.source.prepare(
@@ -77,7 +86,7 @@ class DeliveryDependencies:
                 )
                 if self._stop.is_set():
                     return
-                self._collection_current(before, started, collection_end)
+                self._collection_current(before, started, collection_end, bootstrap=bootstrap)
                 if type(prepared) is not Preparation or (
                     prepared.task_id,
                     prepared.task_version,
@@ -107,7 +116,7 @@ class DeliveryDependencies:
                     or not set(task.completed_work) < set(current.completed_work)
                 ):
                     raise AccessDenied("Foreign task or dependency changes cannot be recollected")
-                self._collection_current(before, started, collection_end)
+                self._collection_current(before, started, collection_end, bootstrap=bootstrap)
         if after is None:
             raise AccessDenied("Bounded own-unit dependency recollection was exhausted")
         if after["state"] != "ready" or after["graph_version"] != before["graph_version"]:
@@ -116,6 +125,8 @@ class DeliveryDependencies:
         # The existing Core check detects an invalidated original attempt; this
         # read-only boundary grants no command, renewal or publication.
         current, attempt = self._facts()
+        if successor:
+            self.core.scheduling.successor_delivery(self.handle, current.id, attempt.id)
         with self.core.execution.worker_commit_boundary(
             self.handle,
             current.id,
@@ -126,14 +137,16 @@ class DeliveryDependencies:
         ):
             pass
 
-    def _collection_current(self, before, started, end):
+    def _collection_current(self, before, started, end, *, bootstrap=False):
         current, _ = self._facts()
         if current.observed_status != "In Progress" or current.sync_state != "confirmed":
             raise AccessDenied("Task synchronization changed during dependency collection")
         if time.monotonic() - started > 20 or self.core.context.clock() >= end:
             raise AccessDenied("Dependency collection outlived its original current authority")
         latest = self.core.scheduling.explain(self.handle, current.id)
-        if latest["state"] != "ready" or latest["graph_version"] != before["graph_version"]:
+        if (latest["state"] != "ready" and not bootstrap) or latest["graph_version"] != before[
+            "graph_version"
+        ]:
             raise AccessDenied("Dependency graph changed while collecting delivery facts")
 
     def bind(self, row):

@@ -22,14 +22,26 @@ class SessionFile:
             replace=replace,
         )
 
+    def save_successor(self, handle, scope):
+        """Publish a staged token whose retained stores require existing-only loads."""
+        write_private(self.path, {"version": 2, "capability": handle.token, "scope": asdict(scope)})
+
     def load(self, core):
         data = read_private(self.path)
-        if set(data) != {"version", "capability", "scope"} or data["version"] != 1:
+        if (
+            set(data) != {"version", "capability", "scope"}
+            or type(data["version"]) is not int
+            or data["version"] not in {1, 2}
+        ):
             raise AccessDenied("Unknown session capability format")
         handle = SessionHandle(data["capability"])
         if not isinstance(handle.token, str) or not 16 <= len(handle.token) <= 256:
             raise AccessDenied("Invalid session capability")
-        _, scope = core.session_binding(handle)
+        session_id, scope = core.session_binding(handle)
+        from ai_task_manager.storage.sessions import TaskSession
+
+        if (data["version"] == 2) != isinstance(session_id, TaskSession):
+            raise AccessDenied("Capability version does not match its enrolled authority")
         if asdict(scope) != data["scope"]:
             raise AccessDenied("Session capability binding changed")
         return handle

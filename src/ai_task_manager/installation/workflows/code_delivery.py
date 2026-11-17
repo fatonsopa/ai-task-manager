@@ -73,6 +73,14 @@ class ResourceReviews:
         if callable(check):
             check()
 
+    def restore(self, inspection):
+        self.check_binding()
+        self.resources.verify(self.pair)
+        reader = getattr(self.source, "restore", None)
+        result = reader(inspection) if callable(reader) else None
+        self.resources.verify(self.pair)
+        return result
+
     def resolve(self, inspection):
         self.check_binding()
         self.resources.verify(self.pair)
@@ -304,6 +312,39 @@ class InstalledCodeDelivery:
             )
         else:
             selected = retained
+        successor_merge = prior["payload"].get("successor_merge") if prior else None
+        succession = row.get("succession")
+        if succession and retained is not None and retained.id != plan.id + ":merge":
+            original = retained
+            selected = replace(
+                original,
+                id=plan.id + ":merge",
+                deadline=plan.deadline,
+                grant=replace(
+                    original.grant,
+                    task_version=task.version,
+                    attempt_version=attempt.version,
+                    decision_revision=task.decision_revision,
+                    decision_ref=self.decisions(self.scope, task, "In Dev", "merge"),
+                ),
+            )
+            operations = Journal.open_existing(history["merge"]).for_attempt(attempt.id)
+            previous = [
+                op["ref"]
+                for op in operations
+                if op["facts"].get("merge_workflow", {}).get("request", {}).get("plan")
+                == original.digest
+                and op["facts"]["merge_workflow"]["request"]["operation_key"]
+                == succession["predecessor"] + ":merge"
+            ]
+            if len(previous) > 1:
+                raise EvidenceRequired("Original merge workflow lineage is ambiguous")
+            if previous:
+                successor_merge = {
+                    "workflow": previous[0],
+                    "authorization": succession["authorization"]["reference"],
+                    "grant": asdict(original.grant),
+                }
         g = selected.grant
         if (
             selected.deadline != plan.deadline
@@ -345,7 +386,20 @@ class InstalledCodeDelivery:
             recover_claim=(
                 self.context.recovery.merge_controller if self.context.recovery else None
             ),
+            successor=(successor_merge["workflow"], successor_merge["authorization"])
+            if successor_merge
+            else None,
         )
+        component.successor_merge = successor_merge
+        if successor_merge:
+            previous = component.store.read(successor_merge["workflow"])
+            old_candidate = previous["steps"].get("candidate", {}).get("result")
+            if old_candidate:
+                value = dict(successor_merge["grant"])
+                value["binding"] = Binding(**value["binding"])
+                candidate.link_successor(
+                    old_candidate["operation_ref"], CandidateGrant(**value), selected.grant
+                )
         self.components[row["id"]] = component
         return component
 
@@ -407,7 +461,32 @@ class InstalledCodeDelivery:
                         EvidenceRoute(issuer.prefix, issuer.kinds, issuer),
                     ]
                 )
-                refs = issuer.lookup(self.scope, task, observed["digest"])
+                completed = all(
+                    unit in task.completed_work
+                    and row["steps"].get("unit:" + unit, {}).get("result") is not None
+                    for unit in task.required_work
+                )
+                retained_review = None
+                if row.get("succession"):
+                    original = row["succession"]["retained"]
+                    used = {
+                        unit: original["steps"]["unit:" + unit]["payload"]["proof_ref"]
+                        for unit in task.completed_work
+                        if original["steps"].get("unit:" + unit, {}).get("result") is not None
+                    }
+                    if used:
+                        retained_review = (
+                            original["body"]["plan_digest"],
+                            used,
+                            row["succession"]["authorization"]["reference"],
+                        )
+                refs = (
+                    {"units": {}}
+                    if completed
+                    else issuer.lookup(
+                        self.scope, task, observed["digest"], retained=retained_review
+                    )
+                )
                 self.resources.verify(pair)
                 if refs is None:
                     return {
@@ -456,6 +535,8 @@ class InstalledCodeDelivery:
                 "commit": commit,
                 "plan": asdict(component.original_plan),
             }
+            if component.successor_merge:
+                selected["successor_merge"] = component.successor_merge
             if prior and "history" in prior["payload"]:
                 selected["history"] = prior["payload"]["history"]
             elif prior is None:
@@ -475,7 +556,12 @@ class InstalledCodeDelivery:
                         "store_id": check_store.store_id,
                     },
                 }
-            self._step(row, owner, "code-plan", selected, lambda: {"installed": True})
+            if prior and row.get("succession") and prior["payload"].get("plan") != selected["plan"]:
+                self.store.replace_successor_step(
+                    row["id"], owner, "code-plan", selected, {"installed": True}
+                )
+            else:
+                self._step(row, owner, "code-plan", selected, lambda: {"installed": True})
             self.resources.verify(pair)
             # Both independent semantic waits and all downstream check consumers
             # stay inside this resource use boundary; return retains logical ownership.

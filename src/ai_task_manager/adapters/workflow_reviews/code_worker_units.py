@@ -42,7 +42,7 @@ class CodeWorkerUnitIssuer:
         if callable(check):
             check()
 
-    def lookup(self, scope, task, artifact_digest):
+    def lookup(self, scope, task, artifact_digest, *, retained=None):
         self._current()
         self.last_wait_reason = None
         if not task.code_bearing:
@@ -52,7 +52,30 @@ class CodeWorkerUnitIssuer:
             self.last_wait_reason = "verified_artifact_missing"
             return None
         self._key_witness.check()
-        captured = self.reviews.resolve(inspection)
+        if retained:
+            from ai_task_manager.storage.sessions import TaskSession
+
+            from .models import Inspection
+
+            session_id, actual_scope = self.artifacts.core.session_binding(self.artifacts.handle)
+            if (
+                not isinstance(session_id, TaskSession)
+                or session_id.reference != retained[2]
+                or actual_scope != scope
+            ):
+                raise EvidenceRequired(
+                    "Fresh task successor authority required for retained review"
+                )
+            self.artifacts.core.context.proof(retained[2], "workflow_successor", scope, task.id)
+            context = inspection.context
+            context["source_version"]["plan_digest"] = retained[0]
+            inspection = Inspection(
+                json.dumps(context, sort_keys=True, separators=(",", ":")), inspection.witnesses
+            )
+            reader = getattr(self.reviews, "restore", None)
+            captured = reader(inspection) if callable(reader) else None
+        else:
+            captured = self.reviews.resolve(inspection)
         if captured is None:
             self.last_wait_reason = "captured_review_missing"
             return None
@@ -62,13 +85,13 @@ class CodeWorkerUnitIssuer:
             raise EvidenceRequired("Code worker cannot review its own units")
         criteria = tuple(c[0] for c in inspection.context["criteria"])
         now = self.clock()
-        if not captured.accepted(criteria, now):
+        if not captured.accepted(criteria, min(now, captured.expires_at - 1) if retained else now):
             self.last_wait_reason = "review_rejected"
             return None
         witnesses = inspection.witnesses + captured.witnesses + (self._key_witness,)
         for witness in witnesses:
             witness.check()
-        expires_at = min(now + 5, captured.expires_at)
+        expires_at = now + 5 if retained else min(now + 5, captured.expires_at)
         output = {"units": {}}
         for kind, unit in [("work_unit_complete", unit) for unit in task.required_work]:
             payload = {
@@ -94,6 +117,17 @@ class CodeWorkerUnitIssuer:
             ref = PREFIX + hmac.new(self._key, raw.encode(), hashlib.sha256).hexdigest()
             self._prepared[ref] = (raw, witnesses, expires_at)
             output["units"][unit] = ref
+        if retained and (
+            not retained[1]
+            or any(
+                unit not in task.completed_work or output["units"].get(unit) != reference
+                for unit, reference in retained[1].items()
+            )
+        ):
+            self._prepared.clear()
+            raise EvidenceRequired(
+                "Original completed unit proofs do not bind this retained review"
+            )
         return output
 
     def verify_evidence(self, reference):

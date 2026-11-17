@@ -152,48 +152,188 @@ class Scheduling:
         except Exception:
             return unavailable("unavailable")
 
-    def _readiness(self, conn, scope, task, attempt=None):
+    def _readiness(self, conn, scope, task, attempt=None, session_id=None):
         try:
             issue_claims.require_open(conn, scope, task.issue_id)
         except EvidenceRequired:
-            return Readiness("blocked", (Blocker(
-                "issue_lifecycle_closed", None,
-                "Create a new linked Backlog issue for further work",
-            ),))
+            return Readiness(
+                "blocked",
+                (
+                    Blocker(
+                        "issue_lifecycle_closed",
+                        None,
+                        "Create a new linked Backlog issue for further work",
+                    ),
+                ),
+            )
         current = store.current(conn, task.id)
         if current is None:
             return policy.evaluate(None, {}, self.c.clock())
         snapshot = current["snapshot"]
-        if (snapshot.scope != scope or snapshot.prose_digest != task.prose_digest
-                or snapshot.canonical_issue_id != task.issue_id or current["invalidated_by"]):
-            return Readiness("unknown", (Blocker(
-                "dependency_source_changed", None, "Confirm current dependency and work-scope facts"
-            ),))
+        if (
+            snapshot.scope != scope
+            or snapshot.prose_digest != task.prose_digest
+            or snapshot.canonical_issue_id != task.issue_id
+            or current["invalidated_by"]
+        ):
+            return Readiness(
+                "unknown",
+                (
+                    Blocker(
+                        "dependency_source_changed",
+                        None,
+                        "Confirm current dependency and work-scope facts",
+                    ),
+                ),
+            )
         if attempt is not None:
             binding = store.attempt_binding(conn, attempt.id)
-            if (not binding or binding["invalidated_by"]
-                    or binding["graph_version"] != current["graph_version"]):
-                return Readiness("blocked", (Blocker(
-                    "attempt_dependencies_invalidated", None,
-                    "Reconcile the existing attempt through the guarded stop/resume workflow",
-                ),))
-        completions = {(edge.predecessor, edge.condition, edge.unit):
-                       self._completion(conn, scope, task.session_id, edge)
-                       for edge in snapshot.dependencies}
+            successor = False
+            if isinstance(session_id, sessions.TaskSession) and attempt.state == "done":
+                proof = self.c.proof(session_id.reference, "workflow_successor", scope, task.id)
+                rows = conn.execute(
+                    "SELECT payload FROM checkpoints WHERE attempt_id=? "
+                    "AND kind='successor_delivery'",
+                    (attempt.id,),
+                ).fetchall()
+                import json
+
+                successor = any(
+                    json.loads(row[0])
+                    == {
+                        "authorization": session_id.reference,
+                        "graph_version": current["graph_version"],
+                        "task_version": proof.payload["task_version"],
+                        "decision_revision": task.decision_revision,
+                    }
+                    for row in rows
+                )
+            if not successor and (
+                not binding
+                or binding["invalidated_by"]
+                or binding["graph_version"] != current["graph_version"]
+            ):
+                return Readiness(
+                    "blocked",
+                    (
+                        Blocker(
+                            "attempt_dependencies_invalidated",
+                            None,
+                            "Reconcile the existing attempt through the guarded "
+                            "stop/resume workflow",
+                        ),
+                    ),
+                )
+        completions = {
+            (edge.predecessor, edge.condition, edge.unit): self._completion(
+                conn, scope, task.session_id, edge
+            )
+            for edge in snapshot.dependencies
+        }
         return policy.evaluate(snapshot, completions, self.c.clock())
+
+    def successor_delivery(self, handle, task_id, attempt_id):
+        """Bind fresh unchanged dependency facts to a settled code successor.
+
+        Original attempt invalidation remains history. This checkpoint permits
+        delivery only through the new capability, never old worker execution.
+        """
+        import json
+
+        from ai_task_manager.domains.work.errors import AccessDenied
+
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            if not isinstance(sid, sessions.TaskSession):
+                raise AccessDenied("Fresh task successor capability required")
+            task, attempt = work.get(conn, sid, task_id), attempts.get(conn, sid, attempt_id)
+            proof = self.c.proof(sid.reference, "workflow_successor", scope, task.id)
+            self.c.check(task, task.version, proof.payload["decision_revision"])
+            base_version = proof.payload["task_version"]
+            changes = [
+                json.loads(row[0])
+                for row in conn.execute(
+                    "SELECT payload FROM events WHERE task_id=? AND kind='work_unit_verified'",
+                    (task.id,),
+                )
+            ]
+            progress = {
+                value["task_version"]
+                for value in changes
+                if value.get("unit") in proof.payload["remaining_work"]
+                and base_version < value.get("task_version", 0) <= task.version
+            }
+            if task.version < base_version or progress != set(
+                range(base_version + 1, task.version + 1)
+            ):
+                raise EvidenceRequired("Foreign task progress cannot rebind successor delivery")
+            if (
+                not task.code_bearing
+                or task.human_hold
+                or task.delivered_once
+                or attempt.task_id != task.id
+                or attempt.state != "done"
+                or task.execution_state != "done"
+                or self._readiness(conn, scope, task).state != "ready"
+            ):
+                raise AccessDenied("Fresh delivery requires current settled code and dependencies")
+            current = store.current(conn, task.id)
+            previous = store.attempt_binding(conn, attempt.id)
+            if previous is None:
+                raise EvidenceRequired("Original dependency binding is missing")
+            if previous["graph_version"] != current["graph_version"]:
+                raise EvidenceRequired("Changed dependency graph cannot reuse the old code attempt")
+            recorded = conn.execute(
+                "SELECT data FROM scheduling_history WHERE task_id=? AND graph_version=? "
+                "AND source_revision<? ORDER BY id DESC LIMIT 1",
+                (task.id, previous["graph_version"], current["source_revision"]),
+            ).fetchone()
+            if recorded is None:
+                raise EvidenceRequired("Original dependency history is missing")
+            original = store.snapshot_from(json.loads(recorded[0]))
+            snapshot = current["snapshot"]
+            fields = (
+                "scope",
+                "task_id",
+                "prose_digest",
+                "canonical_issue_id",
+                "dependencies",
+                "priority",
+                "completeness",
+            )
+            if any(getattr(original, field) != getattr(snapshot, field) for field in fields):
+                raise EvidenceRequired("Changed dependency work requires separate reconciliation")
+            payload = {
+                "authorization": sid.reference,
+                "graph_version": current["graph_version"],
+                "task_version": task.version,
+                "decision_revision": task.decision_revision,
+            }
+            from ai_task_manager.config.files import digest
+
+            checkpoint = "successor-delivery:" + digest(payload)
+            conn.execute(
+                "INSERT OR IGNORE INTO checkpoints VALUES(?,?,?,?)",
+                (checkpoint, attempt.id, "successor_delivery", json.dumps(payload, sort_keys=True)),
+            )
+            return payload
 
     def _view(self, conn, scope, task):
         current = store.current(conn, task.id)
         active = attempts.active(conn, task.id)
         readiness = self._readiness(conn, scope, task, active)
         snapshot = current["snapshot"] if current else None
-        return {"task_id": task.id, "task_version": task.version,
-                "state": readiness.state, "blockers": [asdict(x) for x in readiness.blockers],
-                "graph_version": current["graph_version"] if current else 0,
-                "source_revision": current["source_revision"] if current else None,
-                "priority": snapshot.priority if snapshot else None,
-                "expires_at": snapshot.expires_at if snapshot else None,
-                "queue_sequence": store.queue_sequence(conn, task.id)}
+        return {
+            "task_id": task.id,
+            "task_version": task.version,
+            "state": readiness.state,
+            "blockers": [asdict(x) for x in readiness.blockers],
+            "graph_version": current["graph_version"] if current else 0,
+            "source_revision": current["source_revision"] if current else None,
+            "priority": snapshot.priority if snapshot else None,
+            "expires_at": snapshot.expires_at if snapshot else None,
+            "queue_sequence": store.queue_sequence(conn, task.id),
+        }
 
     def explain(self, handle, task_id):
         with self.c.db.transaction() as conn:
@@ -206,9 +346,14 @@ class Scheduling:
             if not sessions.permits(sid, row[0]):
                 continue
             task = work.get(conn, sid, row[0])
-            if (not task.queued_once or task.human_hold or task.delivered_once
-                    or task.sync_state != SyncState.CONFIRMED or attempts.active(conn, task.id)
-                    or (task.observed_status != S.TODO and task.id != selected)):
+            if (
+                not task.queued_once
+                or task.human_hold
+                or task.delivered_once
+                or task.sync_state != SyncState.CONFIRMED
+                or attempts.active(conn, task.id)
+                or (task.observed_status != S.TODO and task.id != selected)
+            ):
                 continue
             if self._readiness(conn, scope, task).state != "ready":
                 continue
@@ -218,8 +363,8 @@ class Scheduling:
                 result.append((task.id, current["snapshot"].priority, order))
         return policy.ordered(result)
 
-    def require(self, conn, scope, task, phase, attempt=None):
-        readiness = self._readiness(conn, scope, task, attempt)
+    def require(self, conn, scope, task, phase, attempt=None, *, session_id=None):
+        readiness = self._readiness(conn, scope, task, attempt, session_id)
         if readiness.state != "ready":
             raise SchedulingBlocked("; ".join(x.release_condition for x in readiness.blockers))
         if phase == "reserve":
@@ -231,14 +376,21 @@ class Scheduling:
     def ordered(self, handle):
         with self.c.db.transaction() as conn:
             sid, scope = sessions.resolve(conn, handle)
-            items = [self._view(conn, scope, work.get(conn, sid, row[0])) for row in
-                     conn.execute("SELECT id FROM tasks WHERE session_id=?", (sid,)).fetchall()
-                     if sessions.permits(sid, row[0])]
-            return sorted(items, key=lambda x: (
-                policy.PRIORITIES.get(x["priority"], 99),
-                x["queue_sequence"] if x["queue_sequence"] is not None else 2**63,
-                x["task_id"],
-            ))
+            items = [
+                self._view(conn, scope, work.get(conn, sid, row[0]))
+                for row in conn.execute(
+                    "SELECT id FROM tasks WHERE session_id=?", (sid,)
+                ).fetchall()
+                if sessions.permits(sid, row[0])
+            ]
+            return sorted(
+                items,
+                key=lambda x: (
+                    policy.PRIORITIES.get(x["priority"], 99),
+                    x["queue_sequence"] if x["queue_sequence"] is not None else 2**63,
+                    x["task_id"],
+                ),
+            )
 
     def source_changed(self, conn, task, event):
         if event.kind.startswith("scheduling_") or event.kind == "dependency_inputs_changed":
@@ -246,8 +398,13 @@ class Scheduling:
         for dependent_id in store.dependents(conn, task.id, task.session_id):
             if store.invalidate(conn, dependent_id, event.id, "predecessor_changed"):
                 row = conn.execute(
-                    "SELECT session_id FROM tasks WHERE id=?", (dependent_id,)).fetchone()
+                    "SELECT session_id FROM tasks WHERE id=?", (dependent_id,)
+                ).fetchone()
                 if row:
-                    events.append(conn, row[0], dependent_id, "dependency_inputs_changed", {
-                        "source_event": event.id, "reason": "Refresh authorized dependency facts"
-                    })
+                    events.append(
+                        conn,
+                        row[0],
+                        dependent_id,
+                        "dependency_inputs_changed",
+                        {"source_event": event.id, "reason": "Refresh authorized dependency facts"},
+                    )

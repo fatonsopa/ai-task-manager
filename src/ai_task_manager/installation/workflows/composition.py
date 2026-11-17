@@ -94,6 +94,36 @@ class InstalledWorkflow:
         from ai_task_manager.config.files import read_private
 
         configuration = read_private(config_file)
+        from ai_task_manager.adapters.workflow_control.identity import file_binding
+
+        self.successor_mode = read_private(configuration["session_file"]).get("version") == 2
+        self.successor_store = None
+        if self.successor_mode:
+            from ai_task_manager.adapters.decisions.journal import AuthorityJournal
+            from ai_task_manager.adapters.workflow_control.recovery import physical
+            from ai_task_manager.config.files import digest
+            from ai_task_manager.installation.sessions.recovery import history
+
+            authority = AuthorityJournal.open_existing(
+                configuration["authority_database"], configuration["authority_key"]
+            )
+            retained = history(
+                authority, "workflow-successor-store:" + digest(configuration["grant_ref"])
+            )
+            if retained is None or retained["config"] != file_binding(config_file):
+                raise AccessDenied("Original successor installation history is unavailable")
+            for binding in retained["files"].values():
+                observed = (
+                    file_binding(binding["path"])
+                    if "sha256" in binding
+                    else physical(binding["path"])
+                )
+                if observed != binding:
+                    raise AccessDenied("Original successor journal or key changed")
+            self.successor_store = WorkflowStore.open_existing(
+                retained["workflow"]["path"], store_id=retained["workflow"]["store_id"]
+            )
+
         control = configuration.get("workflow_control", {})
         if recovery is None and any(
             Path(control.get(name, "/__missing__")).exists() for name in ("record", "endpoint")
@@ -124,7 +154,7 @@ class InstalledWorkflow:
 
         options["dependencies_factory"] = dependent
         options["workflow_factory"] = self._compose
-        options["existing_only"] = recovery is not None
+        options["existing_only"] = recovery is not None or self.successor_mode
         self.service = load_service(config_file, **options)
         self.service.workers = self.workers
         self.service.dependencies = self.dependencies
@@ -167,19 +197,40 @@ class InstalledWorkflow:
             root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if root.stat().st_mode & 0o077:
             raise AccessDenied("Installed worker state must be private")
-        self.journal = (RuntimeJournal.open_existing if self.recovery else RuntimeJournal)(
-            root / "runtime.sqlite"
-        )
-        self.host_journal = (HostJournal.open_existing if self.recovery else HostJournal)(
-            root / "host.sqlite", root / "host.key"
-        )
+        self.journal = (
+            RuntimeJournal.open_existing if self.recovery or self.successor_mode else RuntimeJournal
+        )(root / "runtime.sqlite")
+        self.host_journal = (
+            HostJournal.open_existing if self.recovery or self.successor_mode else HostJournal
+        )(root / "host.sqlite", root / "host.key")
+        successor_sources = {}
+        completed_successors = set()
+        from ai_task_manager.storage.sessions import TaskSession
+
+        session_id, _ = core.session_binding(handle)
+        if isinstance(session_id, TaskSession):
+            retained_store = self.successor_store
+            with core.context.db.transaction() as conn:
+                enrolled = conn.execute(
+                    "SELECT workflow_ref FROM task_capabilities WHERE reference=?",
+                    (session_id.reference,),
+                ).fetchone()
+            successor_row = retained_store.read(enrolled[0], core.session_binding(handle)[1])
+            prior_attempt = successor_row["succession"]["retained"]["body"].get("attempt_id")
+            if prior_attempt:
+                if core.get_attempt(handle, prior_attempt).state == "done":
+                    completed_successors.add(prior_attempt)
+                else:
+                    successor_sources[task.id] = prior_attempt
         self.resources = ResourceManager(
             self.journal,
             root / "resources",
             Path(d["repository"]),
             metadata_paths=(core.context.db.path, root / "workflow.sqlite", self.host_journal.path),
-            existing_only=self.recovery is not None,
+            existing_only=self.recovery is not None or self.successor_mode,
+            successor_sources=successor_sources,
         )
+        self.resources.completed_successors = frozenset(completed_successors)
         control_parent = Path(
             read_private(self.spec.config_seal.path)["workflow_control"]["endpoint"]
         ).parent.resolve()
@@ -187,7 +238,7 @@ class InstalledWorkflow:
             self.journal,
             root / "outputs",
             recovery_directory=control_parent,
-            existing_only=self.recovery is not None,
+            existing_only=self.recovery is not None or self.successor_mode,
         )
         context = NativeContext(
             core,
@@ -235,7 +286,7 @@ class InstalledWorkflow:
             self.journal,
             root / "runtime.key",
             host_startups=self.factory.startup_verifier,
-            existing_only=self.recovery is not None,
+            existing_only=self.recovery is not None or self.successor_mode,
         )
         prompt = (
             task.title
@@ -299,7 +350,11 @@ class InstalledWorkflow:
 
         runtime = ManagedWorkerPort(self.workers, binding)
         self.store = (
-            self.recovery.store() if self.recovery else WorkflowStore(root / "workflow.sqlite")
+            self.recovery.store()
+            if self.recovery
+            else self.successor_store
+            if self.successor_mode
+            else WorkflowStore(root / "workflow.sqlite")
         )
         inspector = RepositoryInspector(runtime)
         # Full original approved prose, not a private expected-answer evaluator.
@@ -466,7 +521,12 @@ class InstalledWorkflow:
                 return producer
 
             factory = bounded
-        return NativeReviewSource(CaptureStore(root / "reviews"), factory)
+        return NativeReviewSource(
+            CaptureStore(
+                root / "reviews", existing_only=self.successor_mode or self.recovery is not None
+            ),
+            factory,
+        )
 
     def serve(self, stop=None, ready=None):
         return self.owner.serve(stop, ready)

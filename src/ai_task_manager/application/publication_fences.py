@@ -59,7 +59,7 @@ class PublicationFences:
             )
             # A new fence consumes the current original attempt's dependency
             # graph atomically. Committed same-key replay returns before action.
-            self.c.scheduling.require(conn, scope, task, "lease", attempt)
+            self.c.scheduling.require(conn, scope, task, "lease", attempt, session_id=sid)
             try:
                 proof = self.c.proof(prepared_intent_ref, "publication_intent", scope, task_id)
             except EvidenceRequired as error:

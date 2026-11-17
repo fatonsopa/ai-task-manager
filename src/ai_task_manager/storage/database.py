@@ -193,6 +193,7 @@ class Database:
 
         register_publication(conn)
         from ai_task_manager.storage.successor_schema import register as register_successor
+
         register_successor(conn)
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA busy_timeout=10000")
@@ -224,6 +225,7 @@ class Database:
 
                 validate_publication(conn)
             from ai_task_manager.storage.successor_schema import validate as validate_successor
+
             validate_successor(conn)
             self._active_transactions.add(conn)
             yield conn

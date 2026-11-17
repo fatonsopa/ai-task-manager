@@ -75,17 +75,23 @@ class Core:
     def successor_subject(self, old_handle, observation_ref):
         """Read retained task facts only under a fresh current observation grant."""
         import json
-        from ai_task_manager.domains.work.models import Scope
+
         from ai_task_manager.domains.work.errors import AccessDenied
+        from ai_task_manager.domains.work.models import Scope
         from ai_task_manager.storage import sessions, work
+
         with self.context.db.transaction() as conn:
-            row = conn.execute("SELECT id,scope FROM sessions WHERE token_hash=?",
-                               (sessions.token_hash(old_handle.token),)).fetchone()
+            row = conn.execute(
+                "SELECT id,scope FROM sessions WHERE token_hash=?",
+                (sessions.token_hash(old_handle.token),),
+            ).fetchone()
             if row is None:
                 raise AccessDenied("Original Core capability identity is unavailable")
             scope = Scope(**json.loads(row["scope"]))
             proof = self.context.evidence.verify_evidence(observation_ref)
-            self.context.proof(observation_ref, "workflow_successor_observation", scope, proof.subject)
+            self.context.proof(
+                observation_ref, "workflow_successor_observation", scope, proof.subject
+            )
             return work.get(conn, row["id"], proof.subject)
 
     def admit_workflow_successor(self, old_handle, new_handle, authorization, publish):
@@ -97,7 +103,9 @@ class Core:
         with self.context.db.transaction() as conn:
             sid, _ = sessions.resolve(conn, handle)
             if isinstance(sid, sessions.TaskSession):
-                conn.execute("UPDATE task_capabilities SET revoked=1 WHERE reference=?", (sid.reference,))
+                conn.execute(
+                    "UPDATE task_capabilities SET revoked=1 WHERE reference=?", (sid.reference,)
+                )
             else:
                 conn.execute("UPDATE sessions SET revoked=1 WHERE id=?", (sid,))
 

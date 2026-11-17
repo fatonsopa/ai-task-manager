@@ -239,7 +239,11 @@ class AuthorityJournal:
             if not isinstance(origin, str) or not origin.startswith(PREFIX):
                 raise AccessDenied("Successor authority requires current enrolled delegation")
             enrollment = current_enrollment(self, origin, data["scope"])
-            if "successor" not in enrollment["actions"] or data.get("expires_at") is None or data["expires_at"] > enrollment["expires_at"]:
+            if (
+                "successor" not in enrollment["actions"]
+                or data.get("expires_at") is None
+                or data["expires_at"] > enrollment["expires_at"]
+            ):
                 raise AccessDenied("Enrollment does not authorize this finite successor")
         if data["kind"] == "delivered_followup":
             if not isinstance(origin, str) or not origin.startswith(PREFIX):

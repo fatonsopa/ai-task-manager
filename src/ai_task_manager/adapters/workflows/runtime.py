@@ -122,6 +122,9 @@ class ManagedWorkerPort:
         if dispatch is None:
             stops = self.workers.journal.observations(attempt_id, "runtime_outcome")
             complete = [row for row in stops if row.get("managed_stop") is True]
+            successor = getattr(self.workers.resources, "completed_successors", frozenset())
+            if attempt_id in successor:
+                complete = stops
             if not complete or complete[-1].get("quiescent") is not True:
                 raise RuntimeUncertain("Actual native owner is unavailable")
             # Reconstruct only resources of a completely stopped attempt. This
