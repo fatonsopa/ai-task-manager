@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.domains.work.models import ACTIVE_ATTEMPTS, Cause, IssueStatus
+from ai_task_manager.storage.sessions import TaskSession
 
 
 class WorkflowDriver:
@@ -72,6 +73,17 @@ class WorkflowDriver:
         if attempt.task_id != row["task_id"] or attempt.host != self.plans.get(row["plan_id"]).host:
             raise AccessDenied("Canonical attempt does not belong to this task and configured host")
         return attempt
+
+    def _lineage(self, row, task, attempt):
+        fact = self.runtime.ownership(attempt.id)
+        source = attempt.id
+        if isinstance(self.session_id, TaskSession):
+            resolver = getattr(self.runtime, "resource_owner", None)
+            if resolver is not None:
+                source = resolver(attempt.id)
+        self.store.lineage(
+            task.id, attempt.id, fact, reference=row["id"], source_attempt=source
+        )
 
     def _decision(self, task, target, action):
         if self.decisions is None:
@@ -338,8 +350,7 @@ class WorkflowDriver:
                     pair = self.runtime.pair(attempt.id)
                     if pair.database in {self.store.path, self.core.context.db.path}:
                         raise AccessDenied("Task database cannot contain controller metadata")
-                    lineage = self.runtime.ownership(attempt.id)
-                    self.store.lineage(task.id, attempt.id, lineage)
+                    self._lineage(row, task, attempt)
                     name, payload = (
                         "execute",
                         {"attempt_id": attempt.id, "command_ref": plan.command_ref},
@@ -362,15 +373,13 @@ class WorkflowDriver:
                             "task_id": task.id,
                             "commit": actual["commit"],
                         }
-                    lineage = self.runtime.ownership(attempt.id)
-                    self.store.lineage(task.id, attempt.id, lineage)
+                    self._lineage(row, task, attempt)
                     name, payload = "worker-commit", self.commits.prepare(row, plan)
 
                     def action():
                         return self.commits.run(row, plan, payload)
                 elif attempt.state == "done":
-                    lineage = self.runtime.ownership(attempt.id)
-                    self.store.lineage(task.id, attempt.id, lineage)
+                    self._lineage(row, task, attempt)
                     current = self.repository.inspect(task, attempt, plan)
                     if "verify" not in row["steps"]:
                         name, payload = "verify", {"attempt_id": attempt.id}

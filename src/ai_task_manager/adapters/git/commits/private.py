@@ -152,7 +152,7 @@ def prepare(observer, attempt_id, path, directory, intent):
     record = {
         "attempt_id": attempt_id,
         "base": intent["base"],
-        "branch": branch,
+        "branch": "refs/heads/" + intent["worktree"]["branch"],
         "worktree": str(path),
         "metadata": str(directory),
         "physical": identity(directory),

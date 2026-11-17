@@ -4,8 +4,10 @@ import os
 import secrets
 import sqlite3
 import sys
+import time
 from contextlib import nullcontext
 from dataclasses import asdict, replace
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -22,11 +24,30 @@ from ai_task_manager.storage.workflows import WorkflowStore
 from tests.runtime.helpers import ProviderFixture, RuntimeRig
 
 
-@pytest.mark.parametrize("code", [False, True])
-def test_stopped_active_successor_uses_original_dirty_files_and_database(tmp_path, code):
+@pytest.mark.parametrize("code, prior_lineage", [(False, False), (True, False), (True, True)])
+def test_stopped_active_successor_uses_original_dirty_files_and_database(
+    tmp_path, code, prior_lineage, monkeypatch
+):
     rr = RuntimeRig(tmp_path)
     r = rr.rig
     try:
+        if code:
+            from tests.worker_commits.helpers import git
+
+            r.now = time.time()
+            for name, value in [
+                ("src/a.txt", "0"), ("tests/a.txt", "4"), ("config/checks.json", "{}")
+            ]:
+                path = rr.repo / name
+                path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                path.write_text(value)
+            verify = rr.repo / "verify.py"
+            verify.write_text(
+                "from pathlib import Path\n"
+                "assert Path('result.txt').read_text() == 'retain this partial work\\n'\n"
+            )
+            git(rr.repo, "add", ".")
+            git(rr.repo, "commit", "-qm", "Owned continuation check")
         task = r.queued(code=code, units=("first", "remaining"))
         original = rr.start(task)
         rr.admit(original)
@@ -68,9 +89,10 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(tmp_pat
             "continue",
             "fixture",
             base,
-            ("partial.txt", "result.txt"),
+            ("partial.txt", "result.txt", "src/a.txt") if code else ("partial.txt", "result.txt"),
             ("result.txt",),
             r.now - 1,
+            commit_checks=("verify",) if code else (),
         )
         fresh = replace(old, id="fresh", deadline=r.now + 100, max_steps=2)
         store = WorkflowStore(tmp_path / "workflow.sqlite")
@@ -86,6 +108,13 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(tmp_pat
         )
         store.release(predecessor, "old-owner")
         old_row = store.read(predecessor, r.scope)
+        if prior_lineage:
+            store.lineage(
+                task.id, original.attempt_id,
+                rr.resources.git.inspect(pair.worktree, "managed/" + original.attempt_id),
+            )
+        with store.transaction() as conn:
+            original_lineage = [tuple(row) for row in conn.execute("SELECT * FROM lineage")]
         decision = r.proof(
             "decision",
             task.id,
@@ -137,7 +166,8 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(tmp_pat
                         "-I",
                         "-c",
                         "from pathlib import Path;"
-                        "Path('result.txt').write_text(Path('partial.txt').read_text())",
+                        "Path('result.txt').write_text(Path('partial.txt').read_text());"
+                        + ("Path('src/a.txt').write_text('4')" if code else "pass"),
                     ),
                     {"PATH": os.defpath},
                     2,
@@ -207,6 +237,163 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(tmp_pat
             ):
                 pass
             assert len(rr.runtime.workers) == 2
+            from ai_task_manager.adapters.git.commits import ConfinedWorkerGit, WorkerGitContainer
+            from ai_task_manager.application.commits import WorkerCommits
+            from ai_task_manager.domains.work.errors import AccessDenied
+            from ai_task_manager.installation.workflows.worker_resources import (
+                ResourceWorkerCommits,
+            )
+            from tests.checks.fixtures import sha
+            from tests.worker_commits.helpers import FixedChecks
+            from tests.workflow_installation.code_controls import IMAGE
+
+            docker = Path("/usr/local/bin/docker").resolve()
+            endpoint = "unix://" + str(Path.home().joinpath(".docker/run/docker.sock").resolve())
+            container = WorkerGitContainer(
+                rr.journal, tmp_path / "contained-git", docker=docker,
+                docker_sha256=sha(docker.read_bytes()), endpoint=endpoint, image=IMAGE,
+                resource_root=rr.resources.root, deadline=time.time() + 120,
+                run_id="r06-connected-" + str(prior_lineage),
+            )
+            commits = WorkerCommits(
+                r.core, handle, runtime, rr.journal, ConfinedWorkerGit(rr.journal, container),
+                checks=FixedChecks(rr.repo / "verify.py"),
+            )
+            driver.commits = ResourceWorkerCommits(commits, rr.resources)
+            row = store.read(ref, r.scope)
+            from ai_task_manager.supervisor.models import RuntimeRefused
+
+            with pytest.raises(RuntimeRefused, match="Current successor consumer authority"):
+                with rr.resources.use(inherited):
+                    pass
+            actual_observations = rr.journal.observations
+            with monkeypatch.context() as missing:
+                missing.setattr(
+                    rr.journal, "observations",
+                    lambda attempt, kind: []
+                    if (attempt, kind) == (original.attempt_id, "consumer_fence")
+                    else actual_observations(attempt, kind),
+                )
+                with pytest.raises(RuntimeRefused, match="ownership is unconfirmed"):
+                    driver.commits.prepare(row, fresh)
+            intent = driver.commits.prepare(row, fresh)
+            assert intent["worktree"]["branch"] == "managed/" + original.attempt_id
+            forged = {**row, "succession": {}}
+            with pytest.raises(AccessDenied, match="outside the recorded"):
+                driver.commits.prepare(forged, fresh)
+            outcome = driver.run(ref)
+            assert outcome["state"] == "awaiting_review", outcome
+            committed = store.read(ref, r.scope)["steps"]["worker-commit"]["result"]
+            assert committed["state"] == "committed"
+            candidate = rr.journal.effect(new_attempt.id, "worker-commit-candidate")
+            assert candidate and commits.git.committed(pair.worktree, candidate) != base
+            assert git(pair.worktree, "show", "HEAD:result.txt") == "retain this partial work"
+            with store.transaction() as conn:
+                after_lineage = [tuple(row) for row in conn.execute("SELECT * FROM lineage")]
+            if prior_lineage:
+                assert after_lineage == original_lineage
+            else:
+                assert len(after_lineage) == 1 and after_lineage[0][2] == original.attempt_id
+
+            from ai_task_manager.adapters.git.candidates import CandidateProfile
+            from ai_task_manager.adapters.git.candidates.process import CandidateProcesses
+            from ai_task_manager.adapters.git.profile import Executable, GitProfile
+            from ai_task_manager.adapters.workflow_reviews.code_candidates import (
+                CodeCandidateReviews,
+            )
+            from ai_task_manager.application.merge_checks.service import MergeChecks
+            from ai_task_manager.application.merging.authority import resource_alias
+            from ai_task_manager.application.merging.candidates import (
+                CandidateService,
+                CoreCandidateAuthority,
+            )
+            from ai_task_manager.application.merging.workflows import (
+                CandidateChecks,
+                MergeEvidence,
+                MergePlan,
+                MergeWorkflowService,
+            )
+            from ai_task_manager.domains.merging.candidates import CandidateGrant
+            from ai_task_manager.domains.merging.contracts import Binding
+            from ai_task_manager.storage.checks import CheckStore
+            from ai_task_manager.storage.merging.journal import Journal
+            from tests.checks.fixtures import CHILD, Guard, catalogs, discovery, unit
+            from tests.merge.workflows.helpers import OutsideExecutor
+            from tests.merge.workflows.test_candidate_review import Captures
+
+            git(rr.repo, "branch", "integration", base)
+            home = tmp_path / "merge-home"
+            home.mkdir(mode=0o700)
+            profile = GitProfile(
+                root=tmp_path,
+                executable=Executable.capture("/usr/bin/git", GitProfile.environment(home)),
+                home=home,
+            )
+            tree_id = resource_alias("worktree", inherited.worktree_id)
+            repo_id = resource_alias("repository", str(rr.repo))
+            record = profile.enroll(
+                inherited.worktree, worktree_id=tree_id, repository_id=repo_id,
+                target_ref="refs/heads/integration",
+            )
+            directory = tmp_path / "candidates"
+            directory.mkdir(mode=0o700)
+            current = r.core.get_task(handle, task.id)
+            binding = Binding(
+                task.id, new_attempt.id, r.scope.principal, r.scope.logical_session,
+                r.scope.project, current.prose_digest, sha(CHILD), tree_id, repo_id,
+                resource_alias("database", inherited.database_id),
+                record["configuration_digest"], "candidate:r06",
+            )
+            grant = CandidateGrant(
+                binding, "refs/heads/managed/" + original.attempt_id,
+                git(inherited.worktree, "rev-parse", "HEAD"), base,
+                current.version, new_attempt.version, current.decision_revision,
+                r.decision(current, "In Dev", actor="model"), "lead:r06-control",
+            )
+            evidence = MergeEvidence(clock=lambda: r.now)
+            r.core.context.evidence = EvidenceRouter([
+                *r.core.context.evidence.routes,
+                EvidenceRoute(
+                    "merge-publication:", frozenset({"merge", "publication_intent"}), evidence
+                ),
+            ])
+            journal = Journal(tmp_path / "merge/journal.sqlite")
+            candidates = CandidateService(
+                journal, CandidateProfile(profile, tree_id, repo_id, directory),
+                CoreCandidateAuthority(r.core, handle, rr.resources, inherited),
+                process_factory=CandidateProcesses,
+            )
+            executor = OutsideExecutor(tmp_path / "check-evidence")
+            guard = Guard(source=sha(CHILD))
+            checks = MergeChecks(
+                CheckStore(tmp_path / "checks/results.sqlite"), guard, executor,
+                catalogs=catalogs(tmp_path, project=r.scope.project),
+            )
+
+            def discover(candidate):
+                guard.root = executor.root = Path(candidate.path)
+                return discovery((unit(),))
+
+            captures = Captures(lambda: r.now)
+            reviews = CodeCandidateReviews(
+                r.core, handle, candidates, ("partial.txt", "result.txt", "src/a.txt"), captures
+            )
+            merge_plan = MergePlan("fresh-r06-merge", grant, r.now + 100)
+            workflow = MergeWorkflowService(
+                r.core, handle, merge_plan, candidates, CandidateChecks(checks, discover),
+                ProviderFixture(r), evidence, candidate_reviews=reviews, clock=lambda: r.now,
+            )
+            try:
+                delivered = workflow.run(task.id, merge_plan.id, "r06-publish")
+                assert delivered["data"]["state"] == "done", delivered
+                assert git(rr.repo, "rev-parse", "integration") != base
+                assert git(rr.repo, "show", "integration:result.txt") == "retain this partial work"
+                assert r.core.get_task(handle, task.id).observed_status == "In Dev"
+                before = len(captures.calls)
+                assert workflow.resume(delivered["data"]["workflow"])["data"]["state"] == "done"
+                assert len(captures.calls) == before
+            finally:
+                workflow.close()
 
         assert store.read(predecessor, r.scope) == old_row
     finally:

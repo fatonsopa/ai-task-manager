@@ -7,6 +7,8 @@ from dataclasses import asdict, is_dataclass
 from ai_task_manager.domains.checks.models import fingerprint
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.domains.work.models import IssueStatus
+from ai_task_manager.storage.sessions import TaskSession
+from ai_task_manager.storage.workflows import require_resource_owner
 from ai_task_manager.supervisor.models import RuntimeUncertain
 
 
@@ -56,10 +58,19 @@ class WorkerCommits:
             raise AccessDenied("Worker commit original owner or deadline differs")
         pair = self.runtime.pair(attempt.id)
         fact = self.runtime.ownership(attempt.id)
+        resource_owner = attempt.id
+        resolver = getattr(self.runtime, "resource_owner", None)
+        if isinstance(self.binding[0], TaskSession) and resolver is not None:
+            resource_owner = resolver(attempt.id)
+            if resource_owner != attempt.id:
+                require_resource_owner(row, resource_owner)
+                original = self.core.get_attempt(self.handle, resource_owner)
+                if original.task_id != task.id or original.session_id != attempt.session_id:
+                    raise AccessDenied("Retained resource owner belongs to another task")
         if (
             pair.attempt_id != attempt.id
             or (attempt.worktree_id, attempt.database_id) != (pair.worktree_id, pair.database_id)
-            or fact["branch"] != "managed/" + attempt.id
+            or fact["branch"] != "managed/" + resource_owner
         ):
             raise AccessDenied("Worker branch or resources belong to different work")
         return task, attempt, pair, fact

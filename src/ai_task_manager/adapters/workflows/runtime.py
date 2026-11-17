@@ -89,6 +89,11 @@ class LocalSupervisorPort:
         self.pair(attempt.id)
         return self.supervisor.stop(handle, self.dispatches[attempt.id], operation_key=key)
 
+    def resource_owner(self, attempt_id):
+        pair = self.pair(attempt_id)
+        fact = self.supervisor.resources.verify(pair)
+        return fact.get("source_attempt", attempt_id)
+
     def ownership(self, attempt_id):
         pair = self.pair(attempt_id)
         fact = self.supervisor.resources.verify(pair)
@@ -138,6 +143,11 @@ class ManagedWorkerPort:
 
     def stop(self, handle, attempt, key):
         return self.workers.stop(handle, attempt.id, operation_key=key)
+
+    def resource_owner(self, attempt_id):
+        pair = self.pair(attempt_id)
+        fact = self.workers.resources.verify(pair)
+        return fact.get("source_attempt", attempt_id)
 
     def ownership(self, attempt_id):
         pair = self.pair(attempt_id)

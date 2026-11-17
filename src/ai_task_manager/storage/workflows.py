@@ -476,19 +476,30 @@ class WorkflowStore:
                 body["attempt_id"] = attempt_id
                 conn.execute("UPDATE runs SET body=? WHERE id=?", (canonical(body), reference))
 
-    def lineage(self, task_id, attempt_id, fact):
+    def lineage(self, task_id, attempt_id, fact, *, reference=None, source_attempt=None):
         key = fingerprint({"common": fact["common"], "branch": fact["branch"]})
+        resource_owner = source_attempt or attempt_id
         with self.transaction() as conn:
+            if resource_owner != attempt_id:
+                run = conn.execute("SELECT * FROM runs WHERE id=?", (reference,)).fetchone()
+                if run is None or run["task_id"] != task_id:
+                    raise AccessDenied("Current retained workflow is required")
+                body = json.loads(run["body"])
+                head = conn.execute(
+                    "SELECT run_id FROM workflow_heads WHERE scope=? AND task_id=?",
+                    (run["scope"], task_id),
+                ).fetchone()
+                if body["attempt_id"] != attempt_id or head is None or head[0] != reference:
+                    raise AccessDenied("Retained branch use belongs to another workflow")
+                require_resource_owner(body, resource_owner)
             old = conn.execute("SELECT * FROM lineage WHERE resource=?", (key,)).fetchone()
             if old and (old["task_id"], old["attempt_id"], old["body"]) != (
-                task_id,
-                attempt_id,
-                canonical(fact),
+                task_id, resource_owner, canonical(fact)
             ):
                 raise AccessDenied("Branch lineage belongs to different work or changed resources")
             conn.execute(
                 "INSERT OR IGNORE INTO lineage VALUES(?,?,?,?)",
-                (key, task_id, attempt_id, canonical(fact)),
+                (key, task_id, resource_owner, canonical(fact)),
             )
 
     def verified(self, scope, task_id, artifact_digest):
@@ -513,3 +524,14 @@ class WorkflowStore:
         ):
             raise SchemaError("Persisted inspection context or digest changed")
         return result if result["digest"] == artifact_digest else None
+
+
+def require_resource_owner(row, source_attempt):
+    current = row
+    while current.get("succession", {}).get("version") == 2:
+        current = current["succession"]["retained"]["body"]
+        if current.get("task_id") != row["task_id"]:
+            break
+        if current.get("attempt_id") == source_attempt:
+            return
+    raise AccessDenied("Resource owner is outside the recorded successor lineage")

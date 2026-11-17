@@ -54,9 +54,10 @@ class DeliveryResources:
         return observed
 
     @contextmanager
-    def use(self, pair):
+    def use(self, pair, *, observe=None):
         self._current()
-        with self.owner.use(pair):
+        options = {} if observe is None else {"observe": observe}
+        with self.owner.use(pair, **options):
             yield self.verify(pair)
             self._current()
 

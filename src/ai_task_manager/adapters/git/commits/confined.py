@@ -164,7 +164,7 @@ class ConfinedWorkerGit(WorkerGit):
             raise AccessDenied("Original index changed; foreign staged work is preserved")
         if workspace(Path(path)) != intent["workspace_state"]:
             raise AccessDenied("Checked worktree bytes changed during contained staging or checks")
-        tree = self.tree(path)
+        tree = query(record, "write-tree").decode().strip()
         WorkerGit.validate_tree(PrivateView(record), path, tree, intent)
         return tree
 

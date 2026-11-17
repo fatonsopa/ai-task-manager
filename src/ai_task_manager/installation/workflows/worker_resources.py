@@ -1,10 +1,11 @@
 """Keep actual worker commit inputs owned through checks, Git waits and recovery."""
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from ai_task_manager.application.commits import WorkerCommits
 from ai_task_manager.domains.work.errors import AccessDenied
+from ai_task_manager.storage.sessions import TaskSession
 
 
 @dataclass(frozen=True)
@@ -50,10 +51,29 @@ class ResourceWorkerCommits:
         _, _, pair, _ = self.commits._current(row, plan)
         if self.freshness is not None:
             self.freshness.start(row)
-        with self.resources.use(pair):
+        options = (
+            {"observe": lambda: self._observe_use(row, plan)}
+            if isinstance(self.commits.binding[0], TaskSession) else {}
+        )
+        with self.resources.use(pair, **options):
             self.resources.verify(pair)
             yield
             self.resources.verify(pair)
+
+    def _observe_use(self, row, plan):
+        task, attempt, _, _ = self.commits._current(row, plan)
+        session, scope = self.commits.core.session_binding(self.commits.handle)
+        if not isinstance(session, TaskSession) or self.commits.clock() >= plan.deadline:
+            raise AccessDenied("Current successor resource use is unavailable")
+        return {
+            "capability": session.reference,
+            "task_id": task.id,
+            "attempt_id": attempt.id,
+            "source_attempt": self.commits.runtime.resource_owner(attempt.id),
+            "scope": asdict(scope),
+            "purpose": "worker_commit",
+            "deadline": plan.deadline,
+        }
 
     def prepare(self, row, plan):
         with self._use(row, plan):

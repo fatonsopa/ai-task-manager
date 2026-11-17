@@ -156,10 +156,10 @@ class ResourceManager:
         return fact
 
     @contextmanager
-    def use(self, pair):
+    def use(self, pair, *, observe=None):
         """Pin physical resources; callers reverify after waits before consumption."""
         self.journal.attempt(pair.attempt_id)
-        with self._consumer_boundary(pair.attempt_id):
+        with self._consumer_boundary(pair.attempt_id, observe=observe):
             yield self.verify(pair)
 
     def cleanup(self, core, handle, attempt_id):
@@ -170,7 +170,7 @@ class ResourceManager:
             return self._cleanup(core, handle, attempt_id)
 
     @contextmanager
-    def _consumer_boundary(self, attempt_id, *, exclusive=False):
+    def _consumer_boundary(self, attempt_id, *, exclusive=False, observe=None):
         intent = self.journal.effect(attempt_id, "resources") or {}
         fence_owner = intent.get("source_attempt", attempt_id)
         with consumer_boundary(self.root, fence_owner, exclusive=exclusive) as (physical, created):
@@ -181,7 +181,36 @@ class ResourceManager:
                 raise RuntimeRefused("Resource consumer fence physical identity changed")
             if not records:
                 if not created:
-                    raise RuntimeRefused("Resource consumer fence ownership is unconfirmed")
+                    source = self.journal.attempt(fence_owner)
+                    owner = self.journal.attempt(attempt_id)
+                    prior = self.journal.observations(fence_owner, "consumer_fence")
+                    if (
+                        fence_owner == attempt_id
+                        or not intent.get("predecessor_attempt")
+                        or source["task_id"] != owner["task_id"]
+                        or source["scope"] != owner["scope"]
+                        or not prior
+                        or any(
+                            {key: record.get(key) for key in physical} != physical
+                            for record in prior
+                        )
+                    ):
+                        raise RuntimeRefused("Resource consumer fence ownership is unconfirmed")
+                    if not callable(observe):
+                        raise RuntimeRefused("Current successor consumer authority is required")
+                    current = observe()
+                    if (
+                        current.get("task_id") != owner["task_id"]
+                        or current.get("attempt_id") != attempt_id
+                        or current.get("source_attempt") != fence_owner
+                        or current.get("scope") != owner["scope"]
+                        or current.get("purpose") != "worker_commit"
+                        or not current.get("capability")
+                        or current.get("deadline") != owner["deadline"]
+                        or self.journal.clock() >= current["deadline"]
+                    ):
+                        raise RuntimeRefused("Successor consumer authority differs from its owner")
+                    physical = {**physical, "current_use": current}
                 self.journal.observe(attempt_id, "consumer_fence", physical)
             yield
 
