@@ -116,3 +116,23 @@ Version 1 was approved on 16 November 2026: “Approve DP05 version 1 and execut
 | `DP05-T08` | `DP05-S4` | [TST-349](https://linear.app/manaferra/issue/TST-349/dp05-t08-recover-eligible-resource-retirement) |
 | `DP05-T09` | `DP05-S4` | [TST-350](https://linear.app/manaferra/issue/TST-350/dp05-t09-deliver-the-observed-recovery-report) |
 | `DP05-T10` | `DP05-S4` | [TST-351](https://linear.app/manaferra/issue/TST-351/dp05-t10-accept-the-cumulative-recovery-increment-and-hand-off-dp06) |
+
+## DP06 approved hierarchy
+
+Version 1 was approved by the user on 17 November 2026, including DP06-D1, for complete scoped execution. The plan and `DP06-E1` share TST-244. Current acceptance and execution state remain in Linear and the owning delivery records.
+
+| Planning ID | Parent | Linear record |
+| --- | --- | --- |
+| `DP06-S1` | TST-244 | [TST-415](https://linear.app/manaferra/issue/TST-415/dp06-s1-choose-eligible-work-and-explain-fair-waiting) |
+| `DP06-S2` | TST-244 | [TST-416](https://linear.app/manaferra/issue/TST-416/dp06-s2-execute-independent-tasks-safely-in-parallel) |
+| `DP06-S3` | TST-244 | [TST-417](https://linear.app/manaferra/issue/TST-417/dp06-s3-deliver-through-contention-within-measured-budgets) |
+| `DP06-S4` | TST-244 | [TST-418](https://linear.app/manaferra/issue/TST-418/dp06-s4-complete-the-concurrent-increment-and-supported-operation) |
+| `DP06-T01` | TST-415 | [TST-419](https://linear.app/manaferra/issue/TST-419/dp06-t01-enforce-explainable-fair-eligibility) |
+| `DP06-T02` | TST-415 | [TST-420](https://linear.app/manaferra/issue/TST-420/dp06-t02-demonstrate-installed-queue-decisions) |
+| `DP06-T03` | TST-416 | [TST-421](https://linear.app/manaferra/issue/TST-421/dp06-t03-reserve-finite-conflicting-resources-atomically) |
+| `DP06-T04` | TST-416 | [TST-422](https://linear.app/manaferra/issue/TST-422/dp06-t04-connect-concurrent-installed-workflow-ownership) |
+| `DP06-T05` | TST-416 | [TST-423](https://linear.app/manaferra/issue/TST-423/dp06-t05-deliver-two-genuine-independent-tasks-concurrently) |
+| `DP06-T06` | TST-417 | [TST-424](https://linear.app/manaferra/issue/TST-424/dp06-t06-resolve-merge-contention-and-resource-recovery-gaps) |
+| `DP06-T07` | TST-417 | [TST-425](https://linear.app/manaferra/issue/TST-425/dp06-t07-qualify-the-fixed-performance-workloads) |
+| `DP06-T08` | TST-418 | [TST-426](https://linear.app/manaferra/issue/TST-426/dp06-t08-demonstrate-dependent-progress-and-interrupted-concurrency) |
+| `DP06-T09` | TST-418 | [TST-427](https://linear.app/manaferra/issue/TST-427/dp06-t09-accept-the-cumulative-increment-and-hand-off-dp07) |
