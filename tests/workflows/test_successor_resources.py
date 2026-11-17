@@ -206,6 +206,28 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(
                 (original.attempt_id,)
             ]
         assert r.core.get_task(handle, task.id).completed_work == ("first",)
+        if not code:
+            from ai_task_manager.adapters.resources.consumers import consumer_boundary
+            from ai_task_manager.supervisor.models import RuntimeRefused
+
+            fence = rr.resources.root / "consumers" / (original.attempt_id + ".lock")
+            retained = fence.with_suffix(".retained")
+            identity = fence.stat().st_dev, fence.stat().st_ino
+            receipts = rr.journal.observations(new_attempt.id, "consumer_fence")
+            fence.rename(retained)
+            try:
+                with pytest.raises(RuntimeRefused, match="boundary is unavailable"):
+                    with rr.resources.use(inherited):
+                        pytest.fail("Missing original coordination cannot admit a consumer")
+                assert not fence.exists()
+                assert rr.journal.observations(new_attempt.id, "consumer_fence") == receipts
+            finally:
+                retained.rename(fence)
+            with consumer_boundary(
+                rr.resources.root, original.attempt_id, existing_only=True
+            ) as (physical, created):
+                assert not created and (physical["device"], physical["inode"]) == identity
+                rr.resources.verify(inherited)
         if code:
             # R06: the installed delivery consumer sees the new attempt's full
             # own lifecycle, rather than only the final author checkpoint.

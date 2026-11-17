@@ -173,8 +173,22 @@ class ResourceManager:
     def _consumer_boundary(self, attempt_id, *, exclusive=False, observe=None):
         intent = self.journal.effect(attempt_id, "resources") or {}
         fence_owner = intent.get("source_attempt", attempt_id)
-        with consumer_boundary(self.root, fence_owner, exclusive=exclusive) as (physical, created):
-            records = self.journal.observations(attempt_id, "consumer_fence")
+        records = self.journal.observations(attempt_id, "consumer_fence")
+        source_records = (
+            self.journal.observations(fence_owner, "consumer_fence")
+            if fence_owner != attempt_id else []
+        )
+        if fence_owner != attempt_id and not source_records:
+            raise RuntimeRefused("Original resource consumer fence history is unavailable")
+        with consumer_boundary(
+            self.root, fence_owner, exclusive=exclusive,
+            existing_only=fence_owner != attempt_id or bool(records),
+        ) as (physical, created):
+            if source_records and any(
+                {key: record.get(key) for key in physical} != physical
+                for record in source_records
+            ):
+                raise RuntimeRefused("Original resource consumer fence identity changed")
             if records and any(
                 {key: record.get(key) for key in physical} != physical for record in records
             ):

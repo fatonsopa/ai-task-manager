@@ -11,21 +11,26 @@ from .paths import confined
 
 
 @contextmanager
-def consumer_boundary(root, attempt_id, *, exclusive=False):
+def consumer_boundary(root, attempt_id, *, exclusive=False, existing_only=False):
     """Take a nonblocking, process-shared fence; retain its inode after release."""
     directory = confined(root, "consumers")
-    directory.mkdir(mode=0o700, exist_ok=True)
+    if not existing_only:
+        directory.mkdir(mode=0o700, exist_ok=True)
     path = confined(root, f"consumers/{attempt_id}.lock")
     descriptor = None
     try:
         try:
             flags = os.O_RDWR | os.O_NOFOLLOW
-            try:
-                descriptor = os.open(path, flags | os.O_CREAT | os.O_EXCL, 0o600)
-                created = True
-            except FileExistsError:
+            if existing_only:
                 descriptor = os.open(path, flags)
                 created = False
+            else:
+                try:
+                    descriptor = os.open(path, flags | os.O_CREAT | os.O_EXCL, 0o600)
+                    created = True
+                except FileExistsError:
+                    descriptor = os.open(path, flags)
+                    created = False
             opened = os.fstat(descriptor)
             current = path.lstat()
             if (
