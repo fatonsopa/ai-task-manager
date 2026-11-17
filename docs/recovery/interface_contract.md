@@ -1,7 +1,7 @@
 # Workflow recovery contract
 
-Status: DP05-S1 accepted on 16 November 2026. Genuine cold replacement/replay, active owned stop and current-valid cancellation fencing are independently assessed at the declared host/profile scope. The T03 provider-reconciliation component is independently accepted at source/component scope; genuine S2 qualification remains T05 work. T04 code continuation is independently accepted at source/component scope. Successors and resource retirement remain later DP05 work.
-Type: Interface Contract (IC). Sources: [DP05 Implementation Plan (IP)](../plans/deliveries/DP05.md), T01-A1–A3 and T02-A1–A3, parent DP05-S1; T03-A1–A3 and T04-A1–A3, parent DP05-S2; R03/R14/R15/R27/R36. Findings DP05-T02-R01, DP05-T02-R02 and DP05-T02-R03 are independently reviewed as fixed at source/component scope; the genuine S1 outcome is independently accepted.
+Status: DP05-S1 accepted on 16 November 2026. Genuine cold replacement/replay, active owned stop and current-valid cancellation fencing are independently assessed at the declared host/profile scope. T03 provider reconciliation and T04 code continuation retain their accepted component evidence. T05/S2 genuine publication, provider-outage readback and supervisor replacement/replay are independently accepted on 17 November 2026 at the same declared profile scope. Successors and resource retirement remain later DP05 work.
+Type: Interface Contract (IC). Sources: [DP05 Implementation Plan (IP)](../plans/deliveries/DP05.md), T01-A1–A3 and T02-A1–A3, parent DP05-S1; T03-A1–A3, T04-A1–A3 and T05-A1–A3, parent DP05-S2; R03/R14/R15/R27/R36. Findings DP05-T02-R01, DP05-T02-R02 and DP05-T02-R03 are independently reviewed as fixed at source/component scope; the genuine S1 outcome is independently accepted.
 
 ## Scope and authority
 
