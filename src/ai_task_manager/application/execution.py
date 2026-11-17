@@ -103,9 +103,6 @@ class Execution:
                 raise InvalidTransition("Current queued reservation is required before startup")
             self.require_open(conn, scope, task)
             self.c.scheduling.require(conn, scope, task, "start", attempt)
-            admission_resources.require_held(
-                conn, scope, self.declared_resources(scope, task), attempt,
-            )
 
     @staticmethod
     def require_open(conn, scope, task, publication_context=None):
@@ -344,11 +341,12 @@ class Execution:
             capacity.check(conn, host, scope)
             declared = self.declared_resources(scope, task)
             admission_resources.claims(conn, scope, declared, task_id=task.id)
+            waiters = self.c.scheduling._candidates(conn, task.session_id, scope, task.id)
             attempt = Attempt(str(uuid4()), task.id, sid, host, A.RESERVED, task.decision_revision)
             attempts.insert(conn, attempt)
             admission_resources.reserve(conn, scope, declared, attempt)
             scheduling.bind_attempt(conn, attempt.id, task.id, graph_version)
-            self.c.scheduling.admitted(conn, scope, task)
+            self.c.scheduling.admitted(conn, scope, task, waiters)
             task = work.save(conn, replace(task, execution_state=A.RESERVED), task.version)
             self.c.changed(
                 conn,
@@ -559,9 +557,6 @@ class Execution:
                 TransitionFacts(authorized=True, queued=task.queued_once, worker_started=True),
             )
             self.c.scheduling.require(conn, scope, task, "start", attempt)
-            admission_resources.require_held(
-                conn, scope, self.declared_resources(scope, task), attempt,
-            )
             attempt = replace(
                 attempt,
                 state=A.STARTING,

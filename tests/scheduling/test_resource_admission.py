@@ -15,6 +15,7 @@ from ai_task_manager.domains.work.models import IssueStatus as S
 from ai_task_manager.storage.database import Database
 
 from .test_guards import reserve
+from .helpers import declare
 
 
 def declaration(rig, task, *, files=(), locks=(), repository="owned-repository"):
@@ -68,6 +69,8 @@ def test_conflicting_head_waits_while_independent_task_advances_without_false_by
     declaration(rig, head, files=("src/shared.txt",))
     declaration(rig, independent, files=("src/independent.txt",))
     reserve(rig, owner)
+    declare(rig.core, rig.handle, head, rig.scheduling_sources, rig.now, priority="low")
+    declare(rig.core, rig.handle, independent, rig.scheduling_sources, rig.now, priority="urgent")
     with pytest.raises(CapacityExceeded):
         reserve(rig, head)
     view = rig.core.scheduling.explain(rig.handle, head.id)
@@ -76,6 +79,25 @@ def test_conflicting_head_waits_while_independent_task_advances_without_false_by
     assert rig.core.scheduling.ordered(rig.handle)[0]["task_id"] == independent.id
     assert reserve(rig, independent).task_id == independent.id
     assert rig.core.scheduling.explain(rig.handle, head.id)["bypasses"] == 0
+
+
+def test_R01_four_serial_same_file_admissions_promote_original_waiter(rig):
+    waiter = rig.queued()
+    declaration(rig, waiter, files=("src/shared.txt",))
+    declare(rig.core, rig.handle, waiter, rig.scheduling_sources, rig.now, priority="low")
+    for count in range(1, 5):
+        later = rig.queued()
+        declaration(rig, later, files=("src/shared.txt",))
+        declare(rig.core, rig.handle, later, rig.scheduling_sources, rig.now, priority="high")
+        later, attempt = rig.running(later)
+        rig.settle(later, attempt)
+        assert rig.core.scheduling.explain(rig.handle, waiter.id)["bypasses"] == count
+    later = rig.queued()
+    declaration(rig, later, files=("src/shared.txt",))
+    declare(rig.core, rig.handle, later, rig.scheduling_sources, rig.now, priority="urgent")
+    with pytest.raises(WorkError):
+        reserve(rig, later)
+    assert reserve(rig, waiter).task_id == waiter.id
 
 
 @pytest.mark.parametrize("fault", ["missing", "stale_prose", "foreign_scope"])
@@ -108,6 +130,15 @@ def test_unknown_legacy_active_owner_blocks_new_work_and_new_start(rig):
             rig.handle, attempt.id, rig.decision(rig.current(owner), S.IN_PROGRESS),
         )
     assert rig.core.get_attempt(rig.handle, attempt.id).state == "reserved"
+
+
+def test_running_work_boundary_cannot_infer_a_missing_admission_marker(rig):
+    task, attempt = rig.running()
+    with rig.db.transaction() as conn:
+        conn.execute("DELETE FROM resource_leases WHERE kind='admission'")
+    with pytest.raises(EvidenceRequired, match="Original atomic resource reservation"):
+        rig.core.execution.validate_work_lease(rig.handle, attempt.id, attempt.version)
+    assert rig.core.get_attempt(rig.handle, attempt.id).state == "running"
 
 
 def test_separate_public_service_reads_shared_facts_without_execution_authority(rig):

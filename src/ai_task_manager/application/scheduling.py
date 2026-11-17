@@ -501,11 +501,13 @@ class Scheduling:
             "prose_digest": task.prose_digest,
         })
 
-    def admitted(self, conn, scope, selected):
+    def admitted(self, conn, scope, selected, waiters):
         """Only a successful canonical admission can advance another task's wait."""
         current = store.current(conn, selected.id)["snapshot"]
         sequence = store.queue_sequence(conn, selected.id)
-        for task_id, priority, queued in self._candidates(conn, selected.session_id, scope):
+        for task_id, priority, queued in waiters:
+            if task_id == selected.id:
+                continue
             task = work.get(conn, selected.session_id, task_id)
             self._record_wait(conn, scope, task, increment=(
                 queued < sequence
@@ -534,6 +536,12 @@ class Scheduling:
         readiness = self._readiness(conn, scope, task, attempt, session_id)
         if readiness.state != "ready":
             raise SchedulingBlocked("; ".join(x.release_condition for x in readiness.blockers))
+        if attempt is not None and attempt.state in {A.RESERVED, A.STARTING, A.RUNNING}:
+            from ai_task_manager.storage import admission_resources
+
+            admission_resources.require_held(
+                conn, scope, self.c.execution.declared_resources(scope, task), attempt,
+            )
         if phase == "reserve":
             self.c.execution.require_resources(conn, scope, task)
             candidates = self._candidates(conn, task.session_id, scope, task.id)

@@ -126,6 +126,7 @@ class ServiceRig:
             evidence=EvidenceRoutes(self.authority, self.rig.proofs),
             renderer=self.rig.renderer,
             scheduling_sources=self.rig.scheduling_sources,
+            resource_sources=self.rig.resource_sources,
             clock=lambda: self.rig.now,
         )
         self.provider = ProviderFixture(self.rig) if provider else None
