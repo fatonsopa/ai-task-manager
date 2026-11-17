@@ -15,7 +15,8 @@ def main():
     recovery = ColdRecovery(config, installation, reference)
     stop = Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
-    launch(config, installation, recovery=recovery, stop=stop)
+    root = recovery.activation["recovery"]["installation"]["path"]
+    launch(config, root, recovery=recovery, stop=stop)
 
 
 if __name__ == "__main__":

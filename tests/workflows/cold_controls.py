@@ -116,7 +116,7 @@ def install():
         executable_hash = hashlib.sha256(executable.read_bytes()).hexdigest()
 
         def prepare(context):
-            permits = ClaudePermits(root / ("cold-accounting-" + str(os.getpid())))
+            permits = ClaudePermits(root / ("cold-accounting-" + str(os.getpid()) + "-" + context.task.id))
 
             def policy(host, pair):
                 from ai_task_manager.adapters.hosts.bridge.admission import MANAGED_TOOLS

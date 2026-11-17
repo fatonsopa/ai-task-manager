@@ -64,3 +64,29 @@ class Installation:
             resource_locks=(tuple(tuple(pair) for pair in d["resource_locks"])
                             if "resource_locks" in d else None),
         )
+
+
+    def members(self, *, retained=False):
+        """Resolve only the sealed finite task membership; never discover installations."""
+        self.check()
+        values = []
+        tasks, plans = {self.data["task_id"]}, {self.data["plan_ref"]}
+        roots = [Path(self.data["state_root"])]
+        for binding in self.data.get("task_installations", ()):
+            if file_binding(binding["path"]) != binding:
+                raise AccessDenied("Installed task membership changed")
+            member = Installation(binding["path"], self.config_seal.path, retained=retained)
+            d = member.data
+            root = Path(d["state_root"])
+            if (d.get("task_installations") or d.get("role", "worker") != "worker"
+                    or d["scope"] != self.data["scope"]
+                    or d["deadline"] != self.data["deadline"]
+                    or d["task_id"] in tasks or d["plan_ref"] in plans
+                    or any(root == old or root.is_relative_to(old) or old.is_relative_to(root)
+                           for old in roots)):
+                raise AccessDenied("Distinct bounded task installations in the same scope are required")
+            tasks.add(d["task_id"])
+            plans.add(d["plan_ref"])
+            roots.append(root)
+            values.append(member)
+        return tuple(values)

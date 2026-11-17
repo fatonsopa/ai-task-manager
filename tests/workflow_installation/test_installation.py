@@ -46,7 +46,7 @@ def installed(tmp_path, request):
     limit = time.monotonic() + 12
     while not (root / "ready.json").exists() and child.poll() is None and time.monotonic() < limit:
         time.sleep(0.03)
-    if mode in {"valid", "code", "code-restart", "recovery"}:
+    if mode in {"valid", "code", "code-restart", "recovery", "cold-concurrent"}:
         assert (root / "ready.json").exists(), (root / "stderr").read_text()
     else:
         child.wait(timeout=5)

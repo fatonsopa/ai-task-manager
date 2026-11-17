@@ -14,7 +14,7 @@ from .identity import OwnerBinding, file_binding
 
 # These are fixed product schemas, never identifiers supplied by a model.
 _DATABASES = {
-    "core": ("metadata", 5),
+    "core": ("metadata", 6),
     "workflow": ("workflow_meta", 2),
     "runtime": ("runtime_metadata", 1),
     "host": ("host_version", 2),

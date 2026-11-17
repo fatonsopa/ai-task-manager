@@ -328,6 +328,11 @@ class WorkflowStore:
                 raise IdempotencyConflict("Workflow head changed during recovery")
             return ref
 
+    def contains(self, reference, scope):
+        with self.transaction() as conn:
+            return conn.execute("SELECT 1 FROM runs WHERE id=? AND scope=?",
+                                (reference, canonical(asdict(scope)))).fetchone() is not None
+
     def read(self, reference, scope):
         with self.transaction() as conn:
             row = conn.execute(

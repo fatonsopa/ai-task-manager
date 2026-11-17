@@ -70,8 +70,10 @@ class InstalledWorkflow:
         service_options=None,
         reviews=None,
         recovery=None,
+        retained=None,
     ):
         self.recovery = recovery
+        self.retained = retained
         if recovery is not None:
             from .cold import ColdRecovery
 
@@ -79,6 +81,11 @@ class InstalledWorkflow:
                 raise AccessDenied("Typed current original-owner recovery required")
             recovery.validate_stores()
         self.spec = spec = Installation(installation_file, config_file)
+        if retained is not None:
+            from .cold import ColdRecovery
+            if type(retained) is not ColdRecovery:
+                raise AccessDenied("Typed original member recovery is required")
+            self.retained_witness = retained.retained_member(spec)
         # This gate precedes provider authentication or resource/native effects.
         self.registry = registry or NativeRegistry()
         self.native = self.registry.require(spec.data["native_ref"])
@@ -125,7 +132,7 @@ class InstalledWorkflow:
             )
 
         control = configuration.get("workflow_control", {})
-        if recovery is None and any(
+        if recovery is None and retained is None and any(
             Path(control.get(name, "/__missing__")).exists() for name in ("record", "endpoint")
         ):
             raise AccessDenied("Existing owner state requires verified recovery, never replacement")
@@ -143,7 +150,7 @@ class InstalledWorkflow:
             if not config.get("linear"):
                 raise Unavailable("Configured real provider and dependency integration required")
             components = options.get("linear_components") or LinearComponents(
-                config["linear"], existing_only=recovery is not None
+                config["linear"], existing_only=recovery is not None or retained is not None
             )
             options["linear_components"] = components
             dependencies = components.dependencies
@@ -154,7 +161,7 @@ class InstalledWorkflow:
 
         options["dependencies_factory"] = dependent
         options["workflow_factory"] = self._compose
-        options["existing_only"] = recovery is not None or self.successor_mode
+        options["existing_only"] = recovery is not None or retained is not None or self.successor_mode
         self.service = load_service(config_file, **options)
         self.service.workers = self.workers
         self.service.dependencies = self.dependencies
@@ -193,15 +200,15 @@ class InstalledWorkflow:
         if git(Path(d["repository"]), "rev-parse", "HEAD") != d["source_head"]:
             raise AccessDenied("Installed repository source changed")
         root = Path(d["state_root"])
-        if self.recovery is None:
+        if self.recovery is None and self.retained is None:
             root.mkdir(mode=0o700, parents=True, exist_ok=True)
         if root.stat().st_mode & 0o077:
             raise AccessDenied("Installed worker state must be private")
         self.journal = (
-            RuntimeJournal.open_existing if self.recovery or self.successor_mode else RuntimeJournal
+            RuntimeJournal.open_existing if self.recovery or self.retained or self.successor_mode else RuntimeJournal
         )(root / "runtime.sqlite")
         self.host_journal = (
-            HostJournal.open_existing if self.recovery or self.successor_mode else HostJournal
+            HostJournal.open_existing if self.recovery or self.retained or self.successor_mode else HostJournal
         )(root / "host.sqlite", root / "host.key")
         successor_sources = {}
         completed_successors = set()
@@ -227,7 +234,7 @@ class InstalledWorkflow:
             root / "resources",
             Path(d["repository"]),
             metadata_paths=(core.context.db.path, root / "workflow.sqlite", self.host_journal.path),
-            existing_only=self.recovery is not None or self.successor_mode,
+            existing_only=self.recovery is not None or self.retained is not None or self.successor_mode,
             successor_sources=successor_sources,
         )
         self.resources.completed_successors = frozenset(completed_successors)
@@ -238,7 +245,7 @@ class InstalledWorkflow:
             self.journal,
             root / "outputs",
             recovery_directory=control_parent,
-            existing_only=self.recovery is not None or self.successor_mode,
+            existing_only=self.recovery is not None or self.retained is not None or self.successor_mode,
         )
         context = NativeContext(
             core,
@@ -286,7 +293,7 @@ class InstalledWorkflow:
             self.journal,
             root / "runtime.key",
             host_startups=self.factory.startup_verifier,
-            existing_only=self.recovery is not None or self.successor_mode,
+            existing_only=self.recovery is not None or self.retained is not None or self.successor_mode,
         )
         prompt = (
             task.title
@@ -355,7 +362,10 @@ class InstalledWorkflow:
         bind_resources(core, task, plan, self.resources.git.common, binding, witnesses=witnesses)
         runtime = ManagedWorkerPort(self.workers, binding)
         self.store = (
-            self.recovery.store()
+            WorkflowStore.open_existing(self.retained_witness["workflow"]["path"],
+                                        store_id=self.retained_witness["workflow"]["store_id"])
+            if self.retained
+            else self.recovery.store()
             if self.recovery
             else self.successor_store
             if self.successor_mode
@@ -488,8 +498,8 @@ class InstalledWorkflow:
         from ai_task_manager.adapters.workflow_control.identity import process_start
 
         control = (
-            self.recovery.successor
-            if self.recovery
+            (self.recovery or self.retained).successor
+            if self.recovery or self.retained
             else read_private(self.spec.config_seal.path)["workflow_control"]
         )
         return {
@@ -528,7 +538,7 @@ class InstalledWorkflow:
             factory = bounded
         return NativeReviewSource(
             CaptureStore(
-                root / "reviews", existing_only=self.successor_mode or self.recovery is not None
+                root / "reviews", existing_only=self.successor_mode or self.recovery is not None or self.retained is not None
             ),
             factory,
         )

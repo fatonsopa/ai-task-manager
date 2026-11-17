@@ -74,6 +74,45 @@ class WorkflowOwner:
         with setup_lock(self.config_file):
             return self._serve(stop, ready)
 
+    def _recovery_witness(self, installation, service):
+        from .recovery import physical
+
+        installation.check()
+        store = service.workflows.driver.store
+        witness = {
+            "installation": file_binding(installation.seal.path),
+            "workflow": dict(physical(store.path), store_id=store.store_id),
+            "owner": {"pid": os.getpid(), "start": process_start(os.getpid())},
+        }
+        root = Path(installation.data["state_root"])
+        candidates = {
+            "core": self.config["core_database"],
+            "workflow": store.path,
+            "runtime": root / "runtime.sqlite",
+            "host": root / "host.sqlite",
+            "runtime_key": root / "runtime.key",
+            "host_key": root / "host.key",
+            "review_key": root / "review.key",
+            "session": self.config["session_file"],
+            "authority": self.config["authority_database"],
+            "authority_key": self.config["authority_key"],
+        }
+        if self.config.get("linear"):
+            candidates["provider"] = self.config["linear"]["journal"]
+            candidates["dependency"] = self.config["linear"]["journal"] + ".dependencies.sqlite"
+            candidates["dependency_key"] = (
+                self.config["linear"]["journal"] + ".dependencies.key"
+            )
+        if self.config.get("writer"):
+            candidates["writer"] = self.config["writer"]["journal"]
+            candidates["writer_key"] = self.config["writer"]["key"]
+        if all(Path(p).exists() for p in candidates.values()):
+            witness["files"] = {
+                k: (file_binding(p) if k.endswith("_key") or k == "session" else physical(p))
+                for k, p in candidates.items()
+            }
+        return witness
+
     def _serve(self, stop=None, ready=None):
         path = Path(self.settings["endpoint"])
         record = Path(self.settings["record"])
@@ -92,42 +131,12 @@ class WorkflowOwner:
             "deadline": self.deadline,
         }
         if self.installation is not None:
-            from .recovery import physical
-
-            self.installation.check()
-            store = self.service.workflows.driver.store
-            activation["recovery"] = {
-                "installation": file_binding(self.installation.seal.path),
-                "workflow": dict(physical(store.path), store_id=store.store_id),
-                "owner": {"pid": os.getpid(), "start": process_start(os.getpid())},
-            }
-            root = Path(self.installation.data["state_root"])
-            candidates = {
-                "core": self.config["core_database"],
-                "workflow": store.path,
-                "runtime": root / "runtime.sqlite",
-                "host": root / "host.sqlite",
-                "runtime_key": root / "runtime.key",
-                "host_key": root / "host.key",
-                "review_key": root / "review.key",
-                "session": self.config["session_file"],
-                "authority": self.config["authority_database"],
-                "authority_key": self.config["authority_key"],
-            }
-            if self.config.get("linear"):
-                candidates["provider"] = self.config["linear"]["journal"]
-                candidates["dependency"] = self.config["linear"]["journal"] + ".dependencies.sqlite"
-                candidates["dependency_key"] = (
-                    self.config["linear"]["journal"] + ".dependencies.key"
-                )
-            if self.config.get("writer"):
-                candidates["writer"] = self.config["writer"]["journal"]
-                candidates["writer_key"] = self.config["writer"]["key"]
-            if all(Path(p).exists() for p in candidates.values()):
-                activation["recovery"]["files"] = {
-                    k: (file_binding(p) if k.endswith("_key") or k == "session" else physical(p))
-                    for k, p in candidates.items()
-                }
+            activation["recovery"] = self._recovery_witness(self.installation, self.service)
+            members = getattr(self, "member_installations", ())
+            if members:
+                activation["recovery"]["members"] = [
+                    self._recovery_witness(member.spec, member.service) for member in members
+                ]
         bind_record(
             self.service.decisions.journal,
             activation_reference(self.config_file, self.settings),
