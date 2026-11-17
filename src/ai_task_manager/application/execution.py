@@ -90,11 +90,19 @@ class Execution:
             return "unknown"
         return "ready"
 
-    def require_reserved_resources(self, handle, attempt_id):
+    def require_reserved_resources(self, handle, attempt_id, decision_ref):
         with self.c.db.transaction() as conn:
             sid, scope = sessions.resolve(conn, handle)
             attempt = attempts.get(conn, sid, attempt_id)
             task = work.get(conn, sid, attempt.task_id)
+            self.c.decision(conn, task, scope, decision_ref, S.IN_PROGRESS,
+                            human=task.observed_status == S.IN_REVIEW)
+            if (attempt.state != A.RESERVED or task.human_hold or task.delivered_once
+                    or task.sync_state != SyncState.CONFIRMED
+                    or attempt.decision_revision != task.decision_revision):
+                raise InvalidTransition("Current queued reservation is required before startup")
+            self.require_open(conn, scope, task)
+            self.c.scheduling.require(conn, scope, task, "start", attempt)
             admission_resources.require_held(
                 conn, scope, self.declared_resources(scope, task), attempt,
             )

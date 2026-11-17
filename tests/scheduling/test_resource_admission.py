@@ -104,7 +104,9 @@ def test_unknown_legacy_active_owner_blocks_new_work_and_new_start(rig):
     with pytest.raises(CapacityExceeded, match="ownership is unresolved"):
         reserve(rig, next_task)
     with pytest.raises(EvidenceRequired, match="Original atomic resource reservation"):
-        rig.core.execution.require_reserved_resources(rig.handle, attempt.id)
+        rig.core.execution.require_reserved_resources(
+            rig.handle, attempt.id, rig.decision(rig.current(owner), S.IN_PROGRESS),
+        )
     assert rig.core.get_attempt(rig.handle, attempt.id).state == "reserved"
 
 
@@ -118,6 +120,34 @@ def test_separate_public_service_reads_shared_facts_without_execution_authority(
     assert view["ok"] and view["data"]["scheduling"]["selection_state"] == "ready"
     with pytest.raises(EvidenceRequired):
         reserve(rig, task, core=reader)
+
+
+@pytest.mark.parametrize("changed", ["hold", "dependency", "expired_decision"])
+def test_saved_reservation_rechecks_current_fences_before_preinitialization(rig, changed):
+    from ai_task_manager.domains.scheduling.models import Dependency
+
+    from .helpers import declare
+
+    task = rig.queued()
+    attempt = reserve(rig, task)
+    task = rig.current(task)
+    ref = rig.decision(task, S.IN_PROGRESS)
+    if changed == "hold":
+        proof = rig.proof("external_observation", task.id, {
+            "issue_id": task.issue_id, "source_revision": "current-reassignment",
+            "status": "Todo", "title": task.title, "body": task.body,
+            "assigned_to_owner": False,
+        })
+        rig.core.external.observe(rig.handle, task.id, task.version,
+                                  task.decision_revision, proof, rig.key())
+    elif changed == "dependency":
+        declare(rig.core, rig.handle, task, rig.scheduling_sources, rig.now,
+                (Dependency("missing", "work_done"),))
+    else:
+        rig.proofs.evidence[ref] = replace(rig.proofs.evidence[ref], expires_at=rig.now - 1)
+    with pytest.raises(WorkError):
+        rig.core.execution.require_reserved_resources(rig.handle, attempt.id, ref)
+    assert rig.core.get_attempt(rig.handle, attempt.id).state == "reserved"
 
 
 @pytest.mark.parametrize("partial", [False, True])

@@ -162,7 +162,7 @@ class ManagedWorkers:
             operation_key + ":reserve",
             **({"readback_ref": reserve_source} if source_readbacks is not None else {}),
         )
-        self.core.execution.require_reserved_resources(handle, attempt.id)
+        self.core.execution.require_reserved_resources(handle, attempt.id, decision_ref)
         sid, scope = self.core.session_binding(handle)
         # Failure here means an existing intent, not permission to abort its other owner.
         owner = self.journal.claim(attempt, asdict(scope), deadline=self.deadline)
