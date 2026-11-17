@@ -34,6 +34,20 @@ Uppercase paths below are operator-supplied private files. Use the installed `ai
 
 3. If the declaration is unavailable or expired, let the trusted installed dependency integration obtain current provider observations before admission. Ordinary models cannot submit a replacement proof or assume an empty graph. The trusted service's `dependencies.refresh(task_id, operation_key)` is an installer/application API, not a new CLI command. Provider observation finishes before Core consumes its receipt.
 
+   A dependency receipt lasts 30 seconds. A refresh performed before native startup can therefore expire before the lead reads the queue. Keep the trusted observation integration active within its original deadline and request budget during startup and selection, then stop it before the operator runs the task. Each collection needs a new key; replaying a key returns its original receipt and expiry. Check the current operator grant before and after each collection, preserve blocked results, and stop if the task is held, reassigned or no longer queued. This gives the lead no write or start authority.
+
+   The trusted installer/application uses the existing API:
+
+   ```python
+   from ai_task_manager.application.workflows.inspection import current_grant
+
+   service.seal.check()
+   service.claim_store.check()
+   current_grant(service)
+   view = service.dependencies.refresh(task_id, new_collection_key)
+   current_grant(service)
+   ```
+
 4. Read `bypasses`, `eligible_since`, `wait_seconds`, `fair_turn_due` and `waiting_reason`. Four committed later-queued higher-priority admissions promote the oldest continuously eligible qualifying waiter. Failed claims, capacity refusals and repeated requests do not count. Routine observations and restart preserve the waiting epoch; dependency loss, expiry or a current human hold ends it. No promotion preempts an active worker or overrides an admission guard.
 
 5. Select only approved work that remains eligible. For an ordinary managed lead, the sealed installation exposes `task_list` and `task_show` through its existing read-only gateway before native startup. It can inspect the current explanation and report a task identifier. An event-only reporting installation does not receive those reads. Neither installation grants the lead worker-start, file or command authority.
