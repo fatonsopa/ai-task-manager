@@ -45,10 +45,10 @@ Uppercase paths below are operator-supplied private files. Use the installed `ai
    ```
 
    ```sh
-   aitm --config CONFIG --installation INSTALLATION --json workflow run --input RUN_REQUEST
+   aitm --config CONFIG --json workflow run --input RUN_REQUEST
    ```
 
-   The owner rechecks current task/version, dependencies, human decisions and capacity. `admission_requires_capacity: true` means the queue explanation is not a slot reservation. A selection can therefore wait or refuse if facts change. Do not start a competing task to bypass that refusal.
+   The retained owner supplies the installed workflow registration. Use `--installation` for its dedicated owner, lead-report or recovery command, rather than for `workflow run`. The owner rechecks current task/version, dependencies, human decisions and capacity. `admission_requires_capacity: true` means the queue explanation is not a slot reservation. A selection can therefore wait or refuse if facts change. Do not start a competing task to bypass that refusal.
 
 ## Confirm success
 
