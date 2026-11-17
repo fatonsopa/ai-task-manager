@@ -6,7 +6,7 @@ Type: How-to Guide (HTG). Scope: accepted S1 owner recovery, the independently a
 
 Use the exact installed candidate package, original private service configuration and original installation file. Preserve the original workflow reference and operation key from the interrupted request. Live-owner observation and execution require current enrollment. Cold execution also requires the original unexpired native permission. Cold `resume` first uses separate finite observation/settlement authority for retained provider effects; this does not renew execution permission. The explicit cold stop port uses separate finite operator authority to settle an exactly recorded obligation, including after its execution grant expires or is revoked. Do not copy an installation or extend its deadline to make it eligible.
 
-The candidate supports live-owner continuation, verified cold replacement and owned stop. Successors and resource retirement remain later DP05 work. Cold recovery requires the complete original installation, store, key and controller witnesses recorded before interruption. Older rows without those facts need explicit reconciliation; this procedure does not backfill them. Ordinary run/resume retains its existing contract. Genuine S1 qualification is accepted at its recorded host/profile scope. T03 provider recovery and T04 code continuation retain their accepted component evidence. T05/S2 genuine publication, outage readback and supervisor replacement/replay are independently accepted on 17 November 2026 at that declared profile scope. Future genuine effects still need the finite admission described below.
+The candidate supports live-owner continuation, verified cold replacement and owned stop. Version-two successor admission is a T06 component candidate; genuine successor qualification remains T07. Resource retirement remains later DP05 work. Cold recovery requires the complete original installation, store, key and controller witnesses recorded before interruption. Older rows without those facts need explicit reconciliation; this procedure does not backfill them. Ordinary run/resume retains its existing contract. Genuine S1 qualification is accepted at its recorded host/profile scope. T03 provider recovery and T04 code continuation retain their accepted component evidence. T05/S2 genuine publication, outage readback and supervisor replacement/replay are independently accepted on 17 November 2026 at that declared profile scope. Future genuine effects still need the finite admission described below.
 
 ## Steps
 
@@ -22,7 +22,7 @@ The candidate supports live-owner continuation, verified cold replacement and ow
    aitm --config <service.json> --installation <installation.json> --json workflow recover --input <request.json>
    ```
 
-   Expect the same workflow/task/plan/key/deadline, its attempt and step observations, and the verified owner state. No new worker or provider write is part of inspection. Stop if identity, scope, configuration, source or current authority is refused. Read `action_availability`: a cold observation can offer `stop`; `successor` and `retire` remain unavailable. A callable resume still requires the ordinary workflow guards; this observation grants no permission for an effect.
+   Expect the same workflow/task/plan/key/deadline, its attempt and step observations, and the verified owner state. No new worker or provider write is part of inspection. Stop if identity, scope, configuration, source or current authority is refused. Read `action_availability`: a cold observation can offer `stop`; the three-field selector still reports `successor` and `retire` as unavailable. Use the separate version-two procedure below for a prepared successor. A callable resume still requires the ordinary workflow guards; this observation grants no permission for an effect.
 
 3. Review the reported state and current human instructions. If continuation remains appropriate, change only `action` to `resume` and run the same command. A verified cold replacement uses a different actual owner process, follows signed routing in the original authority journal and preserves the original configuration and execution deadline. The controller decides the next eligible step. A human hold, reassignment, changed scope, missing review or uncertain effect may keep it blocked.
 
@@ -49,6 +49,32 @@ The candidate supports live-owner continuation, verified cold replacement and ow
    If the interrupted start committed only its signed intent and Core has no reservation, use `resume` only while current execution authority still permits it. Recovery keeps the original decision, key, deadline and first-owner witness, and records the replacement's actual ownership separately. A committed or uncertain reservation cannot use this path to launch another worker.
 
 4. Preserve the returned workflow identity and separate observed result. Repeating this request continues or returns its recorded work; it does not authorize another attempt or resend an unknown effect.
+
+## Admit a successor
+
+Use this procedure after the original execution expires or is revoked and the owner, effects and resources have been reconciled. Preserve every original file, key, deadline, failure and revocation. A held, delivered, foreign or uncertain task cannot obtain a successor. This component procedure does not establish genuine successor execution; T07 owns that qualification.
+
+1. Stage a separate private service configuration and unused owner/capability paths. Keep the original Core, authority, provider and Writer histories, repository, state root, approved write scope and required reviewer task identities. Use the normal sealed native inputs for the fresh plan; never copy or extend an old permission. Keep the original configuration and installation unchanged.
+
+2. Through the trusted operator port, call `installation.sessions.successor.setup(fresh_config, original_config, actions=("successor", "start", "merge"), deadline=api_deadline, operation_key=enrollment_key)`. Select only the actions needed by the remaining work. This verifies the selected provider/account and stages a new token; it does not un-revoke or rotate the old Core session. After setup updates the fresh configuration, seal its fresh installation with that exact configuration binding, a distinct plan reference and a finite execution deadline within the API deadline. Keep enough separately bounded time for owned stop and observation.
+
+3. Call `installation.workflows.successor.prepare(original_config, original_installation, fresh_config, fresh_installation, workflow_ref=original_ref, original_key=original_key, operation_key=fresh_key)`. Retain the returned signed intent reference. Preparation binds the original workflow, current task/version/decision and remaining work. Repeating the same prepared inputs returns the same reference. A changed request requires explicit reconciliation; do not overwrite a prior preparation.
+
+4. Save this exact closed request in a private file, then run the ordinary installed recovery command against the original files:
+
+   ```json
+   {"version":2,"action":"successor","workflow_ref":"<original-ref>","operation_key":"<original-key>","authorization_ref":"<prepared-intent-ref>"}
+   ```
+
+   ```sh
+   aitm --config <original-service.json> --installation <original-installation.json> --json workflow recover --input <successor-request.json>
+   ```
+
+   Expect `successor_admitted`, a distinct `workflow_ref`, the original `predecessor` and the fresh operation key. Compare those identities with the prepared intent. Admission starts no worker and sends no provider mutation. A refused or uncertain boundary leaves retained work protected. An expired recorded retry may report `successor_recorded`; that result permits history inspection only.
+
+5. Before execution, verify the fresh normal native permissions, account/profile, installation and original finite limits. Launch the supported owner with the fresh configuration/installation and use the fresh task/plan/key through the ordinary installed `workflow run` command. Preserve the old key as historical identity. For partial work, require a distinct new attempt using the original owned files/database. For a completed worker, compare commit, candidate, review and check identities and counts to prove that only remaining stages ran. Current human changes, moving inputs, unknown effects and missing history must still block dependent work.
+
+The predecessor remains history, including when its Core session was revoked. New Core authority expires independently within its fresh API bound; native execution still has its own tighter deadline. Do not renew the old session, delete writer fences or recreate a missing history file to make continuation possible. Reuse a saved judgment or check only when the guarded current inputs match its original source and provenance. Frozen publication must use original-effect reconciliation rather than another publication request. Retain worktrees, databases, candidates and journals for the separate retirement procedure.
 
 ## Confirm success
 
