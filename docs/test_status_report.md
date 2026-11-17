@@ -565,3 +565,15 @@ The fixed 29-file affected selection initially recorded 287 passes, four failure
 The independent final assessment accepts T10-A1–A3, S4-A1–A3 and E1-A1–A6, with R01 fixed and no unresolved finding. Its separate read-only API query confirms all fifteen mapped records Done with exact relationships and ownership. Original failures, rejected candidates, revoked grants, expired deadlines, uncertain effects and protected foreign resources remain retained. Final source and public delivery publication are bound by the existing private T10 closure record.
 
 Progress: 10/10 tasks, 4/4 stories, 6/6 epic criteria — 100% for DP05. The [DP06 handoff](plans/deliveries/DP05-handoff.md) contains the supported procedure, exact artifact, measurements, resource disposition and scheduling/performance prerequisites. DP06 implementation has not started. Normal activation, production, all-host acceptance and final release remain outside this completion. Primary proof: existing private T10 final verification, assessment/check, independent native readback and linked original task/story evidence.
+
+<a id="dp06-t01-fair-eligibility"></a>
+
+### DP06-T01 — Fair eligibility and truthful waiting
+
+DONE - DP06-T01 accepted on 17 November 2026 at `0271e225ec892f0691c11ed5d04049d54139dc88`: T01-A1–A3 and the task Definition of Done pass. Four committed later higher-priority admissions give the oldest qualifying waiter the next eligible turn. Existing scheduling events retain eligibility age/bypasses; capacity refusal and replay do not count. Current dependency, scope, hold and reassignment fences remain enforced, and waiting projections preserve provider status.
+
+Independent native review found no supported actionable findings; its structural acceptance check passes. The fixed source selection passed123 cases; later31 changed-consumer and4 regained-eligibility passes overlap that selection and are not summed. All350 source/wheel/noneditable installed runtime files match;18 installed fairness/projection cases pass. Original helper and missing-dependency failures remain retained.
+
+The reviewed code is fast-forwarded into `delivery/dp06`. No product native/provider/container effects occurred in T01. The delivery lead retains the clean implementation/review worktrees, disposable fixture databases, environment, package and original evidence for the next consumer. Primary acceptance: `.local/delivery-learning/20261117-dp06-v1/DP06-T01-accepted.json`. Genuine installed queue decisions and S1 acceptance remain T02; no story or epic criterion is completed by this task alone.
+
+Accepted delivery counts: 1/9 tasks (11.1%), 0/4 stories (0%) and 0/6 epic criteria (0%). Next: T02 installed queue-decision and genuine managed-lead demonstration.
