@@ -50,7 +50,9 @@ def prepare(config_file, request):
         raise AccessDenied("Initial preparation permits only approved enqueue")
     if operation == "task_submit" and ({"parent_task_id", "followup_ref"} & data.keys()):
         raise AccessDenied("Initial preparation cannot admit delivered follow-up work")
-    with _initial_service(config_file) as (service, control, grant):
+    with _initial_service(
+        config_file, existing_only=operation == "task_action"
+    ) as (service, control, grant):
         reference = "workflow-bootstrap:" + digest(
             {"instance": control["instance"], "request": request}
         )
@@ -108,7 +110,7 @@ def _reconcile_prepared_enqueue(service, data):
 
 
 @contextmanager
-def _initial_service(config_file, *, recovery=None):
+def _initial_service(config_file, *, recovery=None, existing_only=False):
     with setup_lock(config_file):
         config = read_private(config_file)
         from ai_task_manager.config.capacity import policies
@@ -131,7 +133,10 @@ def _initial_service(config_file, *, recovery=None):
         installed_provider_history(config)
         # A fixed production composition, reached only through this explicit port.
         # Ordinary load_service and every ordinary CLI/MCP call retain forwarding.
-        service = load_service(config_file, workflow_factory=lambda *_: None)
+        # Enqueue requires retained task/Writer history; initial writing may create its store.
+        service = load_service(
+            config_file, workflow_factory=lambda *_: None, existing_only=existing_only
+        )
         if (
             history(service.decisions.journal, activation_reference(config_file, control))
             is not None

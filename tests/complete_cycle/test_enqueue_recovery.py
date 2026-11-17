@@ -168,3 +168,35 @@ def test_revoked_enrollment_cannot_reconcile_an_original_enqueue(demo, monkeypat
     with pytest.raises((EvidenceRequired, WorkError)):
         prepare(demo.config, request)
     assert mutations(demo) == before
+
+
+@pytest.mark.parametrize("missing", ["journal", "key"])
+def test_original_enqueue_refuses_missing_writer_history_without_recreation(
+    demo, monkeypatch, missing
+):
+    request = enqueue(task(demo, "submit"), "enqueue-original")
+    lose_reply(demo, request, monkeypatch)
+    import json
+
+    config = json.loads(demo.config.read_text())
+    original = Path(config["writer"][missing])
+    retained = original.with_name(original.name + ".retained")
+    original.rename(retained)
+    before = mutations(demo)
+    with pytest.raises((OSError, WorkError)):
+        prepare(demo.config, request)
+    assert retained.exists() and not original.exists()
+    assert mutations(demo) == before
+
+
+def test_initial_writer_preparation_after_setup_remains_available(demo):
+    request = {
+        "operation": "writing_prepare",
+        "data": {
+            "kind": "issue_chore", "purpose": "task", "title": "Retain the checkpoint",
+            "body": BODY, "code_bearing": False, "required_work": ["checkpoint"],
+        },
+    }
+    result = prepare(demo.config, request)
+    assert result["ok"] and result["data"]["mechanical_passed"]
+    assert mutations(demo) == 0

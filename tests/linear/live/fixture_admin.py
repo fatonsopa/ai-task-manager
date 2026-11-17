@@ -55,8 +55,13 @@ def adapter_limits_v1(started_at, deadline):
 
 
 class FixtureAdministration:
-    def __init__(self, graphql, *, endpoint_authority=None, quiescence=None):
+    def __init__(
+        self, graphql, *, endpoint_authority=None, quiescence=None, product_python=None
+    ):
         self.graphql, self.ledger = graphql, graphql.ledger
+        if product_python is not None and not Path(product_python).is_absolute():
+            raise DriverRefused("bound_product_interpreter_required")
+        self.product_python = product_python
         self.endpoint_authority = endpoint_authority or RejectEndpoint()
         self.quiescence = quiescence
 
@@ -260,7 +265,7 @@ class FixtureAdministration:
 
         observation_seal = FileSeal(observation_file)
         observed = read_private(observation_file)
-        python = Path(config["writer"]["python"]).absolute()
+        python = Path(self.product_python or config["writer"]["python"]).absolute()
         entry = python.parent / "aitm"
         package = Path(observed["package"])
         module = package.parent / "presentation/cli/main.py"
