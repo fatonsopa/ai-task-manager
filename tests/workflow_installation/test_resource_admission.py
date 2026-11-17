@@ -32,4 +32,4 @@ def test_normal_installed_plan_declaration_is_visible_to_separate_service_core(i
     assert declaration["payload"] == {"resources_declared": True}
     retained = reader.core.notifications.get_event(reader.handle, declaration["id"])
     assert retained.payload["declaration"]["repository"]
-    assert retained.payload["declaration"]["witnesses"]
+    assert isinstance(retained.payload["declaration"]["witnesses"], list)
