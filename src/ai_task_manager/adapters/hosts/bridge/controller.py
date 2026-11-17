@@ -25,6 +25,7 @@ from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.observability.failures import FailureStage, capture_failure
 
 from .auth_probe import ClaudeAuthProbe
+from .admission import managed_schemas
 from .codex_auth import CodexAuthProbe
 from .codex_configuration import CodexConfigurationObserver
 from .codex_home import AclAuditPort
@@ -54,7 +55,9 @@ def _audit_context(host, pair, scope):
 class WaitingGateway:
     schemas = {name: tool_schema(name) for name in SCHEMAS}
 
-    def __init__(self):
+    def __init__(self, schemas=None):
+        if schemas is not None:
+            self.schemas = schemas
         self.delegate = None
 
     def call(self, name, args):
@@ -86,7 +89,7 @@ class ManagedNativeHost:
         self.process_registry = (
             process_registry if process_registry is not None else ManagedProcesses()
         )
-        self.gateway = WaitingGateway()
+        self.gateway = WaitingGateway(managed_schemas(policy))
         self.process = self.session = self.startup = None
         self._portal_context = self.portal = None
         self._turn_lock = Lock()

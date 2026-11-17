@@ -172,6 +172,13 @@ def policy_builder(manifest):
             if settings
             else {str(s.path): s.sha256 for s in seals}
         )
+        service_operations = (
+            ("task_list", "task_show")
+            if read_private(manifest.installation.path).get("role") == "lead"
+            and not read_private(manifest.config.path).get("reporting_ref")
+            else ()
+        )
+        tools = MANAGED_TOOLS | frozenset("mcp__aitm__" + n for n in service_operations)
         return NativePolicy(
             host,
             manifest.executable,
@@ -188,11 +195,12 @@ def policy_builder(manifest):
                 effort=d["effort"],
             ),
             seals,
-            tuple(sorted(MANAGED_TOOLS)) if host == "claude" else (),
+            tuple(sorted(tools)) if host == "claude" else (),
             d["model"],
             d["effort"],
             settings,
             cli_version=d.get("cli_version"),
+            service_operations=service_operations,
         )
 
     return policy

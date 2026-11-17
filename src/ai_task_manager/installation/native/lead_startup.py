@@ -169,7 +169,7 @@ class LeadDelegate:
 
     def call(self, name, arguments):
         self.check()
-        if name != "acknowledge_event":
+        if name not in {"acknowledge_event", "task_list", "task_show"}:
             raise AccessDenied("Lead reporting has no worker file or command authority")
         return self.connection.gateway.call(name, arguments)
 

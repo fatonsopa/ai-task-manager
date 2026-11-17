@@ -15,6 +15,22 @@ from .policy import NativePolicy
 MANAGED_TOOLS = frozenset("mcp__aitm__" + name for name in SCHEMAS)
 
 
+def managed_schemas(policy):
+    """Use only installer-bound queue reads in addition to existing native tools."""
+    from ai_task_manager.application.service.models import SCHEMAS as SERVICE_SCHEMAS
+
+    if policy.service_operations not in ((), ("task_list", "task_show")):
+        raise AccessDenied("The managed launch must expose exactly its registered tools")
+    return {
+        **{name: tool_schema(name) for name in SCHEMAS},
+        **{name: SERVICE_SCHEMAS[name] for name in policy.service_operations},
+    }
+
+
+def managed_tools(policy):
+    return frozenset("mcp__aitm__" + name for name in managed_schemas(policy))
+
+
 class NativeSourcePins:
     """Installer-selected executable dependencies; never discover credential files."""
 
@@ -51,9 +67,9 @@ def launch_template(policy):
 
     if not isinstance(policy, NativePolicy) or policy.host != "claude":
         raise AccessDenied("Only the pinned Claude managed launch is supported here")
-    if set(policy.allowed_tools) != MANAGED_TOOLS:
+    if set(policy.allowed_tools) != managed_tools(policy):
         raise AccessDenied("The managed launch must expose exactly its registered tools")
-    gateway = type("SchemaOnlyGateway", (), {"schemas": {n: tool_schema(n) for n in SCHEMAS}})()
+    gateway = type("SchemaOnlyGateway", (), {"schemas": managed_schemas(policy)})()
     options = sdk_options(policy, gateway)
     command = sdk_command(policy, options, 1)
     return {
@@ -186,7 +202,7 @@ class NativeStartupObservations:
             or frame.get("apiKeySource") != "none"
             or frame.get("claude_code_version") != native.policy.cli_version
             or frame.get("permissionMode") != "dontAsk"
-            or set(frame.get("tools", [])) != MANAGED_TOOLS
+            or set(frame.get("tools", [])) != managed_tools(native.policy)
             or frame.get("mcp_servers")
             != [{"name": "aitm", "source": "sdk", "status": "connected"}]
             or frame.get("cwd") != str(native.policy.cwd)
