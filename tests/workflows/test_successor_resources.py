@@ -296,7 +296,7 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(
                     if (attempt, kind) == (original.attempt_id, "consumer_fence")
                     else actual_observations(attempt, kind),
                 )
-                with pytest.raises(RuntimeRefused, match="ownership is unconfirmed"):
+                with pytest.raises(RuntimeRefused, match="Original resource consumer fence history"):
                     driver.commits.prepare(row, fresh)
             intent = driver.commits.prepare(row, fresh)
             assert intent["worktree"]["branch"] == "managed/" + original.attempt_id
