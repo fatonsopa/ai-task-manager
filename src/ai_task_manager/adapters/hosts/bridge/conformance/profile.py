@@ -12,9 +12,11 @@ from pathlib import Path
 from ai_task_manager.config.files import digest
 from ai_task_manager.domains.work.errors import AccessDenied
 
-from ..admission import MANAGED_TOOLS, launch_template
+from ..admission import (
+    launch_template, managed_schemas, managed_tools, role_schemas,
+    sealed_role, sealed_service_operations,
+)
 from ..codex_settings import RESTRICTIONS
-from ..gateway import SCHEMAS, tool_schema
 from ..policy import NativePolicy, codex_command, policy_digest
 
 
@@ -169,6 +171,8 @@ class StableProfile:
 def _projection_policy(manifest):
     d = manifest.data
     cwd = Path(d["home"])
+    role = sealed_role(manifest)
+    operations = sealed_service_operations(manifest)
     return NativePolicy(
         d["host"],
         Path(d["executable"]),
@@ -185,16 +189,18 @@ def _projection_policy(manifest):
             effort=d["effort"],
         ),
         (),
-        tuple(sorted(MANAGED_TOOLS)),
+        tuple(sorted("mcp__aitm__" + name for name in role_schemas(role, operations))),
         d["model"],
         d["effort"],
         cli_version=d.get("cli_version"),
+        service_operations=operations,
+        role=role,
     )
 
 
 def _recipe(policy):
     if policy.host == "claude":
-        require(set(policy.allowed_tools) == MANAGED_TOOLS, "Managed tool surface changed")
+        require(set(policy.allowed_tools) == managed_tools(policy), "Managed tool surface changed")
         actual = launch_template(policy)
         argv = list(actual["argv"])
         restrictions = {"host": "claude", "closed_sdk_recipe": argv[1:]}
@@ -242,6 +248,11 @@ def prepare_profile(manifest, sources, cli_version, *, policy=None):
         or policy.cli_version == d.get("cli_version", "2.1.301") == cli_version,
         "Observed CLI version differs from the installed native version",
     )
+    require(
+        policy.role == sealed_role(manifest)
+        and policy.service_operations == sealed_service_operations(manifest),
+        "Current launch differs from the sealed role tools",
+    )
     recipe, restrictions = _recipe(policy)
     hashes = tuple((name, sha) for name, _, sha in sources.files)
     return StableProfile(
@@ -254,8 +265,24 @@ def prepare_profile(manifest, sources, cli_version, *, policy=None):
         cli_version,
         hashes,
         sources.versions,
-        digest({name: tool_schema(name) for name in SCHEMAS}),
+        digest(managed_schemas(policy)),
         digest(recipe),
         digest([(name, dict(hashes)[name]) for name in sources.instruction_ids]),
         digest(restrictions),
     )
+
+
+def profile_tools(profile):
+    """Resolve only source-owned schema inventories, including historical worker schemas."""
+    value = profile["tool_schema_sha256"] if isinstance(profile, dict) else profile.tool_schema_sha256
+    for role, operations in (("worker", ()), ("lead", ()), ("lead", ("task_list", "task_show"))):
+        schemas = role_schemas(role, operations)
+        if digest(schemas) == value:
+            return frozenset("mcp__aitm__" + name for name in schemas)
+    raise AccessDenied("Captured tool schemas are not a registered role surface")
+
+
+def profile_case_ids(profile):
+    from .models import CASE_IDS, LEAD_CASE_IDS
+
+    return CASE_IDS if "mcp__aitm__read_file" in profile_tools(profile) else LEAD_CASE_IDS

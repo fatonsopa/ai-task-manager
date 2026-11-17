@@ -86,6 +86,7 @@ class NativePolicy:
     codex_settings: CodexSettings | None = None
     cli_version: str | None = None
     service_operations: tuple[str, ...] = ()
+    role: str = "worker"
     _executable_identity: tuple = field(init=False, repr=False)
 
     def __post_init__(self):

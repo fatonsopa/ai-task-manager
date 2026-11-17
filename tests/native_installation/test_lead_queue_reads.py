@@ -128,7 +128,8 @@ def test_DP06L03_sealed_role_binds_negotiated_reads_before_startup(
     schemas = managed_schemas(policy)
     gateway = WaitingGateway(schemas)
     assert gateway.schemas == schemas
-    assert set(policy.allowed_tools) == MANAGED_TOOLS | {
+    base = {"mcp__aitm__acknowledge_event"} if role == "lead" else MANAGED_TOOLS
+    assert set(policy.allowed_tools) == base | {
         "mcp__aitm__" + name for name in expected_reads
     }
     assert {"task_list", "task_show"} & schemas.keys() == set(expected_reads)

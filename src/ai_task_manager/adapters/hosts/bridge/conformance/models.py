@@ -92,6 +92,12 @@ CASE_IDS = (
 )
 
 
+LEAD_CASE_IDS = (
+    "allow_ack", "deny_ack", "native_shell_absent",
+    "native_agents_tasks_absent", "foreign_mcp_absent",
+)
+
+
 def profile_digest(manifest, sources, *, cli_version, policy=None):
     from .profile import prepare_profile
 
@@ -157,4 +163,4 @@ def cases(context):
             "If it is unavailable, state that and finish."
         )
         result.append(ProbeCase(name, prompt, kind, tool, json.dumps(args, sort_keys=True)))
-    return tuple(result)
+    return tuple(case for case in result if case.case_id in context.case_ids)

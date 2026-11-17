@@ -6,6 +6,7 @@ from ai_task_manager.config.files import digest
 from ai_task_manager.domains.work.errors import AccessDenied
 
 from ..admission import MANAGED_TOOLS
+from .profile import profile_tools, profile_case_ids
 
 
 def require(value, reason):
@@ -66,7 +67,7 @@ def startup(journal, ref, owner, profile):
         and f.get("claude_code_version") == profile.get("cli_version", "2.1.301")
         and f.get("model") == profile["model"]
         and f.get("session_id") == p["session_id"]
-        and set(f.get("tools", [])) == MANAGED_TOOLS
+        and set(f.get("tools", [])) == profile_tools(profile)
         and f.get("mcp_servers") == [{"name": "aitm", "source": "sdk", "status": "connected"}],
         "The complete restricted native inventory was not observed",
     )
@@ -217,7 +218,7 @@ def verify_capture(journal, reference):
 
     from ai_task_manager.domains.work.models import Scope
 
-    from .models import CASE_IDS, ProbeContext, cases
+    from .models import ProbeContext, cases
     from .profile import StableProfile
 
     record = journal._read(reference, "trace", fresh=False)
@@ -255,8 +256,8 @@ def verify_capture(journal, reference):
         "Native probe stop remains unknown",
     )
     require(
-        context.case_ids == CASE_IDS
-        and [v.get("case_id") for v in p.get("cases", [])] == list(CASE_IDS),
+        context.case_ids == profile_case_ids(profile)
+        and [v.get("case_id") for v in p.get("cases", [])] == list(profile_case_ids(profile)),
         "The frozen capability matrix is incomplete",
     )
     session = startup(journal, p["startup_ref"], p["owner"], vars(profile))

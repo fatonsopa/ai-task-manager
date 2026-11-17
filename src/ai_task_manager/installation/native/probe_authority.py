@@ -7,13 +7,13 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 
 from ai_task_manager.adapters.hosts.bridge.conformance.models import (
-    CASE_IDS,
     ProbeContext,
 )
 from ai_task_manager.adapters.hosts.bridge.conformance.profile import (
     ProfileSources,
     StableProfile,
     prepare_profile,
+    profile_case_ids,
 )
 from ai_task_manager.config.files import digest, read_private
 from ai_task_manager.domains.work.errors import AccessDenied
@@ -79,7 +79,7 @@ class NativeProbeAuthority:
             or type(context.case_ids) is not tuple
             or not context.case_ids
             or len(set(context.case_ids)) != len(context.case_ids)
-            or not set(context.case_ids) <= set(CASE_IDS)
+            or not set(context.case_ids) <= set(profile_case_ids(profile))
             or context.deadline > read_private(manifest.installation.path)["deadline"]
         ):
             raise AccessDenied("Invalid original probe fixture, cases or deadline")
@@ -185,7 +185,7 @@ class NativeProbeAuthority:
                 or type(context.case_ids) is not tuple
                 or not context.case_ids
                 or len(set(context.case_ids)) != len(context.case_ids)
-                or not set(context.case_ids) <= set(CASE_IDS)
+                or not set(context.case_ids) <= set(profile_case_ids(self.profile))
                 or context.deadline > read_private(self.manifest.installation.path)["deadline"]
             ):
                 raise AccessDenied("Original probe fixture/source/profile/deadline changed")

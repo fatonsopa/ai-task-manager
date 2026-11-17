@@ -12,8 +12,8 @@ from ..controller import ManagedNativeHost
 from ..identity_refresh import IdentityRefresh
 from .canary import CanaryGateway
 from .completion import CompletedCapture
-from .models import CASE_IDS, ProbeTurn, cases
-from .profile import StableProfile, prepare_profile
+from .models import ProbeTurn, cases
+from .profile import StableProfile, prepare_profile, profile_case_ids
 from .verification import require, startup, terminal_identity, verify_capture, verify_case
 
 
@@ -151,7 +151,7 @@ class ConformanceCapture:
         self.used = True
         self.check()
         c = self.context
-        require(c.case_ids == CASE_IDS, "The complete frozen profile matrix is required")
+        require(c.case_ids == profile_case_ids(self.profile), "The complete frozen role profile matrix is required")
         gateway = CanaryGateway(c, self.authority, self.journal)
         native, owner, stop, error = None, None, None, None
         completed = []

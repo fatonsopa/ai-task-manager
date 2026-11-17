@@ -6,7 +6,7 @@ import stat
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from ai_task_manager.config.files import digest
+from ai_task_manager.config.files import digest, read_private
 from ai_task_manager.domains.work.errors import AccessDenied
 
 from .gateway import SCHEMAS, tool_schema
@@ -15,16 +15,36 @@ from .policy import NativePolicy
 MANAGED_TOOLS = frozenset("mcp__aitm__" + name for name in SCHEMAS)
 
 
-def managed_schemas(policy):
-    """Use only installer-bound queue reads in addition to existing native tools."""
+def sealed_role(manifest):
+    role = read_private(manifest.installation.path).get("role", "worker")
+    if role not in {"worker", "reviewer", "lead"}:
+        raise AccessDenied("The managed launch requires a registered role")
+    return role
+
+
+def sealed_service_operations(manifest):
+    if sealed_role(manifest) == "lead" and not read_private(manifest.config.path).get("reporting_ref"):
+        return ("task_list", "task_show")
+    return ()
+
+
+def role_schemas(role, service_operations):
+    """Closed advertised tools; normal gateway authority remains separately checked."""
     from ai_task_manager.application.service.models import SCHEMAS as SERVICE_SCHEMAS
 
-    if policy.service_operations not in ((), ("task_list", "task_show")):
+    if role not in {"worker", "reviewer", "lead"} or service_operations not in (
+        (), ("task_list", "task_show"),
+    ) or (role != "lead" and service_operations):
         raise AccessDenied("The managed launch must expose exactly its registered tools")
+    names = ("acknowledge_event",) if role == "lead" else SCHEMAS
     return {
-        **{name: tool_schema(name) for name in SCHEMAS},
-        **{name: SERVICE_SCHEMAS[name] for name in policy.service_operations},
+        **{name: tool_schema(name) for name in names},
+        **{name: SERVICE_SCHEMAS[name] for name in service_operations},
     }
+
+
+def managed_schemas(policy):
+    return role_schemas(policy.role, policy.service_operations)
 
 
 def managed_tools(policy):

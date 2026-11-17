@@ -3,7 +3,9 @@
 from pathlib import Path
 
 from ai_task_manager.adapters.hosts.bridge.accounting import HostInvocationAccounting
-from ai_task_manager.adapters.hosts.bridge.admission import MANAGED_TOOLS, NativeSourcePins
+from ai_task_manager.adapters.hosts.bridge.admission import (
+    NativeSourcePins, role_schemas, sealed_role, sealed_service_operations,
+)
 from ai_task_manager.adapters.hosts.bridge.codex_home import CodexHomeBoundary
 from ai_task_manager.adapters.hosts.bridge.codex_settings import CodexSettings
 from ai_task_manager.adapters.hosts.bridge.policy import NativePolicy, policy_digest
@@ -172,13 +174,9 @@ def policy_builder(manifest):
             if settings
             else {str(s.path): s.sha256 for s in seals}
         )
-        service_operations = (
-            ("task_list", "task_show")
-            if read_private(manifest.installation.path).get("role") == "lead"
-            and not read_private(manifest.config.path).get("reporting_ref")
-            else ()
-        )
-        tools = MANAGED_TOOLS | frozenset("mcp__aitm__" + n for n in service_operations)
+        role = sealed_role(manifest)
+        service_operations = sealed_service_operations(manifest)
+        tools = frozenset("mcp__aitm__" + name for name in role_schemas(role, service_operations))
         return NativePolicy(
             host,
             manifest.executable,
@@ -201,6 +199,7 @@ def policy_builder(manifest):
             settings,
             cli_version=d.get("cli_version"),
             service_operations=service_operations,
+            role=role,
         )
 
     return policy
