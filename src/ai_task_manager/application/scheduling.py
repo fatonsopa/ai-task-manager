@@ -37,11 +37,22 @@ class Scheduling:
 
         return renew(self, handle, observation_ref, operation_key)
 
-    def observe(self, handle, task_id, expected_version, expected_decision_revision,
-                snapshot_ref, operation_key):
-        payload = {"command": "dependency_snapshot", "task_id": task_id,
-                   "version": expected_version, "revision": expected_decision_revision,
-                   "snapshot_ref": snapshot_ref}
+    def observe(
+        self,
+        handle,
+        task_id,
+        expected_version,
+        expected_decision_revision,
+        snapshot_ref,
+        operation_key,
+    ):
+        payload = {
+            "command": "dependency_snapshot",
+            "task_id": task_id,
+            "version": expected_version,
+            "revision": expected_decision_revision,
+            "snapshot_ref": snapshot_ref,
+        }
 
         def action(conn, sid, scope):
             # Historical committed replay occurs before receipt resolution. The
@@ -50,9 +61,12 @@ class Scheduling:
             policy.validate(snapshot, self.c.clock())
             task = work.get(conn, sid, task_id)
             self.c.check(task, expected_version, expected_decision_revision)
-            if (snapshot.scope != scope or snapshot.task_id != task.id
-                    or snapshot.prose_digest != task.prose_digest
-                    or snapshot.canonical_issue_id != task.issue_id):
+            if (
+                snapshot.scope != scope
+                or snapshot.task_id != task.id
+                or snapshot.prose_digest != task.prose_digest
+                or snapshot.canonical_issue_id != task.issue_id
+            ):
                 raise EvidenceRequired("Dependency snapshot belongs to another current task scope")
             if snapshot.expires_at <= self.c.clock():
                 raise SchedulingBlocked("Dependency snapshot expired before consumption")
@@ -65,30 +79,46 @@ class Scheduling:
                 if snapshot.source_id != prior["snapshot"].source_id:
                     raise EvidenceRequired("A different source cannot reset dependency ordering")
                 if snapshot.source_revision <= prior["source_revision"]:
-                    if (snapshot.source_revision == prior["source_revision"]
-                            and digest == prior["digest"]):
+                    if (
+                        snapshot.source_revision == prior["source_revision"]
+                        and digest == prior["digest"]
+                    ):
                         return self._view(conn, scope, task)
                     raise StaleVersion("Dependency observation is stale or conflicting")
             graph = store.graph(conn, sid)
             graph[task.id] = tuple(edge.predecessor for edge in snapshot.dependencies)
             policy.check_cycles(graph)
+
             def definition(value):
-                return sorted((edge.predecessor, edge.condition, edge.unit or "")
-                              for edge in value.dependencies)
+                return sorted(
+                    (edge.predecessor, edge.condition, edge.unit or "")
+                    for edge in value.dependencies
+                )
+
             changed = not prior or definition(snapshot) != definition(prior["snapshot"])
             graph_version += int(changed)
             store.save(conn, snapshot, graph_version, digest)
             readiness = self._readiness(conn, scope, task)
-            if prior and (changed or readiness.state != "ready"
-                          or prior["snapshot"].expires_at <= self.c.clock()):
+            if prior and (
+                changed
+                or readiness.state != "ready"
+                or prior["snapshot"].expires_at <= self.c.clock()
+            ):
                 conn.execute(
                     "UPDATE scheduling_attempts SET invalidated_by=? WHERE task_id=? "
-                    "AND invalidated_by IS NULL", (operation_key, task.id),
+                    "AND invalidated_by IS NULL",
+                    (operation_key, task.id),
                 )
-            self.c.changed(conn, task, "scheduling_snapshot_recorded", {
-                "graph_version": graph_version, "source_revision": snapshot.source_revision,
-                "readiness": readiness.state,
-            })
+            self.c.changed(
+                conn,
+                task,
+                "scheduling_snapshot_recorded",
+                {
+                    "graph_version": graph_version,
+                    "source_revision": snapshot.source_revision,
+                    "readiness": readiness.state,
+                },
+            )
             return self._view(conn, scope, task)
 
         return self.c.mutation(handle, operation_key, payload, action)
@@ -96,6 +126,7 @@ class Scheduling:
     def _completion(self, conn, scope, session_id, edge):
         def unavailable(reason):
             return Completion(edge.predecessor, edge.condition, reason)
+
         if edge.predecessor.startswith("external:"):
             return unavailable("foreign")
         try:
@@ -104,7 +135,8 @@ class Scheduling:
             return unavailable("missing")
         if predecessor.observed_status in {S.CANCELED, S.DUPLICATE}:
             return unavailable(
-                "canceled" if predecessor.observed_status == S.CANCELED else "duplicate")
+                "canceled" if predecessor.observed_status == S.CANCELED else "duplicate"
+            )
         if predecessor.human_hold:
             return unavailable("held")
         if predecessor.execution_state in {A.FAILED, A.CANCELED, A.UNKNOWN}:
@@ -114,10 +146,16 @@ class Scheduling:
         references = dict(edge.evidence_refs)
         try:
             if edge.condition == "unit_verified":
-                proof = self.c.proof(references.get("work_unit_complete"),
-                                     "work_unit_complete", scope, predecessor.id)
-                if (proof.payload.get("unit") != edge.unit
-                        or proof.payload.get("prose_digest") != predecessor.prose_digest):
+                proof = self.c.proof(
+                    references.get("work_unit_complete"),
+                    "work_unit_complete",
+                    scope,
+                    predecessor.id,
+                )
+                if (
+                    proof.payload.get("unit") != edge.unit
+                    or proof.payload.get("prose_digest") != predecessor.prose_digest
+                ):
                     return unavailable("ambiguous")
                 kind, commit, artifact = "work_unit_complete", None, None
             else:
@@ -126,9 +164,13 @@ class Scheduling:
                 if edge.condition == "work_done" and predecessor.observed_status != S.DONE:
                     return unavailable("unavailable")
                 facts, _ = destination_facts(
-                    self.c, conn, scope, predecessor,
+                    self.c,
+                    conn,
+                    scope,
+                    predecessor,
                     S.IN_DEV if edge.condition == "code_merged" else S.DONE,
-                    _DeliveryContext(), references,
+                    _DeliveryContext(),
+                    references,
                 )
                 if not facts.complete or not facts.quiescent:
                     return unavailable("unavailable")
@@ -146,9 +188,17 @@ class Scheduling:
                     kind = "non_code_completion"
                 proof = self.c.proof(references.get(kind), kind, scope, predecessor.id)
                 commit, artifact = proof.payload.get("commit"), proof.payload.get("artifact")
-            return Completion(edge.predecessor, edge.condition, "verified", kind,
-                              predecessor.required_work, predecessor.completed_work,
-                              edge.unit, commit, artifact)
+            return Completion(
+                edge.predecessor,
+                edge.condition,
+                "verified",
+                kind,
+                predecessor.required_work,
+                predecessor.completed_work,
+                edge.unit,
+                commit,
+                artifact,
+            )
         except Exception:
             return unavailable("unavailable")
 
@@ -190,7 +240,7 @@ class Scheduling:
             binding = store.attempt_binding(conn, attempt.id)
             successor = False
             if isinstance(session_id, sessions.TaskSession) and attempt.state == "done":
-                proof = self.c.proof(session_id.reference, "workflow_successor", scope, task.id)
+                self.c.proof(session_id.reference, "workflow_successor", scope, task.id)
                 rows = conn.execute(
                     "SELECT payload FROM checkpoints WHERE attempt_id=? "
                     "AND kind='successor_delivery'",
@@ -203,7 +253,7 @@ class Scheduling:
                     == {
                         "authorization": session_id.reference,
                         "graph_version": current["graph_version"],
-                        "task_version": proof.payload["task_version"],
+                        "task_version": task.version,
                         "decision_revision": task.decision_revision,
                     }
                     for row in rows
@@ -250,19 +300,63 @@ class Scheduling:
             proof = self.c.proof(sid.reference, "workflow_successor", scope, task.id)
             self.c.check(task, task.version, proof.payload["decision_revision"])
             base_version = proof.payload["task_version"]
-            changes = [
-                json.loads(row[0])
-                for row in conn.execute(
-                    "SELECT payload FROM events WHERE task_id=? AND kind='work_unit_verified'",
-                    (task.id,),
-                )
-            ]
-            progress = {
-                value["task_version"]
-                for value in changes
-                if value.get("unit") in proof.payload["remaining_work"]
-                and base_version < value.get("task_version", 0) <= task.version
+            enrolled = conn.execute(
+                "SELECT workflow_ref FROM task_capabilities WHERE reference=?", (sid.reference,)
+            ).fetchone()
+            operation = conn.execute(
+                "SELECT result FROM operations WHERE key=? AND session_id=?",
+                (enrolled[0] + ":start:reserve", sid),
+            ).fetchone()
+            owned = False
+            if operation:
+                reserved = json.loads(operation[0])
+                owned = (
+                    reserved.get("id"),
+                    reserved.get("task_id"),
+                    reserved.get("host"),
+                    reserved.get("decision_revision"),
+                ) == (attempt.id, task.id, attempt.host, task.decision_revision)
+            progress = set()
+            lifecycle = {
+                "attempt_reserved",
+                "worker_started",
+                "work_lease_granted",
+                "attempt_outcome_recorded",
             }
+            for row in conn.execute(
+                "SELECT kind,payload FROM events WHERE task_id=? ORDER BY sequence", (task.id,)
+            ):
+                kind, value = row[0], json.loads(row[1])
+                version = value.get("task_version", 0)
+                if not base_version < version <= task.version:
+                    continue
+                accepted = (
+                    kind == "work_unit_verified"
+                    and value.get("unit") in proof.payload["remaining_work"]
+                )
+                if owned and kind in lifecycle and value.get("attempt_id") == attempt.id:
+                    accepted = kind != "attempt_outcome_recorded" or value.get("outcome") == "done"
+                if (
+                    owned
+                    and kind == "provider_status_confirmed"
+                    and value.get("observed_status") == "In Progress"
+                ):
+                    confirmed = [
+                        json.loads(item[0])
+                        for item in conn.execute(
+                            "SELECT payload FROM outbox WHERE task_id=? "
+                            "AND kind='set_status' AND state='confirmed'",
+                            (task.id,),
+                        )
+                    ]
+                    accepted = any(
+                        payload.get("attempt_id") == attempt.id
+                        and payload.get("task_version") == version - 1
+                        and payload.get("desired_status") == "In Progress"
+                        for payload in confirmed
+                    )
+                if accepted:
+                    progress.add(version)
             if task.version < base_version or progress != set(
                 range(base_version + 1, task.version + 1)
             ):

@@ -115,7 +115,13 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(tmp_pat
                 EvidenceRoute(
                     "fixture:",
                     frozenset(
-                        {"provider_status", "decision", "human_decision", "workflow_successor"}
+                        {
+                            "provider_status",
+                            "decision",
+                            "human_decision",
+                            "workflow_successor",
+                            "work_unit_complete",
+                        }
                     ),
                     r.proofs,
                 ),
@@ -170,6 +176,145 @@ def test_stopped_active_successor_uses_original_dirty_files_and_database(tmp_pat
                 (original.attempt_id,)
             ]
         assert r.core.get_task(handle, task.id).completed_work == ("first",)
+        if code:
+            # R06: the installed delivery consumer sees the new attempt's full
+            # own lifecycle, rather than only the final author checkpoint.
+            from tests.scheduling.helpers import known_declaration
+
+            current = r.core.get_task(handle, task.id)
+            current = r.core.execution.complete_unit(
+                handle,
+                task.id,
+                "remaining",
+                current.version,
+                current.decision_revision,
+                r.proof(
+                    "work_unit_complete",
+                    task.id,
+                    {"unit": "remaining", "prose_digest": current.prose_digest},
+                ),
+                r.key(),
+            )
+            known_declaration(r, current, handle)
+            r.core.scheduling.successor_delivery(handle, task.id, new_attempt.id)
+            with r.core.execution.worker_commit_boundary(
+                handle,
+                task.id,
+                new_attempt.id,
+                current.version,
+                new_attempt.version,
+                current.decision_revision,
+            ):
+                pass
+            assert len(rr.runtime.workers) == 2
+
         assert store.read(predecessor, r.scope) == old_row
+    finally:
+        rr.close()
+
+
+def test_R04_own_remaining_unit_progress_binds_current_delivery_version(tmp_path):
+    from tests.scheduling.helpers import known_declaration
+
+    rr = RuntimeRig(tmp_path)
+    r = rr.rig
+    try:
+        task = r.queued(code=True, units=("first", "remaining"))
+        dispatch = rr.start(task)
+        rr.admit(dispatch)
+        rr.supervisor.execute(r.handle, dispatch, rr.command(dispatch), operation_key=r.key())
+        r.core.context.evidence = EvidenceRouter(
+            [
+                EvidenceRoute("runtime-proof:", RUNTIME_KINDS, rr.proofs),
+                EvidenceRoute(
+                    "fixture:",
+                    frozenset(
+                        {
+                            "provider_status",
+                            "decision",
+                            "human_decision",
+                            "work_unit_complete",
+                            "workflow_successor",
+                        }
+                    ),
+                    r.proofs,
+                ),
+            ]
+        )
+
+        def complete(handle, unit):
+            current = r.core.get_task(handle, task.id)
+            return r.core.execution.complete_unit(
+                handle,
+                current.id,
+                unit,
+                current.version,
+                current.decision_revision,
+                r.proof(
+                    "work_unit_complete",
+                    current.id,
+                    {"unit": unit, "prose_digest": current.prose_digest},
+                ),
+                r.key(),
+            )
+
+        first = complete(r.handle, "first")
+        r.now += 200
+        decision = r.proof(
+            "decision",
+            task.id,
+            {"target": "In Progress", "revision": 0, "actor": "agent"},
+            expires_at=r.now + 150,
+        )
+        a = SuccessorAuthorization(
+            r.key(),
+            r.scope,
+            "workflow:old",
+            task.id,
+            first.version,
+            0,
+            "fresh",
+            "digest",
+            "fresh-key",
+            r.now + 120,
+            decision,
+            ("remaining",),
+        )
+        r.proofs.evidence[a.reference] = Evidence(
+            "workflow_successor", r.scope, task.id, asdict(a), a.expires_at
+        )
+        handle = SessionHandle(secrets.token_urlsafe(32))
+        r.core.revoke_session(r.handle)
+        r.core.admit_workflow_successor(r.handle, handle, a, lambda *_: "workflow:new")
+        current = complete(handle, "remaining")
+        assert current.version == a.task_version + 1
+        known_declaration(r, current, handle)
+        checkpoint = r.core.scheduling.successor_delivery(handle, task.id, dispatch.attempt_id)
+        attempt = r.core.get_attempt(handle, dispatch.attempt_id)
+        assert checkpoint["task_version"] == current.version
+        with r.core.execution.worker_commit_boundary(
+            handle, task.id, attempt.id, current.version, attempt.version, current.decision_revision
+        ):
+            pass
+        assert len(rr.runtime.workers) == 1
+        # An unrelated version advance has no authorized own-unit proof.
+        from ai_task_manager.storage import work
+
+        with r.db.transaction() as conn:
+            changed = work.save(conn, replace(current, title="Foreign revision"), current.version)
+        from ai_task_manager.domains.work.errors import EvidenceRequired, WorkError
+
+        with pytest.raises(EvidenceRequired, match="Foreign task progress"):
+            r.core.scheduling.successor_delivery(handle, changed.id, attempt.id)
+        with pytest.raises(WorkError):
+            with r.core.execution.worker_commit_boundary(
+                handle,
+                task.id,
+                attempt.id,
+                changed.version,
+                attempt.version,
+                changed.decision_revision,
+            ):
+                pass
     finally:
         rr.close()

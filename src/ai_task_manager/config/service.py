@@ -84,8 +84,8 @@ def load_service(
         raise ValidationError("Pinned approval policy hashes are required")
     # Version-two task authority consumes retained history, including Writer.
     # The marker is read before any constructor could initialize a missing file.
-    capability_path = Path(config["session_file"])
-    if capability_path.exists() and read_private(capability_path).get("version") == 2:
+    capability = SessionFile(config["session_file"]).read()
+    if capability["version"] == 2:
         existing_only = True
 
     from ai_task_manager.config.capacity import policies, require_installed
@@ -135,6 +135,16 @@ def load_service(
         )
     decisions = DecisionAuthority(journal, observations)
     renderer = renderer or ExactRenderer()
+    core = Core(
+        database,
+        ApprovalPolicy(**policy),
+        approvals=None,
+        principals=principal_verifier,
+        evidence=evidence_factory(journal) if evidence_factory else journal,
+        renderer=renderer,
+        scheduling_sources=scheduling_sources,
+    )
+    handle = SessionFile(config["session_file"]).load(core)
     writer = None
     if config.get("writer"):
         values = config["writer"]
@@ -149,16 +159,8 @@ def load_service(
             values["sessions_root"],
             renderer,
         )
-    core = Core(
-        database,
-        ApprovalPolicy(**policy),
-        approvals=writer.approvals_for_tasks() if writer else None,
-        principals=principal_verifier,
-        evidence=evidence_factory(journal) if evidence_factory else journal,
-        renderer=renderer,
-        scheduling_sources=scheduling_sources,
-    )
-    handle = SessionFile(config["session_file"]).load(core)
+    if writer is not None:
+        core.context.approvals = writer.approvals_for_tasks()
     provider = provider_factory(core, handle, decisions, writer) if provider_factory else None
     workers = workers_factory(core, handle, decisions) if workers_factory else None
     publisher = publisher_factory(core, handle, writer) if publisher_factory else None

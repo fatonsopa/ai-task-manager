@@ -243,6 +243,31 @@ def staged(tmp_path, request):
         if child.poll() is None:
             child.terminate()
             child.wait(timeout=5)
+        from ai_task_manager.adapters.decisions.observations import SessionObservations
+        from ai_task_manager.domains.work.models import SessionHandle
+
+        fresh_handle = SessionHandle(read_private(fresh_data["session_file"])["capability"])
+        with r.db.transaction() as conn:
+            table = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE name='task_capabilities'"
+            ).fetchone()
+            admitted = bool(
+                table and conn.execute("SELECT 1 FROM task_capabilities WHERE revoked=0").fetchone()
+            )
+        if admitted:
+            r.core.revoke_session(fresh_handle)
+        current = read_private(fresh)
+        SessionObservations(journal, client, fresh, current["session_observations"]).revoke()
+        write_private(
+            root / "disposition.json",
+            {
+                "owner_returncode": child.returncode,
+                "native_invocations": 0,
+                "provider_transport": "authored",
+                "task_capability_revoked": admitted,
+                "api_enrollment_revoked": True,
+            },
+        )
         import shutil
 
         shutil.rmtree(sockets)
@@ -349,3 +374,38 @@ def test_successor_loader_does_not_initialize_missing_retained_history(tmp_path)
         (root / name).exists()
         for name in ("missing-core.sqlite", "missing-authority.sqlite", "missing-authority.key")
     )
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_R05_missing_capability_preserves_writer_history_and_v1_initialization(tmp_path, missing):
+    from ai_task_manager.config.service import load_service
+    from ai_task_manager.domains.work.errors import AccessDenied
+    from tests.application.helpers import ServiceRig
+
+    fixture = ServiceRig(tmp_path)
+    path = fixture.configuration()
+    config = read_private(path)
+    journal, key = tmp_path / "writer.sqlite", tmp_path / "writer.key"
+    # This loader control never executes a writing command or claims an approval.
+    config["writer"] = {
+        "root": str(tmp_path / "uninvoked-package"),
+        "python": sys.executable,
+        "pins": {},
+        "sessions_root": str(tmp_path / "writing"),
+        "journal": str(journal),
+        "key": str(key),
+    }
+    write_private(path, config, replace=True)
+    session = Path(config["session_file"])
+    if missing:
+        data = read_private(session)
+        data["version"] = 2
+        write_private(session, data, replace=True)
+        session.unlink()
+        with pytest.raises((OSError, AccessDenied)):
+            load_service(path)
+        assert not session.exists() and not journal.exists() and not key.exists()
+    else:
+        service = load_service(path)
+        assert service.writer is not None and journal.exists() and key.exists()
+        assert service.core.session_binding(service.handle)[1] == fixture.rig.scope

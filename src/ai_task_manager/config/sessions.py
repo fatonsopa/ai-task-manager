@@ -26,10 +26,11 @@ class SessionFile:
         """Publish a staged token whose retained stores require existing-only loads."""
         write_private(self.path, {"version": 2, "capability": handle.token, "scope": asdict(scope)})
 
-    def load(self, core):
+    def read(self):
         data = read_private(self.path)
         if (
-            set(data) != {"version", "capability", "scope"}
+            type(data) is not dict
+            or set(data) != {"version", "capability", "scope"}
             or type(data["version"]) is not int
             or data["version"] not in {1, 2}
         ):
@@ -37,6 +38,17 @@ class SessionFile:
         handle = SessionHandle(data["capability"])
         if not isinstance(handle.token, str) or not 16 <= len(handle.token) <= 256:
             raise AccessDenied("Invalid session capability")
+        try:
+            scope = Scope(**data["scope"])
+        except (TypeError, ValueError) as error:
+            raise AccessDenied("Invalid session scope format") from error
+        if not all(isinstance(value, str) and value.strip() for value in asdict(scope).values()):
+            raise AccessDenied("Invalid session scope format")
+        return data
+
+    def load(self, core):
+        data = self.read()
+        handle = SessionHandle(data["capability"])
         session_id, scope = core.session_binding(handle)
         from ai_task_manager.storage.sessions import TaskSession
 

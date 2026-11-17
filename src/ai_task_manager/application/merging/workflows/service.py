@@ -487,6 +487,19 @@ class MergeWorkflowService(WorkflowService):
                         ref, owner, "delivery", {"task_id": task.id, "desired": task.desired_status}
                     )
             else:
+                previous = row.get("predecessor")
+                retained = None
+                if previous and "candidate_review" in previous["steps"]:
+                    retained = (
+                        restore(
+                            {
+                                "id": "original",
+                                "deadline": self.plan.deadline,
+                                "grant": previous["request"]["grant"],
+                            }
+                        ).grant,
+                        previous["steps"]["candidate_review"]["result"],
+                    )
                 fence_step = steps.get("publication_fence")
                 if fence_step is None:
                     self._ready()
@@ -508,19 +521,6 @@ class MergeWorkflowService(WorkflowService):
                     self.candidate.reconcile(candidate.operation_ref, self.plan.grant)
                     self._ready()
                     if self.candidate_reviews is not None:
-                        previous = row.get("predecessor")
-                        retained = None
-                        if previous and "candidate_review" in previous["steps"]:
-                            retained = (
-                                restore(
-                                    {
-                                        "id": "original",
-                                        "deadline": self.plan.deadline,
-                                        "grant": previous["request"]["grant"],
-                                    }
-                                ).grant,
-                                previous["steps"]["candidate_review"]["result"],
-                            )
                         review = self.candidate_reviews.read(task, candidate, retained=retained)
                         if review is None:
                             return self._envelope(

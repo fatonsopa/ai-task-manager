@@ -28,7 +28,10 @@ class RetainedCaptures(Captures):
         return self.saved[1]
 
 
-def test_expired_code_plan_continues_without_author_review_candidate_or_check_replay(tmp_path):
+@pytest.mark.parametrize("fence_cut", [False, True])
+def test_expired_code_plan_continues_without_author_review_candidate_or_check_replay(
+    tmp_path, fence_cut
+):
     flow = Flow(tmp_path / "owned", human=False)
     try:
         source = RetainedCaptures(lambda: flow.r.now)
@@ -137,7 +140,17 @@ def test_expired_code_plan_continues_without_author_review_candidate_or_check_re
             candidate_reviews=reviewed,
             successor=(original_ref, a.reference),
         )
-        result = successor.run(task.id, plan.id, "fresh-merge")
+        if fence_cut:
+            from tests.merge.f1_fixtures import FaultOnce
+
+            successor.faults = FaultOnce("after_publication_fence")
+            with pytest.raises(RuntimeError):
+                successor.run(task.id, plan.id, "fresh-merge")
+            current_ref = next(iter(successor.references))
+            assert successor.store.read(current_ref)["steps"]["publication_fence"]["result"] is None
+            result = successor.resume(current_ref)
+        else:
+            result = successor.run(task.id, plan.id, "fresh-merge")
         assert result["data"]["state"] == "done", result
         assert successor.store.read(original_ref) == original
         assert candidate.store.get(old_candidate["operation_ref"]) == candidate_before
@@ -238,3 +251,34 @@ def test_partial_completed_code_review_uses_original_capture_under_fresh_authori
         assert rig.r.core.get_task(handle, task.id).completed_work == ("complete",)
     finally:
         rig.close()
+
+
+def test_R03_ordinary_saved_fence_with_configured_review_resumes_before_git_effect(tmp_path):
+    from tests.merge.f1_fixtures import FaultOnce
+
+    flow = Flow(tmp_path / "ordinary")
+    try:
+        source = Captures(lambda: flow.r.now)
+        review = CodeCandidateReviews(
+            flow.r.core,
+            flow.r.handle,
+            flow.candidate,
+            ("src/a.txt", "tests/a.txt", "config/checks.json"),
+            source,
+        )
+        flow.check_inputs.select_retained = lambda _: None
+        flow.workflow = flow.compose(
+            candidate_reviews=review, faults=FaultOnce("after_publication_fence")
+        )
+        with pytest.raises(RuntimeError):
+            flow.workflow.run(flow.task.id, flow.plan.id, "ordinary")
+        ref = next(iter(flow.workflow.references))
+        before = flow.workflow.store.read(ref)
+        assert before["steps"]["publication_fence"]["result"] is None
+        assert "publication" not in before["steps"]
+        result = flow.workflow.resume(ref)
+        assert result["data"]["state"] == "done", result
+        assert len(flow.executor.records) == 1
+        assert len(flow.runtime.runtime.workers) == 1
+    finally:
+        flow.close()
