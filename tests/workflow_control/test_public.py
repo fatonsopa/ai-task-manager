@@ -25,10 +25,11 @@ def owned(tmp_path, request):
         sys.executable,
         "-I",
         "-c",
-        "import sys;sys.path[:0]=[sys.argv.pop(1),sys.argv.pop(1)];"
+        "import sys;sys.path[:0]=[sys.argv.pop(1),sys.argv.pop(1),sys.argv.pop(1)];"
         "from tests.workflow_control.helpers import entry;entry()",
         str(package),
         str(repository),
+        str(Path(pytest.__file__).parent.parent),
         str(root),
         str(socket_root),
         *getattr(request, "param", ()),

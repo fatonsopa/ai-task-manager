@@ -43,7 +43,7 @@ def test_cold_reviewer_observation_requires_original_stopped_components(
     recovery.spec, recovery.config_file = owner.spec, s["config"]
     recovery.witness = {"owner": {"pid": os.getpid(), "start": process_start(os.getpid())}}
     recovery.reference = "authored-current-stop"
-    recovery.check = lambda: None
+    recovery.check = lambda *, published=True: None
     key = producer.workers.hosts.journal.key_path
     retained = key.with_suffix(".retained")
     if change == "missing_key":

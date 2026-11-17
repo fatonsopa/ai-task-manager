@@ -25,10 +25,11 @@ def installed(tmp_path, request):
         sys.executable,
         "-I",
         "-c",
-        "import sys;sys.path[:0]=[sys.argv.pop(1),sys.argv.pop(1)];"
+        "import sys;sys.path[:0]=[sys.argv.pop(1),sys.argv.pop(1),sys.argv.pop(1)];"
         "from tests.workflow_installation.helpers import owner_main;owner_main(*sys.argv[1:])",
         str(package),
         str(repo),
+        str(Path(pytest.__file__).parent.parent),
         str(root),
         str(sockets),
         mode,
