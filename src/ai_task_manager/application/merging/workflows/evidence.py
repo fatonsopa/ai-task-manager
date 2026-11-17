@@ -143,6 +143,9 @@ class MergeEvidence:
         )
         return ref
 
+    def owns_reference(self, reference):
+        return isinstance(reference, str) and reference in self.prepared
+
     def verify_evidence(self, reference):
         try:
             fact, witnesses = self.prepared[reference]

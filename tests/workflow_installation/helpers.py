@@ -133,6 +133,18 @@ def owner_main(root, socket_root, mode="valid"):
                     + repr(str(root / "native-entered"))
                     + ").write_text('ready');time.sleep(20)",
                 )
+        if mode == "cold-concurrent":
+            source = source.replace(
+                '            Path("owned.py").write_text',
+                '            import time, os\n'
+                '            mark = Path(' + repr(str(root / "entered")) + ')\n'
+                '            mark.mkdir(exist_ok=True)\n'
+                '            (mark / str(os.getpid())).write_text(str(time.time()))\n'
+                '            limit = time.monotonic() + 15\n'
+                '            while not Path(' + repr(str(root / "release-workers")) + ').exists() and time.monotonic() < limit: time.sleep(0.05)\n'
+                '            if not Path(' + repr(str(root / "release-workers")) + ').exists(): raise RuntimeError("Owned fixture barrier expired")\n'
+                '            Path("owned.py").write_text', 1,
+            )
         executable.write_text("#!" + sys.executable + "\n" + source)
     executable.chmod(0o700)
     executable_hash = hashlib.sha256(executable.read_bytes()).hexdigest()
@@ -299,6 +311,18 @@ def owner_main(root, socket_root, mode="valid"):
     if mode == "wrong-source":
         spec["source_head"] = "0" * 40
     installation = root / "installation.json"
+    if mode.startswith("cold-concurrent"):
+        second = rig.queued(code=False)
+        second_repo = root / "second-source"
+        subprocess.run(["git", "clone", "-q", "--no-hardlinks", str(r.repo), str(second_repo)], check=True)
+        second_file = root / "second-installation.json"
+        second_spec = {**spec, "task_id": second.id, "prose_digest": second.prose_digest,
+                       "repository": str(second_repo), "state_root": str(root / "second-state"),
+                       "plan_ref": "installed-second", "installation_path": str(second_file)}
+        write_private(second_file, second_spec)
+        spec["task_installations"] = [file_binding(second_file)]
+        write_private(root / "second-prepared.json", {"task_id": second.id, "plan_ref": second_spec["plan_ref"], "installation": str(second_file)})
+
     reviewed = reviewer_task = None
     if mode in {"cold-lineage", "cold-reviewer"}:
         reviewer_task = rig.queued(code=False)
@@ -326,6 +350,20 @@ def owner_main(root, socket_root, mode="valid"):
         write_private(root / "reviewer-task.json", {"task_id": reviewer_task.id})
     spec["installation_path"] = str(installation)
     write_private(installation, spec)
+    if mode == "cold-concurrent-claim":
+        from ai_task_manager.storage.workflows import WorkflowStore
+
+        original_release = WorkflowStore.release
+
+        def retain_owned_claim(store, reference, owner):
+            if store.path.parent == root / "installed-state" and not (root / "claim-entered").exists():
+                (root / "claim-entered").write_text(reference)
+                end = time.monotonic() + 15
+                while time.monotonic() < end:
+                    time.sleep(0.05)
+            return original_release(store, reference, owner)
+
+        WorkflowStore.release = retain_owned_claim
     if mode == "cold-reviewer":
         from types import SimpleNamespace
 
@@ -365,6 +403,8 @@ def owner_main(root, socket_root, mode="valid"):
     if mode not in {
         "valid",
         "cold",
+        "cold-concurrent",
+        "cold-concurrent-claim",
         "cold-active",
         "cold-lineage",
         "cold-reviewer",

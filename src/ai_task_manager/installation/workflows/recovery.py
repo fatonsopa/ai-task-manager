@@ -123,7 +123,25 @@ def recover(config_file, installation_file, value):
         }.items()
     ):
         raise AccessDenied("Original activation differs from installed recovery")
-    witness = activated["recovery"]
+    from .cold import installed_witness
+
+    choices = (spec, *spec.members(retained=True))
+    selected = None
+    scope = Scope(**spec.data["scope"])
+    for candidate in choices:
+        candidate_witness = installed_witness(activated, file_binding(candidate.seal.path))
+        binding = candidate_witness["workflow"]
+        if physical(binding["path"]) != {k: v for k, v in binding.items() if k != "store_id"}:
+            raise AccessDenied("Original member workflow journal changed")
+        store = WorkflowStore.open_existing(binding["path"], store_id=binding["store_id"])
+        if store.contains(value["workflow_ref"], scope):
+            selected = candidate
+            break
+    if selected is None:
+        raise AccessDenied("Scoped installed recovery workflow is unavailable")
+    spec = selected
+    installation_file = spec.seal.path
+    witness = installed_witness(activated, file_binding(installation_file))
 
     def check():
         spec.check()

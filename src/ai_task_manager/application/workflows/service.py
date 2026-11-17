@@ -15,12 +15,47 @@ class WorkflowService:
 
         self._registry_lock = Lock()
         self._task_locks = {}
+        self.members = ()
+        self._member_tasks = MappingProxyType({})
+        self._membership_check = None
+
+    def bind_members(self, members, check):
+        from types import MappingProxyType
+        from ai_task_manager.domains.work.errors import AccessDenied
+
+        if self.members or type(members) is not tuple or not callable(check):
+            raise AccessDenied("One closed installed task membership is required")
+        tasks = dict(self.task_plans)
+        owners = {}
+        for member in members:
+            if (type(member) is not WorkflowService or member.members
+                    or member.driver.scope != self.driver.scope
+                    or member.driver.session_id != self.driver.session_id
+                    or member.driver.core.context.db.path != self.driver.core.context.db.path
+                    or set(tasks).intersection(member.task_plans)):
+                raise AccessDenied("Installed member scope or task ownership differs")
+            tasks.update(member.task_plans)
+            owners.update({task: member for task in member.task_plans})
+        self.members = members
+        self._member_tasks = MappingProxyType(owners)
+        self._membership_check = check
+
+    def _member_for_reference(self, reference):
+        for service in (self, *self.members):
+            if service.driver.store.contains(reference, service.driver.scope):
+                return service
+        from ai_task_manager.domains.work.errors import AccessDenied
+        raise AccessDenied("Scoped installed workflow is unavailable")
+
 
     def check_owner_deadline(self, deadline):
         from ai_task_manager.domains.work.errors import AccessDenied
 
         if any(plan.deadline > deadline for plan in self.driver.plans._plans.values()):
             raise AccessDenied("Installed plan outlives the retained owner admission")
+
+        for member in self.members:
+            member.check_owner_deadline(deadline)
 
     def _resume(self, reference):
         with self._registry_lock:
@@ -63,6 +98,10 @@ class WorkflowService:
             )
 
     def run(self, task_id, plan_ref, operation_key):
+        if self._membership_check:
+            self._membership_check()
+        if task_id in self._member_tasks:
+            return self._member_tasks[task_id].run(task_id, plan_ref, operation_key)
         self._ready()
         with self._task_lock(task_id):
             prior = self.driver.store.find(self.driver.scope, task_id, operation_key)
@@ -88,6 +127,9 @@ class WorkflowService:
             return recover_expired(self.driver, authorization)
 
     def inspect(self, workflow_ref):
+        selected = self._member_for_reference(workflow_ref)
+        if selected is not self:
+            return selected.inspect(workflow_ref)
         from .inspection import inspect_row
 
         row = self.driver.store.read(workflow_ref, self.driver.scope)
@@ -101,6 +143,11 @@ class WorkflowService:
         )
 
     def resume(self, workflow_ref):
+        if self._membership_check:
+            self._membership_check()
+        selected = self._member_for_reference(workflow_ref)
+        if selected is not self:
+            return selected.resume(workflow_ref)
         self._ready()
         row = self.driver.store.read(workflow_ref, self.driver.scope)
         with self._task_lock(row["task_id"]):
@@ -117,7 +164,7 @@ class WorkflowService:
 
         @contextmanager
         def claimed():
-            if not lock.acquire(timeout=120):
+            if not lock.acquire(blocking=False):
                 raise RuntimeRefused("Current task request is still owned")
             try:
                 yield
@@ -262,4 +309,10 @@ class WorkflowService:
                         "reason": type(error).__name__,
                     }
                 )
+        for member in self.members:
+            try:
+                outcomes.extend(member.close())
+            except Exception as error:
+                outcomes.append({"state": "uncertain", "quiescent": False,
+                                 "reason": type(error).__name__})
         return outcomes

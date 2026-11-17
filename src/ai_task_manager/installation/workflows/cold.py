@@ -28,6 +28,16 @@ def stop_reference(config_file, workflow_ref):
     )
 
 
+def installed_witness(activation, installation):
+    """Select one original signed member, never a caller-provided replacement."""
+    root = activation.get("recovery", {})
+    matches = [value for value in (root, *root.get("members", ()))
+               if value.get("installation") == installation]
+    if len(matches) != 1:
+        raise AccessDenied("Original installed member witness is unavailable or ambiguous")
+    return matches[0]
+
+
 class ColdRecovery:
     """Trusted code capability; JSON selects only the original run and action."""
 
@@ -49,7 +59,7 @@ class ColdRecovery:
         self.activation = history(self.journal, activation_reference(config_file, self.previous))
         if self.activation is None:
             raise EvidenceRequired("Original activation history is unavailable")
-        self.witness = self.activation.get("recovery", {})
+        self.witness = installed_witness(self.activation, file_binding(self.spec.seal.path))
         self.check()
 
     @classmethod
@@ -173,10 +183,55 @@ class ColdRecovery:
             raise AccessDenied("Another current owner replacement already exists")
         return self
 
+    def retained_member(self, spec):
+        """Reopen only a witnessed sibling; normal task permission remains independent."""
+        self.check()
+        if (spec.data["scope"] != self.spec.data["scope"]
+                or spec.data["deadline"] != self.spec.data["deadline"]):
+            raise AccessDenied("Retained member scope or original deadline differs")
+        witness = installed_witness(self.activation, file_binding(spec.seal.path))
+        if "files" not in witness:
+            raise EvidenceRequired("Complete original member files are required")
+        for value in witness["files"].values():
+            observed = file_binding(value["path"]) if "sha256" in value else physical(value["path"])
+            if observed != value:
+                raise AccessDenied("Original member history is missing or replaced")
+        return witness
+
     def store(self):
         self.check()
         binding = self.witness["workflow"]
         return WorkflowStore.open_existing(binding["path"], store_id=binding["store_id"])
+
+    def release_retained_claim(self, spec, service):
+        """Release one sibling lock only for its exact witnessed dead controller."""
+        from dataclasses import asdict
+        import json
+
+        from ai_task_manager.domains.checks.models import canonical
+
+        witness = self.retained_member(spec)
+        store = service.workflows.driver.store
+        binding = witness["workflow"]
+        if (str(store.path), store.store_id) != (binding["path"], binding["store_id"]):
+            raise AccessDenied("Retained member workflow store differs")
+        with store.transaction() as conn:
+            rows = conn.execute(
+                "SELECT id,owner,body FROM runs WHERE scope=? AND task_id=? "
+                "AND owner IS NOT NULL LIMIT 2",
+                (canonical(asdict(service.scope)), spec.data["task_id"]),
+            ).fetchall()
+        if len(rows) > 1:
+            raise EvidenceRequired("Retained member workflow claims are ambiguous")
+        expected = {**witness["owner"], "instance": self.previous["instance"]}
+        for row in rows:
+            body = json.loads(row["body"])
+            if body.get("claim_controller") != expected or body.get("plan_id") != spec.data["plan_ref"]:
+                continue
+            store.release_dead_claim(
+                row["id"], service.scope, row["owner"], expected,
+                lambda: self.retained_member(spec),
+            )
 
     def local_service(self):
         """Observation and stop require no provider client or execution enrollment."""
@@ -313,7 +368,7 @@ class ColdRecovery:
             activated = history(self.journal, activation_reference(self.config_file, control))
             if activated is None or activated.get("recovery", {}).get("owner") != controller:
                 continue
-            witness = activated["recovery"]
+            witness = installed_witness(activated, file_binding(self.spec.seal.path))
             descriptor = read_private(control["record"])
             expected = {
                 "config": self.data["config"],

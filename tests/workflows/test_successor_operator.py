@@ -322,6 +322,21 @@ def test_literal_successor_admission_preserves_original_key_and_revocation(stage
     )
     with r.db.transaction() as conn:
         assert conn.execute("SELECT revoked FROM sessions").fetchone()[0] == 1
+    # A stored successor history is not a typed cold-member capability. Reach
+    # that actual constructor branch, then refuse an existing owner before any
+    # service, provider or native preparation.
+    from ai_task_manager.installation.workflows.composition import InstalledWorkflow
+    from ai_task_manager.domains.work.errors import AccessDenied
+
+    fresh_config = read_private(root / "successor.json")
+    record = Path(fresh_config["workflow_control"]["record"])
+    write_private(record, {"existing": "owned negative constructor control"})
+    registry = SimpleNamespace(require=lambda reference: SimpleNamespace(fingerprint="a" * 64))
+    try:
+        with pytest.raises(AccessDenied, match="Existing owner state requires verified recovery"):
+            InstalledWorkflow(root / "successor.json", root / "successor-installation.json", registry)
+    finally:
+        record.unlink()
     report = os.environ.get("AITM_SUCCESSOR_REPORT")
     if report:
         Path(report).write_text(
