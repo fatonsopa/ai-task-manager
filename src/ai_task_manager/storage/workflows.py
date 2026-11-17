@@ -237,7 +237,8 @@ class WorkflowStore:
             raise IdempotencyConflict("Expired workflow already has a different recovery")
         return row["successor"]
 
-    def recover(self, scope, predecessor, task, plan, key, runtime_digest, history, request, check):
+    def recover(self, scope, predecessor, task, plan, key, runtime_digest, history, request, check,
+                *, settled=False):
         """Publish a successor only inside the application's guarded boundary."""
         with self.transaction() as conn:
             prior = self._recovery_result(conn, scope, predecessor, request)
@@ -247,7 +248,7 @@ class WorkflowStore:
                 "SELECT * FROM runs WHERE id=? AND scope=? AND task_id=?",
                 (predecessor, canonical(asdict(scope)), task.id),
             ).fetchone()
-            if old is None or old["owner"] is not None:
+            if old is None or (old["owner"] is not None and not settled):
                 raise AccessDenied("Original unclaimed scoped workflow is required")
             head = conn.execute(
                 "SELECT run_id FROM workflow_heads WHERE scope=? AND task_id=?",
@@ -260,14 +261,25 @@ class WorkflowStore:
                 (canonical(asdict(scope)), key),
             ).fetchone():
                 raise IdempotencyConflict("Recovery requires a new scoped operation key")
-            if conn.execute("SELECT 1 FROM lineage WHERE task_id=?", (task.id,)).fetchone():
+            if not settled and conn.execute("SELECT 1 FROM lineage WHERE task_id=?", (task.id,)).fetchone():
                 raise AccessDenied("Resource lineage prevents zero-effect recovery")
             steps = conn.execute("SELECT * FROM steps WHERE run_id=?", (predecessor,)).fetchall()
-            if any(row["name"] != "start" or row["result"] is not None for row in steps):
+            if not settled and any(row["name"] != "start" or row["result"] is not None for row in steps):
                 raise AccessDenied("Only an unexecuted start intent can be recovered")
             check(json.loads(old["body"]))
             ref = "workflow:" + str(uuid4())
             body = self._body(task, plan, runtime_digest, history)
+            if settled:
+                body["succession"] = {
+                    "version": 2,
+                    "predecessor": predecessor,
+                    "authorization": request,
+                    "retained": {"body": json.loads(old["body"]),
+                                 "steps": {step["name"]: {
+                                     "payload": json.loads(step["payload"]),
+                                     "result": json.loads(step["result"]) if step["result"] else None,
+                                 } for step in steps}},
+                }
             conn.execute(
                 "INSERT INTO runs VALUES(?,?,?,?,?,NULL)",
                 (ref, canonical(asdict(scope)), task.id, key, canonical(body)),

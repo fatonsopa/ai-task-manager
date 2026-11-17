@@ -35,6 +35,7 @@ class Core:
         scheduling_sources=None,
     ):
         reject = RejectProofs()
+        db.clock = clock
         self.context = Context(
             db,
             approval_policy,
@@ -71,10 +72,34 @@ class Core:
         with self.context.db.transaction() as conn:
             return sessions.resolve(conn, handle)
 
+    def successor_subject(self, old_handle, observation_ref):
+        """Read retained task facts only under a fresh current observation grant."""
+        import json
+        from ai_task_manager.domains.work.models import Scope
+        from ai_task_manager.domains.work.errors import AccessDenied
+        from ai_task_manager.storage import sessions, work
+        with self.context.db.transaction() as conn:
+            row = conn.execute("SELECT id,scope FROM sessions WHERE token_hash=?",
+                               (sessions.token_hash(old_handle.token),)).fetchone()
+            if row is None:
+                raise AccessDenied("Original Core capability identity is unavailable")
+            scope = Scope(**json.loads(row["scope"]))
+            proof = self.context.evidence.verify_evidence(observation_ref)
+            self.context.proof(observation_ref, "workflow_successor_observation", scope, proof.subject)
+            return work.get(conn, row["id"], proof.subject)
+
+    def admit_workflow_successor(self, old_handle, new_handle, authorization, publish):
+        from .workflows.successor_authority import admit
+
+        return admit(self, old_handle, new_handle, authorization, publish)
+
     def revoke_session(self, handle):
         with self.context.db.transaction() as conn:
             sid, _ = sessions.resolve(conn, handle)
-            conn.execute("UPDATE sessions SET revoked=1 WHERE id=?", (sid,))
+            if isinstance(sid, sessions.TaskSession):
+                conn.execute("UPDATE task_capabilities SET revoked=1 WHERE reference=?", (sid.reference,))
+            else:
+                conn.execute("UPDATE sessions SET revoked=1 WHERE id=?", (sid,))
 
     def get_task(self, handle, task_id, *, connection=None):
         if connection is None:
@@ -92,6 +117,7 @@ class Core:
                 for row in conn.execute(
                     "SELECT id FROM tasks WHERE session_id=?", (sid,)
                 ).fetchall()
+                if sessions.permits(sid, row[0])
             ]
 
     def get_attempt(self, handle, attempt_id):

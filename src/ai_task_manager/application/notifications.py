@@ -50,12 +50,16 @@ class Notifications:
     def cursor(self, handle):
         with self.c.db.transaction() as conn:
             sid, _ = sessions.resolve(conn, handle)
+            if isinstance(sid, sessions.TaskSession):
+                return 0
             row = conn.execute("SELECT sequence FROM cursors WHERE session_id=?", (sid,)).fetchone()
             return row[0] if row else 0
 
     def advance_cursor(self, handle, sequence):
         with self.c.db.transaction() as conn:
             sid, _ = sessions.resolve(conn, handle)
+            if isinstance(sid, sessions.TaskSession):
+                raise EvidenceRequired("Task successor cannot advance the shared session cursor")
             maximum = conn.execute(
                 "SELECT COALESCE(MAX(sequence),0) FROM events WHERE session_id=?",
                 (sid,),

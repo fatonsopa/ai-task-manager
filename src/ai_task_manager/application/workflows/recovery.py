@@ -50,6 +50,60 @@ class RecoveryAuthorization:
             raise ValidationError("Recovery requires explicit versions and a finite expiry")
 
 
+@dataclass(frozen=True)
+class SuccessorAuthorization(RecoveryAuthorization):
+    """Version two names remaining work and a fresh independently checked decision."""
+
+    decision_ref: str
+    remaining_work: tuple[str, ...]
+    consumers: tuple[str, ...] = ()
+    version: int = 2
+
+    def __post_init__(self):
+        super().__post_init__()
+        if (self.version != 2 or not isinstance(self.decision_ref, str) or not self.decision_ref
+                or type(self.remaining_work) is not tuple or type(self.consumers) is not tuple
+                or any(not isinstance(x, str) or not x for x in (*self.remaining_work, *self.consumers))):
+            raise ValidationError("Versioned remaining work and current decision are required")
+
+
+def admit_successor(core, old_handle, new_handle, store, authorization, plan,
+                    runtime_digest, reconciliation):
+    """Version two admits one current capability without executing the successor."""
+    if type(authorization) is not SuccessorAuthorization or type(plan) is not WorkflowPlan:
+        raise AccessDenied("Typed version two authority and installed plan required")
+    a = authorization
+    row = store.read(a.predecessor, a.scope)
+    old_plan = _old_plan(row)
+    if (row["task_id"] != a.task_id or plan.id != a.plan_ref or plan.digest != a.plan_digest
+            or plan.id == old_plan.id or plan.deadline > a.expires_at
+            or any(getattr(plan, field) != getattr(old_plan, field)
+                   for field in ("host", "base", "allowed_files", "artifacts", "commit_checks"))):
+        raise AccessDenied("Fresh successor plan changes the predecessor scope")
+    request = asdict(a)
+    prior = store.recovery_result(a.scope, a.predecessor, request)
+    if prior is not None:
+        return core.admit_workflow_successor(old_handle, new_handle, a, lambda *_: prior)
+    if plan.deadline <= core.context.clock():
+        raise AccessDenied("Fresh successor plan expired")
+    reconciliation.check(row, a)
+
+    def publish(conn, task):
+        if row["prose_digest"] != task.prose_digest:
+            raise AccessDenied("Successor cannot change the original approved task scope")
+        def check(original):
+            if original != {k: v for k, v in row.items() if k not in {"id", "owner", "steps"}}:
+                raise AccessDenied("Predecessor history changed before successor publication")
+            reconciliation.check_locked(row, a)
+        return store.recover(a.scope, a.predecessor, task, plan, a.operation_key,
+                             runtime_digest, None, request, check, settled=True)
+
+    # Observe processes before entering Core. The retained-store boundary then
+    # protects only local facts while the two existing journals are committed.
+    with reconciliation.boundary(row, a):
+        return core.admit_workflow_successor(old_handle, new_handle, a, publish)
+
+
 def _old_plan(row):
     value = row.get("plan")
     if type(value) is not dict or type(row.get("task_version")) is not int:

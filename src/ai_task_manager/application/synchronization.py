@@ -41,8 +41,9 @@ class Synchronization:
             return [
                 outbox.get(conn, sid, row[0])
                 for row in conn.execute(
-                    "SELECT id FROM outbox WHERE session_id=? ORDER BY rowid", (sid,)
+                    "SELECT id,task_id FROM outbox WHERE session_id=? ORDER BY rowid", (sid,)
                 ).fetchall()
+                if sessions.permits(sid, row[1])
             ]
 
     def claim(self, handle, adapter_id, lease_seconds=30, task_id=None):

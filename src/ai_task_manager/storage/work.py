@@ -24,6 +24,9 @@ def task_from(data: dict) -> Task:
 
 
 def get(conn, session_id: str, task_id: str) -> Task:
+    from .sessions import require_task
+
+    require_task(session_id, task_id)
     row = conn.execute(
         "SELECT data FROM tasks WHERE id=? AND session_id=?", (task_id, session_id)
     ).fetchone()
@@ -55,6 +58,9 @@ def fingerprint(payload: dict) -> str:
 
 
 def replay(conn, session_id: str, key: str, payload: dict):
+    from .sessions import require_request
+
+    require_request(conn, session_id, payload)
     if not isinstance(key, str) or not key.strip():
         raise IdempotencyConflict("An operation identity is required")
     row = conn.execute("SELECT * FROM operations WHERE key=?", (key,)).fetchone()

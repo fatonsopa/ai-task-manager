@@ -203,6 +203,8 @@ class Scheduling:
     def _candidates(self, conn, sid, scope, selected=None):
         result = []
         for row in conn.execute("SELECT id FROM tasks WHERE session_id=?", (sid,)).fetchall():
+            if not sessions.permits(sid, row[0]):
+                continue
             task = work.get(conn, sid, row[0])
             if (not task.queued_once or task.human_hold or task.delivered_once
                     or task.sync_state != SyncState.CONFIRMED or attempts.active(conn, task.id)
@@ -230,7 +232,8 @@ class Scheduling:
         with self.c.db.transaction() as conn:
             sid, scope = sessions.resolve(conn, handle)
             items = [self._view(conn, scope, work.get(conn, sid, row[0])) for row in
-                     conn.execute("SELECT id FROM tasks WHERE session_id=?", (sid,)).fetchall()]
+                     conn.execute("SELECT id FROM tasks WHERE session_id=?", (sid,)).fetchall()
+                     if sessions.permits(sid, row[0])]
             return sorted(items, key=lambda x: (
                 policy.PRIORITIES.get(x["priority"], 99),
                 x["queue_sequence"] if x["queue_sequence"] is not None else 2**63,

@@ -17,7 +17,11 @@ def get(conn, session_id: str, attempt_id: str) -> Attempt:
     ).fetchone()
     if row is None:
         raise NotFound("Attempt is not available in this session")
-    return attempt_from(json.loads(row[0]))
+    from .sessions import require_task
+
+    result = attempt_from(json.loads(row[0]))
+    require_task(session_id, result.task_id)
+    return result
 
 
 def active(conn, task_id: str) -> Attempt | None:

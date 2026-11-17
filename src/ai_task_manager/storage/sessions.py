@@ -13,6 +13,39 @@ from ai_task_manager.domains.work.models import Scope, SessionHandle
 from .database import record
 
 
+class TaskSession(str):
+    """A fresh capability retains history access only for its named tasks."""
+
+    def __new__(cls, session_id, reference, task_ids):
+        value = super().__new__(cls, session_id)
+        value.reference, value.task_ids = reference, frozenset(task_ids)
+        return value
+
+
+def permits(session_id, task_id):
+    return not isinstance(session_id, TaskSession) or task_id in session_id.task_ids
+
+
+def require_task(session_id, task_id):
+    if not permits(session_id, task_id):
+        raise AccessDenied("Successor capability does not authorize this task")
+
+
+def require_request(conn, session_id, payload):
+    if not isinstance(session_id, TaskSession):
+        return
+    task_id = payload.get("task_id")
+    for field, table in (("attempt_id", "attempts"), ("operation_id", "outbox"),
+                         ("event_id", "events")):
+        if task_id is None and payload.get(field):
+            row = conn.execute(
+                f"SELECT task_id FROM {table} WHERE id=? AND session_id=?",
+                (payload[field], session_id),
+            ).fetchone()
+            task_id = row[0] if row else None
+    require_task(session_id, task_id)
+
+
 def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
@@ -25,6 +58,17 @@ def resolve(conn, handle: SessionHandle) -> tuple[str, Scope]:
         (token_hash(handle.token),),
     ).fetchone()
     if row is None:
+        if conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_capabilities'"
+        ).fetchone():
+            delegated = conn.execute(
+                "SELECT c.*,s.scope FROM task_capabilities c JOIN sessions s ON s.id=c.session_id "
+                "WHERE c.token_hash=? AND c.revoked=0 AND c.expires_at>aitm_clock()",
+                (token_hash(handle.token),),
+            ).fetchone()
+            if delegated is not None:
+                return TaskSession(delegated["session_id"], delegated["reference"],
+                                   json.loads(delegated["task_ids"])), Scope(**json.loads(delegated["scope"]))
         raise AccessDenied("Invalid or revoked session capability")
     return row["id"], Scope(**json.loads(row["scope"]))
 
@@ -38,6 +82,10 @@ def register(conn, scope: Scope, resume_evidence=None, resume_ref=None) -> Sessi
     row = conn.execute("SELECT id FROM sessions WHERE scope=?", (encoded,)).fetchone()
     token = secrets.token_urlsafe(32)
     if row:
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='task_capabilities'").fetchone() and conn.execute(
+            "SELECT 1 FROM task_capabilities WHERE session_id=? LIMIT 1", (row["id"],)
+        ).fetchone():
+            raise AccessDenied("A superseded session cannot be renewed or reset")
         if (
             resume_evidence is None
             or resume_evidence.kind != "session_resume"

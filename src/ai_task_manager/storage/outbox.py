@@ -35,6 +35,9 @@ def get(conn, session_id: str, operation_id: str) -> OutboundOperation:
     ).fetchone()
     if row is None:
         raise NotFound("Outbound operation is not available in this session")
+    from .sessions import require_task
+
+    require_task(session_id, row["task_id"])
     return from_row(row)
 
 
@@ -52,12 +55,18 @@ def claim(
 ) -> OutboundOperation | None:
     if not owner or not 0 < lease_seconds <= 300:
         raise ValidationError("A bounded lease and adapter identity are required")
+    from .sessions import TaskSession, permits, require_task
+
+    if isinstance(session_id, TaskSession) and task_id is not None:
+        require_task(session_id, task_id)
     expired = conn.execute(
-        "SELECT id,attempt_count FROM outbox WHERE session_id=? AND state='leased' "
+        "SELECT id,attempt_count,task_id FROM outbox WHERE session_id=? AND state='leased' "
         "AND lease_until<=?",
         (session_id, now),
     ).fetchall()
     for row in expired:
+        if not permits(session_id, row["task_id"]):
+            continue
         conn.execute(
             "UPDATE outbox SET state='uncertain',error='lease expired' WHERE id=?",
             (row["id"],),
@@ -67,11 +76,12 @@ def claim(
             (row["id"], row["attempt_count"], "uncertain", "lease expired"),
         )
     row = conn.execute(
-        "SELECT id FROM outbox WHERE session_id=? AND state='pending' "
+        "SELECT id,task_id FROM outbox WHERE session_id=? AND state='pending' "
         "AND fenced_by IS NULL "
-        "AND (? IS NULL OR task_id=?) ORDER BY rowid LIMIT 1",
+        "AND (? IS NULL OR task_id=?) ORDER BY rowid",
         (session_id, task_id, task_id),
-    ).fetchone()
+    ).fetchall()
+    row = next((r for r in row if permits(session_id, r["task_id"])), None)
     if row is None:
         return None
     conn.execute(

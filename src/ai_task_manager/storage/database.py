@@ -183,6 +183,9 @@ class Database:
             isolation_level=None,
         )
         conn.row_factory = sqlite3.Row
+        import time
+
+        conn.create_function("aitm_clock", 0, getattr(self, "clock", time.time))
         from ai_task_manager.storage.scheduling_schema import register
 
         register(conn)

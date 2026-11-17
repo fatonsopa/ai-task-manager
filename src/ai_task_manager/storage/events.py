@@ -30,6 +30,9 @@ def get(conn, session_id: str, event_id: str) -> Event:
     ).fetchone()
     if row is None:
         raise NotFound("Event is not available in this session")
+    from .sessions import require_task
+
+    require_task(session_id, row["task_id"])
     return Event(
         row["id"],
         session_id,
@@ -44,10 +47,12 @@ def list_events(conn, session_id: str, after: int = 0) -> list[Event]:
     if type(after) is not int or after < 0:
         raise ValidationError("Event cursor must be a nonnegative integer")
     rows = conn.execute(
-        "SELECT id FROM events WHERE session_id=? AND sequence>? ORDER BY sequence",
+        "SELECT id,task_id FROM events WHERE session_id=? AND sequence>? ORDER BY sequence",
         (session_id, after),
     ).fetchall()
-    return [get(conn, session_id, row[0]) for row in rows]
+    from .sessions import permits
+
+    return [get(conn, session_id, row[0]) for row in rows if permits(session_id, row[1])]
 
 
 def receipt(conn, event_id: str, stage: ReceiptStage, proof_ref: str):
