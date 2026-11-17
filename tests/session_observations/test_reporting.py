@@ -133,14 +133,15 @@ def test_reporting_fences_current_task_and_replaced_capability(retained):
 
 def test_reporting_connected_native_receipt_consumer(tmp_path):
     import os
+
+    from ai_task_manager.adapters.hosts.bridge.human import OperatorChannel
     from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
     from ai_task_manager.adapters.hosts.bridge.records import HostBinding
+    from ai_task_manager.config.files import digest
     from ai_task_manager.installation.native import connect_lead
     from tests.hosts.conftest import native as native_fixture
+    from tests.hosts.test_notifications import acknowledged, delivered, reported
     from tests.hosts.test_startup import codex_start
-    from tests.hosts.test_notifications import delivered, acknowledged, reported
-    from ai_task_manager.adapters.hosts.bridge.human import OperatorChannel
-    from ai_task_manager.config.files import digest
 
     p = OwnedProvider(tmp_path / "owned")
     connection = None
