@@ -102,7 +102,7 @@ def test_ir01_workflow_port_collects_initial_unknown_readiness_before_reserve(gr
     assert g.r.core.scheduling.explain(g.r.handle, g.task.id)["state"] == "unknown"
     before = len(g.provider.calls)
     with pytest.raises(Reserved):
-        ManagedWorkerPort(g.workers).start(
+        ManagedWorkerPort(g.workers, existing_readbacks=forbidden).start(
             g.r.handle,
             g.task,
             SimpleNamespace(host="claude"),

@@ -111,8 +111,9 @@ class LocalSupervisorPort:
 class ManagedWorkerPort:
     """The production native owner supplies startup, accounting and restrictions."""
 
-    def __init__(self, workers, bindings=None):
+    def __init__(self, workers, bindings=None, *, existing_readbacks=None):
         self.workers, self.bindings = workers, bindings
+        self.existing_readbacks = existing_readbacks
 
     def binding(self, task, plan):
         if self.bindings is None:
@@ -120,6 +121,12 @@ class ManagedWorkerPort:
         return self.bindings(task, plan)
 
     def start(self, handle, task, plan, decision_ref, key):
+        source = {}
+        if (
+            self.existing_readbacks is not None
+            and self.workers.core.existing.is_imported(handle, task.id)
+        ):
+            source["source_readbacks"] = self.existing_readbacks(task.id, key)
         return self.workers.start(
             handle,
             task.id,
@@ -128,6 +135,7 @@ class ManagedWorkerPort:
             decision_revision=task.decision_revision,
             decision_ref=decision_ref,
             operation_key=key,
+            **source,
         )
 
     def pair(self, attempt_id):

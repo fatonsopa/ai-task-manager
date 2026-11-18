@@ -360,7 +360,12 @@ class InstalledWorkflow:
         witnesses = tuple(tuple(value[key] for key in ("path", "device", "inode", "sha256"))
                           for value in (self.spec.seal.original, self.spec.config_seal.original))
         bind_resources(core, task, plan, self.resources.git.common, binding, witnesses=witnesses)
-        runtime = ManagedWorkerPort(self.workers, binding)
+        runtime = ManagedWorkerPort(
+            self.workers, binding,
+            existing_readbacks=lambda task_id, key: self.service._required("existing").worker_readbacks(
+                task_id, key
+            ),
+        )
         self.store = (
             WorkflowStore.open_existing(self.retained_witness["workflow"]["path"],
                                         store_id=self.retained_witness["workflow"]["store_id"])
