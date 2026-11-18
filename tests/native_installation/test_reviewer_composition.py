@@ -263,6 +263,7 @@ def installed(tmp_path, monkeypatch, request):
         "stores": stores,
         "task": task,
         "owners": [],
+        "service_options": options,
     }
     try:
         yield state
@@ -394,7 +395,8 @@ def test_NR04_current_author_change_at_model_input_fences_review_and_stops(
     s = installed
     owner = InstalledWorkflow(
         s["config"], s["primary"].installation,
-        registry=resolve(s["config"], s["primary"].installation),
+        registry=resolve(s["config"], s["primary"].installation,
+                         service_options=s["service_options"]),
     )
     s["owners"].append(owner)
     factory = owner.registry.reviewer_factory
