@@ -82,38 +82,69 @@ if __name__ == "__main__":
 
 def test_target_context_uses_real_scope_refs_and_current_attempt(tmp_path):
     from types import SimpleNamespace
+
     from ai_task_manager.adapters.resources.git import git
-    from ai_task_manager.storage.workflows import WorkflowStore
     from ai_task_manager.application.workflows.models import WorkflowPlan
     from ai_task_manager.domains.work.errors import WorkError
+    from ai_task_manager.storage.workflows import WorkflowStore
     from tests.merge.workflows.helpers import Flow
 
     flow = Flow(tmp_path / "owned")
     try:
         checks = flow.checks.run
         moved = []
+
         def late_target(*args):
             value = checks(*args)
-            target = git(flow.runtime.repo, "commit-tree", flow.old + "^{tree}", "-p", flow.old,
-                         "-m", "Independent target before owner preflight")
+            target = git(
+                flow.runtime.repo,
+                "commit-tree",
+                flow.old + "^{tree}",
+                "-p",
+                flow.old,
+                "-m",
+                "Independent target before owner preflight",
+            )
             git(flow.runtime.repo, "update-ref", "refs/heads/integration", target, flow.old)
             moved.append(target)
             return value
+
         flow.checks.run = late_target
         result = flow.run()
-        assert not result["ok"] and result["error"]["message"] == "Source or target changed during immutable preparation", result
+        assert (
+            not result["ok"]
+            and result["error"]["message"]
+            == "Source or target changed during immutable preparation"
+        ), result
         store = WorkflowStore(flow.root / "outer.sqlite")
-        plan = WorkflowPlan("original-plan", "unused", "fixture", flow.old, ("src/a.txt",), ("src/a.txt",), flow.plan.deadline)
+        plan = WorkflowPlan(
+            "original-plan",
+            "unused",
+            "fixture",
+            flow.old,
+            ("src/a.txt",),
+            ("src/a.txt",),
+            flow.plan.deadline,
+        )
         ref = store.create(flow.r.scope, flow.task, plan, "original-key")
         store.claim(ref, flow.r.scope, "original-owner")
         store.intend(ref, "original-owner", "worker-commit", {"attempt_id": flow.attempt.id})
-        store.finish(ref, "original-owner", "worker-commit", {"commit": flow.new}, attempt_id=flow.attempt.id)
+        store.finish(
+            ref, "original-owner", "worker-commit", {"commit": flow.new}, attempt_id=flow.attempt.id
+        )
         store.release(ref, "original-owner")
-        delivery = SimpleNamespace(components={ref:flow.workflow}, resources=flow.runtime.resources,
-                                   runtime=SimpleNamespace(pair=lambda attempt_id: flow.pair))
+        delivery = SimpleNamespace(
+            components={ref: flow.workflow},
+            resources=flow.runtime.resources,
+            runtime=SimpleNamespace(pair=lambda attempt_id: flow.pair),
+        )
         driver = SimpleNamespace(store=store, scope=flow.r.scope, code_delivery=delivery)
-        service = SimpleNamespace(core=flow.r.core, handle=flow.r.handle, scope=flow.r.scope,
-                                  workflows=SimpleNamespace(driver=driver))
+        service = SimpleNamespace(
+            core=flow.r.core,
+            handle=flow.r.handle,
+            scope=flow.r.scope,
+            workflows=SimpleNamespace(driver=driver),
+        )
         current = q.target_continuation_context(service, ref)
         assert current["source"] == flow.new and current["target"] == moved[0]
         assert current["view"]["state"] == "ready" and current["attempt"].id == flow.attempt.id
@@ -121,9 +152,11 @@ def test_target_context_uses_real_scope_refs_and_current_attempt(tmp_path):
         # A later current graph cannot revive an attempt invalidated by expiry.
         flow.r.now += 31
         from tests.scheduling.helpers import known_declaration
+
         known_declaration(flow.r, flow.r.core.get_task(flow.r.handle, flow.task.id))
         assert flow.r.core.scheduling.explain(flow.r.handle, flow.task.id)["state"] == "ready"
         import pytest
+
         with pytest.raises(WorkError, match="Reconcile the existing attempt"):
             q.target_continuation_context(service, ref)
     finally:

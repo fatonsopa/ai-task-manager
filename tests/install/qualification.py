@@ -422,8 +422,19 @@ def target_continuation_context(service, workflow_ref):
         service.handle, task.id, attempt.id, task.version, attempt.version, task.decision_revision
     ) as (task, attempt, scope):
         assert scope == service.scope == driver.scope
-        assert task.prose_digest == row["prose_digest"] and task.decision_revision == row["decision_revision"]
+        assert (
+            task.prose_digest == row["prose_digest"]
+            and task.decision_revision == row["decision_revision"]
+        )
     view = service.core.scheduling.explain(service.handle, task.id)
     assert view["state"] == "ready" and view["expires_at"] > service.core.context.clock()
-    return {"row": row, "component": component, "merged": merged, "task": task,
-            "attempt": attempt, "source": source, "target": target, "view": view}
+    return {
+        "row": row,
+        "component": component,
+        "merged": merged,
+        "task": task,
+        "attempt": attempt,
+        "source": source,
+        "target": target,
+        "view": view,
+    }
