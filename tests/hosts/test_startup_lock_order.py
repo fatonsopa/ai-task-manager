@@ -36,7 +36,26 @@ def test_startup_contention_refuses_without_waiting_or_publication(composition):
         futures.append(executor.submit(effect))
         assert held.wait(3)
 
-    after_proof(value, contention)
+    # Call the actual Core consumer directly: it must still refuse rather
+    # than wait if a caller has already acquired Core without the outer guard.
+    startup = workers.proofs.startup
+
+    def direct_core_consumer(scope, attempt_id, observation_id, *, host_ready_ref=None):
+        proof = startup(scope, attempt_id, observation_id, host_ready_ref=host_ready_ref)
+        contention(factory.owned[attempt_id])
+        current = runtime.rig.core.get_task(runtime.rig.handle, task.id)
+        runtime.rig.core.execution.start(
+            runtime.rig.handle,
+            attempt_id,
+            current.version,
+            current.decision_revision,
+            proof,
+            value[2],
+            "direct-core-startup-contention",
+        )
+        raise AssertionError("Contended direct Core startup was accepted")
+
+    workers.proofs.startup = direct_core_consumer
 
     def checked(observation):
         waiting_for_core.set()

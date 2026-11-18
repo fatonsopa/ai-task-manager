@@ -239,16 +239,18 @@ class ManagedWorkers:
             self._prepare_decision(
                 decision_ref, handle, task_id, task.version, task.decision_revision
             )
-            self.core.execution.start(
-                handle,
-                attempt.id,
-                task.version,
-                task.decision_revision,
-                startup,
-                decision_ref,
-                operation_key + ":start",
-                **({"readback_ref": start_source} if source_readbacks is not None else {}),
-            )
+            consume = getattr(native, "startup_consumption_boundary", None)
+            with consume(ready_ref) if callable(consume) else nullcontext():
+                self.core.execution.start(
+                    handle,
+                    attempt.id,
+                    task.version,
+                    task.decision_revision,
+                    startup,
+                    decision_ref,
+                    operation_key + ":start",
+                    **({"readback_ref": start_source} if source_readbacks is not None else {}),
+                )
             self.provider.confirm_pending(handle, task_id)
             native.verify_active()
             self.resources.verify(pair)
