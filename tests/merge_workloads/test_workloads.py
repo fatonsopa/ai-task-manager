@@ -297,6 +297,7 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(
         assert len({owner.pair.database.stat().st_ino for owner in owners}) == count
         assert len({owner.task.id for owner in owners}) == count
         assert time.monotonic() - started <= 600
+        assert all(row["cumulative_repository_wait_seconds"] <= 120 for row in completed), completed
     finally:
         stop_monitor.set()
         if monitor is not None:

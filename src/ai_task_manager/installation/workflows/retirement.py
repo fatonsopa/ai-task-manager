@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ai_task_manager.adapters.resources.manager import ResourceManager
+from ai_task_manager.adapters.resources.release import DeliveryReleasePolicy
 from ai_task_manager.application.service.models import result
 from ai_task_manager.domains.work.errors import EvidenceRequired
 from ai_task_manager.supervisor.journal import RuntimeJournal
@@ -95,19 +96,68 @@ def retire(recovery, service, row):
         raise EvidenceRequired("Original resource-owning attempt is unavailable")
     root = Path(recovery.spec.data["state_root"])
     journal = RuntimeJournal.open_existing(root / "runtime.sqlite")
+    policy, check_policy = _release_policy(recovery)
     resources = ResourceManager(
         journal,
         root / "resources",
         Path(recovery.spec.data["repository"]),
         metadata_paths=(recovery.config["core_database"], root / "workflow.sqlite"),
         existing_only=True,
+        release_policy=policy,
     )
 
     def check():
         recovery.check_service(service)
+        if check_policy is not None:
+            check_policy()
         service.core.get_task(service.handle, row["task_id"])
 
     removed = resources.cleanup(service.core, service.handle, attempt_id, check=check)
     return result(
         {"workflow": row["id"], "attempt_id": attempt_id, "state": "retired", "resources": removed}
     )
+
+
+def _release_policy(recovery):
+    from ai_task_manager.adapters.hosts.bridge.admission import NativeSourcePins
+    from ai_task_manager.config.files import digest, read_private
+    from ai_task_manager.installation.native.code_provisioning import provisioning_digest, sealed
+    from ai_task_manager.installation.native.manifest import NativeManifest
+
+    spec = recovery.spec.data
+    if "code_ref" not in spec:
+        return None, None
+    manifest = NativeManifest(
+        spec["native_manifest"], recovery.config_file, recovery.spec.seal.path
+    )
+
+    def check():
+        manifest.check()
+        d = manifest.data
+        pins = NativeSourcePins({str(manifest.seal.path): manifest.seal.sha256})
+        if (
+            digest(
+                {
+                    "reference": spec["native_ref"],
+                    "host": d["host"],
+                    "model": d["model"],
+                    "effort": d["effort"],
+                    "account": d["account_hash"],
+                    "source": pins.fingerprint,
+                }
+            )
+            != spec["native_digest"]
+            or provisioning_digest(d["code_manifest"], d["commands_manifest"])
+            != spec["code_digest"]
+        ):
+            raise EvidenceRequired("Retirement requires the original installed code policy")
+        code = read_private(sealed(d["code_manifest"]).path)
+        policy = read_private(sealed(code["policy"]).path)
+        if tuple(policy[k] for k in ("reference", "scope", "task_id", "prose_digest")) != tuple(
+            spec[k] for k in ("code_ref", "scope", "task_id", "prose_digest")
+        ):
+            raise EvidenceRequired("Retirement code policy differs from the installed task")
+        return policy
+
+    policy = check()
+    return DeliveryReleasePolicy(spec["repository"], policy["target_ref"]), check
