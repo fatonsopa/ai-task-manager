@@ -73,6 +73,8 @@ Reads do not start workers, reserve capacity, advance wait counters or change pr
 
 Public failure categories and CLI exit codes remain those in `application/service/models.py`: invalid input 2, denied 3, blocked 4, failed 5 and uncertain 6. A lost run response may follow an effect; preserve the original key/reference and use supported reconciliation. Do not infer rollback or exactly-once external execution from a local query or idempotent reservation.
 
+Initial Claude authentication uses a separate finite admission scope while its original counted host parent is `launching`. The existing native store may wait only for SQLite writer acquisition within the original auth, host and permission deadlines. Waiting consumes that window; the auth child cannot gain a later deadline from contention. The original permission and exact parent binding are checked again after acquisition. The protected body runs once; ordinary effect acquisition retains its 0.1-second fail-fast policy, and identity refresh still requires a `running` parent. Cancellation, expiry, revocation or changed ownership refuses the next admission. This scope grants neither worker readiness nor a successful account observation. Unknown process or stop facts remain protected and require supported reconciliation.
+
 ## Compatibility and verification
 
 Queue fields are additive response data. Existing closed request schemas, task statuses and run/resume keys remain unchanged. Callers can ignore added response fields; selection uses current task/source observations rather than cached titles or row positions. Native launch and authenticated startup verify the exact installer-selected tool set; missing or extra tools still refuse.
