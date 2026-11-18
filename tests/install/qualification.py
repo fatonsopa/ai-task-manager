@@ -349,6 +349,24 @@ def prepare_standby(writer, scope, request, primary_body):
     return result
 
 
+def approved_code_merge_milestone(approvals, task_ref, predecessor_ref):
+    from ai_task_manager.adapters.linear.prose import LinearMarkdownRenderer
+    from ai_task_manager.application.intake import prose_digest
+
+    task = approvals.prose(task_ref)
+    predecessor = approvals.prose(predecessor_ref)
+    assert task.code_bearing and predecessor.code_bearing
+    renderer = LinearMarkdownRenderer()
+    task_digest = prose_digest(task, renderer.render(task))
+    predecessor_digest = prose_digest(predecessor, renderer.render(predecessor))
+    assert task_digest != predecessor_digest
+    return {
+        "task_prose_digest": task_digest,
+        "predecessor_prose_digest": predecessor_digest,
+        "condition": "code_merged",
+    }
+
+
 def review_bindings(reviews, names):
     assert set(reviews) == {"code_worker", *names}
     pointers = [reviews[n] for n in names]
