@@ -175,21 +175,12 @@ class OutboundDrain:
                     nonlocal send_id
                     # Connection and credentials may perform fallible reads. Recheck
                     # the human/version fence after them, before recording any send.
-                    current = self.core.get_task(handle, task.id)
-                    if (
-                        current.version != task.version
-                        or current.decision_revision != task.decision_revision
-                        or (
-                            current.human_hold
-                            and not self.core.sync.authorizes_hold_publication(handle, operation.id)
+                    with self.core.sync.outbound_dispatch(handle, operation):
+                        send_id = self.journal.begin_send(
+                            scope, operation, candidate_id,
+                            connection_digest=connection.digest, native_type=native_type,
                         )
-                    ):
-                        raise LinearError("stale_outbound_authority")
-                    send_id = self.journal.begin_send(
-                        scope, operation, candidate_id,
-                        connection_digest=connection.digest, native_type=native_type,
-                    )
-                    request.enter_context(owned_request(self.journal, scope, operation, send_id))
+                        request.enter_context(owned_request(self.journal, scope, operation, send_id))
 
                 return begin_dispatch
 

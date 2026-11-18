@@ -162,6 +162,11 @@ class ProviderJournal:
             if not row or row["kind"] not in KINDS:
                 raise EvidenceRequired("Provider proof is missing or has an invalid issuer kind")
             payload = json.loads(row["payload"])
+            if row["kind"] == "outbound_absent" and conn.execute(
+                "SELECT 1 FROM sends WHERE scope=? AND operation_id=?",
+                (row["scope"], row["subject"]),
+            ).fetchone():
+                raise EvidenceRequired("A recorded send cannot be declared absent")
             expiring = row["kind"] in {
                 "existing_issue_snapshot",
                 "existing_issue_readback",
@@ -513,7 +518,8 @@ class ProviderJournal:
             ).fetchone():
                 raise EvidenceRequired("A recorded send cannot be declared absent")
             return self._proof(
-                conn, "outbound_absent", scope, operation.id, {"safe_to_retry": True}
+                conn, "outbound_absent", scope, operation.id,
+                {"safe_to_retry": True, "attempt_count": operation.attempt_count},
             )
 
     def removal_receipt(self, scope, task, event, authorized_actors):

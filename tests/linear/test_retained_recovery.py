@@ -296,3 +296,69 @@ def test_t03_configured_consumers_recheck_revocation_during_provider_read(tmp_pa
             ).fetchone()
     finally:
         fixture.close()
+
+
+def test_send_f1_expired_preparation_cannot_dispatch_after_rearm(rig, tmp_path):
+    """Real expiry, signed unsent proof, rearm and successor claim; localhost only."""
+    from dataclasses import asdict
+
+    task = rig.transition(rig.task(), S.TODO, "enqueue", confirm=False)
+    before = len(updates(rig))
+    calls, observations = [], []
+
+    def authority():
+        calls.append(True)
+        if len(calls) != 3:
+            return
+        original = rig.core.sync.list_operations(rig.handle)[-1]
+        rig.now = original.lease_until + 1
+        assert rig.core.sync.claim(rig.handle, "expiry-observer", task_id=task.id) is None
+        rig.reconcile.retry_unsent(rig.handle, original.id)
+        successor = rig.core.sync.claim(rig.handle, "successor", task_id=task.id)
+        observations.extend([asdict(original), asdict(successor)])
+
+    outcome = rig.outbound.run_once(rig.handle, task_id=task.id, check_authority=authority)
+    current = rig.core.sync.list_operations(rig.handle)[-1]
+    sends = [row for row in rig.journal.sends(rig.scope) if row["operation_id"] == current.id]
+    facts = {"finding": "DP06-T08-SEND-F1", "clock": rig.now,
+             "claims": observations, "outcome": {k: v for k, v in outcome.items() if k != "task"}, "current": asdict(current),
+             "update_dispatches": len(updates(rig)) - before,
+             "sends": [{"attempt": row["attempt"], "state": row["state"]} for row in sends]}
+    (tmp_path / "send-f1-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+    assert facts["update_dispatches"] == 0, facts
+    assert not sends and current.state == "leased" and current.lease_owner == "successor", facts
+    assert current.attempt_count == 2 and outcome["state"] == "failed", facts
+
+
+def test_send_f1_absence_proof_cannot_rearm_after_actual_dispatch(rig, monkeypatch, tmp_path):
+    """A real journal absence proof becomes invalid when its request is dispatched."""
+    from ai_task_manager.domains.work.errors import EvidenceRequired
+
+    task = rig.transition(rig.task(), S.TODO, "enqueue", confirm=False)
+    proof, calls = [], []
+    original = rig.client.update_issue
+
+    def authority():
+        calls.append(True)
+        if len(calls) == 3:
+            operation = rig.core.sync.list_operations(rig.handle)[-1]
+            proof.append(rig.journal.unsent_receipt(rig.scope, operation))
+
+    def lost(*args, **kwargs):
+        original(*args, **kwargs)
+        raise LinearError("authored_lost_mutation_reply", uncertain=True)
+
+    monkeypatch.setattr(rig.client, "update_issue", lost)
+    before = len(updates(rig))
+    outcome = rig.outbound.run_once(rig.handle, task_id=task.id, check_authority=authority)
+    refused = False
+    try:
+        rig.core.sync.reconcile_retry(rig.handle, outcome["operation_id"], proof[0])
+    except EvidenceRequired:
+        refused = True
+    current = rig.core.sync.list_operations(rig.handle)[-1]
+    facts = {"finding": "DP06-T08-SEND-F1", "update_dispatches": len(updates(rig)) - before,
+             "outcome": outcome, "proof_rearm_refused": refused, "final_state": current.state}
+    (tmp_path / "send-f1-proof-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+    assert facts["update_dispatches"] == 1 and outcome["state"] == "uncertain"
+    assert refused and current.state == "uncertain", facts

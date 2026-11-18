@@ -1,3 +1,5 @@
+from contextlib import contextmanager, nullcontext
+
 from ai_task_manager.domains.work.errors import EvidenceRequired, ValidationError
 from ai_task_manager.domains.work.transitions import human_hold_required
 from ai_task_manager.storage import outbox, sessions, work
@@ -53,9 +55,12 @@ class Synchronization:
                 work.get(conn, sid, task_id)
             return outbox.claim(conn, sid, adapter_id, self.c.clock(), lease_seconds, task_id)
 
-    def authorizes_hold_publication(self, handle, operation_id):
+    def authorizes_hold_publication(self, handle, operation_id, *, _connection=None):
         """Verify the current human hold intent without authorizing any work or retry."""
-        with self.c.db.transaction() as conn:
+        if _connection is not None:
+            self.c.db.require_transaction(_connection)
+        boundary = nullcontext(_connection) if _connection is not None else self.c.db.transaction()
+        with boundary as conn:
             sid, scope = sessions.resolve(conn, handle)
             operation = outbox.get(conn, sid, operation_id)
             task = work.get(conn, sid, operation.task_id)
@@ -95,6 +100,34 @@ class Synchronization:
             )
             return True
 
+    @contextmanager
+    def outbound_dispatch(self, handle, original):
+        """Serialize this exact current attempt and its local send marker; no network I/O."""
+        with self.c.db.transaction() as conn:
+            sid, _ = sessions.resolve(conn, handle)
+            operation = outbox.get(conn, sid, original.id)
+            task = work.get(conn, sid, operation.task_id)
+            if (
+                operation.state != "leased"
+                or operation.fenced_by
+                or operation.attempt_count != original.attempt_count
+                or operation.lease_owner != original.lease_owner
+                or operation.lease_until != original.lease_until
+                or operation.lease_until <= self.c.clock()
+                or operation.payload != original.payload
+                or task.version != operation.payload["task_version"]
+                or task.decision_revision != operation.payload["decision_revision"]
+                or task.desired_status != operation.payload["desired_status"]
+                or (
+                    task.human_hold
+                    and not self.authorizes_hold_publication(
+                        handle, operation.id, _connection=conn
+                    )
+                )
+            ):
+                raise ValidationError("Outbound lease is no longer owned by this attempt")
+            yield
+
     def record_outcome(self, handle, operation_id, adapter_id, attempt, state, detail):
         with self.c.db.transaction() as conn:
             sid, _ = sessions.resolve(conn, handle)
@@ -118,6 +151,7 @@ class Synchronization:
                 operation.fenced_by
                 or operation.state not in {"failed", "uncertain"}
                 or proof.payload.get("safe_to_retry") is not True
+                or proof.payload.get("attempt_count") != operation.attempt_count
             ):
                 raise EvidenceRequired(
                     "Retry requires reconciliation proving no remote side effect"

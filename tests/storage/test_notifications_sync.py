@@ -85,10 +85,18 @@ def test_p19_claims_expire_to_uncertainty_without_blind_retry(rig):
         rig.core.sync.record_outcome(
             rig.handle, operation.id, "adapter-a", 1, "failed", "late response"
         )
-    proof = rig.proof("outbound_absent", operation.id, {"safe_to_retry": True})
+    proof = rig.proof(
+        "outbound_absent", operation.id,
+        {"safe_to_retry": True, "attempt_count": operation.attempt_count},
+    )
     rig.core.sync.reconcile_retry(rig.handle, operation.id, proof)
     next_claim = rig.core.sync.claim(rig.handle, "adapter-b")
     assert next_claim.id == operation.id and next_claim.attempt_count == 2
+    rig.core.sync.record_outcome(
+        rig.handle, next_claim.id, "adapter-b", 2, "failed", "authored refusal before send"
+    )
+    with pytest.raises(EvidenceRequired):
+        rig.core.sync.reconcile_retry(rig.handle, operation.id, proof)
     with rig.db.transaction() as conn:
         assert (
             conn.execute(
