@@ -394,3 +394,35 @@ def test_l14_auth_collection_overlap_preserves_prior_expiry_fence(bootstrap_grap
         release.set()
         auth.join(timeout=3)
         continuity.close()
+
+
+def test_l15_local_milestones_prepare_outside_running_model_guard(
+    composition, monkeypatch, journal
+):
+    real_start = module.AttemptAuthority.start
+    g = graph(composition, monkeypatch, journal)
+    monkeypatch.setattr(module.AttemptAuthority, "start", real_start)
+    prepared = Event()
+    references = []
+    guard = g.native.startup.model_guard
+
+    def prepare_local(reference):
+        assert not guard._lock._is_owned()
+        with g.core.context.db.transaction() as conn:
+            assert conn.execute("SELECT 1").fetchone()[0] == 1
+        references.append(reference)
+        prepared.set()
+
+    g.source.prepare_current_milestones = prepare_local
+    calls = g.source.calls
+    original_expiry = g.owner._expires_at
+    try:
+        g.owner.start()
+        prepared.clear()
+        assert prepared.wait(3), "Actual running observer skipped local milestone preparation"
+        assert g.owner._failure is None
+        assert g.source.calls == calls
+        assert g.owner._expires_at == original_expiry
+        assert references and set(references) == {g.owner._dependency_ref}
+    finally:
+        g.workers.stop(g.handle, g.attempt.id, operation_key="local-milestone-observer-stop")

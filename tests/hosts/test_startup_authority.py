@@ -1,6 +1,6 @@
 """Real Core/provider-reader boundaries with authored provider data, never live auth."""
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from threading import Event, Thread
 from types import SimpleNamespace
 
@@ -274,3 +274,133 @@ def test_sa12_successor_cannot_start_a_foreign_task(tmp_path):
     with pytest.raises(AccessDenied):
         registry.starting(handle, foreign, runtime, provider.rig.now + 120)
     assert runtime.attempt(foreign.id) == before and len(provider.calls) == calls
+
+
+@pytest.mark.parametrize(
+    "variant", ["current", "provider-expired", "held", "source", "revision", "deadline"]
+)
+def test_sa10_declared_milestone_startup_keeps_original_provider_window(tmp_path, variant):
+    import json
+    import time
+
+    from ai_task_manager.adapters.linear.dependencies.source import (
+        DependencySource,
+        milestone_declarations,
+    )
+    from ai_task_manager.domains.scheduling.resources import AdmissionResources
+    from ai_task_manager.domains.work.models import IssueStatus as S
+    from ai_task_manager.storage import work
+
+    p = ProviderFixture(tmp_path / "provider")
+    r = p.rig
+    a = p.task(code=True, title="Code predecessor")
+    task = p.task(title="Dependent startup")
+    p.edge(a, task)
+    declarations = milestone_declarations(
+        [
+            {
+                "task_prose_digest": task.prose_digest,
+                "predecessor_prose_digest": a.prose_digest,
+                "condition": "code_merged",
+            }
+        ]
+    )
+    p.source = DependencySource(r.core, r.handle, p.client, p.receipts, milestones=declarations)
+    for item in [a, task]:
+        r.resource_sources.rows[item.id] = AdmissionResources(
+            p.scope, item.id, item.prose_digest, item.decision_revision, "authored-project", (), ()
+        )
+    p.source.refresh(a.id, "predecessor")
+    a = r.transition(a, S.TODO, "enqueue")
+    p.sync(a)
+    a, attempt = r.running(a)
+    a = r.complete(a)
+    a, _ = r.settle(a, attempt)
+    reference = r.proof(
+        "merge", a.id, {"commit": "a" * 40, "prose_digest": a.prose_digest}, expires_at=r.now + 5
+    )
+    a = r.transition(a, S.IN_DEV, "merge", {"merge": reference})
+    p.sync(a)
+    prepared = []
+
+    def prepare(subject, ref):
+        assert p.depth == 0 and subject == a.id and ref == reference
+        r.proofs.evidence[ref] = replace(r.proofs.evidence[ref], expires_at=r.now + 5)
+        prepared.append({"clock": r.now, "expiry": r.now + 5})
+        return ref
+
+    r.core.context.evidence.prepare_merge_milestone = prepare
+    task = r.transition(task, S.TODO, "enqueue")
+    p.sync(task)
+    p.source.refresh(task.id, "dependent")
+    task, attempt = r.reserved(r.current(task))
+    runtime = RuntimeJournal(tmp_path / "runtime.sqlite", clock=lambda: r.now)
+    runtime.claim(attempt, asdict(r.scope), deadline=r.now + 120)
+    registry = WorkAuthorities(r.core, p.source)
+    r.core.scheduling.renewals = registry
+    startup = registry.starting(r.handle, attempt, runtime, r.now + 120)
+    facts = {
+        "scope": (
+            "Actual StartupAuthority loop, real Core/provider reader; authored provider data "
+            "and expiring proof producer, zero native/model effects"
+        )
+    }
+    try:
+        startup.start()
+        end = time.monotonic() + 3
+        while time.monotonic() < end:
+            first = r.core.scheduling.explain(r.handle, task.id)
+            if first["source_revision"] >= 2:
+                break
+            startup._thread.join(0.01)
+        assert first["source_revision"] >= 2, first
+        facts.update(
+            before=first,
+            verifier_clock_before=r.now,
+            proof_expiry_before=r.proofs.evidence[reference].expires_at,
+        )
+        provider_calls = len(p.calls)
+        r.now += 6
+        if variant == "provider-expired":
+            r.now = first["expires_at"]
+        elif variant == "held":
+            current = r.core.get_task(r.handle, task.id)
+            with r.db.transaction() as conn:
+                work.save(conn, replace(current, human_hold=True), current.version)
+        elif variant == "source":
+            p.source.source_id = "changed-source"
+        elif variant == "revision":
+            p.source.refresh(task.id, "independent-new-revision")
+            provider_calls = len(p.calls)
+        elif variant == "deadline":
+            r.now = startup.deadline
+        startup._thread.join(timeout=2)
+        facts.update(
+            verifier_clock_after=r.now,
+            proof_expiry_after=r.proofs.evidence[reference].expires_at,
+            after=r.core.scheduling.explain(r.handle, task.id),
+            preparations=prepared,
+            failure=None
+            if startup._failure is None
+            else {"type": type(startup._failure).__name__, "detail": str(startup._failure)},
+            worker_id=r.core.get_attempt(r.handle, attempt.id).worker_id,
+        )
+        assert len(p.calls) == provider_calls
+        if variant == "current":
+            assert first["expires_at"] > r.now
+            assert startup._failure is None, facts
+            assert facts["proof_expiry_after"] == r.now + 5
+            assert facts["after"]["expires_at"] == first["expires_at"]
+            assert facts["after"]["source_revision"] == first["source_revision"]
+            startup.check()
+        else:
+            assert startup._failure is not None, facts
+        assert r.core.get_attempt(r.handle, attempt.id).worker_id is None
+        assert not [
+            e
+            for e in r.core.notifications.list_events(r.handle)
+            if e.kind == "worker_started" and e.task_id == task.id
+        ]
+    finally:
+        startup.close()
+        (tmp_path / "startup-milestone-result.json").write_text(json.dumps(facts, indent=2) + "\n")

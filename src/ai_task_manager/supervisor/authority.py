@@ -105,6 +105,7 @@ class AttemptAuthority:
         self._failure = None
         self._retention_error = None
         self._current = None
+        self._dependency_ref = None
         self._expires_at = None
         self._next_refresh_at = None
         self._preparation_latency = 0.0
@@ -256,6 +257,7 @@ class AttemptAuthority:
                 publication_attempted = True
                 view = core.scheduling.renew(self.handle, reference, key + ":commit")
                 publication_confirmed = True
+                self._dependency_ref = preparation.snapshot_ref
                 self.continuity.acknowledge(native)
             self._current = native
             self._expires_at = value.expires_at
@@ -343,10 +345,17 @@ class AttemptAuthority:
         ):
             return self.check_prepared()
 
+    def _prepare_milestones(self):
+        self._check_owner()
+        prepare = getattr(self.registry.dependencies, "prepare_current_milestones", None)
+        if self._dependency_ref is not None and callable(prepare):
+            prepare(self._dependency_ref)
+
     def ensure_current(self):
         """Prepare outside Core, then serialize the current local observation."""
         if self._current is None or self.registry.core.context.clock() >= self._next_refresh_at:
             self.refresh()
+        self._prepare_milestones()
         # Provider collection above must not hold the model fence. This caller
         # has no Core transaction, so wait here rather than using the reverse
         # nonblocking observation while another native observer holds it.
@@ -372,6 +381,7 @@ class AttemptAuthority:
                         self.refresh()  # Provider collection never holds the model guard.
                     if self._stop.is_set():
                         return
+                    self._prepare_milestones()
                     # This observer holds no Core transaction while waiting for
                     # an ordinary short model effect. Reentrant current checks
                     # then keep the normal model→Core order, without changing

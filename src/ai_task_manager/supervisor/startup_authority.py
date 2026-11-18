@@ -31,10 +31,11 @@ class StartupAuthority:
         self._failure = None
         self._handover = False
         self._latency = 0.0
+        self._dependency_ref = None
         self.failure_diagnostic = None
         self.check()
 
-    def check(self):
+    def _check_owner(self):
         self.registry.check()
         core = self.registry.core
         session, scope = core.session_binding(self.handle)
@@ -68,7 +69,11 @@ class StartupAuthority:
             raise AccessDenied("Startup no longer has its original bounded task owner")
         if self._failure is not None:
             raise AccessDenied("Startup dependency observation failed") from self._failure
-        if core.scheduling.explain(self.handle, self.task_id)["state"] != "ready":
+        return task
+
+    def check(self):
+        task = self._check_owner()
+        if self.registry.core.scheduling.explain(self.handle, self.task_id)["state"] != "ready":
             raise SchedulingBlocked("Startup dependencies expired or were invalidated")
         return task
 
@@ -99,6 +104,7 @@ class StartupAuthority:
             value.snapshot_ref,
             key + ":commit",
         )
+        self._dependency_ref = value.snapshot_ref
         self.check()
 
     def start(self):
@@ -111,6 +117,12 @@ class StartupAuthority:
             while not self._stop.is_set():
                 started = diagnostic_clock()
                 try:
+                    self._check_owner()
+                    prepare = getattr(
+                        self.registry.dependencies, "prepare_current_milestones", None
+                    )
+                    if self._dependency_ref is not None and callable(prepare):
+                        prepare(self._dependency_ref)
                     self.check()
                     if self.registry.core.context.clock() >= next_at:
                         self.refresh()

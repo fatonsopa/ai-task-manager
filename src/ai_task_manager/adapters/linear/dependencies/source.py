@@ -209,6 +209,59 @@ class DependencySource:
             prepared.operation_key,
         )
 
+    def prepare_current_milestones(self, snapshot_ref):
+        """Refresh local publication witnesses inside the original provider window."""
+        if not self.milestones:
+            return
+        scope = self._scope()
+        snapshot = self.receipts.verify_snapshot(snapshot_ref)
+        task = self.core.get_task(self.handle, snapshot.task_id)
+        view = self.core.scheduling.explain(self.handle, task.id)
+        if (
+            snapshot.scope != scope
+            or snapshot.source_id != self.source_id
+            or snapshot.completeness != "complete"
+            or snapshot.prose_digest != task.prose_digest
+            or snapshot.canonical_issue_id != task.issue_id
+            or snapshot.source_revision != view["source_revision"]
+            or snapshot.expires_at != view["expires_at"]
+            or snapshot.expires_at <= self.core.context.clock()
+            or task.human_hold
+            or task.sync_state != "confirmed"
+        ):
+            raise AccessDenied("Original current provider milestone observation is required")
+        prepare = getattr(self.core.context.evidence, "prepare_merge_milestone", None)
+        for edge in snapshot.dependencies:
+            if edge.condition != "code_merged":
+                continue
+            predecessor = self.core.get_task(self.handle, edge.predecessor)
+            if (
+                (task.prose_digest, predecessor.prose_digest) not in self.milestones
+                or predecessor.human_hold
+                or predecessor.sync_state != "confirmed"
+            ):
+                raise AccessDenied("Original current predecessor milestone binding is required")
+            reference = dict(edge.evidence_refs).get("merge")
+            if reference is None:
+                continue
+            try:
+                proof = self.core.context.evidence.verify_evidence(reference)
+                if (
+                    proof.kind == "merge"
+                    and proof.scope == scope
+                    and proof.subject == predecessor.id
+                    and proof.payload.get("prose_digest") == predecessor.prose_digest
+                    and proof.expires_at is not None
+                    and proof.expires_at - self.core.context.clock() > 2
+                ):
+                    continue
+            except EvidenceRequired:
+                pass
+            if not callable(prepare):
+                raise EvidenceRequired("The original current merge producer is unavailable")
+            if prepare(predecessor.id, reference) != reference:
+                raise EvidenceRequired("The original merge milestone reference changed")
+
     def refresh_for_start(self, task_id, caller_key, *, expected_version, decision_revision):
         # Only uncommitted starts reach this method. Each fresh verified collection
         # gets its own source revision; a stale receipt is never renewed by replay.
