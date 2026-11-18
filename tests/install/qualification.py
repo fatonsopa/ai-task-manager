@@ -289,3 +289,61 @@ class ReceiptObserver:
         sys.monitoring.free_tool_id(self.tool)
         self.closed = True
         self.save()
+
+
+def candidate_names(plan, group):
+    names = tuple(plan["candidate_slots"][group])
+    assert names and len(names) <= 4 and len(set(names)) == len(names)
+    assert names[0] == "code_candidate"
+    assert all(n == "code_candidate" or n == "code_candidate_standby" for n in names)
+    return names
+
+
+def group_names(plan, group):
+    return ("author", "code_worker", *candidate_names(plan, group))
+
+
+def preparation_roles(plan):
+    names = ["a_author", "c_author", "b_author"]
+    names.extend(g + "_" + n for g in "abc" for n in group_names(plan, g) if n != "author")
+    assert len(names) == len(set(names)) and set(names) == set(plan["roles"])
+    return (*names, "coordination")
+
+
+def review_stage(name):
+    assert name in {"code_worker", "code_candidate", "code_candidate_standby"}
+    return "code_worker" if name == "code_worker" else "code_candidate"
+
+
+def review_bindings(reviews, names):
+    assert set(reviews) == {"code_worker", *names}
+    pointers = [reviews[n] for n in names]
+    assert len({p["path"] for p in pointers}) == len(pointers)
+    return {
+        "code_worker": reviews["code_worker"],
+        "code_candidate": pointers if len(pointers) > 1 else pointers[0],
+    }
+
+
+def target_only_resume(
+    event,
+    *,
+    original_key_matches,
+    source_unchanged,
+    target_changed,
+    publication_steps,
+    graph_ready,
+    current_authority,
+    standby_ready,
+    elapsed,
+    wait_seconds,
+    lineage_count,
+    already_resumed,
+):
+    assert event.get("state") == "blocked"
+    assert event.get("detail") == "Source or target changed during immutable preparation"
+    assert original_key_matches and source_unchanged and target_changed
+    assert not publication_steps and graph_ready and current_authority and standby_ready
+    assert elapsed < 600 and wait_seconds < 120 and lineage_count == 0
+    assert not already_resumed
+    return True
