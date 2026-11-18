@@ -5,6 +5,7 @@ authentication, provider status and decision authority remain independent ports.
 """
 
 import math
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from threading import Lock, get_ident
@@ -102,6 +103,7 @@ class HostInvocationAccounting:
         self._initialization_attempted = False
         self._initialization_token = None
         self._initialization_thread = None
+        self._authentication_window = None
 
     def _current(self):
         if any(
@@ -338,15 +340,38 @@ class HostInvocationAccounting:
         )
         # Startup observation is not host/group stop and releases no worker slot.
 
+    @contextmanager
+    def authentication_boundary(self, policy, binding, *, cancelled=None):
+        self._current()
+        if (self._initialization is None or policy is not self._policy
+                or binding != self._owner_binding):
+            raise AccessDenied("Authentication needs its original initialization owner")
+        native = self._initialization.native
+        end = min(binding.deadline, self.plan.deadline, native.binding.deadline,
+                  self.control.clock().timestamp() + self.plan.auth_seconds)
+        with native.issuer.initial_authentication_boundary(native, not_after=end, cancelled=cancelled):
+            if self._authentication_window is not None:
+                raise AccessDenied("Authentication admission is already owned")
+            self._authentication_window = (get_ident(), end)
+            try:
+                self._owner(policy, binding)
+                yield
+            finally:
+                self._authentication_window = None
+
     def authorize_auth(self, policy, binding):
         if self._initialization is None:
             raise AccessDenied("Authentication needs a registered initialization owner")
+        window = self._authentication_window
+        if window is not None and window[0] != get_ident():
+            raise AccessDenied("Authentication admission belongs to another owner")
         return self._claim(
             policy,
             binding,
             "auth",
             self.plan.auth_seconds,
             parent=self._initialization.native.reference,
+            not_after=window[1] if window is not None else None,
         )
 
     def record_auth(self, binding, completion):

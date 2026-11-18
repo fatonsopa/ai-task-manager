@@ -103,9 +103,14 @@ class NativeStore:
             del self._active.identity_wait
 
     @contextmanager
-    def transaction(self, *, wait_until=None, clock=None, cancelled=None):
+    def transaction(self, *, wait_until=None, clock=None, cancelled=None, settlement=False):
         private_path(self.path)
-        identity = getattr(self._active, "identity_wait", None)
+        if settlement and (wait_until is None or not callable(clock)):
+            raise AccessDenied("Exact bounded native settlement is required")
+        # Exact owned outcome settlement has its own finite acquisition policy.
+        # An enclosing identity admission may expire or be revoked after launch;
+        # it must not prevent recording an independently observed owned stop.
+        identity = None if settlement else getattr(self._active, "identity_wait", None)
         if identity is not None:
             original_end, original_clock, original_cancel, monotonic_end, validate = identity
             wait_until = min(wait_until, original_end) if wait_until is not None else original_end
