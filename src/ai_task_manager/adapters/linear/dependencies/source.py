@@ -1,6 +1,12 @@
 """Trusted refresh composition; provider work ends before Core consumes a receipt."""
 
+import fcntl
+import os
+import stat
+from contextlib import contextmanager
 from dataclasses import dataclass
+from threading import RLock, local
+from time import monotonic, sleep
 from uuid import uuid4
 
 from ai_task_manager.domains.scheduling.models import (
@@ -59,6 +65,8 @@ class DependencySource:
         self.expected = client.expected
         self.milestones = tuple(milestones)
         self._milestones = self.milestones
+        self._publications = {}
+        self._publication_local = local()
         self.source_id = "linear-dependencies-v1:" + digest(
             {
                 "scope": vars(self.binding[1]),
@@ -77,6 +85,75 @@ class DependencySource:
         return self.binding[1]
 
     def prepare(self, task_id, operation_key, *, expected_version=None, decision_revision=None):
+        with self.publication_boundary(task_id):
+            return self._prepare(
+                task_id, operation_key, expected_version=expected_version,
+                decision_revision=decision_revision,
+            )
+
+    @contextmanager
+    def publication_boundary(self, task_id, *, not_after=None, cancelled=None):
+        """Serialize one task's collection through publication, outside Core."""
+        self._scope()
+        self.core.get_task(self.handle, task_id)
+        deadline = self.core.context.clock() + 30 if not_after is None else not_after
+        end = monotonic() + max(0, deadline - self.core.context.clock())
+        lock = self._publications.setdefault(task_id, RLock())
+
+        def current():
+            self._scope()
+            if (
+                (cancelled is not None and cancelled.is_set())
+                or self.core.context.clock() >= deadline or monotonic() >= end
+            ):
+                raise AccessDenied("Dependency publication stopped or expired")
+
+        while True:
+            current()
+            if lock.acquire(timeout=min(0.05, max(0, end - monotonic()))):
+                break
+        descriptor = None
+        depths = getattr(self._publication_local, "depths", {})
+        self._publication_local.depths = depths
+        nested = depths.get(task_id, 0)
+        try:
+            current()
+            if not nested:
+                head, _ = self.receipts._keys(self._scope(), task_id, "publication")
+                path = self.receipts.path.with_name(self.receipts.path.name + "." + head + ".lock")
+                descriptor = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+                opened = os.fstat(descriptor)
+
+                def check_file():
+                    observed = path.lstat()
+                    if (
+                        not stat.S_ISREG(opened.st_mode) or stat.S_IMODE(opened.st_mode) != 0o600
+                        or opened.st_uid != os.getuid() or opened.st_nlink != 1
+                        or (opened.st_dev, opened.st_ino) != (observed.st_dev, observed.st_ino)
+                    ):
+                        raise AccessDenied("Dependency publication fence changed")
+
+                while True:
+                    current()
+                    check_file()
+                    try:
+                        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        sleep(min(0.01, max(0, end - monotonic())))
+                check_file()
+            depths[task_id] = nested + 1
+            current()
+            yield
+            if descriptor is not None:
+                check_file()
+        finally:
+            depths[task_id] = nested
+            if descriptor is not None:
+                os.close(descriptor)
+            lock.release()
+
+    def _prepare(self, task_id, operation_key, *, expected_version=None, decision_revision=None):
         scope = self._scope()
         task = self.core.get_task(self.handle, task_id)
         if expected_version is not None or decision_revision is not None:
@@ -199,6 +276,10 @@ class DependencySource:
         return Preparation(task.id, task.version, task.decision_revision, reference, operation_key)
 
     def refresh(self, task_id, operation_key):
+        with self.publication_boundary(task_id):
+            return self._refresh(task_id, operation_key)
+
+    def _refresh(self, task_id, operation_key):
         prepared = self.prepare(task_id, operation_key)
         return self.core.scheduling.observe(
             self.handle,
@@ -209,13 +290,34 @@ class DependencySource:
             prepared.operation_key,
         )
 
-    def prepare_current_milestones(self, snapshot_ref):
+    def prepare_current_milestones(self, snapshot_ref, *, task_id=None):
         """Refresh local publication witnesses inside the original provider window."""
         if not self.milestones:
             return
         scope = self._scope()
+        if task_id is None:
+            task_id = self.receipts.verify_snapshot(snapshot_ref).task_id
+        task = self.core.get_task(self.handle, task_id)
+        if not any(subject == task.prose_digest for subject, _ in self.milestones):
+            return
+        with self.publication_boundary(task_id):
+            return self._prepare_published_milestones(
+                scope, self.core.get_task(self.handle, task_id)
+            )
+
+    def _prepare_published_milestones(self, scope, task):
+        from ai_task_manager.storage import scheduling
+
+        with self.core.context.db.transaction() as conn:
+            published = scheduling.current(conn, task.id)
+        if published is None or published["invalidated_by"] is not None:
+            raise AccessDenied("Current published dependency observation is unavailable")
+        snapshot_ref = self.receipts.published_reference(
+            scope, task.id, published["source_revision"]
+        )
         snapshot = self.receipts.verify_snapshot(snapshot_ref)
-        task = self.core.get_task(self.handle, snapshot.task_id)
+        if snapshot != published["snapshot"]:
+            raise AccessDenied("Current signed dependency observation differs from publication")
         view = self.core.scheduling.explain(self.handle, task.id)
         if (
             snapshot.scope != scope
@@ -263,6 +365,13 @@ class DependencySource:
                 raise EvidenceRequired("The original merge milestone reference changed")
 
     def refresh_for_start(self, task_id, caller_key, *, expected_version, decision_revision):
+        with self.publication_boundary(task_id):
+            return self._refresh_for_start(
+                task_id, caller_key, expected_version=expected_version,
+                decision_revision=decision_revision,
+            )
+
+    def _refresh_for_start(self, task_id, caller_key, *, expected_version, decision_revision):
         # Only uncommitted starts reach this method. Each fresh verified collection
         # gets its own source revision; a stale receipt is never renewed by replay.
         collection = "worker-dependency-collection:" + str(uuid4())

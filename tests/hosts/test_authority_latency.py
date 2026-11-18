@@ -406,7 +406,8 @@ def test_l15_local_milestones_prepare_outside_running_model_guard(
     references = []
     guard = g.native.startup.model_guard
 
-    def prepare_local(reference):
+    def prepare_local(reference, *, task_id):
+        assert task_id == g.task.id
         assert not guard._lock._is_owned()
         with g.core.context.db.transaction() as conn:
             assert conn.execute("SELECT 1").fetchone()[0] == 1

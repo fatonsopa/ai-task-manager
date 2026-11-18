@@ -386,12 +386,15 @@ def test_sa10_declared_milestone_startup_keeps_original_provider_window(tmp_path
             worker_id=r.core.get_attempt(r.handle, attempt.id).worker_id,
         )
         assert len(p.calls) == provider_calls
-        if variant == "current":
+        if variant in {"current", "revision"}:
             assert first["expires_at"] > r.now
             assert startup._failure is None, facts
             assert facts["proof_expiry_after"] == r.now + 5
-            assert facts["after"]["expires_at"] == first["expires_at"]
-            assert facts["after"]["source_revision"] == first["source_revision"]
+            if variant == "current":
+                assert facts["after"]["expires_at"] == first["expires_at"]
+                assert facts["after"]["source_revision"] == first["source_revision"]
+            else:
+                assert facts["after"]["source_revision"] > first["source_revision"]
             startup.check()
         else:
             assert startup._failure is not None, facts

@@ -179,3 +179,19 @@ class DependencyReceipts(AuthorityJournal):
         if row is None or row[0] != snapshot.source_revision:
             raise AccessDenied("Dependency receipt was superseded")
         return snapshot
+
+    def published_reference(self, scope, task_id, source_revision):
+        """Locate one signed receipt for the revision already published in Core."""
+        head, _ = self._keys(scope, task_id, "published-reference")
+        with self.transaction() as conn:
+            rows = conn.execute(
+                "SELECT ref FROM records WHERE json_extract(data,'$.head')=? "
+                "AND json_extract(data,'$.snapshot.source_revision')=?",
+                (head, source_revision),
+            ).fetchall()
+        if len(rows) != 1:
+            raise AccessDenied("Current published dependency receipt is unavailable")
+        # Selection is never authority: the normal MAC/context/latest-head and
+        # original freshness checks still decide whether it can be consumed.
+        self.verify_snapshot(rows[0][0])
+        return rows[0][0]

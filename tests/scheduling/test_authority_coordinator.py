@@ -76,10 +76,44 @@ class AuthoredContinuity:
 
 
 @pytest.fixture
-def graph(tmp_path):
+def graph(tmp_path, request):
     p = ProviderFixture(tmp_path / "provider")
     r = p.rig
-    task = r.transition(p.task(), "Todo", "enqueue")
+    task = p.task()
+    milestone = getattr(request, "param", None)
+    if milestone in {"global-milestone", "subject"}:
+        from ai_task_manager.adapters.linear.dependencies.source import DependencySource
+        from ai_task_manager.domains.scheduling.resources import AdmissionResources
+
+        dependent = p.task(title="Other milestone subject") if milestone != "subject" else task
+        predecessor = (
+            task if milestone != "subject" else p.task(code=True, title="Code predecessor")
+        )
+        p.source = DependencySource(
+            r.core, r.handle, p.client, p.receipts,
+            milestones=((dependent.prose_digest, predecessor.prose_digest),),
+        )
+        for item in (task, predecessor):
+            r.resource_sources.rows[item.id] = AdmissionResources(
+                p.scope, item.id, item.prose_digest, item.decision_revision,
+                "authored-project", (), (),
+            )
+        if milestone == "subject":
+            p.source.refresh(predecessor.id, "predecessor")
+            predecessor = r.transition(predecessor, "Todo", "enqueue")
+            p.sync(predecessor)
+            predecessor, previous = r.running(predecessor)
+            predecessor = r.complete(predecessor)
+            predecessor, _ = r.settle(predecessor, previous)
+            merge = r.proof(
+                "merge", predecessor.id,
+                {"commit": "a" * 40, "prose_digest": predecessor.prose_digest},
+                expires_at=r.now + 30,
+            )
+            predecessor = r.transition(predecessor, "In Dev", "merge", {"merge": merge})
+            p.sync(predecessor)
+            p.edge(predecessor, task)
+    task = r.transition(task, "Todo", "enqueue")
     p.sync(task)
     p.source.refresh(task.id, "initial-collection")
     task, attempt = r.running(task)
@@ -174,6 +208,138 @@ def test_consumption_uses_prepared_metadata_and_never_calls_provider(graph):
     with g.r.core.execution.work_boundary(g.r.handle, g.attempt.id, g.attempt.version):
         g.authority.check_prepared()
     assert g.p.depth == 0
+
+
+@pytest.mark.parametrize("graph", ["global-milestone"], indirect=True)
+def test_r03_non_subject_does_not_consume_superseded_milestone_receipt(graph):
+    g = graph
+    g.authority.refresh()
+    original = g.authority._dependency_ref
+    newer = g.p.source.prepare(g.task.id, "independent-inflight-collection")
+    assert original != newer.snapshot_ref
+    with pytest.raises(AccessDenied, match="superseded"):
+        g.p.receipts.verify_snapshot(original)
+    # The actual running coordinator must not treat another task's declared
+    # merge milestone as a new receipt-consumption obligation for this task.
+    g.authority.ensure_current()
+    assert g.authority._failure is None and not g.native.stopped.is_set()
+
+
+@pytest.mark.parametrize("graph", ["subject"], indirect=True)
+@pytest.mark.parametrize("change", [None, "held", "source", "expired", "superseded", "tampered"])
+def test_r03_milestone_uses_current_published_receipt(graph, change):
+    from dataclasses import replace
+
+    from ai_task_manager.storage import work
+
+    g = graph
+    g.authority.refresh()
+    cached = g.authority._dependency_ref
+    g.p.source.refresh(g.task.id, "independent-published-observation")
+    with pytest.raises(AccessDenied, match="superseded"):
+        g.p.receipts.verify_snapshot(cached)
+    view = g.r.core.scheduling.explain(g.r.handle, g.task.id)
+    calls = len(g.p.calls)
+    if change == "held":
+        task = g.r.core.get_task(g.r.handle, g.task.id)
+        with g.r.db.transaction() as conn:
+            work.save(conn, replace(task, human_hold=True), task.version)
+    elif change == "source":
+        g.p.source.source_id = "changed-source"
+    elif change == "expired":
+        g.r.now = view["expires_at"]
+    elif change == "superseded":
+        g.p.source.prepare(g.task.id, "unpublished-newer-observation")
+        calls = len(g.p.calls)
+    elif change == "tampered":
+        with g.p.receipts.transaction() as conn:
+            conn.execute("UPDATE records SET mac='invalid'")
+    if change is not None:
+        with pytest.raises(AccessDenied):
+            g.authority._prepare_milestones()
+    else:
+        g.authority._prepare_milestones()
+        assert g.authority._failure is None
+        assert g.r.core.scheduling.explain(g.r.handle, g.task.id) == view
+    assert len(g.p.calls) == calls
+
+
+@pytest.mark.parametrize("graph", ["subject"], indirect=True)
+@pytest.mark.parametrize("change", [None, "held", "source", "cancelled", "expired"])
+@pytest.mark.parametrize("separate_source", [False, True])
+def test_r03_milestone_waits_for_current_producer_publication(
+    graph, monkeypatch, change, separate_source
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from dataclasses import replace
+
+    from ai_task_manager.storage import work
+
+    g = graph
+    g.authority.refresh()
+    cached = g.authority._dependency_ref
+    entered, release, waiting = Event(), Event(), Event()
+    boundary = g.p.source.publication_boundary
+
+    def collecting(query, variables):
+        if "DependencySchema" in query:
+            entered.set()
+            assert release.wait(3)
+
+    @contextmanager
+    def observed(task_id, **kwargs):
+        if kwargs.get("cancelled") is g.authority._stop:
+            waiting.set()
+        with boundary(task_id, **kwargs):
+            yield
+
+    g.p.callback = collecting
+    monkeypatch.setattr(g.p.source, "publication_boundary", observed)
+    source = g.p.source
+    if separate_source:
+        from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
+        from ai_task_manager.adapters.linear.dependencies.source import DependencySource
+
+        receipts = DependencyReceipts.open_existing(
+            g.p.receipts.path, g.p.receipts.key_path, clock=lambda: g.r.now
+        )
+        source = DependencySource(
+            g.r.core, g.r.handle, g.p.client, receipts, milestones=g.p.source.milestones
+        )
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        producer = pool.submit(source.refresh, g.task.id, "concurrent-observation")
+        assert entered.wait(2)
+        consumer = pool.submit(g.authority._prepare_milestones)
+        try:
+            assert waiting.wait(2) and not consumer.done()
+            with g.r.db.transaction() as conn:
+                assert conn.execute("SELECT 1").fetchone()[0] == 1
+            if change == "held":
+                task = g.r.core.get_task(g.r.handle, g.task.id)
+                with g.r.db.transaction() as conn:
+                    work.save(conn, replace(task, human_hold=True), task.version)
+            elif change == "source":
+                g.p.source.milestones = ()
+            elif change == "cancelled":
+                g.authority.request_close()
+            elif change == "expired":
+                g.r.now = g.authority._expires_at
+            release.set()
+            if change is None:
+                producer.result(timeout=3)
+                consumer.result(timeout=3)
+                assert g.authority._failure is None and not g.native.stopped.is_set()
+                with pytest.raises(AccessDenied, match="superseded"):
+                    g.p.receipts.verify_snapshot(cached)
+            else:
+                with pytest.raises((WorkError, AssertionError)):
+                    consumer.result(timeout=3)
+                try:
+                    producer.result(timeout=3)
+                except (WorkError, AssertionError):
+                    pass
+        finally:
+            release.set()
 
 
 def test_refresh_thread_fences_and_stops_after_source_failure(graph):

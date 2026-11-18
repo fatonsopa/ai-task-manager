@@ -6,6 +6,7 @@ outside Core transactions; an expired or invalidated attempt cannot be revived.
 
 import threading
 import time
+from contextlib import nullcontext
 from time import monotonic as diagnostic_clock
 from uuid import uuid4
 
@@ -78,6 +79,14 @@ class StartupAuthority:
         return task
 
     def refresh(self):
+        boundary = getattr(self.registry.dependencies, "publication_boundary", None)
+        with (
+            boundary(self.task_id, not_after=self.deadline, cancelled=self._stop)
+            if callable(boundary) else nullcontext()
+        ):
+            return self._refresh()
+
+    def _refresh(self):
         if self._stop.is_set():
             raise AccessDenied("Startup dependency collection is stopped")
         task = self.check()
@@ -122,7 +131,13 @@ class StartupAuthority:
                         self.registry.dependencies, "prepare_current_milestones", None
                     )
                     if self._dependency_ref is not None and callable(prepare):
-                        prepare(self._dependency_ref)
+                        boundary = getattr(self.registry.dependencies, "publication_boundary", None)
+                        with (
+                            boundary(self.task_id, not_after=self.deadline, cancelled=self._stop)
+                            if callable(boundary) else nullcontext()
+                        ):
+                            self._check_owner()
+                            prepare(self._dependency_ref, task_id=self.task_id)
                     self.check()
                     if self.registry.core.context.clock() >= next_at:
                         self.refresh()

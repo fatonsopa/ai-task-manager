@@ -1,6 +1,7 @@
 """Trusted refresh orchestration; collection is separate from Core publication."""
 
 import threading
+from contextlib import nullcontext
 from dataclasses import dataclass
 from time import monotonic
 from time import monotonic as diagnostic_clock
@@ -163,6 +164,16 @@ class AttemptAuthority:
         return self.continuity.check(value)
 
     def refresh(self):
+        boundary = getattr(self.registry.dependencies, "publication_boundary", None)
+        with (
+            boundary(
+                self.task_id, not_after=min(self.deadline, self._expires_at or self.deadline),
+                cancelled=self._stop,
+            ) if callable(boundary) else nullcontext()
+        ):
+            return self._refresh()
+
+    def _refresh(self):
         started = diagnostic_clock()
         if not self._collecting.acquire(blocking=False):
             return self._observe_current()
@@ -349,7 +360,15 @@ class AttemptAuthority:
         self._check_owner()
         prepare = getattr(self.registry.dependencies, "prepare_current_milestones", None)
         if self._dependency_ref is not None and callable(prepare):
-            prepare(self._dependency_ref)
+            boundary = getattr(self.registry.dependencies, "publication_boundary", None)
+            with (
+                boundary(
+                    self.task_id, not_after=min(self.deadline, self._expires_at),
+                    cancelled=self._stop,
+                ) if callable(boundary) else nullcontext()
+            ):
+                self._check_owner()
+                prepare(self._dependency_ref, task_id=self.task_id)
 
     def ensure_current(self):
         """Prepare outside Core, then serialize the current local observation."""
