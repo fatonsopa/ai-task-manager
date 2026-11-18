@@ -362,3 +362,81 @@ def test_send_f1_absence_proof_cannot_rearm_after_actual_dispatch(rig, monkeypat
     (tmp_path / "send-f1-proof-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
     assert facts["update_dispatches"] == 1 and outcome["state"] == "uncertain"
     assert refused and current.state == "uncertain", facts
+
+
+@pytest.mark.parametrize("following", ["matching", "prior", "human", "revoked"])
+def test_readback_exact_prior_retains_original_operation(rig, tmp_path, following):
+    """Actual localhost transport, returned write, older read and current recovery."""
+    import copy
+    from dataclasses import asdict
+
+    task = rig.transition(rig.task(), S.TODO, "enqueue", confirm=False)
+    prior = copy.deepcopy(rig.provider.issues[task.issue_id])
+    dispatched, reads, returned = [], [], []
+    writes_before = len(updates(rig))
+    authorized = [True]
+
+    def current_authority():
+        if not authorized[0]:
+            raise AccessDenied("expired")
+
+    def response(request, result):
+        if "mutation UpdateIssue" in request["query"]:
+            dispatched.append(True)
+            returned.append(copy.deepcopy(result["issueUpdate"]["issue"]))
+        elif "query ReadIssue" in request["query"] and dispatched:
+            if not reads or (following == "prior" and len(reads) == 1):
+                result["issue"] = copy.deepcopy(prior)
+            reads.append(copy.deepcopy(result["issue"]))
+            if following == "revoked":
+                authorized[0] = False
+            if following == "human" and len(reads) == 1:
+                rig.provider.edit(task.issue_id, state={"id": STATES["Backlog"], "name": "Backlog"})
+                headers, body = rig.signed(rig.provider.event(task.issue_id))
+                assert rig.receiver.receive("POST", headers, body).status == 200
+                assert rig.inbound.run_once(rig.handle)["state"] == "applied"
+
+    rig.provider.hook = response
+    outcome = rig.outbound.run_once(
+        rig.handle, task_id=task.id, check_authority=current_authority
+    )
+    pending = rig.current(task)
+    operation = next(o for o in rig.core.sync.list_operations(rig.handle) if o.id == outcome["operation_id"])
+    recovery = None
+    if following == "prior":
+        rig.provider.hook = None
+        try:
+            recovery = {"state": "confirmed", "task": asdict(rig.reconcile.recover_outbound(rig.handle, operation.id))}
+        except (LinearError, WorkError) as error:
+            recovery = {"state": "refused", "type": type(error).__name__, "message": str(error)}
+    elif following in {"human", "revoked"}:
+        # A matching old write after a protected newer observation cannot clear it.
+        rig.provider.issues[task.issue_id] = copy.deepcopy(returned[0])
+        rig.provider.hook = None
+        try:
+            rig.reconcile.recover_outbound(
+                rig.handle, operation.id, check_authority=current_authority
+            )
+            recovery = {"state": "confirmed"}
+        except (LinearError, WorkError) as error:
+            recovery = {"state": "refused", "type": type(error).__name__}
+    facts = {"scope": "Authored localhost HTTP; no claim about provider consistency implementation",
+             "following": following, "outcome": {k: v for k, v in outcome.items() if k != "task"},
+             "prior": prior["updatedAt"], "returned": returned[0]["updatedAt"],
+             "read_revisions": [item["updatedAt"] for item in reads],
+             "dispatches": len(updates(rig)) - writes_before,
+             "pending": asdict(pending), "operation_fenced": operation.fenced_by,
+             "recovery": recovery, "current": asdict(rig.current(task))}
+    (tmp_path / "readback-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+    assert facts["dispatches"] == 1, facts
+    if following == "matching":
+        assert outcome["state"] == "confirmed" and not pending.human_hold, facts
+    elif following == "prior":
+        assert outcome["state"] == "uncertain" and not pending.human_hold and not operation.fenced_by, facts
+        assert recovery["state"] == "confirmed" and rig.current(task).observed_status == S.TODO, facts
+    elif following == "human":
+        assert outcome["state"] == "uncertain" and pending.human_hold and operation.fenced_by, facts
+        assert pending.observed_status == S.BACKLOG and recovery["state"] == "refused", facts
+    else:
+        assert outcome["state"] == "uncertain" and len(reads) == 1, facts
+        assert not pending.human_hold and not operation.fenced_by and recovery["state"] == "refused", facts

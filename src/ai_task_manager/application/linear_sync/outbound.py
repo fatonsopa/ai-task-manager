@@ -216,6 +216,25 @@ class OutboundDrain:
                 raise LinearError("creation_uuid_not_honored", uncertain=True)
             self.client.check_connection(scope, refresh=True)
             readback = self.client.require_delegate(self.client.read_issue(result.id))
+            exact_prior = (
+                operation.kind == "set_status"
+                and readback == before
+                and previous == asdict(before)
+                and before.revision < result.revision
+                and all(
+                    asdict(result)[key] == value
+                    for key, value in previous.items()
+                    if key not in {"revision", "state_id", "status"}
+                )
+            )
+            if exact_prior:
+                # Reconsider only the completely known pre-write state, once.
+                # Its older revision cannot establish a newer human decision.
+                check_authority()
+                self.client.check_connection(scope, refresh=True)
+                readback = self.client.require_delegate(self.client.read_issue(result.id))
+                if readback == before:
+                    raise LinearError("readback_race", uncertain=True)
             if readback != result:
                 self._observe_conflict(handle, self.core.get_task(handle, task.id), readback)
                 raise LinearError("readback_race", uncertain=True)
