@@ -345,7 +345,11 @@ class NormalInvocationController:
                 "Original identity parent, scope or validity changed",
             )
 
-        with self.store.settlement_snapshot() as conn:
+        with self.store.settlement_snapshot(
+            wait_until=min(not_after, invocation.deadline, self.permission["deadline"]),
+            clock=lambda: self.clock().timestamp(),
+            cancelled=cancelled,
+        ) as conn:
             validate(conn)
             deadline = min(not_after, self.permission["deadline"])
         with self.store.identity_acquisition(

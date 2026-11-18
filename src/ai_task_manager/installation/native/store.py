@@ -74,14 +74,43 @@ class NativeStore:
         }
 
     @contextmanager
-    def settlement_snapshot(self):
+    def settlement_snapshot(self, *, wait_until=None, clock=None, cancelled=None):
         if getattr(self._active, "connection", None) is not None:
             raise AccessDenied("Settlement cannot wait inside its own native transaction")
-        private_path(self.path)
-        conn = sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True, timeout=0)
+        if wait_until is not None and (
+            type(wait_until) not in {int, float}
+            or not math.isfinite(wait_until)
+            or not callable(clock)
+        ):
+            raise AccessDenied("An original finite native read deadline is required")
+        end = time.monotonic() + max(0, wait_until - clock()) if wait_until is not None else None
+        while True:
+            if wait_until is not None and (clock() >= wait_until or time.monotonic() >= end):
+                raise AccessDenied("Original native read wait expired")
+            if cancelled is not None and cancelled.is_set():
+                raise AccessDenied("Native read wait was cancelled")
+            private_path(self.path)
+            conn = sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True, timeout=0)
+            try:
+                conn.execute("BEGIN")
+                probe_read_connection(conn, self.binding)
+            except BaseException as error:
+                conn.rollback()
+                conn.close()
+                if not isinstance(error, sqlite3.Error) or wait_until is None or not is_busy_sqlite(error):
+                    raise
+                remaining = min(wait_until - clock(), end - time.monotonic())
+                if remaining <= 0:
+                    raise AccessDenied("Original native read wait expired") from error
+                # Retry only provisional read acquisition, with no transaction
+                # or effect held. The caller body and full writer are not retried.
+                if cancelled is not None:
+                    cancelled.wait(min(0.02, remaining))
+                else:
+                    time.sleep(min(0.02, remaining))
+                continue
+            break
         try:
-            conn.execute("BEGIN")
-            probe_read_connection(conn, self.binding)
             yield conn
             probe_read_connection(conn, self.binding)
         finally:
