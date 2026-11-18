@@ -675,3 +675,26 @@ The original four-contender control remains failed: 222.790007 seconds for the b
 The wheel SHA-256 is `9ad21c52cd672112235c7c51a01807a8b89fbcd580a23bf3bffb0d3776dc9476`. All 354 runtime files match source, wheel and installation; all 40 installed distributions match the lock without extras. Lock SHA-256 is `57aa245a4610fb5671c51c34bb46d83d8d1d8e3f14d382dea99b1497400bcfb4`; CPython is 3.13.13 and SQLite is 3.50.4. Installed checks use `-I -B`, the declared development support site and an asserted installed import path. Private primary records retain literal commands, environment, XML, hashes, independent review and disposition.
 
 The four controlled owners and their check consumers are stopped. Post-test Docker readback contains only the same ten protected containers. Historical resources, commits, original keys/deadlines, source packages and separate request ledgers remain protected. The new runtime cannot consume an older activation merely because retirement now selects the correct target. The delivery lead owns the retained obligations: require a supported source-compatible finite operator, positive original ownership and last-consumer witnesses before using the retained original workflow/key retirement selectors. Until those prerequisites are established, preserve the resources. No old activation was rewritten and no protected cleanup was attempted. Continue with T07, then the genuine dependent/interrupted scenario and final operating procedure.
+
+
+<a id="dp06-t07-installed-performance"></a>
+### DP06 T07 installed performance and S3 acceptance
+
+DONE - DP06-T07 and DP06-S3 accepted on 18 November 2026 at `fbd42137acf0ef420fd0717f281866caba463492`. T07-A1–A3, S3-A1–A3 and their Definitions of Done pass. One independent reviewer accepted all four outcome obligations. [TST-425](https://linear.app/manaferra/issue/TST-425) and [TST-417](https://linear.app/manaferra/issue/TST-417) read Done with parents and ownership preserved. Counts are **7/9 tasks (77.8%), 3/4 stories (75%) and 2/6 epic criteria (33.3%)**. T08/T09 and E1-A3–A6 remain open.
+
+The installed batch recorded four passes and one failed warm fixture in 228.88 seconds. Its fresh warm task used a stale target after cold publication; `target_moved` was a correct refusal. The fixture now observes current integration before constructing that grant. The other four cases construct all grants before publication, so their inputs and passes remain compatible. Only small was rerun: one pass in 43.36 seconds. Five distinct selected nodes are satisfied; the original batch remains failed.
+
+| Workload | Observed seconds | Fixed budget |
+| --- | --- | --- |
+| Complete cold small delivery | 16.660393 | ≤300 |
+| Complete warm small delivery | 25.680856 | ≤300 |
+| Broad setup plus delivery | 33.878581 | ≤240 |
+| Two contenders | 31.973896; maximum wait 15.088378 | Batch ≤600; cumulative wait ≤120/task |
+| Four contenders | 70.116271; maximum wait 49.499845 | Batch ≤600; cumulative wait ≤120/task |
+| Four with continuation allowed | 72.941056; maximum wait 51.762298 | Batch ≤600; cumulative wait ≤120/task |
+
+Cold uses a fresh project/resources/check store with the pinned image present. Warm uses the same process/repository/host image and a fresh second task/resources; its complete envelope charges setup and cache priming. Broad selects all four checks and carries all four on warm reuse. Stage and pre-call timings remain separately recorded; full small test wall time is 42.341439 seconds. These real installed Git/Docker/SQLite controls use authored semantic/provider ports and no model execution. They do not establish genuine timing. Observed peaks are four controllers, one Docker watcher, one candidate child and one publication child, not RSS/CPU measurements. Target content/ancestry and distinct tasks/databases pass. The continuation-allowed variant used one call per task, so no new continuation is claimed; unchanged accepted recovery evidence retains its scope.
+
+Three existing test/oracle files changed. Case revision 5 preserves all 248 IDs/statuses and exact historical C13/C14/B07 records while aligning current oracles with R08 revision 6. Required inventory, targeted lint/format and current Technical Writer checks pass; the initial pytest-support/no-collection mistake is retained, and post-run formatting preserves the AST. All 354 runtime files still match accepted `103e91e` and wheel SHA-256 `9ad21c52cd672112235c7c51a01807a8b89fbcd580a23bf3bffb0d3776dc9476`. The noneditable CPython 3.13.13/SQLite 3.50.4 installation and 40 locked distributions are reused. Commands bind `-I -B`, declared support and installed imports.
+
+Owner finalization stops consumers/children/workers; it does not delete worktrees/databases. They remain protected evidence owned by the delivery lead pending supported independent retirement with positive ownership and last-consumer checks. Lead post-case Docker readback contains only the same ten protected containers. Original keys/deadlines, old activations and the failed 222.79/156.03-second result remain unchanged; no causal optimization is inferred. Private primary records retain commands, XML, hashes, timing and review. Continue with genuine dependent/interrupted T08.
