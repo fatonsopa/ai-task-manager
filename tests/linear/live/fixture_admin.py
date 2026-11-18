@@ -411,7 +411,7 @@ class FixtureAdministration:
         with readonly(config["core_database"]) as conn:
             scheduling(conn)
             publication(conn)
-            if [tuple(row) for row in conn.execute("SELECT version FROM metadata")] != [(5,)]:
+            if [tuple(row) for row in conn.execute("SELECT version FROM metadata")] != [(6,)]:
                 raise DriverRefused("current_product_schema_required")
             claim = journal.claim_store()
             if (
