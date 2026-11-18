@@ -294,6 +294,22 @@ class ManagedNativeHost:
         self.startup.admitted = True
         self.process.boundary = lambda: self._current_lease(handle, attempt)
 
+    @contextmanager
+    def startup_consumption_boundary(self, ready_ref):
+        # Prepare outside Core, then keep its current-only startup observation
+        # reentrant while Core verifies the original proof. No effect is retried.
+        startup, process = self.startup, self.process
+        if startup is None or process is None or startup.ready_ref != ready_ref:
+            raise AccessDenied("Original owned startup observation is required")
+        observed = self.journal._read(ready_ref, "startup")
+        with startup.model_guard.observation_boundary(
+            cancelled=process._stopping,
+            not_after=min(self.binding.deadline, observed["expires_at"]),
+        ):
+            if self.startup is not startup or self.process is not process:
+                raise AccessDenied("Original startup owner changed while waiting")
+            yield
+
     def install_identity_observations(self, value):
         from .identity_refresh import IdentityRefresh
 
