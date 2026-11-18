@@ -307,6 +307,20 @@ class NormalInvocationController:
 
     @contextmanager
     def identity_boundary(self, invocation, *, not_after, cancelled=None):
+        with self._identity_boundary(invocation, not_after=not_after, cancelled=cancelled, status="running"):
+            yield
+
+    @contextmanager
+    def initial_authentication_boundary(self, invocation, *, not_after, cancelled=None):
+        from ai_task_manager.adapters.hosts.bridge.invocations import InvocationBinding
+
+        require(type(invocation) is InvocationBinding and invocation.purpose == "host",
+                "Initial authentication requires its original counted host parent")
+        with self._identity_boundary(invocation, not_after=not_after, cancelled=cancelled, status="launching"):
+            yield
+
+    @contextmanager
+    def _identity_boundary(self, invocation, *, not_after, cancelled, status):
         from ai_task_manager.adapters.hosts.bridge.invocations import InvocationBinding
 
         require(
@@ -319,7 +333,7 @@ class NormalInvocationController:
 
         def validate(conn):
             self._current(conn)
-            row = self._owned(conn, invocation.call_id, invocation.worker_identity, "running")
+            row = self._owned(conn, invocation.call_id, invocation.worker_identity, status)
             require(
                 row["uses_worker"]
                 and not row["process_stopped"]

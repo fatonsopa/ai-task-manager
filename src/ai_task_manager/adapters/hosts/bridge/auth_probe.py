@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from contextlib import nullcontext
 from pathlib import Path
 
 from ai_task_manager.adapters.process.groups import (
@@ -26,6 +27,11 @@ class ClaudeAuthProbe:
         self.journal, self.permits = journal, permits
 
     def observe(self, policy, binding, directory):
+        boundary = getattr(self.permits, "authentication_boundary", None)
+        with boundary(policy, binding) if callable(boundary) else nullcontext():
+            return self._observe(policy, binding, directory)
+
+    def _observe(self, policy, binding, directory):
         policy.check()
         permit = require_invocation(
             self.permits.authorize_auth(policy, binding), policy, binding, "auth"

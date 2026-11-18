@@ -140,6 +140,18 @@ class InvocationPermits:
         self._key = object()
 
     @contextmanager
+    def initial_authentication_boundary(self, prepared, *, not_after, cancelled=None):
+        self._validate(prepared)
+        boundary = getattr(self.controller, "initial_authentication_boundary", None)
+        if callable(boundary):
+            with boundary(prepared.binding, not_after=not_after, cancelled=cancelled):
+                self._validate(prepared)
+                yield
+                self._validate(prepared)
+        else:
+            yield
+
+    @contextmanager
     def identity_boundary(self, prepared, *, not_after, cancelled=None):
         self._validate(prepared)
         boundary = getattr(self.controller, "identity_boundary", None)
