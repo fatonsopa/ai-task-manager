@@ -4518,14 +4518,14 @@
         "R31"
       ],
       "workflow": null,
-      "title": "Existing merge result meanings",
+      "title": "Standalone merge outcome meanings",
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Drive CHECKS PASSED, WOULD NOT MERGE, MERGED, NOT MERGED and NOTHING TO MERGE in disposable copies."
+        "Drive the supported standalone merge API/CLI through passed and refused checks, guarded candidate refusal, confirmed publication and exact-key no-effect reconciliation in isolated projects."
       ],
       "expected": [
-        "Preserved outputs retain meaning; no competing queue or rebase; only script-owned cleanup acts at merge time."
+        "Typed outcomes match authoritative Git, Core and publication journals. Required checks and independent review remain binding; only one authority integrates into the configured target. No compatibility script or competing queue/rebase is introduced. Cleanup requires current scoped ownership and observed last-consumer completion."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -4551,10 +4551,10 @@
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "Kill the controller before merge, during waiting and after dev moves but before acknowledgement."
+        "Interrupt the exact owned controller before publication, while waiting and after the configured target moves but before acknowledgement; retain original workflow/operation keys, source/package and resource witnesses."
       ],
       "expected": [
-        "Reconcile Git and script logs; no replayed successful merge or competing branch attempt; warning-only failures stay warnings."
+        "Reconcile Git and durable candidate, publication, Core and provider facts through the supported API/CLI. Do not replay a successful publication, create a competing owner or discard unknown effects. Preserve current human/source guards and original deadlines; retire resources only through the supported ownership and last-consumer boundary."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -5538,10 +5538,10 @@
       "critical": true,
       "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
       "actions": [
-        "A worker encounters a real merge refusal and later disconnects after a successful merge."
+        "Through the standalone merge API/CLI, encounter a real guarded check or merge refusal, then disconnect after Git publication but before acknowledgement."
       ],
       "expected": [
-        "Keep existing script flow; repair only the refusal cause; reconcile committed merge before retry; preserve warnings."
+        "Correct only the named refusal cause within the approved scope. Preserve valid checks and provenance, reconcile the original publication before further delivery/status effects, and refuse duplicate worker or successful publication execution. Unknown work/resources remain protected; report warnings and uncertainty according to the current contract."
       ],
       "evidence": [
         "artifact and case hashes",
@@ -8543,7 +8543,7 @@
     "workflows": 14,
     "cases": 248
   },
-  "case_revision": 4,
+  "case_revision": 5,
   "case_revision_history": [
     {
       "revision": 3,
@@ -8652,6 +8652,111 @@
       },
       "prior_results_reinterpreted": false,
       "timing": "Before full product acceptance on these profiles; actual original-ledger migration remains separately gated."
+    },
+    {
+      "revision": 5,
+      "changed_cases": [
+        "C13",
+        "C14",
+        "B07"
+      ],
+      "superseded_inventory_sha256": "522a6c42175cf3892927e6f1332ea6107392de4e2b81fed8df0e0c170fae0267",
+      "reason": "Reconcile obsolete script/dev-specific wording with approved R08 revision6 and DP06 S3 DoD: standalone API/CLI, trusted configured target, durable exact-key reconciliation, checks/provenance and last-consumer resource lifetime. No implementation or result is inferred from this wording change.",
+      "previous_cases": [
+        {
+          "id": "C13",
+          "layer": "process",
+          "requirements": [
+            "R08",
+            "R31"
+          ],
+          "workflow": null,
+          "title": "Existing merge result meanings",
+          "critical": true,
+          "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+          "actions": [
+            "Drive CHECKS PASSED, WOULD NOT MERGE, MERGED, NOT MERGED and NOTHING TO MERGE in disposable copies."
+          ],
+          "expected": [
+            "Preserved outputs retain meaning; no competing queue or rebase; only script-owned cleanup acts at merge time."
+          ],
+          "evidence": [
+            "artifact and case hashes",
+            "captured commands or public tool trace",
+            "before/after authoritative state",
+            "actual result and retained attempt id"
+          ],
+          "hosts": [
+            "shared"
+          ],
+          "execution_status": "not_run",
+          "workflow_ids": []
+        },
+        {
+          "id": "C14",
+          "layer": "process",
+          "requirements": [
+            "R08",
+            "R14"
+          ],
+          "workflow": null,
+          "title": "Crash around a committed merge",
+          "critical": true,
+          "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+          "actions": [
+            "Kill the controller before merge, during waiting and after dev moves but before acknowledgement."
+          ],
+          "expected": [
+            "Reconcile Git and script logs; no replayed successful merge or competing branch attempt; warning-only failures stay warnings."
+          ],
+          "evidence": [
+            "artifact and case hashes",
+            "captured commands or public tool trace",
+            "before/after authoritative state",
+            "actual result and retained attempt id"
+          ],
+          "hosts": [
+            "shared"
+          ],
+          "execution_status": "not_run",
+          "workflow_ids": []
+        },
+        {
+          "id": "B07",
+          "layer": "behavior",
+          "requirements": [
+            "R08",
+            "R14",
+            "R31"
+          ],
+          "workflow": null,
+          "title": "Merge refusal and orphan recovery",
+          "critical": true,
+          "setup": "Fresh isolated run fixtures and scoped identity; no production writes.",
+          "actions": [
+            "A worker encounters a real merge refusal and later disconnects after a successful merge."
+          ],
+          "expected": [
+            "Keep existing script flow; repair only the refusal cause; reconcile committed merge before retry; preserve warnings."
+          ],
+          "evidence": [
+            "artifact and case hashes",
+            "captured commands or public tool trace",
+            "before/after authoritative state",
+            "actual result and retained attempt id"
+          ],
+          "hosts": [
+            "claude-code",
+            "codex-cli"
+          ],
+          "execution_status": "not_run",
+          "workflow_ids": [
+            "delivery"
+          ]
+        }
+      ],
+      "prior_results_reinterpreted": false,
+      "timing": "DP06-T07 qualification; original IDs, host coverage, execution statuses and historical results remain unchanged."
     }
   ]
 }

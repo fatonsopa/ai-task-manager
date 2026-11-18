@@ -12,8 +12,37 @@ from tests.merge_workloads.test_recovery import compose
 
 
 def test_small_cold_and_same_task_warm_content_reuse(tmp_path):
+    started = time.monotonic()
     project = Project(tmp_path / "small")
-    owner = Owner(project, 0)
+    cold_owner = Owner(project, 0)
+    timings = {}
+    try:
+        cold_owner.workflow = compose(cold_owner)
+        result = cold_owner.workflow.run(
+            cold_owner.task.id, cold_owner.workflow.plan.id, "small-cold"
+        )
+        assert result["data"]["state"] == "done", result
+        assert git(project.repo, "show", "integration:features/0.txt") == cold_owner.value.strip()
+        cold_seconds = time.monotonic() - started
+        assert cold_seconds <= 300
+        timings["cold_full_delivery"] = {
+            "seconds": cold_seconds,
+            "scope": (
+                "Fresh repository/task/resources/check store; timer includes project and owner "
+                "setup through confirmed delivery, with authored semantic ports and no model wait."
+            ),
+            "setup_seconds": cold_owner.setup_seconds,
+            "database_seconds": cold_owner.database_seconds,
+            "worker_commit_seconds": cold_owner.worker_commit_seconds,
+            "workflow_stages": cold_owner.workflow.timings,
+        }
+    finally:
+        cleanup_started = time.monotonic()
+        cold_owner.close()
+        timings["cold_cleanup_seconds"] = time.monotonic() - cleanup_started
+
+    warm_started = time.monotonic()
+    owner = Owner(project, 1)
     try:
         owner.candidate = owner.candidates.prepare(owner.grant)
         assert owner.candidate.status == "ready", owner.candidate
@@ -40,27 +69,39 @@ def test_small_cold_and_same_task_warm_content_reuse(tmp_path):
         assert len(inputs.checks.source_guard.runner.jobs) == jobs == 1
         assert len(first["plan"].units) == len(second["plan"].units) == 1
         owner.workflow = compose(owner)
-        result = owner.workflow.run(owner.task.id, owner.workflow.plan.id, "small-delivery")
+        result = owner.workflow.run(owner.task.id, owner.workflow.plan.id, "small-warm")
         assert result["data"]["state"] == "done", result
-        assert git(project.repo, "show", "integration:features/0.txt") == owner.value.strip()
-        (tmp_path / "small-timings.json").write_text(
-            json.dumps(
-                {
-                    "database_seconds": owner.database_seconds,
-                    "worker_commit_seconds": owner.worker_commit_seconds,
-                    "setup_seconds": owner.setup_seconds,
-                    "cold_check_seconds": cold_seconds,
-                    "warm_check_seconds": warm_seconds,
-                    "docker_jobs": jobs,
-                    "workflow_stages": owner.workflow.timings,
-                    "cold_plan": asdict(first["plan"]),
-                    "warm_groups": second["groups"],
+        assert git(project.repo, "show", "integration:features/1.txt") == owner.value.strip()
+        warm_total = time.monotonic() - warm_started
+        assert warm_total <= 300
+        timings.update(
+            {
+                "warm_full_delivery": {
+                    "seconds": warm_total,
+                    "scope": (
+                        "Same process/repository/Docker image after cold delivery, fresh second "
+                        "task/resources/check store. Conservative envelope includes setup, "
+                        "check-cache priming and same-task warm content reuse through confirmed "
+                        "delivery; no model wait."
+                    ),
                 },
-                indent=2,
-            )
+                "database_seconds": owner.database_seconds,
+                "worker_commit_seconds": owner.worker_commit_seconds,
+                "setup_seconds": owner.setup_seconds,
+                "cold_check_seconds": cold_seconds,
+                "warm_check_seconds": warm_seconds,
+                "docker_jobs": jobs,
+                "workflow_stages": owner.workflow.timings,
+                "cold_plan": asdict(first["plan"]),
+                "warm_groups": second["groups"],
+            }
         )
     finally:
+        cleanup_started = time.monotonic()
         owner.close()
+        timings["warm_cleanup_seconds"] = time.monotonic() - cleanup_started
+        timings["full_test_wall_seconds"] = time.monotonic() - started
+        (tmp_path / "small-timings.json").write_text(json.dumps(timings, indent=2))
 
 
 def test_broad_eight_line_config_selects_all_four_checks(tmp_path):

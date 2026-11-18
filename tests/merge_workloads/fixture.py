@@ -283,7 +283,7 @@ class Owner:
             binding,
             "refs/heads/managed/" + self.attempt.id,
             git(self.pair.worktree, "rev-parse", "HEAD"),
-            project.base,
+            git(project.repo, "rev-parse", "refs/heads/integration"),
             self.task.version,
             self.attempt.version,
             self.task.decision_revision,
