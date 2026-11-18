@@ -6,6 +6,8 @@ Status: Planning handoff, 17 November 2026. DP05 records accepted completion. DP
 
 Work in the AI Task Manager repository. Prepare **DP06 — Schedule and deliver concurrent tasks**, using accepted DP05 as the cumulative baseline. After I approve the detailed plan, execute its complete scope autonomously under the rules below.
 
+Use the shared `docs/plans/delivery-session-prompt.md` as the standard method, with DP06's exact scope and accepted DP05 baseline supplied here. Include its startup-chain, smallest-usable-path and forced approach-change rules in the detailed DP06 plan alongside the verbatim execution paragraphs and completion-based reporting below. For relevant startup work, first prove sealed role → advertised tools → capture → cold verification → normal startup, then lead queue read → eligible selection → operator worker start. Reuse compatible evidence for the regression reported already added and passing; do not claim a new test or expand into unrelated checks. Fifteen minutes without delivered work or decisive evidence forces a concrete change; more preparation, component passes and review paperwork cannot justify the same approach.
+
 ### Goal and baseline
 
 Eligible independent tasks run safely in parallel and deliver through one merge authority. Dependency, priority, fairness, starvation, queue/capacity and conflict decisions must reflect actual state. Required small-change and concurrent merge/resource performance criteria must pass with measured evidence, while preserving isolation, human decisions and recovery.
