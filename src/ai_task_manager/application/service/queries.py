@@ -1,11 +1,30 @@
 """Focused queries operations over the configured session."""
 
+from ai_task_manager.domains.work.errors import WorkError
+
 from .models import Unavailable, result
 from .projection import quarantined, task_view
 
 
+def _prepare_current_milestones(service, task):
+    if not any(
+        subject == task.prose_digest
+        for subject, _ in getattr(service.dependencies, "milestones", ())
+    ):
+        return
+    prepare = getattr(service.dependencies, "prepare_current_milestones", None)
+    if callable(prepare) and not task.human_hold and not quarantined(service, task):
+        try:
+            prepare(None, task_id=task.id)
+        except WorkError:
+            # Projection retains the existing authoritative blocked/unknown state.
+            pass
+
+
 def task_list(service, data, invocation):
     tasks = service.core.list_tasks(service.handle)
+    for task in tasks:
+        _prepare_current_milestones(service, task)
     views = [task_view(service, task) for task in tasks]
     ordering = {item["task_id"]: index for index, item in enumerate(
         service.core.scheduling.ordered(service.handle)
@@ -18,7 +37,9 @@ def task_list(service, data, invocation):
 
 
 def task_show(service, data, invocation):
-    return result(task_view(service, service.core.get_task(service.handle, data["task_id"])))
+    task = service.core.get_task(service.handle, data["task_id"])
+    _prepare_current_milestones(service, task)
+    return result(task_view(service, task))
 
 
 def task_external_changes(service, data, invocation):

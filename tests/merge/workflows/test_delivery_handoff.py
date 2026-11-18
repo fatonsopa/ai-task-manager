@@ -184,3 +184,115 @@ def test_saved_exact_publication_context_resumes_without_generic_authority(owned
     assert result["data"]["state"] == "done", result
     assert flow.workflow.store.read(ref)["steps"]["candidate"]["result"] == candidate
     assert lifecycle._thread is None or not lifecycle._thread.is_alive()
+
+
+@pytest.mark.parametrize("condition", ["current", "stale", "held", "target"])
+def test_public_queue_queries_reprepare_only_current_local_merge_milestone(tmp_path, condition):
+    """Real saved Git publication/merge producer and signed source; no provider refetch."""
+    import json
+    from dataclasses import asdict
+    from types import SimpleNamespace
+    from ai_task_manager.adapters.resources.git import git
+    from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
+    from ai_task_manager.adapters.linear.dependencies.source import DependencySource
+    from ai_task_manager.application.service.facade import ApplicationService
+    from ai_task_manager.domains.scheduling.models import Dependency, DependencySnapshot
+    from ai_task_manager.domains.scheduling.resources import AdmissionResources
+    from ai_task_manager.domains.work.models import TaskProse
+    from ai_task_manager.installation.workflows.member_evidence import MemberMilestones
+
+    flow = Flow(tmp_path / "queue-publication")
+    try:
+        # The existing authored selector binds checks to the actual retained
+        # candidate before the real check-store/file verification is repeated.
+        flow.check_inputs.select_retained = flow.check_inputs.discover
+        delivered = flow.run()
+        assert delivered["ok"] and delivered["data"]["state"] == "done", delivered
+        r = flow.r
+        predecessor = r.core.get_task(r.handle, flow.task.id)
+        reference = next(ref for ref, (fact, _) in flow.evidence.prepared.items() if fact.kind == "merge")
+        delivery = SimpleNamespace(
+            evidence=flow.evidence, issuer=None,
+            prepare_merge_milestone=lambda ref, plan: flow.workflow.prepare_merge_milestone(
+                delivered["data"]["workflow"], ref
+            ),
+        )
+        member = SimpleNamespace(
+            spec=SimpleNamespace(data={"scope": asdict(r.scope), "task_id": predecessor.id,
+                                      "plan_ref": flow.plan.id}, check=lambda: None),
+            review_issuer=None,
+            service=SimpleNamespace(workflows=SimpleNamespace(driver=SimpleNamespace(
+                code_delivery=delivery, plans=SimpleNamespace(get=lambda ref: flow.plan)))),
+        )
+        r.core.context.evidence = MemberMilestones(r.core.context.evidence.routes, (member,))
+        prose = TaskProse("Inspect the published dependency", "Retain its current queue explanation.", False)
+        task = r.core.intake.submit(r.handle, prose, r.approval(prose), r.key())
+        r.resource_sources.rows[task.id] = AdmissionResources(
+            r.scope, task.id, task.prose_digest, task.decision_revision, "authored-queue", (), (),
+        )
+        task = r.transition(r.confirm(task), "Todo", "enqueue")
+        receipts = DependencyReceipts(tmp_path / "provider-window.sqlite", tmp_path / "provider-window.key",
+                                     clock=lambda: r.now)
+        # Any provider collection would fail: this producer owns only an already
+        # signed original observation and the existing local publication.
+        client = SimpleNamespace(expected=SimpleNamespace(team_id="authored-current-team"))
+        source = DependencySource(r.core, r.handle, client, receipts,
+                                  milestones=((task.prose_digest, predecessor.prose_digest),))
+        r.core.scheduling.sources = receipts
+        current = r.core.scheduling.explain(r.handle, task.id)
+        begun = receipts.begin(r.scope, task, current["graph_version"], "original-provider-observation")
+        observed = DependencySnapshot(
+            r.scope, task.id, task.prose_digest, task.issue_id, source.source_id, begun["generation"],
+            r.now, r.now + 30, "complete", "normal",
+            (Dependency(predecessor.id, "code_merged", evidence_refs=(("merge", reference),)),),
+            current["graph_version"],
+        )
+        signed = receipts.finish(r.scope, task.id, "original-provider-observation", begun["context"],
+                                 observed, {"scope": "authored original provider window; no refetch"})
+        r.core.scheduling.observe(r.handle, task.id, task.version, task.decision_revision,
+                                  signed, "publish-original-provider-observation")
+        app = ApplicationService(r.core, r.handle, dependencies=source)
+        initial = app.call("task_show", {"task_id": task.id})
+        expiry = flow.evidence.prepared[reference][0].expires_at
+        r.now = observed.expires_at if condition == "stale" else expiry + 1
+        if condition == "held":
+            hold = r.proof("human_decision", predecessor.id,
+                           {"previous_revision": predecessor.decision_revision, "hold": True})
+            r.core.decisions.record(r.handle, predecessor.id, predecessor.version, hold, r.key())
+        elif condition == "target":
+            # Even a still-unexpired cached witness must reject actual target change.
+            r.now = observed.observed_at
+            target = git(flow.runtime.repo, "rev-parse", "refs/heads/integration")
+            git(flow.runtime.repo, "update-ref", "refs/heads/integration", flow.old, target)
+        expired = app.call("task_show", {"task_id": task.id})
+        # Exercise list preparation independently, after show's fresh local proof
+        # expires again, without going backwards inside any authority window.
+        r.now = max(r.now, flow.evidence.prepared[reference][0].expires_at + 1)
+        listed = app.call("task_list", {})
+        listed_view = next(row for row in listed["data"] if row["id"] == task.id)
+        preparation_failure = None
+        try:
+            source.prepare_current_milestones(None, task_id=task.id)
+        except WorkError as error:
+            preparation_failure = {"type": type(error).__name__, "message": str(error)}
+        restored = app.call("task_show", {"task_id": task.id})
+        facts = {"scope": "Controlled local publication/query; not a proven G12 live expiry cause",
+                 "condition": condition,
+                 "provider_expiry": observed.expires_at, "clock": r.now, "old_local_expiry": expiry,
+                 "new_local_expiry": flow.evidence.prepared[reference][0].expires_at,
+                 "preparation_failure": preparation_failure,
+                 "initial": initial, "after_local_expiry": expired,
+                 "list_after_local_expiry": listed_view, "after_existing_preparation": restored}
+        (tmp_path / "lead-projection-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+        assert initial["data"]["scheduling"]["state"] == "ready", facts
+        if condition == "current":
+            assert restored["data"]["scheduling"]["state"] == "ready", facts
+            assert expired["data"]["scheduling"]["state"] == "ready", facts
+            assert listed_view["scheduling"]["state"] == "ready", facts
+        else:
+            assert restored["data"]["scheduling"]["state"] != "ready", facts
+            assert expired["data"]["scheduling"]["state"] != "ready", facts
+            assert listed_view["scheduling"]["state"] != "ready", facts
+            assert preparation_failure is not None, facts
+    finally:
+        flow.close()
