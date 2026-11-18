@@ -1,3 +1,4 @@
+from contextlib import ExitStack
 from dataclasses import asdict
 
 from ai_task_manager.adapters.linear.errors import LinearError, ScopeMismatch
@@ -166,34 +167,46 @@ class OutboundDrain:
                 else None
             )
             check_authority()
-            send_id = self.journal.begin_send(
-                scope,
-                operation,
-                candidate_id,
-                connection_digest=connection.digest,
-                native_type=native_type,
-            )
-            with owned_request(self.journal, scope, operation, send_id):
+
+            def prepare_dispatch():
                 check_authority()
-                current = self.core.get_task(handle, task.id)
-                if (
-                    current.version != task.version
-                    or current.decision_revision != task.decision_revision
-                    or (
-                        current.human_hold
-                        and not self.core.sync.authorizes_hold_publication(handle, operation.id)
+
+                def begin_dispatch():
+                    nonlocal send_id
+                    # Connection and credentials may perform fallible reads. Recheck
+                    # the human/version fence after them, before recording any send.
+                    current = self.core.get_task(handle, task.id)
+                    if (
+                        current.version != task.version
+                        or current.decision_revision != task.decision_revision
+                        or (
+                            current.human_hold
+                            and not self.core.sync.authorizes_hold_publication(handle, operation.id)
+                        )
+                    ):
+                        raise LinearError("stale_outbound_authority")
+                    send_id = self.journal.begin_send(
+                        scope, operation, candidate_id,
+                        connection_digest=connection.digest, native_type=native_type,
                     )
-                ):
-                    raise LinearError("stale_outbound_authority")
+                    request.enter_context(owned_request(self.journal, scope, operation, send_id))
+
+                return begin_dispatch
+
+            with ExitStack() as request:
                 if operation.kind == "create_backlog":
-                    options = {"native_type": native_type} if native_type is not None else {}
+                    options = {"_prepare_dispatch": prepare_dispatch}
+                    if native_type is not None:
+                        options["native_type"] = native_type
                     result = (
                         self.client.create_issue(task, candidate_id, **options)
                         if candidate_id
                         else self.client.create_issue(task, **options)
                     )
                 else:
-                    result = self.client.update_issue(task, operation.kind)
+                    result = self.client.update_issue(
+                        task, operation.kind, _prepare_dispatch=prepare_dispatch
+                    )
                 if result.assignee_id != scope.principal:
                     metadata = ownership_removal(result)
                     self.journal.record_scope_response(scope, send_id, metadata)

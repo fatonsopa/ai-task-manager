@@ -7,7 +7,7 @@ import pytest
 from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.adapters.linear.receipts import ProviderJournal
 from ai_task_manager.application.linear_sync.inbound import InboundDrain
-from ai_task_manager.domains.work.errors import AccessDenied
+from ai_task_manager.domains.work.errors import AccessDenied, WorkError
 from ai_task_manager.domains.work.models import IssueStatus as S
 from tests.linear.helpers import EXPECTED, STATES, LinearRig, ProviderFixture
 
@@ -25,12 +25,63 @@ def updates(rig):
     return [r for r, _ in rig.provider.requests if "mutation UpdateIssue" in r["query"]]
 
 
+@pytest.mark.parametrize("kind", ["update", "create"])
+def test_t08_pre_dispatch_read_failure_remains_unsent(rig, tmp_path, kind):
+    """Actual client/drain/Core/journal; only a local authored HTTP provider."""
+    import hashlib
+    import traceback
+    from pathlib import Path
+    task = (rig.task(confirmed=False) if kind == "create"
+            else rig.transition(rig.task(), S.TODO, "enqueue", confirm=False))
+    requests_before = len(rig.provider.requests)
+    calls, failures = [], []
+
+    def current_authority():
+        calls.append({"index": len(calls) + 1, "send_rows": len(rig.journal.sends(rig.scope))})
+        if len(calls) == 3:
+            rig.provider.fail_next = (503, b"authored read-only identity failure")
+        try:
+            rig.client.verify_binding()
+        except LinearError:
+            failures.append(traceback.format_exc())
+            raise
+
+    outcome = rig.outbound.run_once(rig.handle, check_authority=current_authority)
+    operation = next(op for op in rig.core.sync.list_operations(rig.handle)
+                     if op.id == outcome["operation_id"])
+    sends = [row for row in rig.journal.sends(rig.scope) if row["operation_id"] == operation.id]
+    retry = None
+    try:
+        rig.reconcile.retry_unsent(rig.handle, operation.id)
+        retry = {"allowed": True}
+    except (LinearError, WorkError) as error:
+        retry = {"allowed": False, "type": type(error).__name__, "message": str(error)}
+    requests = rig.provider.requests[requests_before:]
+    mutation_count = sum(request["query"].lstrip().startswith("mutation") for request, _ in requests)
+    facts = {
+        "scope": "Controlled localhost HTTP provider; not the original live HTTP status or stack",
+        "expected": {"update_dispatches": 0, "send_rows": 0, "state": "failed", "retry_unsent": True},
+        "observed": {"update_dispatches": mutation_count, "send_rows": len(sends),
+                     "outcome": outcome, "operation_state": operation.state, "retry_unsent": retry},
+        "authority_calls": calls,
+        "requests": [{"mutation": request["query"].lstrip().startswith("mutation"),
+                      "query_sha256": hashlib.sha256(request["query"].encode()).hexdigest()}
+                     for request, _ in requests],
+        "send_states": [{"state": row["state"], "snapshot": row["snapshot"]} for row in sends],
+        "failure_tracebacks": failures,
+        "source": str(Path(__import__("ai_task_manager").__file__).resolve()),
+    }
+    (tmp_path / "pre-dispatch-read-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+    assert mutation_count == 0
+    assert outcome["state"] == "failed" and not sends and retry["allowed"], facts
+
+
 def test_t03_lost_update_reply_uses_original_issue_without_resend(rig, monkeypatch):
     task = rig.transition(rig.task(), S.TODO, "enqueue", confirm=False)
     original = rig.client.update_issue
 
-    def lost(*args):
-        original(*args)
+    def lost(*args, **kwargs):
+        original(*args, **kwargs)
         raise LinearError("transport_failure", uncertain=True)
 
     monkeypatch.setattr(rig.client, "update_issue", lost)
@@ -54,7 +105,7 @@ def test_t03_changed_authority_after_readback_cannot_settle(rig, monkeypatch, ra
     monkeypatch.setattr(
         rig.client,
         "update_issue",
-        lambda *a: (original(*a), (_ for _ in ()).throw(LinearError("lost", uncertain=True)))[1],
+        lambda *a, **kw: (original(*a, **kw), (_ for _ in ()).throw(LinearError("lost", uncertain=True)))[1],
     )
     outcome = rig.outbound.run_once(rig.handle)
     valid = [True]

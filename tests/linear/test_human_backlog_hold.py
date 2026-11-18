@@ -125,8 +125,8 @@ def test_hb09_real_http_publishes_only_current_hold_and_recovers_without_release
     def failed_readback(*_):
         raise LinearError("authored_readback_loss", uncertain=True)
 
-    def with_loss(*args):
-        response = update(*args)
+    def with_loss(*args, **kwargs):
+        response = update(*args, **kwargs)
         if loss == "response":
             raise LinearError("authored_response_loss", uncertain=True)
         if loss == "readback":
@@ -162,14 +162,9 @@ def test_hb09_real_http_publishes_only_current_hold_and_recovers_without_release
     rig.outbound = OutboundDrain(rig.core, rig.client, rig.journal)
     human_service(rig, tmp_path)
     recovery = Reconciliation(rig.core, rig.client, rig.journal)
-    if loss == "response":
-        with pytest.raises(LinearError, match="creation_identity_uncertain"):
-            recovery.recover_outbound(rig.handle, operation.id)
-        assert rig.current(held).human_hold
-    else:
-        recovered = recovery.recover_outbound(rig.handle, operation.id)
-        assert recovered.human_hold and recovered.observed_status == target
-        assert recovered.decision_revision == 1
+    recovered = recovery.recover_outbound(rig.handle, operation.id)
+    assert recovered.human_hold and recovered.observed_status == target
+    assert recovered.decision_revision == 1
     assert rig.outbound.run_once(rig.handle) is None
     assert (
         sum("mutation UpdateIssue" in q["query"] for q, _ in rig.provider.requests) == baseline + 1
@@ -198,8 +193,8 @@ def test_hb10_hold_destination_without_exact_human_proof_cannot_publish(
 
         actual_update, actual_read = rig.client.update_issue, rig.client.read_issue
 
-        def lose_readback(*args):
-            result = actual_update(*args)
+        def lose_readback(*args, **kwargs):
+            result = actual_update(*args, **kwargs)
 
             def failed_read(*_):
                 raise LinearError("authored_readback_loss", uncertain=True)

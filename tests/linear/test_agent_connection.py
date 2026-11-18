@@ -107,8 +107,8 @@ def test_ac06_lost_create_response_recovers_same_uuid_and_connection_only(rig, m
     task = rig.task(confirmed=False)
     original = rig.client.create_issue
 
-    def lost(task, candidate_id):
-        original(task, candidate_id)
+    def lost(task, candidate_id, **kwargs):
+        original(task, candidate_id, **kwargs)
         raise LinearError("transport_failure", uncertain=True)
 
     monkeypatch.setattr(rig.client, "create_issue", lost)

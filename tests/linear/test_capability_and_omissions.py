@@ -57,9 +57,14 @@ def test_l07_candidate_is_durable_before_send_and_exact_recovery_never_recreates
     rig.task(confirmed=False)
     original = rig.client.create_issue
 
-    def lost(task, candidate_id=None):
-        assert rig.journal.sends(rig.scope)[-1]["candidate_id"] == candidate_id
-        original(task, candidate_id)
+    def before_response(request, result):
+        if "mutation CreateIssue" in request["query"]:
+            assert rig.journal.sends(rig.scope)[-1]["candidate_id"] == request["variables"]["input"]["id"]
+
+    rig.provider.hook = before_response
+
+    def lost(task, candidate_id=None, **kwargs):
+        original(task, candidate_id, **kwargs)
         raise LinearError("transport_failure", uncertain=True)
 
     monkeypatch.setattr(rig.client, "create_issue", lost)
@@ -74,11 +79,14 @@ def test_l07_candidate_is_durable_before_send_and_exact_recovery_never_recreates
 def test_l07_missing_or_wrong_candidate_readback_does_not_prove_absence(rig, monkeypatch):
     rig.client.create_capability = IssueCreateCapability.from_introspection(schema())
     task = rig.task(confirmed=False)
-    monkeypatch.setattr(
-        rig.client,
-        "create_issue",
-        lambda *args: (_ for _ in ()).throw(LinearError("transport_failure", uncertain=True)),
-    )
+    original = rig.client.transport.send
+
+    def missing_reply(query, variables, credentials):
+        if "mutation CreateIssue" in query:
+            raise LinearError("transport_failure", uncertain=True)
+        return original(query, variables, credentials)
+
+    monkeypatch.setattr(rig.client.transport, "send", missing_reply)
     result = rig.outbound.run_once(rig.handle)
     with pytest.raises(LinearError, match="creation_identity_uncertain"):
         rig.reconcile.recover_outbound(rig.handle, result["operation_id"])

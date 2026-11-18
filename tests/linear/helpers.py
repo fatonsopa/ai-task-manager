@@ -263,10 +263,13 @@ class LinearRig(Rig):
         self.provider = provider
 
     def new_core(self):
+        from tests.domains.helpers import AuthoredResourceDeclarations
         from tests.scheduling.helpers import SnapshotSource
 
         if not hasattr(self, "scheduling_sources"):
             self.scheduling_sources = SnapshotSource()
+        if not hasattr(self, "resource_sources"):
+            self.resource_sources = AuthoredResourceDeclarations(lambda: self.now)
         return Core(
             self.db,
             self.policy,
@@ -277,6 +280,7 @@ class LinearRig(Rig):
             renderer=self.renderer,
             clock=lambda: self.now,
             scheduling_sources=self.scheduling_sources,
+            resource_sources=self.resource_sources,
         )
 
     def task(self, *, confirmed=True, **kwargs):

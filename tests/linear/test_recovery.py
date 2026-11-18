@@ -44,8 +44,8 @@ def test_l07_missing_create_identity_remains_uncertain_without_title_retry(rig, 
     task = rig.task(confirmed=False)
     original = rig.client.create_issue
 
-    def lost_response(task):
-        original(task)
+    def lost_response(task, **kwargs):
+        original(task, **kwargs)
         raise LinearError("transport_failure", uncertain=True)
 
     monkeypatch.setattr(rig.client, "create_issue", lost_response)

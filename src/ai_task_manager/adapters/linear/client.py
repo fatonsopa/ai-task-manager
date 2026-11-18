@@ -105,12 +105,14 @@ class LinearClient:
         ):
             canonical_id(value)
 
-    def request(self, query, variables, *, mutation=False):
+    def request(self, query, variables, *, mutation=False, _before_dispatch=None):
         credentials = self.credentials()
         authorization_digest = hashlib.sha256(credentials.authorization().encode()).hexdigest()
         expected_digest = self._preflight_digest or self._authorization_digest
         if expected_digest is not None and authorization_digest != expected_digest:
             raise LinearError("credential_binding_changed")
+        if _before_dispatch is not None:
+            _before_dispatch()
         try:
             response = self.transport.send(query, variables, credentials)
         except LinearError as exc:
@@ -444,7 +446,8 @@ class LinearClient:
         self.check_connection()
         return snapshot
 
-    def create_issue(self, task, candidate_id=None, *, native_type=None):
+    def create_issue(self, task, candidate_id=None, *, native_type=None, _prepare_dispatch=None):
+        dispatch = _prepare_dispatch() if _prepare_dispatch is not None else None
         if self.binding is None:
             raise LinearError("binding_not_verified")
         connection = self.check_connection(refresh=True)
@@ -463,10 +466,13 @@ class LinearClient:
             if self.create_capability is None:
                 raise LinearError("creation_uuid_capability_missing")
             values["id"] = canonical_id(candidate_id)
-        result = self.request(CREATE, {"input": values}, mutation=True).get("issueCreate")
+        result = self.request(
+            CREATE, {"input": values}, mutation=True, _before_dispatch=dispatch
+        ).get("issueCreate")
         return self.require_delegate(self.mutation_snapshot(result))
 
-    def update_issue(self, task, kind):
+    def update_issue(self, task, kind, *, _prepare_dispatch=None):
+        dispatch = _prepare_dispatch() if _prepare_dispatch is not None else None
         canonical_id(task.issue_id)
         if self.binding is None:
             raise LinearError("binding_not_verified")
@@ -478,9 +484,10 @@ class LinearClient:
         }
         if kind == "update_prose":
             values.update(title=task.title, description=task.body)
-        result = self.request(UPDATE, {"id": task.issue_id, "input": values}, mutation=True).get(
-            "issueUpdate"
-        )
+        result = self.request(
+            UPDATE, {"id": task.issue_id, "input": values}, mutation=True,
+            _before_dispatch=dispatch,
+        ).get("issueUpdate")
         return self.require_delegate(self.mutation_snapshot(result))
 
     def mutation_snapshot(self, result):
