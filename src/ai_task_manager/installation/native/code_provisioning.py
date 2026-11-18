@@ -505,7 +505,22 @@ class CandidateCheckOwner:
         source_head, target_head = cp.refs(grant)
         published = self._published(candidate, grant, cp, store)
         expected_target = candidate.commit if published else grant.target_head
-        if source_head != grant.source_head or target_head != expected_target:
+        retained_descendant = (
+            delivered
+            and target_head != expected_target
+            and cp.query(
+                candidate.path,
+                "merge-base",
+                "--is-ancestor",
+                candidate.commit,
+                target_head,
+                ok=(0, 1),
+            ).returncode
+            == 0
+        )
+        if source_head != grant.source_head or (
+            target_head != expected_target and not retained_descendant
+        ):
             raise AccessDenied("Candidate check source or target changed")
         if (
             cp.query(candidate.path, "rev-parse", "HEAD").stdout.decode().strip()

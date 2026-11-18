@@ -724,6 +724,15 @@ def test_configured_milestone_releases_only_current_observed_merge(provider, tmp
     )
     predecessor = r.transition(predecessor, S.IN_DEV, "merge", {"merge": merge})
     p.sync(predecessor)
+    preparations = []
+
+    def prepare_current(subject, reference):
+        assert p.depth == 0
+        assert subject == predecessor.id and reference == merge
+        preparations.append((subject, reference))
+        return reference
+
+    r.core.context.evidence.prepare_merge_milestone = prepare_current
     if variant == "held":
         with r.db.transaction() as conn:
             predecessor = work.save(
@@ -741,6 +750,7 @@ def test_configured_milestone_releases_only_current_observed_merge(provider, tmp
     )
     assert len(snapshot.dependencies) == 1
     assert snapshot.dependencies[0].condition == "code_merged"
+    assert preparations == [(predecessor.id, merge)]
     assert dict(snapshot.dependencies[0].evidence_refs)["merge"] == merge
     # Unconfigured provider edges retain their stronger complete-work meaning.
     default = type(source)(r.core, r.handle, p.client, components.scheduling_sources)

@@ -580,6 +580,65 @@ class InstalledCodeDelivery:
                 self._step(row, owner, "code-merge", selected, lambda: body)
             return body
 
+    def prepare_merge_milestone(self, reference, plan):
+        """Restore the original producer from its witnessed completed journals."""
+        current = (
+            self.core,
+            self.handle,
+            self.store,
+            self.runtime,
+            self.resources,
+            self.registration,
+            self.context,
+            self.review_source,
+            self.issuer_key,
+            self.decisions,
+            self.provider,
+            self.criteria,
+        )
+        if any(a is not b for a, b in zip(current, self._bound)):
+            raise AccessDenied("Installed code composition changed")
+        _, self.scope = self.core.session_binding(self.handle)
+        task = self.core.get_task(self.handle, self.context.task.id)
+        self.registration.require(self.core, self.handle, task)
+        if (
+            not task.delivered_once
+            or task.human_hold
+            or task.sync_state != "confirmed"
+            or self.core.context.clock() >= self.context.deadline
+        ):
+            raise EvidenceRequired("Current completed installed work is required")
+        row = self.store.current(self.scope, task.id)
+        if (
+            row is None
+            or row["plan_id"] != plan.id
+            or row["owner"] is not None
+            or row["task_id"] != task.id
+            or row["prose_digest"] != task.prose_digest
+        ):
+            raise EvidenceRequired("One quiescent original workflow is required")
+        saved = row["steps"].get("code-merge", {}).get("result")
+        prior = row["steps"].get("code-plan")
+        commit = row["steps"].get("worker-commit", {}).get("result")
+        if not saved or saved.get("state") != "done" or not prior or not commit:
+            raise EvidenceRequired("Completed original code and publication history is required")
+        attempt = self.core.get_attempt(self.handle, row["attempt_id"])
+        if attempt.state != "done" or attempt.task_id != task.id:
+            raise EvidenceRequired("The original completed attempt is required")
+        pair = self.runtime.pair(attempt.id)
+        with self.resources.use(pair):
+            component = self.components.get(row["id"])
+            if component is None:
+                component = self._component(
+                    row,
+                    plan,
+                    attempt,
+                    pair,
+                    commit,
+                    restored_plan(prior["payload"]["plan"]),
+                )
+            return component.prepare_merge_milestone(saved["merge_workflow"], reference)
+
     def end_call(self):
         self.freshness.close()
 

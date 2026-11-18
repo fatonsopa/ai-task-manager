@@ -16,13 +16,35 @@ class MemberMilestones(EvidenceRouter):
     def with_routes(self, routes):
         return MemberMilestones(routes, self.members)
 
+    def prepare_merge_milestone(self, subject, reference):
+        matches = [member for member in self.members if member.spec.data["task_id"] == subject]
+        if len(matches) != 1:
+            raise EvidenceRequired("One original installed task must own the milestone reference")
+        member = matches[0]
+        member.spec.check()
+        driver = member.service.workflows.driver
+        if driver.code_delivery is None:
+            raise EvidenceRequired("The original installed code producer is unavailable")
+        prepared = driver.code_delivery.prepare_merge_milestone(
+            reference,
+            driver.plans.get(member.spec.data["plan_ref"]),
+        )
+        if prepared != reference:
+            raise EvidenceRequired("The original merge milestone reference changed")
+        member.spec.check()
+        return prepared
+
     def verify_evidence(self, reference):
         families = {
-            "workflow-review:": (WorkflowReviews, frozenset({"work_unit_complete", "non_code_completion"})),
+            "workflow-review:": (
+                WorkflowReviews, frozenset({"work_unit_complete", "non_code_completion"})
+            ),
             "code-worker-review:": (CodeWorkerUnitIssuer, frozenset({"work_unit_complete"})),
             "merge-publication:": (MergeEvidence, frozenset({"merge", "publication_intent"})),
         }
-        family = next((p for p in families if isinstance(reference, str) and reference.startswith(p)), None)
+        family = next(
+            (p for p in families if isinstance(reference, str) and reference.startswith(p)), None
+        )
         if family is None:
             return super().verify_evidence(reference)
         self.members[0].spec.check()

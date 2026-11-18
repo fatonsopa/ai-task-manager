@@ -192,3 +192,190 @@ def test_claim_transfer_interruption_resumes_exact_pending_successor(tmp_path, m
         if workflow is not None:
             workflow.close()
         owned.close()
+
+
+def test_published_member_milestone_refreshes_after_advance_expiry_and_reconstruction(tmp_path):
+    from dataclasses import asdict
+    from types import SimpleNamespace
+
+    from ai_task_manager.domains.scheduling.models import Dependency
+    from ai_task_manager.domains.work.errors import EvidenceRequired
+    from ai_task_manager.installation.workflows.member_evidence import MemberMilestones
+    from tests.merge_workloads.fixture import Owner, Project
+    from tests.scheduling.helpers import declare
+
+    project = Project(tmp_path / "milestone")
+    a, b = Owner(project, 0), Owner(project, 1)
+    observations = {
+        "scope": (
+            "Actual Git/SQL/default merge producer and Core; authored reviews, provider and "
+            "member adapter. Component reconstruction is not an OS owner restart."
+        )
+    }
+    try:
+        a.workflow = compose(a)
+        first = a.workflow.run(a.task.id, a.workflow.plan.id, "milestone-a")
+        assert first["data"]["state"] == "done", first
+        reference = next(
+            ref for ref, (value, _) in a.workflow.evidence.prepared.items() if value.kind == "merge"
+        )
+        delivery = SimpleNamespace(
+            evidence=a.workflow.evidence,
+            prepare_merge_milestone=lambda ref, plan: a.workflow.prepare_merge_milestone(
+                first["data"]["workflow"], ref
+            ),
+        )
+        member = SimpleNamespace(
+            spec=SimpleNamespace(
+                data={
+                    "scope": asdict(a.r.scope),
+                    "task_id": a.task.id,
+                    "plan_ref": a.workflow.plan.id,
+                },
+                check=lambda: None,
+            ),
+            review_issuer=None,
+            service=SimpleNamespace(
+                workflows=SimpleNamespace(
+                    driver=SimpleNamespace(
+                        code_delivery=delivery, plans=SimpleNamespace(get=lambda ref: None)
+                    )
+                )
+            ),
+        )
+        router = MemberMilestones(a.r.core.context.evidence.routes, (member,))
+        a.r.core.context.evidence = router
+        task = a.r.queued(code=False)
+        edge = Dependency(a.task.id, "code_merged", evidence_refs=(("merge", reference),))
+        assert (
+            declare(a.r.core, a.r.handle, task, a.r.scheduling_sources, a.r.now, (edge,))["state"]
+            == "ready"
+        )
+        original_target = git(project.repo, "rev-parse", "integration")
+        b.workflow = compose(b)
+        second = b.workflow.run(b.task.id, b.workflow.plan.id, "milestone-b")
+        assert second["data"]["state"] == "done", second
+        advanced_target = git(project.repo, "rev-parse", "integration")
+        assert original_target != advanced_target
+        git(project.repo, "merge-base", "--is-ancestor", original_target, advanced_target)
+        assert a.r.core.scheduling.explain(a.r.handle, task.id)["state"] == "blocked"
+        assert router.prepare_merge_milestone(a.task.id, reference) == reference
+        assert a.r.core.scheduling.explain(a.r.handle, task.id)["state"] == "ready"
+        expiry = a.workflow.evidence.prepared[reference][0].expires_at
+        a.r.now = expiry
+        assert a.r.core.scheduling.explain(a.r.handle, task.id)["state"] == "blocked"
+        assert router.prepare_merge_milestone(a.task.id, reference) == reference
+        assert a.r.core.scheduling.explain(a.r.handle, task.id)["state"] == "ready"
+        refreshed_expiry = a.workflow.evidence.prepared[reference][0].expires_at
+        assert refreshed_expiry == a.r.now + 5
+        jobs = len(a.capability.checks.checks.source_guard.runner.jobs)
+        a.workflow.close()
+        a.r.core.context.evidence = EvidenceRouter(
+            [r for r in a.r.core.context.evidence.routes if r.prefix != "merge-publication:"]
+        )
+        a.workflow = compose(a)
+        assert not a.workflow.evidence.prepared
+        delivery.evidence = a.workflow.evidence
+        router = MemberMilestones(a.r.core.context.evidence.routes, (member,))
+        a.r.core.context.evidence = router
+        assert router.prepare_merge_milestone(a.task.id, reference) == reference
+        assert a.r.core.scheduling.explain(a.r.handle, task.id)["state"] == "ready"
+        assert len(a.runtime.runtime.workers) == len(b.runtime.runtime.workers) == 1
+        assert len(a.capability.checks.checks.source_guard.runner.jobs) == jobs
+        assert git(project.repo, "rev-parse", "integration") == advanced_target
+        # Rebuild the installed producer through its real existing component and
+        # scoped-head consumers. Runtime lookup/semantic ports remain authored.
+        from ai_task_manager.application.workflows.models import WorkflowPlan
+        from ai_task_manager.installation.workflows.code_delivery import InstalledCodeDelivery
+        from ai_task_manager.storage.workflows import WorkflowStore
+
+        outer = WorkflowStore(tmp_path / "outer.sqlite")
+        current_task = a.r.core.get_task(a.r.handle, a.task.id)
+        plan = WorkflowPlan(
+            "retained-outer",
+            "assignment",
+            "fixture",
+            project.base,
+            (a.changed,),
+            (a.changed,),
+            a.context.deadline,
+        )
+        run_ref = outer.create(a.r.scope, current_task, plan, "original-outer")
+        claim = "owned-history-control"
+        outer.claim(run_ref, a.r.scope, claim)
+        merge_store = a.candidates.store.journal
+        check_store = a.capability.checks.checks.store
+        history = {
+            "merge": {
+                "path": str(merge_store.path),
+                "device": merge_store.identity[0],
+                "inode": merge_store.identity[1],
+                "store_id": merge_store.store_id,
+            },
+            "checks": {
+                "path": str(check_store.path),
+                "device": check_store.file_identity[0],
+                "inode": check_store.file_identity[1],
+                "store_id": check_store.store_id,
+            },
+        }
+        commit = {
+            "commit": a.grant.source_head,
+            "branch": a.grant.source_ref.removeprefix("refs/heads/"),
+        }
+        for name, payload, result in [
+            ("worker-commit", {}, commit),
+            (
+                "code-plan",
+                {"plan": asdict(a.workflow.original_plan), "history": history},
+                {"installed": True},
+            ),
+            ("code-merge", {}, {"state": "done", "merge_workflow": first["data"]["workflow"]}),
+        ]:
+            outer.intend(run_ref, claim, name, payload)
+            outer.finish(run_ref, claim, name, result, attempt_id=a.attempt.id)
+        outer.release(run_ref, claim)
+        native_delivery = InstalledCodeDelivery(
+            a.r.core,
+            a.r.handle,
+            outer,
+            SimpleNamespace(pair=lambda attempt: a.pair),
+            a.runtime.resources,
+            a.code,
+            a.context,
+            Captures(lambda: a.r.now),
+            tmp_path / "units.key",
+            lambda *args: None,
+            ProviderFixture(a.r),
+            ("complete",),
+        )
+        assert not native_delivery.components and not native_delivery.evidence.prepared
+        delivery.evidence = native_delivery.evidence
+        delivery.prepare_merge_milestone = native_delivery.prepare_merge_milestone
+        member.service.workflows.driver.plans = SimpleNamespace(get=lambda ref: plan)
+        assert router.prepare_merge_milestone(a.task.id, reference) == reference
+        assert a.r.core.scheduling.explain(a.r.handle, task.id)["state"] == "ready"
+        assert len(native_delivery.components) == 1
+        with pytest.raises(EvidenceRequired, match="original installed task"):
+            router.prepare_merge_milestone("foreign-task", reference)
+        with pytest.raises(EvidenceRequired, match="reference changed"):
+            router.prepare_merge_milestone(a.task.id, "merge-publication:foreign")
+        git(project.repo, "update-ref", "refs/heads/integration", project.base, advanced_target)
+        from ai_task_manager.domains.work.errors import WorkError
+
+        with pytest.raises(WorkError, match="ancestry|source or target changed"):
+            router.prepare_merge_milestone(a.task.id, reference)
+        observations.update(
+            original_target=original_target,
+            advanced_target=advanced_target,
+            original_ref=reference,
+            original_expiry=expiry,
+            fixture_verifier_clock=a.r.now,
+            refreshed_expiry=refreshed_expiry,
+            worker_counts=[1, 1],
+            unchanged_check_jobs=jobs,
+        )
+    finally:
+        a.close()
+        b.close()
+        (tmp_path / "milestone-observations.json").write_text(json.dumps(observations, indent=2))

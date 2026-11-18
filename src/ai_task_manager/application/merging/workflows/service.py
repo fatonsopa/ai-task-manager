@@ -766,6 +766,49 @@ class MergeWorkflowService(WorkflowService):
         finally:
             self.store.release(ref, owner)
 
+    def prepare_merge_milestone(self, workflow_ref, reference):
+        """Reobserve one completed publication; never run a delivery step."""
+        task = self._scope()
+        if (
+            not task.delivered_once
+            or task.human_hold
+            or task.sync_state != "confirmed"
+            or task.prose_digest != self.plan.grant.binding.prose_digest
+            or self.clock() >= self.plan.deadline
+        ):
+            raise EvidenceRequired("Current completed merge authority is required")
+        row = self.store.read(workflow_ref)
+        if row.get("owner") is not None:
+            raise EvidenceRequired("The original merge consumer is still owned")
+        self.plan = current_plan(self.original_plan, row, maximum_attempts=self.maximum_attempts)
+        steps = row["steps"]
+        required = ("candidate", "check_plan", "publication", "delivery", "confirmation")
+        if any(not steps.get(name, {}).get("result") for name in required):
+            raise EvidenceRequired("Original completed publication history is required")
+        candidate = CandidateResult(**steps["candidate"]["result"])
+        checks_ref = steps["check_plan"]["result"]["ref"]
+        self.check_inputs.restore(self.candidate.profile, self.plan.grant, candidate, checks_ref)
+        consumer = self.consumers.get(workflow_ref)
+        if consumer is None:
+            consumer = self._publication(
+                workflow_ref,
+                candidate,
+                checks_ref,
+                publication_context=self._observed_publication(workflow_ref, row, task),
+            )
+        prepared = self.evidence.prepare(
+            self.core,
+            self.handle,
+            self.plan,
+            candidate,
+            steps["publication"]["result"],
+            consumer,
+            checks_ref,
+        )
+        if prepared != reference:
+            raise EvidenceRequired("The original merge milestone reference changed")
+        return prepared
+
     def close(self):
         observations = []
         for ref in self.references:

@@ -139,6 +139,10 @@ class DependencySource:
             ):
                 raise EvidenceRequired("Explicit milestone requires one current observed code edge")
             merged.add(predecessors[0].issue_id)
+            reference = references.get(predecessors[0].id, {}).get("merge")
+            prepare = getattr(self.core.context.evidence, "prepare_merge_milestone", None)
+            if reference is not None and callable(prepare):
+                prepare(predecessors[0].id, reference)
         edges = tuple(
             Dependency(
                 local[issue].id,
