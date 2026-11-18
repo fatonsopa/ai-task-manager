@@ -85,6 +85,8 @@ class CodeStageSource:
         raw = dict(self.row["plan"])
         for key in ("allowed_files", "artifacts", "commit_checks"):
             raw[key] = tuple(raw[key])
+        if raw.get("resource_locks") is not None:
+            raw["resource_locks"] = tuple(tuple(pair) for pair in raw["resource_locks"])
         self.plan = WorkflowPlan(**raw)
         pointer = author.data.get("commands_manifest")
         if pointer is None:
