@@ -375,7 +375,7 @@ def _native_lease_case(flow, task, source, signed, observed, reference, tmp_path
     if consumer == "auth":
         return _identity_auth_case(flow, host, attempt, observed, reference, tmp_path, condition)
     if consumer == "delivery":
-        return _stopped_delivery_case(flow, host, dispatch, attempt, observed, reference, tmp_path)
+        return _stopped_delivery_case(flow, host, dispatch, attempt, observed, reference, tmp_path, condition)
     if consumer in {"assignment", "admit"}:
         return _additional_lease_case(flow, host, dispatch, attempt, observed, reference, tmp_path, consumer)
     output = tmp_path / "native-output"
@@ -601,7 +601,7 @@ def test_trusted_work_lease_handoff_prepares_local_milestone(tmp_path, consumer)
     return _published_milestone_case(tmp_path, consumer + ":current")
 
 
-def _stopped_delivery_case(flow, host, dispatch, attempt, observed, reference, tmp_path):
+def _stopped_delivery_case(flow, host, dispatch, attempt, observed, reference, tmp_path, condition="current"):
     import json
     import traceback
     from ai_task_manager.installation.workflows.code_delivery import DeliveryResources
@@ -614,6 +614,8 @@ def _stopped_delivery_case(flow, host, dispatch, attempt, observed, reference, t
     lifecycle.bind({"task_id": task.id, "attempt_id": attempt.id, "prose_digest": task.prose_digest,
                     "decision_revision": task.decision_revision})
     lifecycle._mode = "observing"
+    if condition == "receipt":
+        return _delivery_receipt_case(flow, lifecycle, observed, tmp_path)
     try:
         lifecycle._refresh()
         expiry = flow.evidence.prepared[reference][0].expires_at
@@ -634,3 +636,89 @@ def _stopped_delivery_case(flow, host, dispatch, attempt, observed, reference, t
 
 def test_stopped_delivery_reprepares_original_local_milestone(tmp_path):
     return _published_milestone_case(tmp_path, "delivery:current")
+
+
+def _delivery_receipt_case(flow, lifecycle, observed, tmp_path):
+    import json
+    import traceback
+    from concurrent.futures import ThreadPoolExecutor
+    from contextlib import contextmanager
+    from threading import Event
+    from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
+    from ai_task_manager.adapters.linear.dependencies.source import DependencySource, Preparation
+
+    r, source = flow.r, lifecycle.source
+    task_id = lifecycle._assignment[0]
+    other_receipts = DependencyReceipts.open_existing(
+        source.receipts.path, source.receipts.key_path, clock=lambda: r.now
+    )
+    rival = DependencySource(r.core, r.handle, source.client, other_receipts,
+                             milestones=source.milestones)
+    prepared, entering, completed = Event(), Event(), Event()
+    generations, gap = [], []
+
+    def collector(store):
+        def collect(task_id, key, *, expected_version=None, decision_revision=None):
+            task = r.core.get_task(r.handle, task_id)
+            graph = r.core.scheduling.explain(r.handle, task_id)["graph_version"]
+            begun = store.begin(r.scope, task, graph, key)
+            snapshot = replace(observed, source_revision=begun["generation"], previous_graph_version=graph)
+            ref = store.finish(r.scope, task_id, key, begun["context"], snapshot,
+                               {"scope": "authored same-facts original signed provider window"})
+            generations.append(begun["generation"])
+            return Preparation(task_id, task.version, task.decision_revision, ref, key)
+        return collect
+
+    source._prepare, rival._prepare = collector(source.receipts), collector(other_receipts)
+    bound_prepare = DependencySource.prepare.__get__(source)
+    rival_boundary = rival.publication_boundary
+
+    @contextmanager
+    def entering_boundary(*args, **kwargs):
+        entering.set()
+        with rival_boundary(*args, **kwargs):
+            yield
+
+    rival.publication_boundary = entering_boundary
+
+    def delivery_prepare(*args, **kwargs):
+        value = bound_prepare(*args, **kwargs)
+        prepared.set()
+        assert entering.wait(2), "Competing physical source did not reach publication boundary"
+        gap.append(completed.wait(0.2))
+        return value
+
+    source.prepare = delivery_prepare
+
+    def compete():
+        assert prepared.wait(2), "Delivery did not prepare a signed observation"
+        try:
+            return rival.refresh(task_id, "independent-stopped-delivery-observation")
+        finally:
+            completed.set()
+
+    failure = None
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            competing = pool.submit(compete)
+            try:
+                lifecycle._refresh()
+            except WorkError as error:
+                failure = {"type": type(error).__name__, "message": str(error),
+                           "traceback": traceback.format_exc()}
+            other = competing.result(timeout=3)
+        task, attempt = lifecycle._facts()
+        facts = {"scope": "Controlled stopped delivery/signed receipt/Core/physical source coordination; live cause unknown",
+                 "attempt_state": attempt.state, "human_hold": task.human_hold,
+                 "provider_expiry": observed.expires_at, "clock": r.now,
+                 "graph_version": r.core.scheduling.explain(r.handle, task_id)["graph_version"],
+                 "generations": generations, "competing_finished_before_delivery_observe": gap,
+                 "failure": failure, "competing_state": other["state"]}
+        (tmp_path / "delivery-receipt-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+        assert failure is None and gap == [False] and other["state"] == "ready", facts
+    finally:
+        lifecycle.close()
+
+
+def test_stopped_delivery_serializes_signed_receipt_publication(tmp_path):
+    return _published_milestone_case(tmp_path, "delivery:receipt")

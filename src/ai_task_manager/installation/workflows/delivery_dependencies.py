@@ -48,6 +48,25 @@ class DeliveryDependencies:
         return task, attempt
 
     def _refresh(self):
+        from ai_task_manager.storage.sessions import TaskSession
+
+        task, _ = self._facts()
+        current = self.core.scheduling.explain(self.handle, task.id)
+        successor = (
+            isinstance(self.scope[0], TaskSession)
+            and self._row.get("succession", {}).get("version") == 2
+        )
+        end = self.deadline if successor else min(
+            self.deadline, current["expires_at"] or self.deadline
+        )
+        boundary = getattr(self.source, "publication_boundary", None)
+        with (
+            boundary(task.id, not_after=end, cancelled=self._stop)
+            if callable(boundary) else nullcontext()
+        ):
+            return self._refresh_current()
+
+    def _refresh_current(self):
         task, _ = self._facts()
         if task.delivered_once:
             self._stop.set()
