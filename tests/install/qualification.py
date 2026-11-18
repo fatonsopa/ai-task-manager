@@ -315,6 +315,40 @@ def review_stage(name):
     return "code_worker" if name == "code_worker" else "code_candidate"
 
 
+STANDBY_PARAGRAPH = (
+    "This standby review is used only if a guarded target advance requires a new candidate. "
+    "Review that exact candidate once; do not repeat the first candidate review."
+)
+
+
+def standby_review_body(primary_body):
+    """Preserve primary bytes; join the extra paragraph at one Markdown boundary."""
+    return primary_body.rstrip("\n") + "\n\n" + STANDBY_PARAGRAPH + "\n"
+
+
+def verify_standby_output(primary_body, title, final_output):
+    assert final_output == "# " + title + "\n\n" + standby_review_body(primary_body).rstrip("\n")
+
+
+def prepare_standby(writer, scope, request, primary_body):
+    from ai_task_manager.domains.work.models import TaskProse
+
+    assert request["body"] == standby_review_body(primary_body)
+    result = writer.prepare(
+        scope,
+        request["kind"],
+        TaskProse(
+            request["title"],
+            request["body"],
+            request["code_bearing"],
+            tuple(request["required_work"]),
+        ),
+        purpose="task",
+    )
+    verify_standby_output(primary_body, request["title"], result["packet"]["output"])
+    return result
+
+
 def review_bindings(reviews, names):
     assert set(reviews) == {"code_worker", *names}
     pointers = [reviews[n] for n in names]
