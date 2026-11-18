@@ -83,6 +83,8 @@ The existing envelope distinguishes invalid input (exit 2), denied evidence/auth
 
 Local records and external effects remain separate transactions. A missing reply is not rollback. The original key/reference select retained history; they do not authorize a second attempt or an uncertain external resend. No distributed atomicity or exactly-once external execution is claimed.
 
+An original-key merge continuation keeps its recorded repository wait. The 120-second allowance covers every acquisition, including reacquisition after read-only candidate review or checks. At reentry, the owner verifies the current target and the authority, review and check inputs for the exact candidate before publication. A changed target requires a bounded replan before publication. An exhausted or unresolved wait stops new repository acquisitions. A current, authorized recovery can reconcile the provider state from an exact committed publication receipt.
+
 ## Version-two successor admission
 
 The trusted `installation.sessions.successor.setup` port stages a separate configuration and version-two capability file under fresh finite delegation. It retains the original Core, authority, provider and Writer stores, task scope and logical session. The old token is never transferred or reset; a revoked original session remains revoked. `installation.workflows.successor.prepare` binds the current task version, human decision revision, remaining work, required reviewer identities, new installed plan/key/deadline and original physical history in the existing signed authority journal. These Python ports are operator composition, not model tools or human-message evidence.
