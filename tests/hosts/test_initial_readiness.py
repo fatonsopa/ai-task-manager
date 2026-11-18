@@ -12,6 +12,7 @@ import pytest
 from ai_task_manager.adapters.hosts.bridge.admission import NativeSourcePins
 from ai_task_manager.adapters.hosts.bridge.controller import ManagedHostFactory
 from ai_task_manager.adapters.hosts.bridge.executions import ModelWork, ReviewedExecutions
+from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
 from ai_task_manager.adapters.hosts.bridge.policy import NativeProfile
 from ai_task_manager.adapters.linear.models import WireResponse
 from ai_task_manager.adapters.workflow_reviews.capture_store import CaptureStore
@@ -19,6 +20,7 @@ from ai_task_manager.adapters.workflow_reviews.models import Inspection
 from ai_task_manager.adapters.workflow_reviews.native import NativeReviewCapture, review_prompt
 from ai_task_manager.adapters.workflows.runtime import ManagedWorkerPort
 from ai_task_manager.domains.scheduling.models import SchedulingBlocked
+from ai_task_manager.domains.scheduling.resources import AdmissionResources
 from ai_task_manager.domains.work.errors import (
     AccessDenied,
     EvidenceRequired,
@@ -47,10 +49,16 @@ def graph(tmp_path, monkeypatch):
     rig = provider.rig
     task = provider.task()
     task = rig.transition(task, "Todo", "enqueue")
+    rig.resource_sources.rows[task.id] = AdmissionResources(
+        rig.scope, task.id, task.prose_digest, task.decision_revision,
+        "authored-initial-readiness", (), (),
+    )
+    rig.core.execution.publish_resources(task)
     provider.sync(task)
     with rig.db.transaction() as conn:
         capacity.configure(conn, CapacityPolicy("claude", 2, 2))
     journal = RuntimeJournal(tmp_path / "runtime.sqlite", clock=lambda: rig.now)
+    host_journal = HostJournal(tmp_path / "host.sqlite", tmp_path / "host.key")
     claimed = []
 
     def claim(attempt, scope, *, deadline):
@@ -65,7 +73,7 @@ def graph(tmp_path, monkeypatch):
         SimpleNamespace(launch_waiting=forbidden),
         None,
         SimpleNamespace(confirm_pending=forbidden),
-        SimpleNamespace(check_admission=lambda host: None, launch=forbidden),
+        SimpleNamespace(check_admission=lambda host: None, launch=forbidden, journal=host_journal),
         deadline=rig.now + 120,
         principal_ref="authored-principal",
         dependencies=provider.source,
