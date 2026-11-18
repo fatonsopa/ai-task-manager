@@ -25,7 +25,10 @@ class NormalConformance:
         )
         self._bound = (pins, journal, reference, enrollment)
 
-    def require_installation(self, manifest):
+    def require_admission(self, manifest, *, acquisition):
+        return self.require_installation(manifest, acquisition=acquisition)
+
+    def require_installation(self, manifest, *, acquisition=None):
         require(
             self.pins is self._bound[0]
             and self.journal is self._bound[1]
@@ -36,7 +39,11 @@ class NormalConformance:
         manifest.check()
         self.pins.check()
         record, profile, _ = verify_capture(self.journal, self.reference)
-        row = self.enrollment.require(self.reference, profile.fingerprint)
+        row = self.enrollment.require(
+            self.reference,
+            profile.fingerprint,
+            **({"acquisition": acquisition} if acquisition is not None else {}),
+        )
         require(
             type(row) is dict
             and set(row)
@@ -63,8 +70,8 @@ class NormalConformance:
         )
         return self.reference
 
-    def require_native_conformance(self, manifest, policy, binding, journal):
-        self.require_installation(manifest)
+    def require_native_conformance(self, manifest, policy, binding, journal, *, acquisition=None):
+        self.require_installation(manifest, acquisition=acquisition)
         _, profile, _ = verify_capture(self.journal, self.reference)
         require(
             binding.host == profile.host

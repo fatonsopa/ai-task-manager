@@ -50,13 +50,32 @@ class NormalAdmissions:
         ):
             raise AccessDenied("Normal native admission owner or finite plan changed")
         self.manifest.check()
-        current = self.store.permission(self.permission["reference"])
+        acquisition = self.store.admission_wait(
+            not_after=min(
+                plan.deadline,
+                self.permission["deadline"],
+                self._binding.deadline if self._binding is not None else plan.deadline,
+            ),
+            clock=lambda: self.controller.clock().timestamp(),
+        )
+        current = self.store.permission(self.permission["reference"], **acquisition)
         if digest(current) != digest(self.permission) or current["revoked"]:
             raise AccessDenied("Normal native permission changed or was revoked")
         if self.controller.clock().timestamp() >= min(plan.deadline, current["deadline"]):
             raise AccessDenied("Normal native permission expired")
         # Permission to attempt never proves actual source-bound native conformance.
-        self.conformance.require_installation(self.manifest)
+        bounded = getattr(self.conformance, "require_admission", None)
+        if callable(bounded):
+            bounded(self.manifest, acquisition=acquisition)
+            # Capability acquisition may have waited; no stale task permission
+            # or original parent may pass from that wait into a later effect.
+            current = self.store.permission(self.permission["reference"], **acquisition)
+            if digest(current) != digest(self.permission) or current["revoked"]:
+                raise AccessDenied("Normal native permission changed or was revoked")
+            if self.controller.clock().timestamp() >= min(plan.deadline, current["deadline"]):
+                raise AccessDenied("Normal native permission expired")
+        else:
+            self.conformance.require_installation(self.manifest)
 
     def verify_policy(self, policy, binding, plan, controller):
         self.check_admission(plan)
@@ -170,7 +189,18 @@ class NormalAdmissions:
 
     def require_native_conformance(self, policy, binding, journal):
         self.verify_policy(policy, binding, self.plan, self.controller)
-        return self.conformance.require_native_conformance(self.manifest, policy, binding, journal)
+        acquisition = self.store.admission_wait(
+            not_after=min(binding.deadline, self.plan.deadline, self.permission["deadline"]),
+            clock=lambda: self.controller.clock().timestamp(),
+        )
+        kwargs = (
+            {"acquisition": acquisition}
+            if callable(getattr(self.conformance, "require_admission", None))
+            else {}
+        )
+        return self.conformance.require_native_conformance(
+            self.manifest, policy, binding, journal, **kwargs
+        )
 
 
 def claude_auth_child(controller, manifest, binding, journal):

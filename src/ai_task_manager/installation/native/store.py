@@ -1,6 +1,7 @@
 """Private normal invocation facts; task policy and global capacity stay in Core."""
 
 import json
+import math
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -209,16 +210,36 @@ class NativeStore:
             (kind, call_id, json.dumps(value, sort_keys=True, allow_nan=False)),
         )
 
-    def conformance(self, reference):
+    def admission_wait(self, *, not_after, clock):
+        """Carry an existing identity window into a separate capability-store read."""
+        policy = getattr(self._active, "identity_wait", None)
+        cancelled = None
+        if policy is not None:
+            original_end, clock, cancelled, monotonic_end, _ = policy
+            not_after = min(
+                not_after, original_end, clock() + max(0, monotonic_end - time.monotonic())
+            )
+        return {"wait_until": not_after, "clock": clock, "cancelled": cancelled}
+
+    def conformance(self, reference, **acquisition):
         """Read capability state under this store's exact owned effect transaction."""
         active = getattr(self._active, "connection", None)
         if active is not None:
             probe_connection(active, self.binding)
             return self.read(active, "native_conformance", reference)
-        with self.transaction() as conn:
+        if acquisition:
+            acquisition = dict(acquisition)
+            # A provisional snapshot can only shorten the wait. It grants no
+            # authority: the result below still requires a coherent writer.
+            with self.settlement_snapshot() as conn:
+                original = self.read(conn, "native_conformance", reference)
+            until = original.get("valid_until") if type(original) is dict else None
+            if type(until) in {int, float} and math.isfinite(until):
+                acquisition["wait_until"] = min(acquisition["wait_until"], until)
+        with self.transaction(**acquisition) as conn:
             return self.read(conn, "native_conformance", reference)
 
-    def permission(self, reference):
+    def permission(self, reference, **acquisition):
         # A managed canary rechecks authority while its invocation owns the
         # writer transaction. Read that exact same-thread/store transaction;
         # opening another writer would deadlock against our own effect guard.
@@ -227,7 +248,7 @@ class NativeStore:
             probe_connection(active, self.binding)
             value = self.read(active, "native_permissions", reference)
         else:
-            with self.transaction() as conn:
+            with self.transaction(**acquisition) as conn:
                 value = self.read(conn, "native_permissions", reference)
         if value is None:
             raise AccessDenied("Normal native permission was not enrolled")
