@@ -392,7 +392,10 @@ def test_NR04_current_author_change_at_model_input_fences_review_and_stops(
     from ai_task_manager.adapters.hosts.bridge.gateway import ManagedToolGateway
 
     s = installed
-    owner = InstalledWorkflow(s["config"], s["primary"].installation)
+    owner = InstalledWorkflow(
+        s["config"], s["primary"].installation,
+        registry=resolve(s["config"], s["primary"].installation),
+    )
     s["owners"].append(owner)
     factory = owner.registry.reviewer_factory
     producer = factory(s["inspection"])
