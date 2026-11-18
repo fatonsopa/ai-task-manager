@@ -128,3 +128,136 @@ def test_own_unit_progress_during_collection_keeps_exact_scope_and_graph(tmp_pat
         if controller is not None:
             controller.close()
         fixture.close()
+
+
+@pytest.mark.parametrize(
+    "case", ["current", "expired", "unavailable", "graph_changed", "task_changed", "deadline"]
+)
+def test_retained_installed_code_plan_checks_current_dependencies_before_candidate(tmp_path, case):
+    from dataclasses import asdict, replace
+    from types import SimpleNamespace
+
+    from ai_task_manager.adapters.git.candidates.process import CandidateProcesses
+    from ai_task_manager.application.merging.candidates import (
+        CandidateService,
+        CoreCandidateAuthority,
+    )
+    from ai_task_manager.application.workflows.models import WorkflowPlan
+    from ai_task_manager.domains.scheduling.models import Dependency
+    from ai_task_manager.installation.workflows.code_delivery import InstalledCodeDelivery
+    from ai_task_manager.storage.workflows import WorkflowStore
+    from tests.merge.workflows.helpers import Flow
+
+    flow = Flow(tmp_path / "retained", human=False)
+    delivery = None
+    try:
+        r = flow.r
+        source = AuthoredDependencyCollection(r.core, r.handle)
+        store = WorkflowStore(flow.root / "workflow.sqlite")
+        plan = WorkflowPlan(
+            "installed-retained",
+            "unused-author",
+            "fixture",
+            flow.old,
+            ("src/a.txt", "tests/a.txt", "config/checks.json"),
+            ("src/a.txt",),
+            flow.plan.deadline,
+        )
+        reference = store.create(r.scope, flow.task, plan, "original-code-key")
+        owner = "retained-code-controller"
+        store.claim(reference, r.scope, owner)
+        commit = {
+            "state": "committed",
+            "branch": "managed/" + flow.attempt.id,
+            "commit": flow.new,
+            "attempt_id": flow.attempt.id,
+            "task_id": flow.task.id,
+        }
+        registration = SimpleNamespace(
+            fingerprint="authored-code-registration",
+            check=lambda: None,
+            require=lambda *_: None,
+        )
+        runtime = SimpleNamespace(pair=lambda attempt: flow.pair)
+        delivery = InstalledCodeDelivery(
+            r.core,
+            r.handle,
+            store,
+            runtime,
+            flow.runtime.resources,
+            registration,
+            SimpleNamespace(deadline=flow.plan.deadline),
+            None,
+            None,
+            None,
+            None,
+            (),
+            source,
+        )
+        # Restore the actual merge consumer with the SAME newly constructed guard.
+        # The authored registration/runtime ports cannot launch another author.
+        flow.candidate = CandidateService(
+            flow.journal,
+            flow.candidate_profile,
+            CoreCandidateAuthority(r.core, r.handle, delivery.resources, flow.pair),
+            process_factory=CandidateProcesses,
+        )
+        component = flow.compose(publication_lifecycle=delivery.freshness)
+        component.successor_merge = None
+        flow.workflow = component
+        delivery.components[reference] = component
+        selected = {
+            "registration": registration.fingerprint,
+            "commit": commit,
+            "plan": asdict(component.original_plan),
+        }
+        for name, payload, result in (
+            ("worker-commit", {"attempt_id": flow.attempt.id}, commit),
+            ("code-plan", selected, {"installed": True}),
+        ):
+            store.intend(reference, owner, name, payload)
+            store.finish(reference, owner, name, result, attempt_id=flow.attempt.id)
+        row = store.read(reference, r.scope)
+        saved_steps = row["steps"]
+        before = r.core.scheduling.explain(r.handle, flow.task.id)
+        if case == "expired":
+            r.now = before["expires_at"]
+        elif case == "deadline":
+            r.now = flow.plan.deadline
+        elif case == "unavailable":
+            source.fail = True
+        elif case == "task_changed":
+            row = dict(row, prose_digest="0" * 64)
+        elif case == "graph_changed":
+            other = r.queued()
+            original = source.prepare
+
+            def changed(*args, **kwargs):
+                prepared = original(*args, **kwargs)
+                snapshot = r.core.scheduling.sources.receipts[prepared.snapshot_ref]
+                r.core.scheduling.sources.receipts[prepared.snapshot_ref] = replace(
+                    snapshot, dependencies=(Dependency(other.id, "work_done"),)
+                )
+                return prepared
+
+            source.prepare = changed
+        if case == "current":
+            result = delivery.advance(row, plan, owner)
+            assert result["state"] == "done"
+            assert source.calls > 0
+            assert r.core.get_task(r.handle, flow.task.id).delivered_once
+            assert len(flow.executor.records) == 1
+        else:
+            with pytest.raises(AccessDenied):
+                delivery.advance(row, plan, owner)
+            assert not flow.executor.records
+            assert not tuple((flow.root / "candidates").iterdir())
+            assert not r.core.get_task(r.handle, flow.task.id).delivered_once
+        after = store.read(reference, r.scope)
+        for name in ("worker-commit", "code-plan"):
+            assert after["steps"][name] == saved_steps[name]
+        assert len(flow.runtime.runtime.workers) == 1
+    finally:
+        if delivery is not None:
+            delivery.close()
+        flow.close()
