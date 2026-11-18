@@ -2,6 +2,7 @@ import hashlib
 import json
 import re
 from dataclasses import replace
+from threading import RLock, local
 
 from ai_task_manager.domains.work.models import IssueStatus, valid_display_identifier
 
@@ -94,7 +95,8 @@ class LinearClient:
         self.agent_connection = agent_connection
         self.connection = None
         self._authorization_digest = None
-        self._preflight_digest = None
+        self._binding_lock = RLock()
+        self._verification = local()
         self.create_capability = create_capability
         self.comment_capability = comment_capability
         for value in (
@@ -105,12 +107,27 @@ class LinearClient:
         ):
             canonical_id(value)
 
-    def request(self, query, variables, *, mutation=False, _before_dispatch=None):
+    def current_binding(self):
+        with self._binding_lock:
+            if self.binding is None:
+                raise LinearError("binding_not_verified")
+            return self.binding
+
+    def request(self, query, variables, *, mutation=False, _before_dispatch=None, _binding=None):
         credentials = self.credentials()
         authorization_digest = hashlib.sha256(credentials.authorization().encode()).hexdigest()
-        expected_digest = self._preflight_digest or self._authorization_digest
+        expected_digest = getattr(self._verification, "digest", None) or self._authorization_digest
         if expected_digest is not None and authorization_digest != expected_digest:
             raise LinearError("credential_binding_changed")
+        if mutation and _binding is not None:
+            current = self.current_binding()
+            if _binding is not None and (
+                current.expected != _binding.expected or current.states != _binding.states
+            ):
+                raise LinearError("binding_not_verified")
+            expected_digest = getattr(self._verification, "digest", None) or self._authorization_digest
+            if expected_digest is not None and authorization_digest != expected_digest:
+                raise LinearError("credential_binding_changed")
         if _before_dispatch is not None:
             _before_dispatch()
         try:
@@ -176,16 +193,19 @@ class LinearClient:
         raise LinearError("pagination_limit")
 
     def verify_binding(self):
-        self.binding = None
-        self._preflight_digest = hashlib.sha256(
-            self.credentials().authorization().encode()
-        ).hexdigest()
-        try:
-            result = self._verify_binding()
-            self._authorization_digest = self._preflight_digest
-            return result
-        finally:
-            self._preflight_digest = None
+        # Only revalidation and binding consumption coordinate here. Ordinary
+        # provider reads do not hold this guard while performing network I/O.
+        with self._binding_lock:
+            self.binding = None
+            self._verification.digest = hashlib.sha256(
+                self.credentials().authorization().encode()
+            ).hexdigest()
+            try:
+                result = self._verify_binding()
+                self._authorization_digest = self._verification.digest
+                return result
+            finally:
+                self._verification.digest = None
 
     def _verify_binding(self):
         expected = self.expected
@@ -217,8 +237,7 @@ class LinearClient:
         return self.binding
 
     def check_connection(self, scope=None, *, refresh=False):
-        if self.binding is None:
-            raise LinearError("binding_not_verified")
+        binding = self.current_binding()
         if self.agent_connection is None:
             raise LinearError("agent_connection_missing")
         selected = self.agent_connection()
@@ -275,7 +294,11 @@ class LinearClient:
             if self.agent_connection() != selected:
                 raise LinearError("agent_connection_changed")
             self.connection = selected
-        self.binding = replace(self.binding, connection=selected)
+        with self._binding_lock:
+            current = self.current_binding()
+            if current.expected != binding.expected or current.states != binding.states:
+                raise LinearError("binding_not_verified")
+            self.binding = replace(current, connection=selected)
         return selected
 
     def require_delegate(self, snapshot):
@@ -288,8 +311,7 @@ class LinearClient:
         return snapshot
 
     def snapshot(self, data, *, allow_unknown=False):
-        if self.binding is None:
-            raise LinearError("binding_not_verified")
+        binding = self.current_binding()
         try:
             expected = self.expected
             if (
@@ -321,7 +343,7 @@ class LinearClient:
             canonical_id(data["id"])
             state_id = canonical_id(data["state"]["id"])
             status = data["state"]["name"]
-            if self.binding.states.get(status) != state_id:
+            if binding.states.get(status) != state_id:
                 if not allow_unknown or not isinstance(status, str):
                     raise LinearError("unknown_workflow_state")
                 status = f"unknown:{status}"
@@ -448,15 +470,14 @@ class LinearClient:
 
     def create_issue(self, task, candidate_id=None, *, native_type=None, _prepare_dispatch=None):
         dispatch = _prepare_dispatch() if _prepare_dispatch is not None else None
-        if self.binding is None:
-            raise LinearError("binding_not_verified")
+        binding = self.current_binding()
         connection = self.check_connection(refresh=True)
         values = {
             "delegateId": connection.agent_id,
             "teamId": self.expected.team_id,
             "projectId": self.expected.project_id,
             "assigneeId": self.expected.viewer_id,
-            "stateId": self.binding.states["Backlog"],
+            "stateId": binding.states["Backlog"],
             "title": task.title,
             "description": task.body,
         }
@@ -467,18 +488,17 @@ class LinearClient:
                 raise LinearError("creation_uuid_capability_missing")
             values["id"] = canonical_id(candidate_id)
         result = self.request(
-            CREATE, {"input": values}, mutation=True, _before_dispatch=dispatch
+            CREATE, {"input": values}, mutation=True, _before_dispatch=dispatch, _binding=binding
         ).get("issueCreate")
         return self.require_delegate(self.mutation_snapshot(result))
 
     def update_issue(self, task, kind, *, _prepare_dispatch=None):
         dispatch = _prepare_dispatch() if _prepare_dispatch is not None else None
         canonical_id(task.issue_id)
-        if self.binding is None:
-            raise LinearError("binding_not_verified")
+        binding = self.current_binding()
         connection = self.check_connection(refresh=True)
         values = {
-            "stateId": self.binding.states[task.desired_status],
+            "stateId": binding.states[task.desired_status],
             "assigneeId": self.expected.viewer_id,
             "delegateId": connection.agent_id,
         }
@@ -487,6 +507,7 @@ class LinearClient:
         result = self.request(
             UPDATE, {"id": task.issue_id, "input": values}, mutation=True,
             _before_dispatch=dispatch,
+            _binding=binding,
         ).get("issueUpdate")
         return self.require_delegate(self.mutation_snapshot(result))
 

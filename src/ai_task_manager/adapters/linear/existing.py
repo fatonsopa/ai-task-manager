@@ -47,6 +47,7 @@ class ExistingReader:
             raise AccessDenied("Discovery requires the verified provider scope")
 
     def metadata(self, raw):
+        binding = self.client.current_binding()
         expected = self.client.expected
         try:
             if (
@@ -66,7 +67,7 @@ class ExistingReader:
                 raise ValueError()
             state_id = canonical_id(raw["state"]["id"])
             status = raw["state"]["name"]
-            if not isinstance(status, str) or self.client.binding.states.get(status) != state_id:
+            if not isinstance(status, str) or binding.states.get(status) != state_id:
                 raise LinearError("unknown_workflow_state")
             return {
                 "issue_id": canonical_id(raw["id"]),

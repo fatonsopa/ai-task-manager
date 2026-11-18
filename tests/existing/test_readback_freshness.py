@@ -351,3 +351,78 @@ def test_ea81_canonical_delivery_fence_blocks_lease_and_atomic_short_publication
         with rig.core.execution.work_boundary(rig.handle, attempt.id, attempt.version):
             destination.write_text("This effect must not execute.")
     assert not destination.exists() and len(rig.effects()["resource_leases"]) == 2
+
+
+@pytest.mark.parametrize("validation", ["current", "wrong-account", "unavailable"])
+def test_shared_revalidation_keeps_imported_start_readback_coherent(rig, provider, tmp_path, validation):
+    """Actual client verification overlaps current imported startup source readback."""
+    import json
+    import traceback
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError
+    from threading import Event
+    from ai_task_manager.adapters.linear.errors import LinearError
+    from tests.linear.helpers import uid
+
+    issue = provider.seed("Todo")
+    task = rig.queue(rig.admit(issue))
+    entered, release, reading = Event(), Event(), Event()
+    send = rig.client.transport.send
+    original = rig.client.verify_binding
+    callback = rig.intake.worker_readbacks(task.id, "shared-binding-start")
+
+    def controlled_send(query, variables, credentials):
+        if "query VerifyBinding" in query:
+            entered.set()
+            assert release.wait(5), "Owned verification barrier expired"
+            if validation == "wrong-account":
+                provider.viewer_id = uid(999)
+            elif validation == "unavailable":
+                provider.fail_next = (503, b"authored verification failure")
+        return send(query, variables, credentials)
+
+    def read():
+        reading.set()
+        try:
+            reference = callback(phase="reserve", task_id=task.id, expected_version=task.version,
+                                 decision_revision=task.decision_revision, attempt_id=None,
+                                 operation_key="shared-binding-start:reserve")
+            return {"kind": rig.journal.verify_evidence(reference).kind}
+        except Exception as error:
+            return {"error": type(error).__name__, "message": str(error), "traceback": traceback.format_exc()}
+
+    rig.client.transport.send = controlled_send
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        verification = pool.submit(original)
+        try:
+            assert entered.wait(5)
+            pending = pool.submit(read)
+            assert reading.wait(5)
+            try:
+                early = pending.result(timeout=0.2)
+            except TimeoutError:
+                early = {"waiting": True}
+        finally:
+            release.set()
+        verification_error = None
+        try:
+            binding = verification.result(timeout=5)
+        except LinearError as error:
+            binding = None
+            verification_error = type(error).__name__
+        observed = pending.result(timeout=5)
+    if validation != "current":
+        with pytest.raises(LinearError):
+            rig.client.update_issue(task, "set_status")
+    facts = {"scope": "Controlled localhost interleave; exact G13 live thread/stack remains unknown",
+             "validation": validation, "verification_error": verification_error,
+             "early": early, "reader": observed, "binding_verified": binding is not None,
+             "effect_counts": {key: len(rows) for key, rows in rig.effects().items()},
+             "mutations": sum("mutation " in q["query"] for q, _ in provider.requests)}
+    (tmp_path / "binding-race-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+    if validation == "current":
+        assert observed == {"kind": "existing_issue_readback"} and verification_error is None, facts
+    else:
+        assert observed.get("error") == "LinearError" and verification_error is not None, facts
+        assert rig.client.binding is None, facts
+    assert facts["effect_counts"]["attempts"] == facts["effect_counts"]["resource_leases"] == 0, facts
+    assert facts["mutations"] == 0
