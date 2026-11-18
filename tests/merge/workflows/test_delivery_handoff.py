@@ -186,8 +186,7 @@ def test_saved_exact_publication_context_resumes_without_generic_authority(owned
     assert lifecycle._thread is None or not lifecycle._thread.is_alive()
 
 
-@pytest.mark.parametrize("condition", ["current", "stale", "held", "target"])
-def test_public_queue_queries_reprepare_only_current_local_merge_milestone(tmp_path, condition):
+def _published_milestone_case(tmp_path, condition):
     """Real saved Git publication/merge producer and signed source; no provider refetch."""
     import json
     from dataclasses import asdict
@@ -251,6 +250,8 @@ def test_public_queue_queries_reprepare_only_current_local_merge_milestone(tmp_p
                                  observed, {"scope": "authored original provider window; no refetch"})
         r.core.scheduling.observe(r.handle, task.id, task.version, task.decision_revision,
                                   signed, "publish-original-provider-observation")
+        if condition.startswith("lease:"):
+            return _native_lease_case(flow, task, source, signed, observed, reference, tmp_path, condition[6:])
         app = ApplicationService(r.core, r.handle, dependencies=source)
         initial = app.call("task_show", {"task_id": task.id})
         expiry = flow.evidence.prepared[reference][0].expires_at
@@ -296,3 +297,129 @@ def test_public_queue_queries_reprepare_only_current_local_merge_milestone(tmp_p
             assert preparation_failure is not None, facts
     finally:
         flow.close()
+
+
+@pytest.mark.parametrize("condition", ["current", "stale", "held", "target"])
+def test_public_queue_queries_reprepare_only_current_local_merge_milestone(tmp_path, condition):
+    return _published_milestone_case(tmp_path, condition)
+
+
+def _native_lease_case(flow, task, source, signed, observed, reference, tmp_path, condition):
+    import json
+    import os
+    import sys
+    import time
+    import traceback
+    from contextlib import nullcontext
+    from threading import Event
+    from types import SimpleNamespace
+    from ai_task_manager.adapters.hosts.bridge.controller import ManagedNativeHost
+    from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
+    from ai_task_manager.adapters.hosts.bridge.records import HostBinding
+    from ai_task_manager.adapters.hosts.transports.process import HostProcess
+    from ai_task_manager.adapters.linear.dependencies.source import Preparation
+    from ai_task_manager.supervisor.authority import WorkAuthorities
+    from ai_task_manager.supervisor.models import Command
+    from tests.scheduling.test_authority_coordinator import AuthoredContinuity, AuthoredObservationGuard
+
+    r = flow.r
+    dispatch = flow.runtime.start(task)
+    attempt = flow.runtime.admit(dispatch)
+    task = r.core.get_task(r.handle, task.id)
+    host = object.__new__(ManagedNativeHost)
+    sid, scope = r.core.session_binding(r.handle)
+    host.binding = HostBinding(scope, sid, attempt.id, attempt.worker_id, attempt.host,
+                               "authored-principal", "a" * 64, r.now + 100)
+    host.core = r.core
+    host.journal = HostJournal(tmp_path / "native.sqlite", tmp_path / "native.key", clock=lambda: r.now)
+    host.policy = SimpleNamespace(check=lambda: None)  # Authored mechanical ports; no model qualification.
+    host._source_audit_boundary = lambda **kwargs: nullcontext()
+    host._flush_source_observations = lambda: None
+    host.stopped = Event()
+    host.identity = None
+    host.startup = SimpleNamespace(assert_stable=lambda: None,
+                                   model_guard=AuthoredObservationGuard(host, lambda: r.now))
+    registry = WorkAuthorities(r.core, source)
+    r.core.scheduling.renewals = registry
+    host.authority = registry.attach(r.handle, attempt, host, AuthoredContinuity(host, lambda: r.now))
+    collections, local_preparations = [], []
+    original_prepare = flow.workflow.prepare_merge_milestone
+
+    def local_prepare(*args):
+        local_preparations.append(True)
+        return original_prepare(*args)
+
+    flow.workflow.prepare_merge_milestone = local_prepare
+
+    def original_observation(task_id, key, *, expected_version, decision_revision):
+        # The initial mechanical collection publishes a fresh signed generation
+        # with the same facts and unchanged original provider-window ceiling.
+        assert task_id == task.id
+        collections.append(key)
+        source.receipts.verify_snapshot(signed)
+        current = r.core.get_task(r.handle, task_id)
+        graph = r.core.scheduling.explain(r.handle, task_id)["graph_version"]
+        begun = source.receipts.begin(scope, current, graph, key)
+        value = replace(observed, source_revision=begun["generation"], previous_graph_version=graph)
+        reference = source.receipts.finish(scope, task_id, key, begun["context"], value,
+                                           {"scope": "authored initial continuity collection"})
+        return Preparation(task_id, expected_version, decision_revision, reference, key)
+
+    source.prepare = original_observation
+    host.authority.refresh()
+    output = tmp_path / "native-output"
+    output.mkdir(mode=0o700)
+    command = Command((sys.executable, "-I", "-u", "-c",
+                       "import time;print('{\"type\":\"fixture\"}',flush=True);"
+                       "print('{\"type\":\"fixture\"}',flush=True);time.sleep(10)"),
+                      tmp_path, {"PATH": os.defpath}, 15)
+    process = HostProcess(command, output, deadline=time.time() + 15)
+    process.boundary = lambda: host._current_lease(r.handle, attempt)
+    stop = None
+    try:
+        process.start()
+        first = process.read(1)
+        expiry = flow.evidence.prepared[reference][0].expires_at
+        r.now = observed.expires_at if condition == "stale" else expiry + 1
+        if condition == "held":
+            predecessor = r.core.get_task(r.handle, flow.task.id)
+            proof = r.proof("human_decision", predecessor.id,
+                            {"previous_revision": predecessor.decision_revision, "hold": True})
+            r.core.decisions.record(r.handle, predecessor.id, predecessor.version, proof, r.key())
+        elif condition == "target":
+            from ai_task_manager.adapters.resources.git import git
+
+            r.now = observed.observed_at
+            target = git(flow.runtime.repo, "rev-parse", "refs/heads/integration")
+            git(flow.runtime.repo, "update-ref", "refs/heads/integration", flow.old, target)
+        failure = None
+        try:
+            second = process.read(1)
+        except WorkError as error:
+            second = None
+            failure = {"type": type(error).__name__, "message": str(error), "traceback": traceback.format_exc()}
+        restored = None
+        if condition == "current":
+            host.authority._prepare_milestones()
+            restored = host._current_lease(r.handle, attempt)
+        facts = {"scope": "Real native process read/Core/signed dependency/Git producer; policy/continuity authored",
+                 "provider_expiry": observed.expires_at, "local_expiry": expiry, "clock": r.now,
+                 "condition": condition, "collections": len(collections),
+                 "local_preparations": len(local_preparations),
+                 "first": first, "second": second, "failure": failure,
+                 "restored_attempt": restored.id if restored else None, "attempt": attempt.id}
+        (tmp_path / "lease-milestone-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+        assert first == {"type": "fixture"} and len(collections) == 1, facts
+        if condition == "current":
+            assert restored.id == attempt.id and len(local_preparations) == 1, facts
+            assert failure is None and second == {"type": "fixture"}, facts
+        else:
+            assert failure is not None and second is None, facts
+    finally:
+        stop = process.stop()
+        assert stop.confirmed
+
+
+@pytest.mark.parametrize("condition", ["current", "stale", "held", "target"])
+def test_native_read_prepares_current_local_merge_milestone(tmp_path, condition):
+    return _published_milestone_case(tmp_path, "lease:" + condition)

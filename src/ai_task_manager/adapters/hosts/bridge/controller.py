@@ -340,6 +340,11 @@ class ManagedNativeHost:
             self.startup.assert_stable()
             self._flush_source_observations()
             if self.authority is not None:
+                # Transport reads/writes have not entered Core or the model
+                # effect guard. Refresh only the existing local witnesses here.
+                prepare = getattr(self.authority, "_prepare_milestones", None)
+                if callable(prepare):
+                    prepare()
                 # Transport observation has not acquired Core. Serialize its
                 # current-only authority check, then release before Core lookup.
                 with self.startup.model_guard.observation_boundary(not_after=self.binding.deadline):
