@@ -21,6 +21,14 @@ The installed dependency integration supplies current complete provider observat
 
 The success envelope contains `ok: true`, `outcome` and `data`. A list also reports `quarantined_count`; foreign or quarantined prose is excluded. A `task_show` request for another scope is denied. Task and workflow IDs are opaque; titles and display identifiers do not grant access.
 
+### Explicit provider merge milestones
+
+The sealed `linear` configuration and initial session manifest may include `dependency_milestones`, a list of at most 128 objects. Each object has exactly `task_prose_digest`, `predecessor_prose_digest` and `condition: "code_merged"`. Both digests are distinct lowercase SHA-256 values identifying approved task prose before task creation. Repeated pairs, unknown fields and other conditions are refused. Omission or an empty list preserves the existing `work_done` meaning for every provider edge, including its production-proof requirement for code work.
+
+A declaration does not create a provider dependency or supply completion evidence. The real provider source must observe the edge and resolve exactly one current task for each approved digest in the same scope; the predecessor must be code-bearing. Missing or ambiguous tasks, non-code predecessors and absent provider edges are refused. Core still verifies the original current merge proof, approved prose, completed work, synchronization, quiescence and human holds before release. A delivered predecessor's status alone cannot release work. Explicit policy is part of the source identity, so changed declarations cannot reuse a prior operation receipt or reset an existing dependency graph.
+
+The ordinary installer, owner and same-source cold replacement read this configuration through the same `LinearComponents` composition. Keep it sealed before enrollment; changing a live configuration does not renew or extend its authority. `tests/scheduling/test_provider_source.py` covers configured release and refusal boundaries; `tests/session_observations/test_operator.py` checks manifest preservation. These authored controls do not establish genuine dependent delivery or interrupted recovery.
+
 ### Closed concurrent task membership
 
 A trusted version-one worker installation may add `task_installations`, containing one to sixteen exact file bindings with `path`, `device`, `inode` and `sha256`. The maintained syntax is `installation/workflows/schema.json`. Omitting the field preserves the single-task installation. Each bound child must be a worker in the same configured scope, with the same original finite deadline, a distinct task and plan reference, and a separate state root. State roots cannot contain one another. Children cannot contain another task roster. A copied, replaced or edited child binding is refused. The roster is sealed before the owner publishes readiness; ordinary workflow requests cannot enroll another task.

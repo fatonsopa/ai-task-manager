@@ -9,7 +9,10 @@ from pathlib import Path
 from ai_task_manager.adapters.linear.client import LinearClient
 from ai_task_manager.adapters.linear.connections import AgentConnection
 from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
-from ai_task_manager.adapters.linear.dependencies.source import DependencySource
+from ai_task_manager.adapters.linear.dependencies.source import (
+    DependencySource,
+    milestone_declarations,
+)
 from ai_task_manager.adapters.linear.existing import ExistingReader
 from ai_task_manager.adapters.linear.models import Credentials, ExpectedBinding
 from ai_task_manager.adapters.linear.prose import LinearMarkdownRenderer
@@ -106,8 +109,12 @@ class LinearComponents:
         connection_keys = {"agent_connection"}
         file_keys = {"expected", "credential_file", "credential_key", "journal"} | connection_keys
         environment_keys = {"expected", "credential_environment", "journal"} | connection_keys
-        if not isinstance(config, dict) or set(config) not in (file_keys, environment_keys):
+        configured_keys = (
+            set(config) - {"dependency_milestones"} if isinstance(config, dict) else set()
+        )
+        if not isinstance(config, dict) or configured_keys not in (file_keys, environment_keys):
             raise ValidationError("Unknown Linear composition configuration")
+        self.milestones = milestone_declarations(config.get("dependency_milestones", []))
         self.configuration_hash = digest(config)
         if not isinstance(config["expected"], dict) or set(config["expected"]) != {
             "viewer_id",
@@ -117,12 +124,12 @@ class LinearComponents:
             "project_id",
         }:
             raise ValidationError("Complete expected Linear identity is required")
-        paths = ("credential_file", "journal") if set(config) == file_keys else ("journal",)
+        paths = ("credential_file", "journal") if configured_keys == file_keys else ("journal",)
         if any(not isinstance(config[k], str) or not Path(config[k]).is_absolute() for k in paths):
             raise ValidationError("Linear credential and journal paths must be explicitly bound")
         credentials = (
             CredentialFile(config["credential_file"], config["credential_key"])
-            if set(config) == file_keys
+            if configured_keys == file_keys
             else CredentialEnvironment(config["credential_environment"])
         )
         expected = ExpectedBinding(**config["expected"])
@@ -184,7 +191,9 @@ class LinearComponents:
 
     def dependencies(self, core, handle):
         self.check_session(core, handle)
-        return DependencySource(core, handle, self.client, self.scheduling_sources)
+        return DependencySource(
+            core, handle, self.client, self.scheduling_sources, milestones=self.milestones
+        )
 
     def outbound(self, core, handle, decisions, writer):
         self.check_session(core, handle)

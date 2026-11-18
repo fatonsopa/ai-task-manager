@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 from ai_task_manager.adapters.linear.connections import AgentConnection
+from ai_task_manager.adapters.linear.dependencies.source import milestone_declarations
 from ai_task_manager.adapters.linear.models import canonical_id
 from ai_task_manager.config.capacity import policies
 from ai_task_manager.config.environment import CREDENTIAL_ENVIRONMENT_NAME_PATTERN
@@ -73,7 +74,16 @@ def parse(request):
     ):
         raise ValidationError("Capacity exceeds the supported finite integer bound")
     linear = request["linear"]
-    exact(linear, {"expected", "agent_connection", "credential"})
+    exact(
+        linear,
+        {"expected", "agent_connection", "credential"}
+        | (
+            {"dependency_milestones"}
+            if isinstance(linear, dict) and "dependency_milestones" in linear
+            else set()
+        ),
+    )
+    milestone_declarations(linear.get("dependency_milestones", []))
     exact(linear["expected"], {"viewer_id", "workspace_id", "team_id", "team_key", "project_id"})
     for key, value in linear["expected"].items():
         if key != "team_key":

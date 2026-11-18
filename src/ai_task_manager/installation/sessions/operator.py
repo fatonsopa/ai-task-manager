@@ -142,6 +142,11 @@ def configuration(config_file, request, control, policy):
             "expected": linear["expected"],
             "agent_connection": linear["agent_connection"],
             "journal": str(root / "provider.sqlite"),
+            **(
+                {"dependency_milestones": linear["dependency_milestones"]}
+                if "dependency_milestones" in linear
+                else {}
+            ),
             **reference,
         },
         "writer": {

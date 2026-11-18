@@ -8,7 +8,12 @@ from ai_task_manager.domains.scheduling.models import (
     DependencySnapshot,
     SchedulingBlocked,
 )
-from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired, StaleVersion
+from ai_task_manager.domains.work.errors import (
+    AccessDenied,
+    EvidenceRequired,
+    StaleVersion,
+    ValidationError,
+)
 
 from .reader import DependencyReader, digest
 
@@ -22,15 +27,43 @@ class Preparation:
     operation_key: str
 
 
+def milestone_declarations(value):
+    if not isinstance(value, list) or len(value) > 128:
+        raise ValidationError("A bounded dependency milestone list is required")
+    declarations = []
+    for item in value:
+        keys = {"task_prose_digest", "predecessor_prose_digest", "condition"}
+        if not isinstance(item, dict) or set(item) != keys:
+            raise ValidationError("Dependency milestone fields are invalid")
+        task, predecessor = item["task_prose_digest"], item["predecessor_prose_digest"]
+        if (
+            any(
+                not isinstance(v, str)
+                or len(v) != 64
+                or any(c not in "0123456789abcdef" for c in v)
+                for v in (task, predecessor)
+            )
+            or task == predecessor
+            or item["condition"] != "code_merged"
+            or (task, predecessor) in declarations
+        ):
+            raise ValidationError("A unique explicit code-merge milestone is required")
+        declarations.append((task, predecessor))
+    return tuple(declarations)
+
+
 class DependencySource:
-    def __init__(self, core, handle, client, receipts):
+    def __init__(self, core, handle, client, receipts, *, milestones=()):
         self.core, self.handle, self.client, self.receipts = core, handle, client, receipts
         self.binding = core.session_binding(handle)
         self.expected = client.expected
+        self.milestones = tuple(milestones)
+        self._milestones = self.milestones
         self.source_id = "linear-dependencies-v1:" + digest(
             {
                 "scope": vars(self.binding[1]),
                 "team": client.expected.team_id,
+                **({"milestones": self.milestones} if self.milestones else {}),
             }
         )
 
@@ -38,6 +71,7 @@ class DependencySource:
         if (
             self.core.session_binding(self.handle) != self.binding
             or self.client.expected != self.expected
+            or self.milestones != self._milestones
         ):
             raise AccessDenied("Dependency source session binding changed")
         return self.binding[1]
@@ -49,6 +83,8 @@ class DependencySource:
             self.core.context.check(task, expected_version, decision_revision)
         prior = self.receipts.lookup(scope, task_id, operation_key)
         if prior and prior["receipt"]:
+            if prior["source_id"] != self.source_id:
+                raise AccessDenied("Original dependency operation uses another milestone policy")
             c = prior["context"]
             return Preparation(
                 task_id, c["task_version"], c["decision_revision"], prior["receipt"], operation_key
@@ -88,10 +124,25 @@ class DependencySource:
                 refs = event.payload.get("evidence_refs", {})
                 if isinstance(refs, dict):
                     references.setdefault(event.task_id, {}).update(refs)
+        merged = set()
+        for task_digest, predecessor_digest in self.milestones:
+            if task_digest != task.prose_digest:
+                continue
+            subjects = [row for row in rows if row.prose_digest == task_digest]
+            predecessors = [row for row in rows if row.prose_digest == predecessor_digest]
+            if (
+                len(subjects) != 1
+                or subjects[0].id != task.id
+                or len(predecessors) != 1
+                or not predecessors[0].code_bearing
+                or predecessors[0].issue_id not in observation.predecessors
+            ):
+                raise EvidenceRequired("Explicit milestone requires one current observed code edge")
+            merged.add(predecessors[0].issue_id)
         edges = tuple(
             Dependency(
                 local[issue].id,
-                "work_done",
+                "code_merged" if issue in merged else "work_done",
                 evidence_refs=tuple(
                     sorted(
                         (kind, ref)

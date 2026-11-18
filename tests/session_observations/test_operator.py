@@ -531,3 +531,68 @@ def test_OP15_setup_requires_authority_current_before_completion(
         before = snapshot(config.parent)
         assert doctor(config)["ok"]
         assert snapshot(config.parent) == before
+
+
+def test_explicit_milestones_survive_closed_operator_configuration(tmp_path):
+    from uuid import uuid4
+
+    from ai_task_manager.domains.work.models import ApprovalPolicy
+    from ai_task_manager.installation.sessions.operator import configuration
+
+    viewer, workspace, team, project, agent, connection, instance = [str(uuid4()) for _ in range(7)]
+    declarations = [
+        {
+            "task_prose_digest": "a" * 64,
+            "predecessor_prose_digest": "b" * 64,
+            "condition": "code_merged",
+        }
+    ]
+    request = {
+        "version": 1,
+        "state_directory": str(tmp_path / "state"),
+        "linear": {
+            "expected": {
+                "viewer_id": viewer,
+                "workspace_id": workspace,
+                "team_id": team,
+                "team_key": "TST",
+                "project_id": project,
+            },
+            "agent_connection": {
+                "connection_id": connection,
+                "workspace_id": workspace,
+                "principal_id": viewer,
+                "logical_session": "session",
+                "agent_id": agent,
+            },
+            "credential": {"environment": "AITM_CREDENTIAL_CONTROL"},
+            "dependency_milestones": declarations,
+        },
+        "logical_session": "session",
+        "operation_key": "milestone-install",
+        "deadline": 1000,
+        "writer": {
+            "root": "/owned/writer",
+            "python": "/owned/python",
+            "python_sha256": "c" * 64,
+            "pins": {"SKILL.md": "d" * 64},
+        },
+        "capacity_policies": [{"host": "claude", "host_limit": 2, "project_limit": 2}],
+        "actions": ["enqueue"],
+    }
+    assert parse(request) == request
+    control = {
+        "record": str(tmp_path / "owner.json"),
+        "endpoint": "/tmp/aitm-milestone-" + instance[:8] + ".sock",
+        "instance": instance,
+    }
+    config = configuration(
+        tmp_path / "service.json", request, control, ApprovalPolicy("a" * 64, "b" * 64, "c" * 64)
+    )
+    assert config["linear"]["dependency_milestones"] == declarations
+    changed = copy.deepcopy(request)
+    changed["linear"]["dependency_milestones"][0]["condition"] = "production"
+    from ai_task_manager.domains.work.errors import ValidationError
+
+    with pytest.raises(ValidationError):
+        parse(changed)

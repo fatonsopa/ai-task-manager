@@ -67,7 +67,12 @@ class DependencyReceipts(AuthorityJournal):
             ):
                 raise AccessDenied("Dependency operation context changed")
         return (
-            {"context": json.loads(row[0]), "generation": row[1], "receipt": row[2]}
+            {
+                "context": json.loads(row[0]),
+                "generation": row[1],
+                "receipt": row[2],
+                "source_id": value["snapshot"]["source_id"] if row[2] else None,
+            }
             if row
             else None
         )

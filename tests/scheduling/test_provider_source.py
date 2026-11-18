@@ -184,6 +184,17 @@ def test_real_core_noncode_completion_refs_allow_dependency(provider):
     provider.refresh(a)
     a = r.transition(a, S.TODO, "enqueue")
     provider.sync(a)
+    from ai_task_manager.domains.scheduling.resources import AdmissionResources
+
+    r.resource_sources.rows[a.id] = AdmissionResources(
+        provider.scope,
+        a.id,
+        a.prose_digest,
+        a.decision_revision,
+        "authored-project",
+        (),
+        (),
+    )
     a, attempt = r.running(a)
     a = r.complete(a)
     a, _ = r.settle(a, attempt)
@@ -659,3 +670,140 @@ def test_active_attempt_refresh_preserves_expiry_fence(provider, timing):
         assert (
             conn.execute("SELECT active FROM attempts WHERE id=?", (attempt.id,)).fetchone()[0] == 1
         )
+
+
+@pytest.mark.parametrize("variant", ["current", "held", "expired-proof", "wrong-subject"])
+def test_configured_milestone_releases_only_current_observed_merge(provider, tmp_path, variant):
+    from ai_task_manager.application.service.linear import LinearComponents
+
+    p, r = provider, provider.rig
+    predecessor = p.task(code=True, title="Owned code predecessor")
+    dependent = p.task(title="Explicit merge dependent")
+    p.edge(predecessor, dependent)
+    declarations = [
+        {
+            "task_prose_digest": dependent.prose_digest,
+            "predecessor_prose_digest": predecessor.prose_digest,
+            "condition": "code_merged",
+        }
+    ]
+    config = {
+        "expected": asdict(p.expected),
+        "agent_connection": asdict(p.connection),
+        "credential_environment": "AITM_CREDENTIAL_AUTHORED",
+        "journal": str(tmp_path / "owned" / "milestone.sqlite"),
+        "dependency_milestones": declarations,
+    }
+    components = LinearComponents(
+        config,
+        client_factory=lambda credentials, expected: p.client,
+    )
+    components.scheduling_sources.clock = lambda: r.now
+    source = components.dependencies(r.core, r.handle)
+    r.core.scheduling.sources = components.scheduling_sources
+    assert source.refresh(dependent.id, "before-merge")["state"] == "blocked"
+    source.refresh(predecessor.id, "before-start")
+    predecessor = r.transition(predecessor, S.TODO, "enqueue")
+    p.sync(predecessor)
+    from ai_task_manager.domains.scheduling.resources import AdmissionResources
+
+    r.resource_sources.rows[predecessor.id] = AdmissionResources(
+        p.scope,
+        predecessor.id,
+        predecessor.prose_digest,
+        predecessor.decision_revision,
+        "authored-project",
+        (),
+        (),
+    )
+    predecessor, attempt = r.running(predecessor)
+    predecessor = r.complete(predecessor)
+    predecessor, _ = r.settle(predecessor, attempt)
+    merge = r.proof(
+        "merge", predecessor.id, {"commit": "a" * 40, "prose_digest": predecessor.prose_digest}
+    )
+    predecessor = r.transition(predecessor, S.IN_DEV, "merge", {"merge": merge})
+    p.sync(predecessor)
+    if variant == "held":
+        with r.db.transaction() as conn:
+            predecessor = work.save(
+                conn, replace(predecessor, human_hold=True), predecessor.version
+            )
+        p.sync(predecessor)
+    elif variant == "expired-proof":
+        r.proofs.evidence[merge] = replace(r.proofs.evidence[merge], expires_at=r.now)
+    elif variant == "wrong-subject":
+        r.proofs.evidence[merge] = replace(r.proofs.evidence[merge], subject=dependent.id)
+    view = source.refresh(dependent.id, "after-merge")
+    assert view["state"] == ("ready" if variant == "current" else "blocked"), view
+    snapshot = components.scheduling_sources.verify_snapshot(
+        source.prepare(dependent.id, "after-merge").snapshot_ref
+    )
+    assert len(snapshot.dependencies) == 1
+    assert snapshot.dependencies[0].condition == "code_merged"
+    assert dict(snapshot.dependencies[0].evidence_refs)["merge"] == merge
+    # Unconfigured provider edges retain their stronger complete-work meaning.
+    default = type(source)(r.core, r.handle, p.client, components.scheduling_sources)
+    ordinary = p.task(title="Unconfigured dependent")
+    p.edge(predecessor, ordinary)
+    assert default.refresh(ordinary.id, "unconfigured")["state"] == "blocked"
+    with pytest.raises(EvidenceRequired, match="different source"):
+        default.refresh(dependent.id, "changed-policy")
+    with pytest.raises(AccessDenied, match="another milestone policy"):
+        default.prepare(dependent.id, "after-merge")
+
+
+@pytest.mark.parametrize("variant", ["unknown-field", "digest", "self", "duplicate", "condition"])
+def test_milestone_declaration_schema_is_closed(variant):
+    from ai_task_manager.adapters.linear.dependencies.source import milestone_declarations
+    from ai_task_manager.domains.work.errors import ValidationError
+
+    value = {
+        "task_prose_digest": "a" * 64,
+        "predecessor_prose_digest": "b" * 64,
+        "condition": "code_merged",
+    }
+    if variant == "unknown-field":
+        value["proof"] = "untrusted"
+    elif variant == "digest":
+        value["task_prose_digest"] = "not-a-digest"
+    elif variant == "self":
+        value["predecessor_prose_digest"] = value["task_prose_digest"]
+    elif variant == "condition":
+        value["condition"] = "unit_verified"
+    with pytest.raises(ValidationError):
+        milestone_declarations([value, value] if variant == "duplicate" else [value])
+
+
+@pytest.mark.parametrize(
+    "variant", ["missing-edge", "noncode", "ambiguous-predecessor", "ambiguous-dependent"]
+)
+def test_explicit_milestone_cannot_invent_or_ambiguously_bind_provider_edge(provider, variant):
+    from ai_task_manager.adapters.linear.dependencies.source import (
+        DependencySource,
+        milestone_declarations,
+    )
+
+    p, r = provider, provider.rig
+    a = p.task(code=variant != "noncode", title="Predecessor")
+    task = p.task(title="Dependent")
+    if variant != "missing-edge":
+        p.edge(a, task)
+    if variant.startswith("ambiguous"):
+        p.task(
+            code=variant.endswith("predecessor"),
+            title="Predecessor" if variant.endswith("predecessor") else "Dependent",
+        )
+    declared = milestone_declarations(
+        [
+            {
+                "task_prose_digest": task.prose_digest,
+                "predecessor_prose_digest": a.prose_digest,
+                "condition": "code_merged",
+            }
+        ]
+    )
+    source = DependencySource(r.core, r.handle, p.client, p.receipts, milestones=declared)
+    with pytest.raises(EvidenceRequired, match="one current observed code edge"):
+        source.refresh(task.id, "refuse-edge")
+    assert r.core.scheduling.explain(r.handle, task.id)["state"] == "unknown"
