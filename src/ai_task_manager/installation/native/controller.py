@@ -414,6 +414,7 @@ class NormalInvocationController:
                 "wait_until": deadline,
                 "clock": lambda: self.clock().timestamp(),
                 "cancelled": cancelled,
+                "settlement": True,
             }
         with self.store.transaction(**wait) as conn:
             if settlement_check is not None:

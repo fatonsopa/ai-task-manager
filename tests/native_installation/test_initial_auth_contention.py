@@ -158,3 +158,65 @@ def test_initial_auth_wait_preserves_cancel_expiry_revocation_and_parent(actual_
     with store.settlement_snapshot() as conn:
         assert conn.execute("SELECT COUNT(*) FROM native_calls WHERE permission_ref=? AND purpose='auth'",
                             (accounting.control.reference,)).fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("change", ["revoke", "expiry", "cancel"])
+def test_initial_auth_known_child_stop_survives_admission_loss(actual_accounting_graph, monkeypatch, tmp_path, change):
+    import subprocess
+    import sys
+
+    from ai_task_manager.adapters.hosts.bridge.invocations import spawn_claimed
+    from ai_task_manager.adapters.hosts.bridge import accounting as accounting_module
+    from ai_task_manager.adapters.process.groups import OwnedProcessGroup, supervise
+    from ai_task_manager.installation.native import controller as controller_module
+
+    authority, policy, binding, _, store, _ = actual_accounting_graph
+    accounting = authority.launch_permits
+    accounting.authorize_initialization(policy, binding)
+    cancelled = Event()
+    original_datetime = controller_module.datetime
+    offset = [timedelta()]
+
+    class Clock(original_datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return original_datetime.now(tz) + offset[0]
+
+    monkeypatch.setattr(controller_module, "datetime", Clock)
+    monkeypatch.setattr(accounting_module, "datetime", Clock)
+    child = group = None
+    try:
+        with pytest.raises(AccessDenied):
+            with accounting.authentication_boundary(policy, binding, cancelled=cancelled):
+                permit = accounting.authorize_auth(policy, binding)
+                child = spawn_claimed(permit, [sys.executable, "-I", "-c", "import time;time.sleep(20)"],
+                                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                      stderr=subprocess.DEVNULL, start_new_session=True)
+                group = OwnedProcessGroup(child)
+                assert group.capture().known
+                if change == "revoke":
+                    NativeStore(store.path, store.pointer).revoke(accounting.control.reference)
+                elif change == "expiry":
+                    offset[0] = timedelta(seconds=40)
+                else:
+                    cancelled.set()
+                completion = supervise(group, timeout_seconds=0)
+                assert completion["group"]["confirmed_stop"] is True
+                accounting.record_auth(binding, completion)
+                # Admission remains refused after the separate known-stop fact.
+                with pytest.raises(AccessDenied):
+                    with permit.launch_boundary():
+                        pytest.fail("Stopped auth child launched again")
+    finally:
+        offset[0] = timedelta()
+        if group is not None and child.poll() is None:
+            assert group.stop().confirmed
+            group.reap_exited_leader()
+    assert child is not None and child.returncode is not None
+    with store.settlement_snapshot() as conn:
+        rows = conn.execute("SELECT data FROM native_calls WHERE permission_ref=? AND purpose='auth'",
+                            (accounting.control.reference,)).fetchall()
+    assert len(rows) == 1
+    stopped = json.loads(rows[0][0])
+    assert stopped["process_stopped"] is True, stopped
+    assert stopped["outcome"] == "interrupted" and stopped["evidence"].startswith("host-record:")
