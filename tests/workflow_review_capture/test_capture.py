@@ -147,6 +147,130 @@ def test_RC10_readonly_gateway_keeps_authority_and_denies_every_tool():
             gateway.call(name, {})
 
 
+def test_r04_transport_review_does_not_prepare_inside_model_guard(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+    from threading import Event, Thread, current_thread
+
+    from ai_task_manager.adapters.linear.dependencies.source import DependencySource
+    from tests.scheduling.provider_fixture import ProviderFixture
+
+    p = ProviderFixture(tmp_path / "provider")
+    author = ReviewRig(tmp_path / "author", scope=p.scope)
+    proof = author.r.proof
+
+    def canonical_provider(kind, subject, payload=None, **kwargs):
+        if kind == "provider_status" and payload and payload.get("issue_id", "").startswith("TST:"):
+            payload = {**payload, "issue_id": subject}
+        return proof(kind, subject, payload, **kwargs)
+
+    monkeypatch.setattr(author.r, "proof", canonical_provider)
+
+    def dependencies(r, task):
+        from ai_task_manager.domains.scheduling.resources import AdmissionResources
+
+        p.rig = r
+        for row in r.core.list_tasks(r.handle):
+            p.sync(row)
+        def current_provider(*_):
+            for row in r.core.list_tasks(r.handle):
+                p.sync(row)
+        p.callback = current_provider
+        p.receipts.clock = lambda: r.now
+        r.core.scheduling.sources = p.receipts
+        r.resource_sources.rows[task.id] = AdmissionResources(
+            p.scope, task.id, task.prose_digest, task.decision_revision, "authored-project", (), ()
+        )
+        return DependencySource(r.core, r.handle, p.client, p.receipts)
+
+    inspection, producer = reviewer(author, tmp_path / "reviewer", dependency_factory=dependencies)
+    workers, errors, threads = producer.workers, [], []
+    started = workers.start
+    claimed, waiting_model, waiting_publication = Event(), Event(), Event()
+    observed = []
+
+    def instrument(*args, **kwargs):
+        attempt = started(*args, **kwargs)
+        native = workers.hosts.owned[attempt.id]
+        owner = workers._freshness[attempt.id]
+        source = owner.registry.dependencies
+        guard = native.startup.model_guard
+        current = guard.current_boundary
+        prepare = guard.prepare_effect
+        observe = guard.observation_boundary
+        check = guard.check
+        publication = source.publication_boundary
+
+        def collect():
+            try:
+                owner.refresh()
+            except BaseException as error:
+                errors.append(error)
+
+        def prepared(*args, **kwargs):
+            if current_thread().name == "review-background-renewal":
+                waiting_model.set()
+            return prepare(*args, **kwargs)
+
+        def checked():
+            if current_thread().name == "review-background-renewal":
+                waiting_model.set()
+            return check()
+
+        @contextmanager
+        def observing(**kwargs):
+            if current_thread().name == "review-background-renewal":
+                waiting_model.set()
+            with observe(**kwargs):
+                yield
+
+        @contextmanager
+        def boundary(*args, **kwargs):
+            if guard._lock._is_owned() and claimed.is_set():
+                observed.append({"model_held": True, "cancelled": owner._stop.is_set(),
+                                 "expired_before_wait": author.r.now >= owner._expires_at})
+                waiting_publication.set()
+                # Release this controlled circular wait at the ORIGINAL expiry.
+                author.r.now = owner._expires_at
+            with publication(*args, **kwargs):
+                yield
+
+        @contextmanager
+        def guarded(value):
+            with current(value):
+                if native.process._model_frame and not claimed.is_set():
+                    claimed.set()
+                    thread = Thread(target=collect, name="review-background-renewal")
+                    threads.append(thread)
+                    thread.start()
+                    assert waiting_model.wait(3)
+                yield
+
+        monkeypatch.setattr(source, "publication_boundary", boundary)
+        monkeypatch.setattr(guard, "prepare_effect", prepared)
+        monkeypatch.setattr(guard, "check", checked)
+        monkeypatch.setattr(guard, "observation_boundary", observing)
+        monkeypatch.setattr(guard, "current_boundary", guarded)
+        return attempt
+
+    monkeypatch.setattr(workers, "start", instrument)
+    store = CaptureStore(tmp_path / "captures")
+    try:
+        captured = producer.capture(inspection, store)
+        assert captured.accepted(("request",), store.resolve(inspection).expires_at - 1)
+        assert claimed.is_set() and waiting_model.is_set()
+        assert not waiting_publication.is_set(), observed
+    finally:
+        for thread in threads:
+            thread.join(timeout=4)
+            assert not thread.is_alive()
+        (tmp_path / "r04-control-facts.json").write_text(json.dumps({
+            "claimed": claimed.is_set(), "background_waiting_model": waiting_model.is_set(),
+            "publication_inside_model_guard": observed,
+            "background_errors": [type(error).__name__ for error in errors],
+        }, indent=2) + "\n")
+        author.runtime.close()
+
+
 def test_RC07_changed_capture_and_revocation_refuse(graph):
     _, inspection, producer, store = graph
     captured = producer.capture(inspection, store)

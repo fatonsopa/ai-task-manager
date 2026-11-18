@@ -29,7 +29,9 @@ from tests.runtime.helpers import ProviderFixture
 from tests.scheduling.helpers import known_declaration
 
 
-def reviewer(author, root, verdict=None, *, host="claude", model="claude-opus-5-5"):
+def reviewer(
+    author, root, verdict=None, *, host="claude", model="claude-opus-5-5", dependency_factory=None
+):
     root.mkdir(mode=0o700)
     journals = root / "journals"
     journals.mkdir(mode=0o700)
@@ -55,8 +57,13 @@ def reviewer(author, root, verdict=None, *, host="claude", model="claude-opus-5-
         r.key(),
     )
     task = r.confirm(task)
-    r.known_dependencies[task.id] = ((), "normal")
-    known_declaration(r, task)
+    if dependency_factory is None:
+        dependencies = AuthoredDependencyCollection(r.core, r.handle)
+        r.known_dependencies[task.id] = ((), "normal")
+        known_declaration(r, task)
+    else:
+        dependencies = dependency_factory(r, task)
+        dependencies.refresh(task.id, "initial-review-observation")
     b = bundle(root / "native", host, model, task_id=task.id)
     executable = root / "authored-review-cli"
     data = verdict or {
@@ -166,7 +173,7 @@ def reviewer(author, root, verdict=None, *, host="claude", model="claude-opus-5-
         factory,
         deadline=spec["deadline"],
         principal_ref="authored-principal",
-        dependencies=AuthoredDependencyCollection(r.core, r.handle),
+        dependencies=dependencies,
         executions=executions,
     )
     factory.commands = workers

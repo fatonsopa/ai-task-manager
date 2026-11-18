@@ -83,12 +83,12 @@ class ReadOnlyReviewGateway:
 
     @contextmanager
     def lease_boundary(self):
-        # Physical inspection/source preparation must not reacquire Core or do Git
-        # work while the delegate owns its short effect transaction.
-        self.check()
+        # The transport invokes check() before Root/model guards. Here only the
+        # prepared physical witnesses and current Core author/worker facts run.
+        self.inspection.check()
         with self.delegate.lease_boundary(inspect=self.current_author):
             yield
-        self.check()
+        self.inspection.check()
 
     def call(self, name, arguments):
         self.check()

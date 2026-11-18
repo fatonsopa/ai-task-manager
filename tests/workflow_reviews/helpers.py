@@ -100,11 +100,13 @@ class HistoricalControl:
 
 
 class ReviewRig:
-    def __init__(self, root, *, code=False):
+    def __init__(self, root, *, code=False, scope=None):
         root.mkdir(mode=0o700)
         self.root = root
         self.runtime = RuntimeRig(root)
         self.r = self.runtime.rig
+        if scope is not None:
+            self.r.scope, self.r.handle = scope, self.r.session(scope)
         task = self.r.queued(code=code)
         self.dispatch = self.runtime.start(task)
         self.runtime.admit(self.dispatch)

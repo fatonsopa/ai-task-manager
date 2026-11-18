@@ -383,7 +383,8 @@ class ManagedNativeHost:
                 permit = require_invocation(invocation, self.policy, self.binding, "assignment")
                 guard = self.startup.model_guard.prepare_effect()
                 with self.process.use_invocation(
-                    permit, guard, self.gateway.delegate.lease_boundary
+                    permit, guard, self.gateway.delegate.lease_boundary,
+                    prepare=self.gateway.delegate.check,
                 ):
                     if self.binding.host == "claude":
                         return self.portal.call(self.session.turn, text)

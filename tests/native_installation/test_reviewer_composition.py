@@ -433,9 +433,9 @@ def test_NR04_current_author_change_at_model_input_fences_review_and_stops(
     monkeypatch.setattr(ManagedToolGateway, "lease_boundary", changed)
     store = CaptureStore(Path(factory.author.installation.path).parent / "race-captures")
     try:
-        with pytest.raises(AccessDenied):
+        with pytest.raises(AccessDenied) as captured:
             producer.capture(s["inspection"], store)
-        assert injected and store.resolve(s["inspection"]) is None
+        assert injected and store.resolve(s["inspection"]) is None, str(captured.value)
         assert len(producer.workers.hosts.owned) == 1
         for native in producer.workers.hosts.owned.values():
             assert native.process._closed
@@ -454,7 +454,13 @@ def test_NR05_lease_inspection_uses_core_only_and_physical_check_stays_outside(
     from ai_task_manager.adapters.workflow_reviews.models import Inspection
 
     s = installed
-    producer = resolve(s["config"], s["primary"].installation).reviewer_factory(s["inspection"])
+    owner = InstalledWorkflow(
+        s["config"], s["primary"].installation,
+        registry=resolve(s["config"], s["primary"].installation,
+                         service_options=s["service_options"]),
+    )
+    s["owners"].append(owner)
+    producer = owner.registry.reviewer_factory(s["inspection"])
     db = producer.workers.core.context.db
     original = Inspection.check
     counts = []

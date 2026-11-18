@@ -75,6 +75,7 @@ class HostProcess:
         self._active_invocation = None
         self._active_guard = None
         self._active_lease = None
+        self._active_prepare = None
         self._active_started = False
         self._model_frame = False
         self._pending_completion = None
@@ -224,7 +225,7 @@ class HostProcess:
             raise RuntimeUncertain("Relay control commit is partial or unknown")
 
     @contextmanager
-    def use_invocation(self, permit, guard=None, lease=None):
+    def use_invocation(self, permit, guard=None, lease=None, *, prepare=None):
         from ..bridge.invocations import PreparedInvocation
 
         if (
@@ -232,6 +233,7 @@ class HostProcess:
             or self.invocation is None
             or self._active_invocation is not None
             or self._pending_completion is not None
+            or (prepare is not None and not callable(prepare))
         ):
             raise AccessDenied("A separate registered invocation is required")
         self._check_invocation_owner(permit)
@@ -247,12 +249,14 @@ class HostProcess:
         )
         self._invocation_ready(permit, request_id)
         self._active_invocation, self._active_guard, self._active_lease = permit, guard, lease
+        self._active_prepare = prepare
         self._active_started = permit.mode == "running"
         try:
             yield
         finally:
             self._active_invocation = self._active_guard = None
             self._active_lease = None
+            self._active_prepare = None
             self._active_started = False
 
     def _invocation_ready(self, permit, request_id):
@@ -318,6 +322,10 @@ class HostProcess:
             return
         if permit is None or (not self._active_started and not self._model_frame):
             permit = self.invocation.native.running()
+        # Full source/provider/physical preparation must finish before either
+        # the root accounting writer or the model effect guard is acquired.
+        if self._active_prepare is not None:
+            self._active_prepare()
         prepared_guard = self._active_guard
         root = (
             permit.effect_boundary()
