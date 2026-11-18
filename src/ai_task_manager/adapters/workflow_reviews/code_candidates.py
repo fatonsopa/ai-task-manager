@@ -23,7 +23,8 @@ class CodeCandidateReviews:
         self._bound = (core, handle, candidates, files, self.reviews)
         self._prepared = None
 
-    def read(self, task, candidate, *, retained=None):
+    def read(self, task, candidate, *, retained=None, capture=True):
+        prepared = self._prepared
         self._prepared = None
         if any(
             a is not b
@@ -152,6 +153,11 @@ class CodeCandidateReviews:
                 raise EvidenceRequired("Retained review cannot change candidate scope or source")
             reader = getattr(self.reviews, "restore", None)
             captured = reader(inspection) if callable(reader) else None
+        elif not capture:
+            reader = getattr(self.reviews, "restore", None)
+            captured = reader(inspection) if callable(reader) else (
+                prepared[2] if prepared is not None and prepared[1].digest == inspection.digest else None
+            )
         else:
             captured = self.reviews.resolve(inspection)
         if captured is None:

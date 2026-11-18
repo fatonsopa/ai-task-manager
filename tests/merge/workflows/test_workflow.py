@@ -248,7 +248,7 @@ def test_retained_owner_compatibility_deadline_and_cleanup_contract(flow):
     assert Path(candidate["path"]).is_dir()
 
 
-@pytest.mark.parametrize("change", ["source", "target", "check_source", "database"])
+@pytest.mark.parametrize("change", ["source", "target", "check_source", "database", "human"])
 def test_post_check_drift_refuses_before_publication_and_retains_resources(flow, change):
     original = flow.checks.run
     moved = flow.root / "retained-database.sqlite"
@@ -261,6 +261,8 @@ def test_post_check_drift_refuses_before_publication_and_retains_resources(flow,
             git(flow.tree, "update-ref", "refs/heads/" + flow.target, flow.new, flow.old)
         elif change == "check_source":
             flow.guard.source = "0" * 64
+        elif change == "human":
+            flow.runtime.hold(flow.dispatch)
         else:
             flow.pair.database.rename(moved)
         return result

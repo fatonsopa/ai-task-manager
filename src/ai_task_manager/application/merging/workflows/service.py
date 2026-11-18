@@ -366,6 +366,11 @@ class MergeWorkflowService(WorkflowService):
         self._prepare_lifecycle(workflow_ref, row)
         if task.delivered_once:
             return self._resume(workflow_ref)
+        context = self._observed_publication(workflow_ref, row, task)
+        if context is not None and self.core.publications.inspect(
+            self.handle, task.id, context
+        )["state"] == "committed":
+            return self._resume(workflow_ref)
         authority = self.candidate.authority
 
         def current():
@@ -394,14 +399,27 @@ class MergeWorkflowService(WorkflowService):
                 # A committed exact Core fact permits receipt consumption only;
                 # the retained LocalGit publication cannot spawn another effect.
 
-        with authority.resources.use(authority.pair):
-            with self.candidate.profile.merge_turn(
-                deadline=self.plan.deadline, clock=self.clock, check=current
-            ) as waited:
-                self.timings.append({"stage": "repository_wait", "seconds": waited})
-                return self._resume(workflow_ref)
+        if row["owner"] is not None and self.recover_claim is not None:
+            self.store.release_dead_claim(workflow_ref, row["owner"], self.recover_claim)
+        owner = self.store.claim(workflow_ref)
 
-    def _resume(self, workflow_ref):
+        def observed_wait(phase, seconds):
+            self.store.repository_wait(workflow_ref, owner, phase, seconds)
+            if phase == "finish":
+                self.timings.append({"stage": "repository_wait", "seconds": seconds})
+
+        try:
+            spent = self.store.read(workflow_ref).get("repository_wait", {}).get("seconds", 0.0)
+            with authority.resources.use(authority.pair):
+                with self.candidate.profile.merge_turn(
+                    deadline=self.plan.deadline, clock=self.clock, check=current,
+                    wait_budget=max(0.0, 120.0 - spent), wait_observer=observed_wait,
+                ):
+                    return self._resume(workflow_ref, owner=owner)
+        finally:
+            self.store.release(workflow_ref, owner)
+
+    def _resume(self, workflow_ref, *, owner=None):
         task = self._scope()
         row = self.store.read(workflow_ref)
         if (row["request"]["plan"], row["request"]["grant"]) != (
@@ -411,9 +429,13 @@ class MergeWorkflowService(WorkflowService):
             raise AccessDenied("Merge workflow is not the current installed context")
         self.plan = current_plan(self.original_plan, row, maximum_attempts=self.maximum_attempts)
         self.references.add(workflow_ref)
-        if row["owner"] is not None and self.recover_claim is not None:
-            self.store.release_dead_claim(workflow_ref, row["owner"], self.recover_claim)
-        owner = self.store.claim(workflow_ref)
+        retained_owner = owner is not None
+        if not retained_owner:
+            if row["owner"] is not None and self.recover_claim is not None:
+                self.store.release_dead_claim(workflow_ref, row["owner"], self.recover_claim)
+            owner = self.store.claim(workflow_ref)
+        elif row["owner"] != owner:
+            raise AccessDenied("Original merge workflow owner changed")
         ref = workflow_ref
         try:
             steps = row["steps"]
@@ -520,67 +542,72 @@ class MergeWorkflowService(WorkflowService):
                     self.candidate.store.owner(candidate.operation_ref)
                     self.candidate.reconcile(candidate.operation_ref, self.plan.grant)
                     self._ready()
-                    if self.candidate_reviews is not None:
-                        review = self.candidate_reviews.read(task, candidate, retained=retained)
-                        if review is None:
-                            return self._envelope(
-                                ref, "awaiting_review", "candidate_review_unavailable"
+                    with self.candidate.profile.immutable_preparation():
+                        if self.candidate_reviews is not None:
+                            review = self.candidate_reviews.read(task, candidate, retained=retained)
+                            if review is None:
+                                return self._envelope(
+                                    ref, "awaiting_review", "candidate_review_unavailable"
+                                )
+                            self._step(
+                                ref,
+                                owner,
+                                "candidate_review",
+                                {"commit": candidate.commit},
+                                lambda: review,
                             )
-                        self._step(
+                        retained_check = (
+                            row.get("predecessor", {})
+                            .get("steps", {})
+                            .get("check_plan", {})
+                            .get("result")
+                        )
+                        prepared_check = (
+                            self.check_inputs.restore(
+                                self.candidate.profile,
+                                self.plan.grant,
+                                candidate,
+                                retained_check["ref"],
+                            )
+                            if retained_check
+                            else self.check_inputs.prepare(
+                                self.candidate.profile,
+                                self.plan.grant,
+                                candidate,
+                                ref + ":checks:" + self.plan.grant.digest,
+                            )
+                        )
+                        check_plan = self._step(
                             ref,
                             owner,
-                            "candidate_review",
-                            {"commit": candidate.commit},
-                            lambda: review,
+                            "check_plan",
+                            {"candidate": candidate.commit},
+                            lambda: {"ref": prepared_check},
                         )
-                    retained_check = (
-                        row.get("predecessor", {})
-                        .get("steps", {})
-                        .get("check_plan", {})
-                        .get("result")
-                    )
-                    prepared_check = (
-                        self.check_inputs.restore(
-                            self.candidate.profile,
-                            self.plan.grant,
-                            candidate,
-                            retained_check["ref"],
-                        )
-                        if retained_check
-                        else self.check_inputs.prepare(
-                            self.candidate.profile,
-                            self.plan.grant,
-                            candidate,
-                            ref + ":checks:" + self.plan.grant.digest,
-                        )
-                    )
-                    check_plan = self._step(
-                        ref,
-                        owner,
-                        "check_plan",
-                        {"candidate": candidate.commit},
-                        lambda: {"ref": prepared_check},
-                    )
-                    check_ref = check_plan["ref"]
-                    if check_ref != prepared_check:
-                        raise AccessDenied(
-                            "Retained check plan differs from exact candidate inputs"
-                        )
-                    b = self.plan.grant.binding
-                    check_scope = Scope(b.principal_id, b.project_id, b.session_id, b.task_id)
+                        check_ref = check_plan["ref"]
+                        if check_ref != prepared_check:
+                            raise AccessDenied(
+                                "Retained check plan differs from exact candidate inputs"
+                            )
+                        b = self.plan.grant.binding
+                        check_scope = Scope(b.principal_id, b.project_id, b.session_id, b.task_id)
 
-                    def run_checks():
-                        self._ready()
-                        snap = self.check_inputs.checks.run(check_ref, check_scope)
-                        return {
-                            "ref": check_ref,
-                            "outcome": snap["outcome"],
-                            "plan": snap["plan"].digest,
-                        }
+                        def run_checks():
+                            self._ready()
+                            snap = self.check_inputs.checks.run(check_ref, check_scope)
+                            return {
+                                "ref": check_ref,
+                                "outcome": snap["outcome"],
+                                "plan": snap["plan"].digest,
+                            }
 
-                    checked = self._step(ref, owner, "checks", {"ref": check_ref}, run_checks)
-                    if checked["outcome"] != "passed":
-                        return self._envelope(ref, "blocked", "checks_" + checked["outcome"])
+                        checked = self._step(ref, owner, "checks", {"ref": check_ref}, run_checks)
+                        if checked["outcome"] != "passed":
+                            return self._envelope(ref, "blocked", "checks_" + checked["outcome"])
+                    if self.candidate.profile.refs(self.plan.grant) != (
+                        self.plan.grant.source_head, self.plan.grant.target_head
+                    ):
+                        raise AccessDenied("Source or target changed during immutable preparation")
                     before = self._publication(ref, candidate, check_ref)
                     pub_ref = before.registration["ref"]
 
@@ -674,7 +701,7 @@ class MergeWorkflowService(WorkflowService):
                     # another Git effect or reinterpret the committed history.
                     if self.candidate_reviews is not None and not committed_replay:
                         review = self.candidate_reviews.read(
-                            self._scope(), candidate, retained=retained
+                            self._scope(), candidate, retained=retained, capture=False
                         )
                         saved = self.store.read(ref)["steps"].get("candidate_review")
                         if review is None or saved is None or saved["result"] != review:
@@ -764,7 +791,8 @@ class MergeWorkflowService(WorkflowService):
                 return self._envelope(ref, "done")
             return self._envelope(ref, "uncertain", "provider_confirmation_pending")
         finally:
-            self.store.release(ref, owner)
+            if not retained_owner:
+                self.store.release(ref, owner)
 
     def prepare_merge_milestone(self, workflow_ref, reference):
         """Reobserve one completed publication; never run a delivery step."""

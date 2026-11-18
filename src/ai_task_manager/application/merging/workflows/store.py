@@ -141,3 +141,17 @@ class MergeWorkflowStore:
 
     def release(self, ref, owner):
         self.update(ref, owner, owner=None)
+
+
+    def repository_wait(self, ref, owner, phase, seconds):
+        facts = self.read(ref)
+        prior = facts.get("repository_wait", {"seconds": 0.0, "pending": False})
+        if phase == "start":
+            if prior["pending"] or prior["seconds"] >= 120.0:
+                raise AccessDenied("Original cumulative repository wait is exhausted or unresolved")
+            value = dict(prior, pending=True)
+        else:
+            if not prior["pending"] or seconds < 0:
+                raise AccessDenied("Repository wait observation has no original acquisition")
+            value = {"seconds": prior["seconds"] + seconds, "pending": False}
+        self.update(ref, owner, repository_wait=value)

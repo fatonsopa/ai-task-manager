@@ -65,21 +65,19 @@ class CandidateProfile:
             if self.profile.validate(self.worktree_id, self.repository_id) != self.source:
                 raise AccessDenied("Configured source repository changed")
 
-    @contextmanager
-    def merge_turn(self, *, deadline, clock, check):
-        """Bound contenders on the existing verified common-directory inode."""
-        self.validate()
-        common = Path(self.source["common"])
-        descriptor = os.open(common, os.O_RDONLY | os.O_NOFOLLOW)
+    def _acquire_turn(self, state):
+        descriptor, deadline, clock, check, observer = state[:5]
         started = time.monotonic()
-        end = started + min(120.0, max(0.0, deadline - clock()))
+        end = started + min(state[5], max(0.0, deadline - clock()))
+        if observer is not None:
+            observer("start", 0.0)
         try:
             while True:
+                common = Path(self.source["common"])
                 opened, current = os.fstat(descriptor), common.stat()
                 expected = tuple(self.source["common_identity"])
                 if (opened.st_dev, opened.st_ino) != expected or (
-                    current.st_dev,
-                    current.st_ino,
+                    current.st_dev, current.st_ino
                 ) != expected:
                     raise AccessDenied("Repository turn physical ownership changed")
                 check()
@@ -92,12 +90,41 @@ class CandidateProfile:
                     time.sleep(min(2.0, max(0.0, end - time.monotonic())))
             self.validate()
             check()
-            self._turn_descriptor = descriptor
-            yield time.monotonic() - started
+        finally:
+            elapsed = time.monotonic() - started
+            state[5] = max(0.0, state[5] - elapsed)
+            if observer is not None:
+                observer("finish", elapsed)
+        self._turn_descriptor = descriptor
+        return elapsed
+
+    @contextmanager
+    def merge_turn(self, *, deadline, clock, check, wait_budget=120.0, wait_observer=None):
+        """Bound contenders on the existing verified common-directory inode."""
+        self.validate()
+        common = Path(self.source["common"])
+        descriptor = os.open(common, os.O_RDONLY | os.O_NOFOLLOW)
+        state = [descriptor, deadline, clock, check, wait_observer, min(120.0, wait_budget)]
+        try:
+            waited = self._acquire_turn(state)
+            self._turn_state = state
+            yield waited
         finally:
             if self._turn_descriptor == descriptor:
                 self._turn_descriptor = None
+            if getattr(self, "_turn_state", None) is state:
+                self._turn_state = None
             os.close(descriptor)
+
+    @contextmanager
+    def immutable_preparation(self):
+        state = getattr(self, "_turn_state", None)
+        if state is None or self._turn_descriptor != state[0]:
+            raise AccessDenied("Immutable preparation requires its original repository turn")
+        self._turn_descriptor = None
+        fcntl.flock(state[0], fcntl.LOCK_UN)
+        yield
+        self._acquire_turn(state)
 
     def inherited_turn(self):
         descriptor = self._turn_descriptor
