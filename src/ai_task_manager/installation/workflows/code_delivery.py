@@ -43,6 +43,9 @@ class DeliveryResources:
 
     def _current(self):
         if self.freshness is not None:
+            prepare = getattr(self.freshness, "prepare_local", None)
+            if callable(prepare):
+                prepare()
             self.freshness.check()
         if self.clock() >= self.deadline:
             raise AccessDenied("Original installed code-delivery deadline expired")

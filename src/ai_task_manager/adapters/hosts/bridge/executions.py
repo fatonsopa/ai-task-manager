@@ -98,6 +98,9 @@ class ReviewedExecutions:
         if isinstance(plan, ModelWork):
             if plan.host != attempt.host or not plan.accounting_ref:
                 raise AccessDenied("Model plan account or host differs from the admitted worker")
+            prepare = getattr(host, "prepare_local_milestones", None)
+            if callable(prepare):
+                prepare()
             permit = self.accounting.authorize(plan.accounting_ref, attempt)
             try:
                 boundary()

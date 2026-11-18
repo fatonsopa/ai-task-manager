@@ -332,6 +332,11 @@ class ManagedNativeHost:
         value = create(self) if callable(create) else None
         return self.install_identity_observations(value) if value is not None else None
 
+    def prepare_local_milestones(self):
+        prepare = getattr(self.authority, "_prepare_milestones", None)
+        if callable(prepare):
+            prepare()
+
     def _current_lease(self, handle, attempt):
         with self._source_audit_boundary(before=False):
             if self.journal.clock() >= self.binding.deadline:
@@ -342,9 +347,7 @@ class ManagedNativeHost:
             if self.authority is not None:
                 # Transport reads/writes have not entered Core or the model
                 # effect guard. Refresh only the existing local witnesses here.
-                prepare = getattr(self.authority, "_prepare_milestones", None)
-                if callable(prepare):
-                    prepare()
+                self.prepare_local_milestones()
                 # Transport observation has not acquired Core. Serialize its
                 # current-only authority check, then release before Core lookup.
                 with self.startup.model_guard.observation_boundary(not_after=self.binding.deadline):

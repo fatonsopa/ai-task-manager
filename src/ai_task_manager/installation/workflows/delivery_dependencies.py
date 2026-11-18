@@ -2,6 +2,7 @@
 
 import threading
 import time
+from contextlib import nullcontext
 from dataclasses import replace
 from uuid import uuid4
 
@@ -66,6 +67,10 @@ class DeliveryDependencies:
         elif self._graph != before["graph_version"]:
             raise AccessDenied("Original delivery dependency graph changed")
         bootstrap = successor and self._graph == before["graph_version"]
+        if not bootstrap:
+            self.prepare_local()
+            before = self.core.scheduling.explain(self.handle, task.id)
+            now = self.core.context.clock()
         if (
             before["state"] != "ready" or not before["expires_at"] or before["expires_at"] <= now
         ) and not bootstrap:
@@ -163,6 +168,7 @@ class DeliveryDependencies:
 
     def start(self, row=None):
         self.bind(row if row is not None else self._row)
+        self.prepare_local()
         if self._mode == "publication":
             self.check()
             return
@@ -191,6 +197,7 @@ class DeliveryDependencies:
                 "Failed dependency observation cannot admit publication"
             ) from self._error
         self._facts()
+        self.prepare_local()
         # No generic issue-open lookup is permitted after Core has inserted the
         # exact fence. New begin operations atomically require the current graph;
         # identical committed begin operations retain their historical replay.
@@ -233,6 +240,25 @@ class DeliveryDependencies:
                 self._error = error
                 self._stop.set()
                 return
+
+    def prepare_local(self):
+        if self._assignment is None or self._mode != "observing":
+            return
+        if self._error is not None:
+            raise AccessDenied("Delivery dependency observation failed") from self._error
+        task, _ = self._facts()
+        prepare = getattr(self.source, "prepare_current_milestones", None)
+        if not callable(prepare):
+            return
+        current = self.core.scheduling.explain(self.handle, task.id)
+        boundary = getattr(self.source, "publication_boundary", None)
+        with (
+            boundary(task.id, not_after=min(self.deadline, current["expires_at"] or self.deadline))
+            if callable(boundary) else nullcontext()
+        ):
+            self._facts()
+            prepare(None, task_id=task.id)
+        self._facts()
 
     def check(self):
         if self._error is not None:

@@ -81,6 +81,9 @@ class ManagedToolGateway:
                 attempt.worker_id,
             ):
                 raise AccessDenied("Model guard belongs to another execution owner")
+        prepare = getattr(self.authority, "_prepare_milestones", None)
+        if callable(prepare):
+            prepare()
         self.core.execution.validate_work_lease(self.handle, attempt.id, attempt.version)
         self._attempt_version = attempt.version
         try:

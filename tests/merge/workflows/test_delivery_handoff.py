@@ -224,7 +224,7 @@ def _published_milestone_case(tmp_path, condition):
                 code_delivery=delivery, plans=SimpleNamespace(get=lambda ref: flow.plan)))),
         )
         r.core.context.evidence = MemberMilestones(r.core.context.evidence.routes, (member,))
-        prose = TaskProse("Inspect the published dependency", "Retain its current queue explanation.", False)
+        prose = TaskProse("Inspect the published dependency", "Retain its current queue explanation.", condition.startswith("delivery:"))
         task = r.core.intake.submit(r.handle, prose, r.approval(prose), r.key())
         r.resource_sources.rows[task.id] = AdmissionResources(
             r.scope, task.id, task.prose_digest, task.decision_revision, "authored-queue", (), (),
@@ -250,8 +250,9 @@ def _published_milestone_case(tmp_path, condition):
                                  observed, {"scope": "authored original provider window; no refetch"})
         r.core.scheduling.observe(r.handle, task.id, task.version, task.decision_revision,
                                   signed, "publish-original-provider-observation")
-        if condition.startswith("lease:"):
-            return _native_lease_case(flow, task, source, signed, observed, reference, tmp_path, condition[6:])
+        if condition.startswith(("lease:", "auth:", "assignment:", "admit:", "delivery:")):
+            prefix, selected = condition.split(":", 1)
+            return _native_lease_case(flow, task, source, signed, observed, reference, tmp_path, selected, consumer=prefix)
         app = ApplicationService(r.core, r.handle, dependencies=source)
         initial = app.call("task_show", {"task_id": task.id})
         expiry = flow.evidence.prepared[reference][0].expires_at
@@ -304,7 +305,7 @@ def test_public_queue_queries_reprepare_only_current_local_merge_milestone(tmp_p
     return _published_milestone_case(tmp_path, condition)
 
 
-def _native_lease_case(flow, task, source, signed, observed, reference, tmp_path, condition):
+def _native_lease_case(flow, task, source, signed, observed, reference, tmp_path, condition, *, consumer="lease"):
     import json
     import os
     import sys
@@ -356,7 +357,9 @@ def _native_lease_case(flow, task, source, signed, observed, reference, tmp_path
         # with the same facts and unchanged original provider-window ceiling.
         assert task_id == task.id
         collections.append(key)
-        source.receipts.verify_snapshot(signed)
+        current_view = r.core.scheduling.explain(r.handle, task_id)
+        current_ref = source.receipts.published_reference(scope, task_id, current_view["source_revision"])
+        source.receipts.verify_snapshot(current_ref)
         current = r.core.get_task(r.handle, task_id)
         graph = r.core.scheduling.explain(r.handle, task_id)["graph_version"]
         begun = source.receipts.begin(scope, current, graph, key)
@@ -367,6 +370,12 @@ def _native_lease_case(flow, task, source, signed, observed, reference, tmp_path
 
     source.prepare = original_observation
     host.authority.refresh()
+    if consumer == "auth":
+        return _identity_auth_case(flow, host, attempt, observed, reference, tmp_path, condition)
+    if consumer == "delivery":
+        return _stopped_delivery_case(flow, host, dispatch, attempt, observed, reference, tmp_path)
+    if consumer in {"assignment", "admit"}:
+        return _additional_lease_case(flow, host, dispatch, attempt, observed, reference, tmp_path, consumer)
     output = tmp_path / "native-output"
     output.mkdir(mode=0o700)
     command = Command((sys.executable, "-I", "-u", "-c",
@@ -423,3 +432,197 @@ def _native_lease_case(flow, task, source, signed, observed, reference, tmp_path
 @pytest.mark.parametrize("condition", ["current", "stale", "held", "target"])
 def test_native_read_prepares_current_local_merge_milestone(tmp_path, condition):
     return _published_milestone_case(tmp_path, "lease:" + condition)
+
+
+def _identity_auth_case(flow, host, attempt, observed, reference, tmp_path, condition):
+    import json
+    import traceback
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from ai_task_manager.adapters.hosts.bridge.auth_probe import ClaudeAuthProbe
+    from ai_task_manager.adapters.hosts.bridge.identity import NativeIdentityObservations
+    from ai_task_manager.adapters.hosts.bridge.identity_accounting import IdentityAuthPermits
+
+    class Claimed(Exception):
+        pass
+
+    r, claims, protected = flow.r, [], [False]
+    preparation = host.authority._prepare_milestones
+
+    def prepare():
+        assert not protected[0], "Local preparation entered the identity effect boundary"
+        return preparation()
+
+    host.authority._prepare_milestones = prepare
+    parent = SimpleNamespace(reference="authored-existing-host-parent")
+
+    @contextmanager
+    def identity_boundary(invocation, *, not_after, cancelled=None):
+        assert invocation is parent and not_after <= host.binding.deadline
+        protected[0] = True
+        try:
+            yield
+        finally:
+            protected[0] = False
+
+    parent.issuer = SimpleNamespace(identity_boundary=identity_boundary)
+
+    def owner(policy, binding):
+        assert policy is host.policy and binding is host.binding
+        return r.core.get_attempt(r.handle, attempt.id)
+
+    def claim(policy, binding, purpose, seconds, **context):
+        assert protected[0] and purpose == "auth" and seconds == 15
+        assert context["reference"] == "authored-identity-once"
+        claims.append(context["reference"])
+        raise Claimed()  # Exact finite accounting boundary, before any auth subprocess.
+
+    accounting = SimpleNamespace(
+        core=r.core, handle=r.handle, plan=SimpleNamespace(identity_refreshes=("authored-identity-once",), auth_seconds=15),
+        _owner=owner, _claim=claim, _initialization=SimpleNamespace(native=parent),
+    )
+    permits = IdentityAuthPermits(accounting, host)
+    observer = object.__new__(NativeIdentityObservations)
+    observer.native = host
+    observer.execution_not_after = host.binding.deadline
+    observer.prepare = lambda **kwargs: SimpleNamespace(observation=SimpleNamespace(expires_at=observed.expires_at + 10))
+    observer._invocation = SimpleNamespace(native=parent)
+    observer._probe = ClaudeAuthProbe(host.journal, permits)
+    permits.bind(observer)
+    host.expected_account = "authored-current-account"
+    expiry = flow.evidence.prepared[reference][0].expires_at
+    r.now = observed.expires_at if condition == "stale" else expiry + 1
+    if condition == "held":
+        predecessor = r.core.get_task(r.handle, flow.task.id)
+        proof = r.proof("human_decision", predecessor.id,
+                        {"previous_revision": predecessor.decision_revision, "hold": True})
+        r.core.decisions.record(r.handle, predecessor.id, predecessor.version, proof, r.key())
+    elif condition == "target":
+        from ai_task_manager.adapters.resources.git import git
+
+        r.now = observed.observed_at
+        target = git(flow.runtime.repo, "rev-parse", "refs/heads/integration")
+        git(flow.runtime.repo, "update-ref", "refs/heads/integration", flow.old, target)
+    elif condition == "revoked":
+        host.authority._stop.set()
+    failure = None
+    try:
+        observer._refresh(tmp_path / "identity-once")
+    except Claimed:
+        pass
+    except WorkError as error:
+        failure = {"type": type(error).__name__, "message": str(error), "traceback": traceback.format_exc()}
+    facts = {"scope": "Actual identity refresh/auth probe/permit/Core; native identity/policy and claim ports authored",
+             "clock": r.now, "provider_expiry": observed.expires_at, "local_expiry": expiry,
+             "failure": failure, "claim_attempts": len(claims), "condition": condition}
+    (tmp_path / "identity-lease-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+    if condition == "current":
+        assert failure is None and len(claims) == 1, facts
+    else:
+        assert failure is not None and not claims, facts
+
+
+@pytest.mark.parametrize("condition", ["current", "stale", "held", "target", "revoked"])
+def test_identity_auth_prepares_current_local_merge_milestone(tmp_path, condition):
+    return _published_milestone_case(tmp_path, "auth:" + condition)
+
+
+def _additional_lease_case(flow, host, dispatch, attempt, observed, reference, tmp_path, consumer):
+    import json
+    import traceback
+    from types import SimpleNamespace
+    from ai_task_manager.adapters.hosts.bridge.accounting import HostInvocationAccounting
+    from ai_task_manager.adapters.hosts.bridge.executions import ModelWork, ReviewedExecutions
+    from ai_task_manager.adapters.hosts.bridge.gateway import ManagedToolGateway
+    from ai_task_manager.adapters.hosts.bridge.workspace import Workspace
+
+    class Claimed(Exception):
+        pass
+
+    r, claims = flow.r, []
+    expiry = flow.evidence.prepared[reference][0].expires_at
+    failure, succeeded = None, False
+    if consumer == "assignment":
+        def claim(*args, **kwargs):
+            claims.append(True)
+            raise Claimed()
+
+        a = SimpleNamespace(_current=lambda: None, core=r.core, handle=r.handle,
+                            plan=SimpleNamespace(assignments=("assignment",), assignment_seconds=15),
+                            _owner_binding=host.binding, _policy=host.policy, _calls={"host": "authored-parent"},
+                            _claim=claim)
+        a.authorize = lambda ref, current: HostInvocationAccounting.authorize(a, ref, current)
+        original = host.journal.intend
+
+        def delayed(key, value):
+            result = original(key, value)
+            if key == "execution:assignment-after-intent":
+                r.now = expiry + 1
+            return result
+
+        host.journal.intend = delayed
+        executions = ReviewedExecutions(host.journal,
+            {"assignment": ModelWork(attempt.task_id, attempt.host, "Never submitted.", "assignment")},
+            a, SimpleNamespace())
+        try:
+            executions.execute(handle=r.handle, attempt=attempt, resources=dispatch.resources,
+                               host=host, command_ref="assignment", operation_key="assignment-after-intent",
+                               boundary=lambda: host._current_lease(r.handle, attempt), effect_boundary=lambda: None)
+        except Claimed:
+            succeeded = True
+        except WorkError as error:
+            failure = {"type": type(error).__name__, "message": str(error), "traceback": traceback.format_exc()}
+    else:
+        r.now = expiry + 1
+        gateway = ManagedToolGateway(r.core, r.handle, dispatch, Workspace(dispatch.resources.worktree),
+                                     flow.runtime.resources, host.journal, deadline=host.binding.deadline,
+                                     authority=host.authority)
+        try:
+            gateway.admit()
+            succeeded = True
+        except WorkError as error:
+            failure = {"type": type(error).__name__, "message": str(error), "traceback": traceback.format_exc()}
+    facts = {"consumer": consumer, "clock": r.now, "provider_expiry": observed.expires_at,
+             "local_expiry": expiry, "failure": failure, "claim_attempts": len(claims), "succeeded": succeeded}
+    (tmp_path / "lease-consumer-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+    assert failure is None and succeeded, facts
+
+
+@pytest.mark.parametrize("consumer", ["assignment", "admit"])
+def test_trusted_work_lease_handoff_prepares_local_milestone(tmp_path, consumer):
+    return _published_milestone_case(tmp_path, consumer + ":current")
+
+
+def _stopped_delivery_case(flow, host, dispatch, attempt, observed, reference, tmp_path):
+    import json
+    import traceback
+    from ai_task_manager.installation.workflows.code_delivery import DeliveryResources
+    from ai_task_manager.installation.workflows.delivery_dependencies import DeliveryDependencies
+
+    r = flow.r
+    flow.runtime.supervisor.execute(r.handle, dispatch, flow.runtime.command(dispatch), operation_key=r.key())
+    task = r.core.get_task(r.handle, attempt.task_id)
+    lifecycle = DeliveryDependencies(r.core, r.handle, host.authority.registry.dependencies, host.binding.deadline)
+    lifecycle.bind({"task_id": task.id, "attempt_id": attempt.id, "prose_digest": task.prose_digest,
+                    "decision_revision": task.decision_revision})
+    lifecycle._mode = "observing"
+    try:
+        lifecycle._refresh()
+        expiry = flow.evidence.prepared[reference][0].expires_at
+        r.now = expiry + 1
+        resources = DeliveryResources(flow.runtime.resources, lambda: r.now, host.binding.deadline, lifecycle)
+        failure = None
+        try:
+            resources.verify(dispatch.resources)
+        except WorkError as error:
+            failure = {"type": type(error).__name__, "message": str(error), "traceback": traceback.format_exc()}
+        facts = {"clock": r.now, "local_expiry": expiry, "provider_expiry": observed.expires_at,
+                 "attempt_state": r.core.get_attempt(r.handle, attempt.id).state, "failure": failure}
+        (tmp_path / "stopped-delivery-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+        assert failure is None, facts
+    finally:
+        lifecycle.close()
+
+
+def test_stopped_delivery_reprepares_original_local_milestone(tmp_path):
+    return _published_milestone_case(tmp_path, "delivery:current")

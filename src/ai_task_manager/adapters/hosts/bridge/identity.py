@@ -219,6 +219,7 @@ class NativeIdentityObservations:
         # The unchanged probe obtains a unique accounted invocation, performs
         # actual auth status and records its owned subprocess outcome.
         parent = self._invocation.native
+        n.prepare_local_milestones()
         with parent.issuer.identity_boundary(
             parent, not_after=min(previous.observation.expires_at, self.execution_not_after),
             cancelled=cancelled,
