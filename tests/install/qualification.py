@@ -399,3 +399,31 @@ def target_only_resume(
     assert elapsed < 600 and wait_seconds < 120 and lineage_count == 0
     assert not already_resumed
     return True
+
+
+def target_continuation_context(service, workflow_ref):
+    """Read the real original owner and apply its existing stopped-worker fence."""
+    driver = service.workflows.driver
+    row = driver.store.read(workflow_ref, service.scope)
+    delivery = driver.code_delivery
+    component = delivery.components[row["id"]]
+    assert len(component.references) == 1
+    merged = component.store.read(next(iter(component.references)))
+    task = service.core.get_task(service.handle, row["task_id"])
+    attempt = service.core.get_attempt(service.handle, row["attempt_id"])
+    assert merged["owner"] is None
+    assert row["steps"]["worker-commit"]["result"]["commit"] == component.plan.grant.source_head
+    delivery.resources.verify(delivery.runtime.pair(attempt.id))
+    component._ready()
+    source, target = component.candidate.profile.refs(component.plan.grant)
+    # The existing transaction resolves actor scope, checks attempts.active and
+    # rejects an invalidated original scheduling attempt even if today's view is ready.
+    with service.core.execution.worker_commit_boundary(
+        service.handle, task.id, attempt.id, task.version, attempt.version, task.decision_revision
+    ) as (task, attempt, scope):
+        assert scope == service.scope == driver.scope
+        assert task.prose_digest == row["prose_digest"] and task.decision_revision == row["decision_revision"]
+    view = service.core.scheduling.explain(service.handle, task.id)
+    assert view["state"] == "ready" and view["expires_at"] > service.core.context.clock()
+    return {"row": row, "component": component, "merged": merged, "task": task,
+            "attempt": attempt, "source": source, "target": target, "view": view}
