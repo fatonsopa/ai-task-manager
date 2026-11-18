@@ -55,6 +55,10 @@ class IdentityRefresh:
         )
         if prepared.observation.expires_at >= observer.execution_not_after or remaining > threshold:
             return prepared
+        prepare = getattr(observer.native, "prepare_local_milestones", None)
+        if callable(prepare):
+            prepare()
+        prepared = observer.prepare(cancelled=self._stop)
         if not self._collect.acquire(blocking=False):
             if not minimum_remaining_seconds:
                 return prepared  # The old issued observation remains fresh during collection.

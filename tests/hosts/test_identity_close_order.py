@@ -242,3 +242,45 @@ def test_unstopped_identity_still_downgrades_confirmed_native_stop():
     result = host._stop_owned()
     assert not result.confirmed and result.reason == "identity_helper_stop_unknown"
     assert records == [result]
+
+
+def test_identity_preparation_precedes_collection_lock(tmp_path):
+    """Actual refresh/observer call chain; bounded authored publication-lock owner."""
+    from threading import Lock, RLock
+    from ai_task_manager.adapters.hosts.bridge.identity_refresh import IdentityRefresh
+
+    class Finished(Exception):
+        pass
+
+    publication, preparing = RLock(), Event()
+
+    def prepare():
+        preparing.set()
+        with publication:
+            pass
+
+    observer = object.__new__(NativeIdentityObservations)
+    observer.native = SimpleNamespace(expected_account="authored", policy=object(), binding=object(),
+                                       prepare_local_milestones=prepare)
+    observer.journal = SimpleNamespace(clock=lambda: 0)
+    observer.execution_not_after = 100
+    observer._refresh_lock = Lock()
+    observer._revoked = False
+    observer.prepare = lambda **kwargs: SimpleNamespace(observation=SimpleNamespace(expires_at=10))
+    parent = SimpleNamespace(issuer=SimpleNamespace(identity_boundary=lambda *a, **kw: nothing()))
+    observer._invocation = SimpleNamespace(native=parent)
+    observer._probe = SimpleNamespace(observe=lambda *a: (_ for _ in ()).throw(Finished()))
+    helper = IdentityRefresh(observer, tmp_path / "refresh", 1)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        publication.acquire()
+        try:
+            pending = pool.submit(helper.ensure_current, minimum_remaining_seconds=21)
+            assert preparing.wait(2)
+            acquired = helper._collect.acquire(timeout=0.2)
+            if acquired:
+                helper._collect.release()
+        finally:
+            publication.release()
+        with pytest.raises(Finished):
+            pending.result(timeout=2)
+    assert acquired, "Publication owner would wait for identity collection while identity waits for publication"

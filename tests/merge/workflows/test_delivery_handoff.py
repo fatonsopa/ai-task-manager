@@ -19,6 +19,7 @@ from tests.scheduling.helpers import snapshot
 @pytest.fixture
 def owned(tmp_path):
     flow = Flow(tmp_path / "owned")
+    flow.check_inputs.select_retained = flow.check_inputs.discover
     source = AuthoredDependencyCollection(flow.r.core, flow.r.handle)
     lifecycle = DeliveryDependencies(flow.r.core, flow.r.handle, source, flow.plan.deadline)
     lifecycle.bind(
@@ -181,6 +182,7 @@ def test_saved_exact_publication_context_resumes_without_generic_authority(owned
     flow.r.now += 31
     flow.workflow.faults = None
     result = flow.resume(ref)
+    assert result.get("ok"), result
     assert result["data"]["state"] == "done", result
     assert flow.workflow.store.read(ref)["steps"]["candidate"]["result"] == candidate
     assert lifecycle._thread is None or not lifecycle._thread.is_alive()
@@ -485,6 +487,11 @@ def _identity_auth_case(flow, host, attempt, observed, reference, tmp_path, cond
     observer = object.__new__(NativeIdentityObservations)
     observer.native = host
     observer.execution_not_after = host.binding.deadline
+    observer.journal = host.journal
+    from threading import Lock
+    from ai_task_manager.adapters.hosts.bridge.identity_refresh import IdentityRefresh
+    observer._refresh_lock = Lock()
+    observer._revoked = False
     observer.prepare = lambda **kwargs: SimpleNamespace(observation=SimpleNamespace(expires_at=observed.expires_at + 10))
     observer._invocation = SimpleNamespace(native=parent)
     observer._probe = ClaudeAuthProbe(host.journal, permits)
@@ -507,7 +514,8 @@ def _identity_auth_case(flow, host, attempt, observed, reference, tmp_path, cond
         host.authority._stop.set()
     failure = None
     try:
-        observer._refresh(tmp_path / "identity-once")
+        helper = IdentityRefresh(observer, tmp_path / "identity-once", 1)
+        helper.ensure_current(minimum_remaining_seconds=21)
     except Claimed:
         pass
     except WorkError as error:
