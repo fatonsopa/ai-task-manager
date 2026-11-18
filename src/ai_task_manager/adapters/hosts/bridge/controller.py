@@ -310,7 +310,7 @@ class ManagedNativeHost:
                 raise AccessDenied("Original startup owner changed while waiting")
             yield
 
-    def install_identity_observations(self, value):
+    def install_identity_observations(self, value, *, background=True):
         from .identity_refresh import IdentityRefresh
 
         if (
@@ -320,17 +320,17 @@ class ManagedNativeHost:
         ):
             raise AccessDenied("Only the exact trusted native identity owner may be installed")
         self.identity = self._identity_bound = value
-        value.start()
+        value.start(background=background)
         return value
 
-    def start_identity_observations(self):
+    def start_identity_observations(self, *, background=True):
         if self.identity is not self._identity_bound:
             raise AccessDenied("The installed native identity owner changed")
         if self.identity is not None:
             return self.identity
         create = getattr(self.permits, "identity_observations", None)
         value = create(self) if callable(create) else None
-        return self.install_identity_observations(value) if value is not None else None
+        return self.install_identity_observations(value, background=background) if value is not None else None
 
     def prepare_local_milestones(self):
         prepare = getattr(self.authority, "_prepare_milestones", None)

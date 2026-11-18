@@ -97,10 +97,12 @@ class IdentityRefresh:
         finally:
             self._collect.release()
 
-    def start(self):
+    def start(self, *, background=True):
         if self._thread is not None:
             raise AccessDenied("Identity refresh cannot be restarted")
         self.ensure_current()
+        if not background:
+            return
 
         def run():
             while not self._stop.wait(1):
