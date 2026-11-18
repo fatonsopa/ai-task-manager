@@ -133,6 +133,61 @@ def test_partial_successor_publishes_one_head_and_retains_original_history(admis
         assert conn.execute("SELECT run_id FROM workflow_heads").fetchone()[0] == successor
 
 
+@pytest.mark.parametrize(
+    "locks, error",
+    [
+        ([["test"]], "Unsupported trusted resource lock"),
+        ([["test", "shared"], ["test", "shared"]], "Distinct bounded trusted resource locks"),
+        ([["unsupported", "shared"]], "Unsupported trusted resource lock"),
+        ([["test", "changed"]], "Original workflow plan history changed"),
+    ],
+    ids=["malformed", "duplicate", "unsupported", "digest"],
+)
+def test_serialized_successor_resource_lock_tamper_refuses_before_admission(
+    admission, tmp_path, locks, error
+):
+    import json
+    from types import SimpleNamespace
+
+    from ai_task_manager.application.workflows.models import WorkflowPlan
+    from ai_task_manager.application.workflows.recovery import admit_successor
+    from ai_task_manager.storage.workflows import WorkflowStore
+
+    r, selected, _, a, handle = admission
+    store = WorkflowStore(tmp_path / "retained.sqlite")
+    old = WorkflowPlan(
+        "old",
+        "assignment",
+        "fixture",
+        "base",
+        ("result",),
+        ("result",),
+        r.now - 1,
+        resource_locks=(("test", "shared"),),
+    )
+    ref = store.create(r.scope, selected, old, "old-key", "old-runtime")
+    fresh = replace(old, id="fresh", deadline=a.expires_at)
+    a = replace(a, predecessor=ref, plan_ref=fresh.id, plan_digest=fresh.digest)
+    r.proofs.evidence[a.reference] = Evidence(
+        "workflow_successor", r.scope, selected.id, asdict(a), a.expires_at
+    )
+    with store.transaction() as conn:
+        body = json.loads(conn.execute("SELECT body FROM runs WHERE id=?", (ref,)).fetchone()[0])
+        body["plan"]["resource_locks"] = locks
+        conn.execute("UPDATE runs SET body=? WHERE id=?", (json.dumps(body), ref))
+    retained = store.read(ref, r.scope)
+    assert retained["plan"]["resource_locks"] == locks
+    boundary = SimpleNamespace(check=lambda *_: pytest.fail("Invalid history cannot reconcile"))
+    with pytest.raises(WorkError, match=error):
+        admit_successor(r.core, r.handle, handle, store, a, fresh, "fresh-runtime", boundary)
+    assert store.read(ref, r.scope) == retained
+    with store.transaction() as conn:
+        assert conn.execute("SELECT count(*) FROM recoveries").fetchone()[0] == 0
+        assert conn.execute("SELECT run_id FROM workflow_heads").fetchone()[0] == ref
+    with pytest.raises(AccessDenied):
+        r.core.get_task(handle, selected.id)
+
+
 def test_R01_successor_inbound_is_limited_to_original_task_family(admission):
     from ai_task_manager.storage.work import fingerprint
 

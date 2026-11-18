@@ -147,6 +147,8 @@ def _old_plan(row):
     value["artifacts"] = tuple(value["artifacts"])
     if "commit_checks" in value:
         value["commit_checks"] = tuple(value["commit_checks"])
+    if value.get("resource_locks") is not None:
+        value["resource_locks"] = tuple(tuple(pair) for pair in value["resource_locks"])
     plan = WorkflowPlan(**value)
     if plan.id != row["plan_id"] or plan.digest != row["plan_digest"]:
         raise AccessDenied("Original workflow plan history changed")

@@ -114,7 +114,14 @@ def staged(tmp_path, request):
     write_private(config["workflow_control"]["record"], descriptor)
     store = WorkflowStore(root / "workflow.sqlite")
     old_plan = WorkflowPlan(
-        "old", "assignment", "claude", "b" * 40, ("result",), ("result",), r.now - 1
+        "old",
+        "assignment",
+        "claude",
+        "b" * 40,
+        ("result",),
+        ("result",),
+        r.now - 1,
+        resource_locks=getattr(request, "param", None),
     )
     history = RecoveryHistory(
         original,
@@ -143,6 +150,8 @@ def staged(tmp_path, request):
         "artifacts": ["result"],
         "installation_path": str(root / "installation.json"),
     }
+    if old_plan.resource_locks is not None:
+        base_spec["resource_locks"] = [list(pair) for pair in old_plan.resource_locks]
     write_private(root / "installation.json", base_spec)
     files = {
         name: physical(path)
@@ -273,9 +282,17 @@ def staged(tmp_path, request):
         shutil.rmtree(sockets)
 
 
+@pytest.mark.parametrize(
+    "staged",
+    [None, (), (("migration", "schema"), ("test", "shared-db"))],
+    indirect=True,
+    ids=["unknown", "empty", "explicit"],
+)
 def test_literal_successor_admission_preserves_original_key_and_revocation(staged):
     root, r, store, ref, intent = staged
     before = store.read(ref, r.scope)
+    locks = read_private(root / "installation.json").get("resource_locks")
+    assert before["plan"]["resource_locks"] == locks
     installed = os.environ.get("AITM_SUCCESSOR_PYTHON")
     command = (
         [str(Path(installed).with_name("aitm"))]
@@ -314,6 +331,7 @@ def test_literal_successor_admission_preserves_original_key_and_revocation(stage
     assert store.read(ref, r.scope) == before
     assert store.find(r.scope, before["task_id"], "original-key") == ref
     assert store.find(r.scope, before["task_id"], "successor-key") == successor
+    assert store.read(successor, r.scope)["plan"]["resource_locks"] == locks
     fresh_handle = read_private(root / "successor-session.json")["capability"]
     from ai_task_manager.domains.work.models import SessionHandle
 
@@ -325,8 +343,8 @@ def test_literal_successor_admission_preserves_original_key_and_revocation(stage
     # A stored successor history is not a typed cold-member capability. Reach
     # that actual constructor branch, then refuse an existing owner before any
     # service, provider or native preparation.
-    from ai_task_manager.installation.workflows.composition import InstalledWorkflow
     from ai_task_manager.domains.work.errors import AccessDenied
+    from ai_task_manager.installation.workflows.composition import InstalledWorkflow
 
     fresh_config = read_private(root / "successor.json")
     record = Path(fresh_config["workflow_control"]["record"])
@@ -334,7 +352,9 @@ def test_literal_successor_admission_preserves_original_key_and_revocation(stage
     registry = SimpleNamespace(require=lambda reference: SimpleNamespace(fingerprint="a" * 64))
     try:
         with pytest.raises(AccessDenied, match="Existing owner state requires verified recovery"):
-            InstalledWorkflow(root / "successor.json", root / "successor-installation.json", registry)
+            InstalledWorkflow(
+                root / "successor.json", root / "successor-installation.json", registry
+            )
     finally:
         record.unlink()
     report = os.environ.get("AITM_SUCCESSOR_REPORT")
