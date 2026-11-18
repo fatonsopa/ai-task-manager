@@ -475,12 +475,22 @@ class HostInvocationAccounting:
             observation_ref=observation_ref,
         )
         observed = outcome == "observed_turn"
-        self.control.record_outcome(
-            permit.reference,
-            outcome="succeeded" if observed else "unknown",
-            process_stopped=observed,
-            evidence_ref=ref,
-        )
+        if observed:
+            if permit.issuer.controller is not self.control:
+                raise AccessDenied("Model settlement controller changed")
+            permit.issuer.record_outcome(
+                permit,
+                outcome="succeeded",
+                process_stopped=True,
+                evidence_ref=ref,
+            )
+        else:
+            self.control.record_outcome(
+                permit.reference,
+                outcome="unknown",
+                process_stopped=False,
+                evidence_ref=ref,
+            )
 
     def record_host_stop(self, binding, stop):
         self._current()
@@ -494,16 +504,34 @@ class HostInvocationAccounting:
         ref = self._evidence(
             "accounting_host_stop", attempt_id=binding.attempt_id, stop=asdict(stop)
         )
-        calls = {row["call_id"]: row for row in self.control.snapshot()["calls"]}
+        bounded = getattr(self.control, "snapshot_for_settlement", None)
+        host = self._permits.get(self._calls.get("host"))
+        state = (
+            bounded(host.binding)
+            if stop.confirmed and host is not None and callable(bounded)
+            else self.control.snapshot()
+        )
+        calls = {row["call_id"]: row for row in state["calls"]}
         for call_id in self._calls.values():
             call = calls[call_id]
             if call["process_stopped"]:
                 continue
             terminal = "succeeded" if call["status"] == "running" else "failed"
             outcome = call["outcome"] or (terminal if stop.confirmed else "unknown")
-            self.control.record_outcome(
-                call_id,
-                outcome=outcome,
-                process_stopped=stop.confirmed,
-                evidence_ref=ref,
-            )
+            if stop.confirmed:
+                permit = self._permits[call_id]
+                if permit.issuer.controller is not self.control:
+                    raise AccessDenied("Host settlement controller changed")
+                permit.issuer.record_outcome(
+                    permit,
+                    outcome=outcome,
+                    process_stopped=True,
+                    evidence_ref=ref,
+                )
+            else:
+                self.control.record_outcome(
+                    call_id,
+                    outcome=outcome,
+                    process_stopped=False,
+                    evidence_ref=ref,
+                )

@@ -362,6 +362,46 @@ class NormalInvocationController:
             with self.store.transaction():
                 pass
 
+    def _settlement_owner(self, conn, invocation):
+        from ai_task_manager.adapters.hosts.bridge.invocations import InvocationBinding
+
+        require(
+            type(invocation) is InvocationBinding, "Original native settlement binding required"
+        )
+        current = self._current(conn, admission=False)
+        original = self.store.read(conn, "native_calls", invocation.call_id)
+        require(
+            original is not None
+            and original["permission_ref"] == self.reference
+            and InvocationBinding.observed(
+                {"run_id": self.store.binding.store_id, "policy_revision": 1, "call": original}
+            )
+            == invocation,
+            "Original native settlement owner or deadline differs",
+        )
+        return min(invocation.deadline, current["deadline"])
+
+    def _settlement_wait(self, invocation, *, cancelled=None):
+        # The provisional snapshot establishes only the persisted wait limit.
+        # The writer transaction must revalidate ownership before using its rows.
+        with self.store.settlement_snapshot() as conn:
+            deadline = self._settlement_owner(conn, invocation)
+        return {
+            "wait_until": deadline,
+            "clock": lambda: self.clock().timestamp(),
+            "cancelled": cancelled,
+            "settlement": True,
+        }
+
+    def snapshot_for_settlement(self, invocation):
+        with self.store.transaction(**self._settlement_wait(invocation)) as conn:
+            self._settlement_owner(conn, invocation)
+            return {
+                "run_id": self.store.binding.store_id,
+                "policy": {"revision": 1},
+                "calls": self._calls(conn),
+            }
+
     def settle_outcome(self, invocation, **observed):
         return self.record_outcome(invocation.call_id, invocation=invocation, **observed)
 
@@ -383,7 +423,6 @@ class NormalInvocationController:
             and evidence_ref.startswith("host-record:"),
             "Trusted accounting outcome required",
         )
-        wait = {}
         if invocation is not None:
             from ai_task_manager.adapters.hosts.bridge.invocations import InvocationBinding
 
@@ -391,31 +430,9 @@ class NormalInvocationController:
                 type(invocation) is InvocationBinding and invocation.call_id == call_id,
                 "Original native settlement binding required",
             )
-            # Read the original persisted authority before waiting. A supplied
-            # extended/foreign binding cannot buy a longer lock-acquisition wait.
-            with self.store.settlement_snapshot() as conn:
-                current = self._current(conn, admission=False)
-                original = self.store.read(conn, "native_calls", call_id)
-                require(
-                    original is not None
-                    and original["permission_ref"] == self.reference
-                    and InvocationBinding.observed(
-                        {
-                            "run_id": self.store.binding.store_id,
-                            "policy_revision": 1,
-                            "call": original,
-                        }
-                    )
-                    == invocation,
-                    "Original native settlement owner or deadline differs",
-                )
-                deadline = min(invocation.deadline, current["deadline"])
-            wait = {
-                "wait_until": deadline,
-                "clock": lambda: self.clock().timestamp(),
-                "cancelled": cancelled,
-                "settlement": True,
-            }
+        wait = (
+            self._settlement_wait(invocation, cancelled=cancelled) if invocation is not None else {}
+        )
         with self.store.transaction(**wait) as conn:
             if settlement_check is not None:
                 require(callable(settlement_check), "Current settlement guard must be callable")

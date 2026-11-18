@@ -87,8 +87,8 @@ class CaptureEnrollments:
                 )
         return self.require(row["reference"], row["profile_digest"])
 
-    def _read(self, reference):
-        row = self.store.conformance(reference)
+    def _read(self, reference, *, acquisition=None):
+        row = self.store.conformance(reference, **(acquisition or {}))
         if row is None:
             raise Unavailable("Normal conformance capture is not enrolled")
         required = {
@@ -113,8 +113,8 @@ class CaptureEnrollments:
                 raise AccessDenied("Enrolled capability journal/key physical identity changed")
         return row
 
-    def require(self, reference, profile_digest):
-        row = self._read(reference)
+    def require(self, reference, profile_digest, *, acquisition=None):
+        row = self._read(reference, acquisition=acquisition)
         if row["profile_digest"] != profile_digest:
             raise AccessDenied("Capability enrollment belongs to another stable profile")
         return {
