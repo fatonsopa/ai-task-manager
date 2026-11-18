@@ -197,6 +197,7 @@ def installed(tmp_path, monkeypatch, request):
             "plan_ref": name,
             "files": ["report.txt"],
             "artifacts": ["report.txt"],
+            "resource_locks": [],
             "installation_path": str(b.installation),
             "role": role,
             **extra,
@@ -321,6 +322,12 @@ def test_NR01_default_installed_cli_constructs_real_reviewer_and_cold_capture(
     )
     assert again == captured[0] and not registry.reviewer_factory.producers
     producer = next(iter(s["owners"][0].registry.reviewer_factory.producers.values()))
+    declaration = producer.workers.core.execution.declared_resources(
+        producer.workers.core.session_binding(producer.handle)[1],
+        producer.workers.core.get_task(producer.handle, producer.task_id),
+    )
+    assert declaration.locks == () and declaration.files == ("report.txt",)
+    assert declaration.witnesses
     assert len(producer.workers.hosts.owned) == 1
     assert all(n.process._closed for n in producer.workers.hosts.owned.values())
 
@@ -385,8 +392,9 @@ def test_NR04_current_author_change_at_model_input_fences_review_and_stops(
     from ai_task_manager.adapters.hosts.bridge.gateway import ManagedToolGateway
 
     s = installed
-    registry = resolve(s["config"], s["primary"].installation)
-    factory = registry.reviewer_factory
+    owner = InstalledWorkflow(s["config"], s["primary"].installation)
+    s["owners"].append(owner)
+    factory = owner.registry.reviewer_factory
     producer = factory(s["inspection"])
     core, handle = producer.workers.core, producer.handle
     original = ManagedToolGateway.lease_boundary

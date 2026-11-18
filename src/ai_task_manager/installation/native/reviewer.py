@@ -306,6 +306,22 @@ class NormalReviewerFactory:
             Path(d["repository"]),
             metadata_paths=(core.context.db.path, host_journal.path),
         )
+        plan = spec.plan(registration.host)
+
+        def resource_binding(current, selected):
+            self._check_pointer()
+            spec.check()
+            registration.check()
+            if (current.id != task.id or current.prose_digest != d["prose_digest"]
+                    or selected != plan):
+                raise AccessDenied("Current reviewer task/plan binding differs")
+
+        from ai_task_manager.adapters.workflows.resources import bind_resources
+
+        witnesses = tuple(tuple(value[key] for key in ("path", "device", "inode", "sha256"))
+                          for value in (spec.seal.original, spec.config_seal.original))
+        bind_resources(core, task, plan, resources.git.common, resource_binding,
+                       witnesses=witnesses)
         control_parent = Path(
             read_private(self.author.config.path)["workflow_control"]["endpoint"]
         ).parent.resolve()
