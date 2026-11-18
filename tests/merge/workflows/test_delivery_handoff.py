@@ -515,7 +515,7 @@ def _identity_auth_case(flow, host, attempt, observed, reference, tmp_path, cond
     failure = None
     try:
         helper = IdentityRefresh(observer, tmp_path / "identity-once", 1)
-        helper.ensure_current(minimum_remaining_seconds=21)
+        helper.ensure_current(minimum_remaining_seconds=30 if condition == "target" else 21)
     except Claimed:
         pass
     except WorkError as error:
