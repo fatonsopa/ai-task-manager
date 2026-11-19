@@ -316,3 +316,28 @@ def test_concurrent_audit_returns_retain_each_threads_exact_request(tmp_path):
         if second.ident is not None:
             second.join(2)
         observer.close()
+
+
+def test_dispatch_observer_leaves_high_only_monitor_slots_available(tmp_path):
+    import sys
+
+    observer = DispatchObserver(
+        ledger(tmp_path), 'https://api.linear.app/graphql', tmp_path / 'allocation.json', {}
+    )
+    high_owners = []
+    try:
+        for name in ('return-observer', 'collector-observer', 'receipt-observer'):
+            tool = next(i for i in (5, 4, 3) if sys.monitoring.get_tool(i) is None)
+            sys.monitoring.use_tool_id(tool, name)
+            high_owners.append(tool)
+        assert observer.tool in (0, 1, 2) and set(high_owners) == {3, 4, 5}
+        assert all(sys.monitoring.get_events(tool) == 0 for tool in [observer.tool, *high_owners])
+        assert sys.monitoring.get_local_events(observer.tool, observer.code) == (
+            sys.monitoring.events.PY_RETURN
+        )
+    finally:
+        observer.close()
+        assert sys.monitoring.get_tool(observer.tool) is None
+        for tool in high_owners:
+            sys.monitoring.free_tool_id(tool)
+            assert sys.monitoring.get_tool(tool) is None
