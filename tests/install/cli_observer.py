@@ -84,7 +84,7 @@ class DispatchObserver:
         self.lock = threading.RLock()
         self.save()
         self.code = HttpTransport._send.__code__
-        self.tool = next((i for i in range(5, -1, -1) if sys.monitoring.get_tool(i) is None), None)
+        self.tool = next((i for i in range(6) if sys.monitoring.get_tool(i) is None), None)
         if self.tool is None:
             raise DriverRefused("preparation_http_monitor_unavailable")
         sys.monitoring.use_tool_id(self.tool, "aitm-preparation-http")
