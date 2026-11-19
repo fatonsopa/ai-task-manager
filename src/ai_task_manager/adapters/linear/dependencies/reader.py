@@ -5,7 +5,7 @@ import json
 import time
 from dataclasses import asdict, dataclass
 
-from ai_task_manager.adapters.linear.client import LinearClient
+from ai_task_manager.adapters.linear.client import IDENTITY, PROJECT_TEAMS, STATES, LinearClient
 from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.adapters.linear.existing import ExistingReader
 from ai_task_manager.adapters.linear.models import canonical_id, revision
@@ -33,15 +33,44 @@ class Observation:
 class _BudgetTransport:
     def __init__(self, transport):
         self.transport, self.deadline, self.requests = transport, time.monotonic() + 20, 0
+        self.response, self.recovered = None, False
 
     def send(self, query, variables, credentials):
         if self.requests >= 2048 or time.monotonic() >= self.deadline:
             raise LinearError("dependency_observation_limit")
         self.requests += 1
         result = self.transport.send(query, variables, credentials)
+        self.response = result
         if time.monotonic() >= self.deadline:
             raise LinearError("dependency_observation_limit")
         return result
+
+
+class _ReadClient(LinearClient):
+    _queries = frozenset(
+        (IDENTITY, PROJECT_TEAMS, STATES, SCHEMA, METADATA, DETAILS, *RELATIONS.values())
+    )
+
+    def request(self, query, variables, *, mutation=False, **kwargs):
+        self.transport.response = None
+        try:
+            return super().request(query, variables, mutation=mutation, **kwargs)
+        except LinearError as error:
+            response = self.transport.response
+            if (
+                error.category != "http_failure"
+                or mutation
+                or query not in self._queries
+                or self.transport.recovered
+                or response is None
+                or response.status != 503
+                or any(key.lower() == "retry-after" for key in response.headers)
+            ):
+                raise
+            # One recovery for the entire collection, charged to its original
+            # request/deadline budget. Re-enter the client to recheck credentials.
+            self.transport.recovered = True
+            return super().request(query, variables, **kwargs)
 
 
 class DependencyReader:
@@ -218,7 +247,7 @@ class DependencyReader:
         try:
             self._check_scope()
             original = self.client
-            self.client = LinearClient(
+            self.client = _ReadClient(
                 _BudgetTransport(original.transport),
                 original.credentials,
                 self.expected,
