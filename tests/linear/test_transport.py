@@ -298,3 +298,148 @@ def test_coalesced_binding_rechecks_credentials_after_returned_first_pages():
         assert client.binding is None and len(provider.requests) == 1 and not provider.issues
     finally:
         provider.close()
+
+
+@pytest.fixture
+def binding_boundary(tmp_path, monkeypatch):
+    """Actual wrapper/outbox with in-memory provider replies and no sockets."""
+    import io
+    import time
+    from types import SimpleNamespace
+
+    from ai_task_manager.adapters.linear import transport as transport_module
+    from tests.linear.helpers import CONNECTION, observed_quota, quota_headers
+    from tests.linear.live.fixture_http import FixtureRequestTransport
+
+    provider = ProviderFixture.__new__(ProviderFixture)
+    provider.viewer_id, provider.agent_users = EXPECTED.viewer_id, [
+        {"id": CONNECTION.agent_id, "app": True}
+    ]
+    provider.serial, provider.issues, provider.comments = 0, {}, {}
+    provider.endpoint = "http://127.0.0.1:9/graphql"
+    provider.quota = observed_quota(tmp_path, EXPECTED.viewer_id)
+    calls = []
+
+    class Reply(io.BytesIO):
+        code = 200
+
+        def __init__(self, body):
+            super().__init__(body)
+            self.headers = quota_headers()
+
+    class Opener:
+        def open(self, request, timeout):
+            packet = json.loads(request.data)
+            calls.append(packet)
+            return Reply(json.dumps({"data": provider.graphql(
+                packet["query"], packet["variables"]
+            )}).encode())
+
+    monkeypatch.setattr(transport_module, "build_opener", lambda *args: Opener())
+    rig = LinearRig(tmp_path, provider)
+    deadline = time.time() + 10
+    transport = FixtureRequestTransport(
+        SimpleNamespace(request_deadline=lambda: deadline, clock=time.time), rig.client.transport
+    )
+    rig.client.transport = transport
+    rig.binding_witnesses = []
+    original_request = rig.client.request
+
+    def observed_request(query, variables, **kwargs):
+        if kwargs.get("mutation") and kwargs.get("_binding") is not None:
+            submitted, current = kwargs["_binding"], rig.client.current_binding()
+            rig.binding_witnesses.append({
+                "expected_equal": submitted.expected == current.expected,
+                "states_equal": submitted.states == current.states,
+                "submitted_connection": submitted.connection is not None,
+                "current_connection": current.connection is not None,
+            })
+        return original_request(query, variables, **kwargs)
+
+    monkeypatch.setattr(rig.client, "request", observed_request)
+    return rig, provider, calls, transport
+
+
+def test_actual_wrapped_outbox_refresh_preserves_binding_until_create_dispatch(binding_boundary):
+    rig, provider, calls, _ = binding_boundary
+    task = rig.task(confirmed=False)
+    calls.clear()
+    result = rig.outbound.run_once(
+        rig.handle, task_id=task.id, check_authority=rig.client.verify_binding
+    )
+    mutations = [row for row in calls if row["query"].lstrip().startswith("mutation")]
+    assert result["state"] == "confirmed", (
+        f"state={result['state']} error={result.get('error')} mutations={len(mutations)} "
+        f"bindings={rig.binding_witnesses}"
+    )
+    assert len(mutations) == 1 and len(provider.issues) == 1
+    current = rig.core.get_task(rig.handle, task.id)
+    assert current.issue_id in provider.issues and current.sync_state == "confirmed"
+
+
+def test_actual_wrapped_outbox_refresh_preserves_binding_until_status_dispatch(binding_boundary):
+    from ai_task_manager.domains.work.models import IssueStatus
+
+    rig, provider, calls, _ = binding_boundary
+    task = rig.task()
+    task = rig.transition(task, IssueStatus.TODO, "enqueue", confirm=False)
+    calls.clear()
+    result = rig.outbound.run_once(
+        rig.handle, task_id=task.id, check_authority=rig.client.verify_binding
+    )
+    assert result["state"] == "confirmed", result
+    mutations = [row for row in calls if row["query"].lstrip().startswith("mutation")]
+    assert len(mutations) == 1 and len(provider.issues) == 1
+    assert rig.core.get_task(rig.handle, task.id).observed_status == IssueStatus.TODO
+
+
+@pytest.mark.parametrize("fault,error", [
+    ("expected", "binding_not_verified"), ("states", "binding_not_verified"),
+    ("connection", "binding_not_verified"), ("credentials", "credential_binding_changed"),
+    ("final-fence", "StaleVersion"),
+])
+def test_wrapped_mutation_still_refuses_changed_current_facts_before_dispatch(
+    binding_boundary, monkeypatch, fault, error
+):
+    from contextlib import contextmanager
+
+    from ai_task_manager.domains.work.errors import StaleVersion
+    from tests.linear.helpers import CONNECTION
+
+    rig, provider, calls, transport = binding_boundary
+    task = rig.task(confirmed=False)
+    calls.clear()
+    original_admission = transport.admission
+
+    @contextmanager
+    def admission(query, variables, credentials, **kwargs):
+        with original_admission(query, variables, credentials, **kwargs) as admitted:
+            if query.lstrip().startswith("mutation"):
+                current = rig.client.current_binding()
+                if fault == "expected":
+                    rig.client.binding = replace(
+                        current, expected=replace(EXPECTED, project_id=uid(900))
+                    )
+                elif fault == "states":
+                    rig.client.binding = replace(
+                        current, states={**current.states, "Backlog": uid(900)}
+                    )
+                elif fault == "connection":
+                    rig.client.binding = replace(
+                        current, connection=replace(CONNECTION, connection_id=uid(900))
+                    )
+                elif fault == "credentials":
+                    rig.client.credentials = lambda: Credentials("changed-current-credential")
+                else:
+                    def refuse(*args, **kwargs):
+                        raise StaleVersion("Current human/version fence refused dispatch")
+                    monkeypatch.setattr(rig.core.sync, "outbound_dispatch", refuse)
+            yield admitted
+
+    monkeypatch.setattr(transport, "admission", admission)
+    result = rig.outbound.run_once(
+        rig.handle, task_id=task.id, check_authority=rig.client.verify_binding
+    )
+    assert result["state"] == "failed" and result["error"] == error, result
+    assert not provider.issues and rig.journal.sends(rig.scope) == []
+    assert not [row for row in calls if row["query"].lstrip().startswith("mutation")]
