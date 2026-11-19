@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from ai_task_manager.domains.scheduling.models import SchedulingBlocked
+from ai_task_manager.domains.scheduling.resources import AdmissionResources
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import IssueStatus
 from ai_task_manager.supervisor.authority import WorkAuthorities
@@ -21,6 +22,10 @@ def owned(tmp_path):
     task = rig.transition(task, IssueStatus.TODO, "enqueue")
     provider.sync(task)
     provider.refresh(task)
+    rig.resource_sources.rows[task.id] = AdmissionResources(
+        provider.scope, task.id, task.prose_digest, task.decision_revision,
+        "authored-project", (), (),
+    )
     task, attempt = rig.reserved(rig.current(task))
     runtime = RuntimeJournal(tmp_path / "runtime.sqlite", clock=lambda: rig.now)
     runtime.claim(attempt, asdict(rig.scope), deadline=rig.now + 120)
@@ -177,6 +182,116 @@ def test_sa09_collection_cost_cannot_cause_immediate_repeated_refresh(tmp_path, 
     view = provider.rig.core.scheduling.explain(provider.rig.handle, attempt.task_id)
     assert view["source_revision"] == 2
     no_started_worker(provider, attempt)
+
+
+def test_startup_refresh_reserves_full_collection_window_after_fast_collection(
+    tmp_path, monkeypatch,
+):
+    from ai_task_manager.supervisor import startup_authority as module
+
+    provider, startup, attempt = owned(tmp_path)
+    rig = provider.rig
+    background, collections, ticks = [], [], []
+    monkeypatch.setattr(module.threading, "Thread", lambda *, target, **_: SimpleNamespace(
+        start=lambda: background.append(target), is_alive=lambda: False,
+        join=lambda **_: None,
+    ))
+    monkeypatch.setattr(module, "time", SimpleNamespace(monotonic=lambda: rig.now))
+
+    def collect(query, variables):
+        if "DependencySchema" in query:
+            collections.append(rig.now)
+            if len(collections) == 2:
+                # A later collection can cost more than the first one while
+                # staying below the existing twenty-second collection budget.
+                rig.now += 5.536513
+
+    def tick(seconds):
+        ticks.append((rig.now, len(collections)))
+        if len(collections) == 2:
+            return True
+        rig.now += seconds
+        return False
+
+    provider.callback = collect
+    monkeypatch.setattr(startup._stop, "wait", tick)
+    before = rig.core.scheduling.explain(rig.handle, attempt.task_id)
+    startup.start()
+    background[0]()
+    try:
+        assert startup._failure is None
+        assert collections == [1000, 1009], ticks
+        assert all(count == 1 for at, count in ticks if at < 1009)
+        after = rig.core.scheduling.explain(rig.handle, attempt.task_id)
+        assert after["state"] == "ready"
+        assert after["graph_version"] == before["graph_version"]
+        assert after["source_revision"] == before["source_revision"] + 2
+        assert after["expires_at"] == rig.now + 30
+        startup.finish()
+        no_started_worker(provider, attempt)
+    finally:
+        startup.close()
+
+
+def test_startup_refresh_keeps_lock_and_publication_cost_before_next_collection(
+    tmp_path, monkeypatch,
+):
+    from contextlib import contextmanager
+
+    from ai_task_manager.supervisor import startup_authority as module
+
+    provider, startup, attempt = owned(tmp_path)
+    rig = provider.rig
+    background, collections = [], []
+    monkeypatch.setattr(module.threading, "Thread", lambda *, target, **_: SimpleNamespace(
+        start=lambda: background.append(target), is_alive=lambda: False,
+        join=lambda **_: None,
+    ))
+    monkeypatch.setattr(module, "time", SimpleNamespace(monotonic=lambda: rig.now))
+    boundary, observe = provider.source.publication_boundary, rig.core.scheduling.observe
+    waited, published = [], []
+
+    @contextmanager
+    def delayed_lock(task_id, *, not_after=None, cancelled=None):
+        with boundary(task_id, not_after=not_after, cancelled=cancelled):
+            if cancelled is startup._stop and not waited:
+                rig.now += 3
+                waited.append(True)
+            yield
+
+    def delayed_publication(*args, **kwargs):
+        result = observe(*args, **kwargs)
+        if not published:
+            rig.now += 2
+            published.append(True)
+        return result
+
+    def collect(query, variables):
+        if "DependencySchema" in query:
+            collections.append(rig.now)
+
+    def tick(seconds):
+        if len(collections) == 2:
+            return True
+        rig.now += seconds
+        return False
+
+    monkeypatch.setattr(provider.source, "publication_boundary", delayed_lock)
+    monkeypatch.setattr(rig.core.scheduling, "observe", delayed_publication)
+    monkeypatch.setattr(startup._stop, "wait", tick)
+    provider.callback = collect
+    startup.start()
+    background[0]()
+    try:
+        assert startup._failure is None
+        assert collections == [1003, 1007]
+        assert startup._preparation_latency >= 5
+        assert startup.deadline == 1120
+        assert rig.core.scheduling.explain(rig.handle, attempt.task_id)["state"] == "ready"
+        startup.finish()
+        no_started_worker(provider, attempt)
+    finally:
+        startup.close()
 
 
 def successor_startup(tmp_path):

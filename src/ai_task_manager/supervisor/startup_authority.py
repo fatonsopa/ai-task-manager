@@ -15,6 +15,7 @@ from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.domains.work.models import AttemptState
 from ai_task_manager.observability.failures import FailureStage, capture_failure
 from ai_task_manager.storage.sessions import TaskSession
+from ai_task_manager.supervisor.authority import CHECK_INTERVAL_SECONDS, refresh_schedule
 
 
 class StartupAuthority:
@@ -32,6 +33,7 @@ class StartupAuthority:
         self._failure = None
         self._handover = False
         self._latency = 0.0
+        self._preparation_latency = 0.0
         self._dependency_ref = None
         self.failure_diagnostic = None
         self.check()
@@ -79,14 +81,20 @@ class StartupAuthority:
         return task
 
     def refresh(self):
+        started = diagnostic_clock()
+        core_started = self.registry.core.context.clock()
         boundary = getattr(self.registry.dependencies, "publication_boundary", None)
         with (
             boundary(self.task_id, not_after=self.deadline, cancelled=self._stop)
             if callable(boundary) else nullcontext()
         ):
-            return self._refresh()
+            waiting = (diagnostic_clock() - started,
+                       self.registry.core.context.clock() - core_started)
+            if not all(elapsed >= 0 for elapsed in waiting):
+                raise AccessDenied("Startup preparation clock moved backwards")
+            return self._refresh(max(waiting))
 
-    def _refresh(self):
+    def _refresh(self, preparation_latency=0.0):
         if self._stop.is_set():
             raise AccessDenied("Startup dependency collection is stopped")
         task = self.check()
@@ -100,6 +108,8 @@ class StartupAuthority:
             decision_revision=task.decision_revision,
         )
         self._latency = max(self._latency, time.monotonic() - started)
+        prepared_at = diagnostic_clock()
+        prepared_clock = self.registry.core.context.clock()
         if self._stop.is_set() and not self._handover:
             return
         # Recheck the prior authority before consuming a new observation.
@@ -115,6 +125,13 @@ class StartupAuthority:
         )
         self._dependency_ref = value.snapshot_ref
         self.check()
+        local_times = (diagnostic_clock() - prepared_at,
+                       core.context.clock() - prepared_clock)
+        if not all(elapsed >= 0 for elapsed in local_times):
+            raise AccessDenied("Startup preparation clock moved backwards")
+        self._preparation_latency = max(
+            self._preparation_latency, preparation_latency + max(local_times),
+        )
 
     def start(self):
         if self._thread is not None or self._stop.is_set():
@@ -142,14 +159,20 @@ class StartupAuthority:
                     if self.registry.core.context.clock() >= next_at:
                         self.refresh()
                         view = self.registry.core.scheduling.explain(self.handle, self.task_id)
-                        # Start before the measured collection cost can consume
-                        # the remaining receipt window. Never relax freshness.
+                        # Keep the existing costly-collection refusal, and
+                        # reserve the full next collection even after a fast one.
                         margin = max(5, 2 * self._latency + 1)
                         if view["expires_at"] - self.registry.core.context.clock() <= margin:
                             raise SchedulingBlocked(
                                 "Startup collection leaves no safe next freshness window"
                             )
-                        next_at = view["expires_at"] - margin
+                        next_at = min(
+                            view["expires_at"] - margin,
+                            refresh_schedule(
+                                view["expires_at"], self.deadline,
+                                self.registry.core.context.clock(), self._preparation_latency,
+                            ),
+                        )
                 except BaseException as error:
                     if not self._stop.is_set():
                         self._failure = error
@@ -167,7 +190,7 @@ class StartupAuthority:
                                 retention_error, FailureStage.DIAGNOSTIC_RETENTION
                             )
                     return
-                if self._stop.wait(1):
+                if self._stop.wait(CHECK_INTERVAL_SECONDS):
                     return
 
         self._thread = threading.Thread(
