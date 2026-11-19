@@ -41,27 +41,28 @@ class ResourceWorkerCommits:
         self._bound = (commits, resources, self.checks)
 
     @contextmanager
-    def _use(self, row, plan):
+    def _use(self, row, plan, *, retained=False):
         if any(
             a is not b
             for a, b in zip((self.commits, self.resources, self.commits.checks), self._bound)
         ):
             raise AccessDenied("Installed worker commit resource owner changed")
         # The existing full scope/task/attempt check must precede creating a fence.
-        _, _, pair, _ = self.commits._current(row, plan)
+        _, _, pair, _ = self.commits._current(row, plan, retained=retained)
         if self.freshness is not None:
             self.freshness.start(row)
         options = (
-            {"observe": lambda: self._observe_use(row, plan)}
-            if isinstance(self.commits.binding[0], TaskSession) else {}
+            {"observe": lambda: self._observe_use(row, plan, retained=retained)}
+            if isinstance(self.commits.binding[0], TaskSession)
+            else {}
         )
         with self.resources.use(pair, **options):
             self.resources.verify(pair)
             yield
             self.resources.verify(pair)
 
-    def _observe_use(self, row, plan):
-        task, attempt, _, _ = self.commits._current(row, plan)
+    def _observe_use(self, row, plan, *, retained=False):
+        task, attempt, _, _ = self.commits._current(row, plan, retained=retained)
         session, scope = self.commits.core.session_binding(self.commits.handle)
         if not isinstance(session, TaskSession) or self.commits.clock() >= plan.deadline:
             raise AccessDenied("Current successor resource use is unavailable")
@@ -84,5 +85,5 @@ class ResourceWorkerCommits:
             return self.commits.run(row, plan, intent)
 
     def reconcile(self, row, plan, intent):
-        with self._use(row, plan):
+        with self._use(row, plan, retained=True):
             return self.commits.reconcile(row, plan, intent)

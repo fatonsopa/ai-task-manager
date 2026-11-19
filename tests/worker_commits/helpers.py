@@ -46,7 +46,16 @@ class FixedChecks:
 
 
 class WorkerFixture:
-    def __init__(self, path, *, faults=None, git_faults=None, check_failure=False, program=None):
+    def __init__(
+        self,
+        path,
+        *,
+        faults=None,
+        git_faults=None,
+        check_failure=False,
+        program=None,
+        resource_locks=None,
+    ):
         path.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.rr = RuntimeRig(path)
         self.rig = r = self.rr.rig
@@ -92,6 +101,7 @@ class WorkerFixture:
             ("result.py",),
             r.now + 120,
             commit_checks=("verify",),
+            resource_locks=resource_locks,
         )
         self.plans = WorkflowPlans((self.plan,))
         self.checks = FixedChecks(source, fail=check_failure)

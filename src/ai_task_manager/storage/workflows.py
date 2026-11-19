@@ -311,7 +311,7 @@ class WorkflowStore:
                 body["attempt_id"] = json.loads(old["body"])["attempt_id"]
                 conn.execute("UPDATE runs SET body=? WHERE id=?", (canonical(body), ref))
                 for step in steps:
-                    if step["result"] is not None:
+                    if step["result"] is not None or step["name"] == "worker-commit":
                         conn.execute(
                             "INSERT INTO steps VALUES(?,?,?,?)",
                             (ref, step["name"], step["payload"], step["result"]),
