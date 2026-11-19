@@ -39,6 +39,8 @@ class DeclaredRestrictions(AuthoredRestrictions):
 @pytest.fixture
 def lead(tmp_path, monkeypatch, request):
     p = OwnedProvider(tmp_path / "provider")
+    from tests.native_installation.helpers import temporary_linear_quota
+    temporary_linear_quota(monkeypatch, tmp_path, p.expected.viewer_id)
     master, slave = os.openpty()
     try:
         setup(

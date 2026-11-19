@@ -1,6 +1,7 @@
 import hashlib
 import json
 import re
+from contextlib import nullcontext
 from dataclasses import replace
 from threading import RLock, local
 
@@ -9,6 +10,7 @@ from ai_task_manager.domains.work.models import IssueStatus, valid_display_ident
 from .connections import AgentConnection
 from .errors import LinearError, ScopeMismatch
 from .models import CommentSnapshot, IssueSnapshot, VerifiedBinding, canonical_id, revision
+from .rate_limits import IDENTITY, retry_seconds
 
 ISSUE_FIELDS = """id identifier title description updatedAt assignee { id } delegate { id app }
  team { id key } project { id } state { id name }"""
@@ -21,9 +23,7 @@ UPDATE = (
     "mutation UpdateIssue($id: String!, $input: IssueUpdateInput!) { "
     "issueUpdate(id: $id, input: $input) { success issue { " + ISSUE_FIELDS + " } } }"
 )
-IDENTITY = """query VerifyBinding($team: String!, $project: String!) {
- viewer { id } organization { id } team(id: $team) { id key } project(id: $project) { id }
-}"""
+
 AGENT_USERS = """query AgentUsers($after: String) {
  organization { id } users(first: 50, after: $after) {
  nodes { id app } pageInfo { hasNextPage endCursor } }
@@ -73,6 +73,9 @@ DECISION_LABEL_UPDATE = (
     + DECISION_ISSUE
     + " labels(first:50) { nodes { id } pageInfo { hasNextPage endCursor } } } } }"
 )
+
+
+_NO_FIRST_PAGE = object()
 
 
 class LinearClient:
@@ -125,24 +128,37 @@ class LinearClient:
                 current.expected != _binding.expected or current.states != _binding.states
             ):
                 raise LinearError("binding_not_verified")
-            expected_digest = getattr(self._verification, "digest", None) or self._authorization_digest
+            expected_digest = (
+                getattr(self._verification, "digest", None) or self._authorization_digest
+            )
             if expected_digest is not None and authorization_digest != expected_digest:
                 raise LinearError("credential_binding_changed")
-        if _before_dispatch is not None:
-            _before_dispatch()
-        try:
-            response = self.transport.send(query, variables, credentials)
-        except LinearError as exc:
-            raise LinearError(
-                exc.category, uncertain=mutation and exc.uncertain, retry_after=exc.retry_after
-            ) from exc
+        admission = getattr(self.transport, "admission", None)
+        gate = admission(query, variables, credentials, principal=self.expected.viewer_id) if (
+            callable(admission)
+        ) else nullcontext(False)
+        with gate as admitted:
+            # Admission may wait, so credentials/current binding precede the final
+            # effect fence again. No quota wait can occur after that fence.
+            if admitted and self.credentials().authorization() != credentials.authorization():
+                raise LinearError("credential_binding_changed")
+            if (
+                admitted and mutation and _binding is not None
+                and self.current_binding() != _binding
+            ):
+                raise LinearError("binding_not_verified")
+            if _before_dispatch is not None:
+                _before_dispatch()
+            try:
+                response = self.transport.send(query, variables, credentials)
+            except LinearError as exc:
+                raise LinearError(
+                    exc.category, uncertain=mutation and exc.uncertain, retry_after=exc.retry_after
+                ) from exc
         if response.status in {401, 403}:
             raise LinearError("authentication")
         if response.status == 429:
-            try:
-                retry_after = min(3600, max(0, int(response.headers.get("retry-after", "60"))))
-            except ValueError:
-                retry_after = 60
+            retry_after = retry_seconds(response.headers)
             raise LinearError("rate_limited", uncertain=mutation, retry_after=retry_after)
         if response.status != 200:
             raise LinearError("http_failure", uncertain=mutation)
@@ -166,10 +182,12 @@ class LinearClient:
             raise LinearError("missing_data", uncertain=mutation)
         return result["data"]
 
-    def paginate(self, query, variables, path):
+    def paginate(self, query, variables, path, *, first_page=_NO_FIRST_PAGE):
         after, seen_cursors, seen_ids, nodes = None, set(), set(), []
-        for _ in range(self.max_pages):
-            data = self.request(query, {**variables, "after": after})
+        for index in range(self.max_pages):
+            data = first_page if index == 0 and first_page is not _NO_FIRST_PAGE else (
+                self.request(query, {**variables, "after": after})
+            )
             try:
                 for key in path:
                     data = data[key]
@@ -202,8 +220,15 @@ class LinearClient:
             ).hexdigest()
             try:
                 result = self._verify_binding()
+                if hashlib.sha256(self.credentials().authorization().encode()).hexdigest() != (
+                    self._verification.digest
+                ):
+                    raise LinearError("credential_binding_changed")
                 self._authorization_digest = self._verification.digest
                 return result
+            except BaseException:
+                self.binding = None
+                raise
             finally:
                 self._verification.digest = None
 
@@ -221,10 +246,14 @@ class LinearClient:
                 raise ScopeMismatch()
         except (KeyError, TypeError) as exc:
             raise ScopeMismatch() from exc
-        teams = self.paginate(PROJECT_TEAMS, {"project": expected.project_id}, ("project", "teams"))
+        teams = self.paginate(
+            PROJECT_TEAMS, {"project": expected.project_id}, ("project", "teams"), first_page=data
+        )
         if expected.team_id not in {x["id"] for x in teams}:
             raise ScopeMismatch()
-        states = self.paginate(STATES, {"team": expected.team_id}, ("team", "states"))
+        states = self.paginate(
+            STATES, {"team": expected.team_id}, ("team", "states"), first_page=data
+        )
         mapping = {}
         for item in states:
             name = item.get("name")

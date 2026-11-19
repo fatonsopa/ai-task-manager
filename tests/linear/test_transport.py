@@ -2,11 +2,11 @@ import json
 from dataclasses import replace
 
 import pytest
+
 from ai_task_manager.adapters.linear.client import LinearClient
 from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.adapters.linear.models import Credentials, WireResponse
 from ai_task_manager.adapters.linear.transport import HttpTransport
-
 from tests.linear.helpers import EXPECTED, LinearRig, ProviderFixture, uid
 
 
@@ -126,7 +126,7 @@ def test_l04_wrong_binding_blocks_before_mutations(field):
     try:
         expected = replace(EXPECTED, **{field: "OTHER" if field == "team_key" else uid(900)})
         client = LinearClient(
-            HttpTransport(_test_endpoint=provider.endpoint),
+            HttpTransport(_test_endpoint=provider.endpoint, _quota_store=provider.quota),
             lambda: Credentials("fixture-secret"),
             expected,
         )
@@ -147,14 +147,15 @@ def test_l01_model_controlled_endpoint_redirect_and_response_bounds_are_refused(
     try:
         provider.fail_next = (302, b"redirect")
         client = LinearClient(
-            HttpTransport(_test_endpoint=provider.endpoint),
+            HttpTransport(_test_endpoint=provider.endpoint, _quota_store=provider.quota),
             lambda: Credentials("fixture-secret"),
             EXPECTED,
         )
         with pytest.raises(LinearError, match="http_failure"):
             client.verify_binding()
         provider.fail_next = (200, b"x" * 200)
-        transport = HttpTransport(_test_endpoint=provider.endpoint, max_response_bytes=100)
+        transport = HttpTransport(_test_endpoint=provider.endpoint, max_response_bytes=100,
+                                  _quota_store=provider.quota)
         with pytest.raises(LinearError, match="response_too_large"):
             transport.send("query Fixture", {}, Credentials("fixture-secret"))
     finally:
@@ -184,5 +185,116 @@ def test_l04_changed_credentials_cannot_reuse_a_previous_verified_account_bindin
         with pytest.raises(LinearError, match="credential_binding_changed"):
             rig.client.create_issue(task)
         assert len(provider.requests) == before and not provider.issues
+    finally:
+        provider.close()
+
+
+def test_binding_first_pages_share_one_actual_http_read(tmp_path):
+    provider = ProviderFixture()
+    try:
+        rig = LinearRig(tmp_path, provider)
+        provider.requests.clear()
+        binding = rig.client.verify_binding()
+        assert binding.expected == EXPECTED
+        assert set(binding.states) >= {'Backlog', 'Todo', 'In Progress', 'Done', 'Canceled'}
+        assert len(provider.requests) == 1, [item[0]['query'] for item in provider.requests]
+    finally:
+        provider.close()
+
+
+@pytest.mark.parametrize('connection', ['teams', 'states'])
+def test_binding_reuses_embedded_first_page_and_fetches_only_needed_cursor(connection):
+    from ai_task_manager.adapters.linear.client import IDENTITY, PROJECT_TEAMS, STATES
+    from tests.linear.helpers import STATES as state_ids
+
+    provider = ProviderFixture()
+    try:
+        original = provider.graphql
+        rows = [{'id': value, 'name': name} for name, value in state_ids.items()]
+
+        def graphql(query, variables):
+            result = original(query, variables)
+            if query == IDENTITY:
+                page = (result['project']['teams'] if connection == 'teams'
+                        else result['team']['states'])
+                page['nodes'] = [] if connection == 'teams' else rows[:2]
+                page['pageInfo'] = {'hasNextPage': True, 'endCursor': 'next-only'}
+            elif query == STATES:
+                result['team']['states']['nodes'] = rows[2:]
+            return result
+
+        provider.graphql = graphql
+        client = LinearClient(HttpTransport(_test_endpoint=provider.endpoint,
+                                            _quota_store=provider.quota),
+                              lambda: Credentials('fixture-secret'), EXPECTED)
+        assert client.verify_binding().states == state_ids
+        assert len(provider.requests) == 2
+        second = provider.requests[1][0]
+        assert second['query'] == (PROJECT_TEAMS if connection == 'teams' else STATES)
+        assert second['variables']['after'] == 'next-only'
+    finally:
+        provider.close()
+
+
+@pytest.mark.parametrize('fault,category', [
+    ('missing-teams', 'incomplete_pagination'), ('missing-states', 'incomplete_pagination'),
+    ('membership', 'scope_mismatch'), ('duplicate-node', 'duplicate_page_node'),
+    ('duplicate-name', 'ambiguous_workflow_state'), ('missing-state', 'missing_workflow_state'),
+    ('page-shape', 'incomplete_pagination'), ('page-limit', 'pagination_limit'),
+])
+def test_batched_binding_first_page_refusals_do_not_refetch(fault, category):
+    from ai_task_manager.adapters.linear.client import IDENTITY
+
+    provider = ProviderFixture()
+    try:
+        original = provider.graphql
+
+        def graphql(query, variables):
+            result = original(query, variables)
+            if query == IDENTITY:
+                if fault == 'missing-teams':
+                    result['project'].pop('teams')
+                elif fault == 'missing-states':
+                    result['team'].pop('states')
+                elif fault == 'membership':
+                    result['project']['teams']['nodes'] = []
+                elif fault == 'duplicate-node':
+                    result['team']['states']['nodes'] *= 2
+                elif fault == 'duplicate-name':
+                    result['team']['states']['nodes'].append({'id': uid(900), 'name': 'Done'})
+                elif fault == 'missing-state':
+                    result['team']['states']['nodes'] = [
+                        row for row in result['team']['states']['nodes'] if row['name'] != 'Done'
+                    ]
+                elif fault == 'page-shape':
+                    result['project']['teams']['pageInfo']['hasNextPage'] = 'false'
+                elif fault == 'page-limit':
+                    result['project']['teams']['pageInfo'] = {
+                        'hasNextPage': True, 'endCursor': 'one-more'
+                    }
+            return result
+
+        provider.graphql = graphql
+        client = LinearClient(HttpTransport(_test_endpoint=provider.endpoint,
+                                            _quota_store=provider.quota),
+                              lambda: Credentials('fixture-secret'), EXPECTED, max_pages=1)
+        with pytest.raises(LinearError, match=category):
+            client.verify_binding()
+        assert len(provider.requests) == 1 and client.binding is None and not provider.issues
+    finally:
+        provider.close()
+
+
+def test_coalesced_binding_rechecks_credentials_after_returned_first_pages():
+    provider = ProviderFixture()
+    try:
+        token = ['fixture-secret']
+        client = LinearClient(HttpTransport(_test_endpoint=provider.endpoint,
+                                            _quota_store=provider.quota),
+                              lambda: Credentials(token[0]), EXPECTED)
+        provider.hook = lambda query, result: token.__setitem__(0, 'changed-after-response')
+        with pytest.raises(LinearError, match='credential_binding_changed'):
+            client.verify_binding()
+        assert client.binding is None and len(provider.requests) == 1 and not provider.issues
     finally:
         provider.close()

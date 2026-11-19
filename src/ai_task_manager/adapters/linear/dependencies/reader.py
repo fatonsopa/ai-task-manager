@@ -3,6 +3,7 @@
 import hashlib
 import json
 import time
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 
 from ai_task_manager.adapters.linear.client import IDENTITY, PROJECT_TEAMS, STATES, LinearClient
@@ -35,6 +36,12 @@ class _BudgetTransport:
         self.transport, self.deadline, self.requests = transport, time.monotonic() + 20, 0
         self.response, self.recovered = None, False
         self.entered, self.failures = False, []
+
+    def admission(self, query, variables, credentials, **kwargs):
+        admission = getattr(self.transport, "admission", None)
+        if callable(admission):
+            return admission(query, variables, credentials, not_after=self.deadline, **kwargs)
+        return nullcontext()
 
     def send(self, query, variables, credentials):
         if self.requests >= 2048 or time.monotonic() >= self.deadline:

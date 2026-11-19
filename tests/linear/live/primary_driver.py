@@ -98,6 +98,9 @@ class OwnedProductTransport:
         finally:
             self.local.recovery = None
 
+    def admission(self, query, variables, credentials, **kwargs):
+        return self.transport.admission(query, variables, credentials, **kwargs)
+
     def send(self, query, variables, credentials):
         recovery = getattr(self.local, "recovery", None)
         if recovery is not None:

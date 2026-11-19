@@ -4,6 +4,7 @@ from dataclasses import asdict
 
 from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
 from ai_task_manager.adapters.hosts.bridge.policy import NativePolicy
+from ai_task_manager.adapters.linear.rate_limits import require_model
 from ai_task_manager.application.service.models import Unavailable
 from ai_task_manager.config.files import digest
 from ai_task_manager.domains.work.errors import AccessDenied
@@ -79,6 +80,7 @@ class NormalAdmissions:
 
     def verify_policy(self, policy, binding, plan, controller):
         self.check_admission(plan)
+        require_model(binding.scope)
         d, p = self.manifest.data, self.permission
         if (
             not isinstance(policy, NativePolicy)

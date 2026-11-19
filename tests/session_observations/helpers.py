@@ -20,6 +20,8 @@ class OwnedProvider:
         root.mkdir(mode=0o700)
         self.root = root
         self.expected = ExpectedBinding(*(str(uuid4()) for _ in range(3)), "TST", str(uuid4()))
+        from tests.linear.helpers import observed_quota
+        self.quota = observed_quota(root, self.expected.viewer_id)
         self.actual = self.expected
         self.agent_id = str(uuid4())
         self.requests = 0
@@ -39,8 +41,13 @@ class OwnedProvider:
                     data = {
                         "viewer": {"id": e.viewer_id},
                         "organization": {"id": e.workspace_id},
-                        "team": {"id": e.team_id, "key": e.team_key},
-                        "project": {"id": e.project_id},
+                        "team": {"id": e.team_id, "key": e.team_key, "states": {
+                            "nodes": [{"id": str(uuid4()), "name": s.value} for s in IssueStatus],
+                            "pageInfo": page,
+                        }},
+                        "project": {"id": e.project_id, "teams": {
+                            "nodes": [{"id": e.team_id}], "pageInfo": page,
+                        }},
                     }
                 elif "ProjectTeams" in query:
                     data = {"project": {"teams": {"nodes": [{"id": e.team_id}], "pageInfo": page}}}
@@ -115,7 +122,8 @@ class OwnedProvider:
         return LinearComponents(
             self.linear,
             client_factory=lambda credentials, expected: LinearClient(
-                HttpTransport(timeout=2, _test_endpoint=self.endpoint), credentials, expected
+                HttpTransport(timeout=2, _test_endpoint=self.endpoint, _quota_store=self.quota),
+                credentials, expected
             ),
         )
 

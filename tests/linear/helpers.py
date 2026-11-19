@@ -2,23 +2,26 @@ import copy
 import hashlib
 import hmac
 import json
+import tempfile
+import time
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from threading import Thread
 from uuid import UUID, uuid4
 
-from ai_task_manager.adapters.linear.client import LinearClient
+from ai_task_manager.adapters.linear.client import IDENTITY, LinearClient
 from ai_task_manager.adapters.linear.connections import AgentConnection
-from ai_task_manager.adapters.linear.models import Credentials, ExpectedBinding
+from ai_task_manager.adapters.linear.models import Credentials, ExpectedBinding, WireResponse
 from ai_task_manager.adapters.linear.prose import LinearMarkdownRenderer
+from ai_task_manager.adapters.linear.rate_limits import QuotaStore
 from ai_task_manager.adapters.linear.receipts import ProviderJournal
 from ai_task_manager.adapters.linear.transport import HttpTransport
 from ai_task_manager.adapters.linear.webhooks import WebhookReceiver
+from ai_task_manager.application.core import Core
 from ai_task_manager.application.linear_sync.inbound import InboundDrain
 from ai_task_manager.application.linear_sync.outbound import OutboundDrain
 from ai_task_manager.application.linear_sync.reconcile import Reconciliation
-
-from ai_task_manager.application.core import Core
 from ai_task_manager.domains.work.models import ApprovalPolicy, CapacityPolicy, IssueStatus, Scope
 from ai_task_manager.storage.database import Database
 from tests.domains.helpers import ProofFixture, Rig
@@ -34,8 +37,31 @@ STATES = {status.value: uid(100 + i) for i, status in enumerate(IssueStatus)}
 WEBHOOK = uid(10)
 
 
+def quota_headers():
+    reset = str(int((time.time() + 3600) * 1000))
+    return {
+        'x-ratelimit-requests-limit': '5000', 'x-ratelimit-requests-remaining': '5000',
+        'x-ratelimit-requests-reset': reset,
+        'x-ratelimit-complexity-limit': '6000000',
+        'x-ratelimit-complexity-remaining': '6000000',
+        'x-ratelimit-complexity-reset': reset, 'x-complexity': '2',
+    }
+
+
+def observed_quota(path, principal, *, credentials=None):
+    store = QuotaStore(path / 'linear-quota.sqlite3')
+    credentials = credentials or Credentials('fixture-secret')
+    ref = store.reserve(IDENTITY, {}, credentials, principal=principal)
+    store.complete(ref, WireResponse(200, quota_headers(), json.dumps({
+        'data': {'viewer': {'id': principal}}
+    }).encode()))
+    return store
+
+
 class ProviderFixture:
     def __init__(self):
+        self._quota_directory = tempfile.TemporaryDirectory()
+        self.quota = observed_quota(Path(self._quota_directory.name), EXPECTED.viewer_id)
         self.requests, self.issues = [], {}
         self.comments = {}
         self.viewer_id = EXPECTED.viewer_id
@@ -62,6 +88,8 @@ class ProviderFixture:
                     owner.hook(request, result)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
+                for name, value in quota_headers().items():
+                    self.send_header(name, value)
                 self.end_headers()
                 self.wfile.write(json.dumps({"data": result}).encode())
 
@@ -79,6 +107,7 @@ class ProviderFixture:
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=2)
+        self._quota_directory.cleanup()
 
     def tick(self):
         self.serial += 1
@@ -118,8 +147,14 @@ class ProviderFixture:
             return {
                 "viewer": {"id": self.viewer_id},
                 "organization": {"id": EXPECTED.workspace_id},
-                "team": {"id": EXPECTED.team_id, "key": "TST"},
-                "project": {"id": EXPECTED.project_id},
+                "team": {"id": EXPECTED.team_id, "key": "TST", "states": {
+                    "nodes": [{"id": value, "name": key} for key, value in STATES.items()],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }},
+                "project": {"id": EXPECTED.project_id, "teams": {
+                    "nodes": [{"id": EXPECTED.team_id}],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }},
             }
         if "query ProjectTeams" in query:
             return {
@@ -227,7 +262,7 @@ class LinearRig(Rig):
         self.capacity = CapacityPolicy("host", 2, 2)
         self.core = self.new_core()
         self.client = LinearClient(
-            HttpTransport(_test_endpoint=provider.endpoint),
+            HttpTransport(_test_endpoint=provider.endpoint, _quota_store=provider.quota),
             lambda: Credentials("fixture-api-secret"),
             EXPECTED,
             agent_connection=lambda: CONNECTION,

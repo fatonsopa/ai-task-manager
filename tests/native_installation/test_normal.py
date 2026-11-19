@@ -29,7 +29,9 @@ class AuthoredRestrictions:
 
 
 @pytest.fixture
-def normal(tmp_path):
+def normal(tmp_path, monkeypatch):
+    from tests.native_installation.helpers import temporary_linear_quota
+    temporary_linear_quota(monkeypatch, tmp_path, "principal")
     b = bundle(tmp_path)
     store = NativeStore.create(tmp_path / "authority.sqlite")
     installation = json.loads(b.installation.read_text())
@@ -281,7 +283,7 @@ def test_N204_native_store_same_bytes_replacement_refuses(normal, tmp_path):
 
 
 @pytest.fixture
-def actual_accounting_graph(tmp_path):
+def actual_accounting_graph(tmp_path, monkeypatch):
     from ai_task_manager.adapters.hosts.bridge.journal import HostJournal
     from ai_task_manager.adapters.hosts.bridge.records import HostBinding
     from ai_task_manager.domains.work.models import CapacityPolicy
@@ -292,6 +294,8 @@ def actual_accounting_graph(tmp_path):
     root = tmp_path / "graph"
     root.mkdir(mode=0o700)
     core = Rig(root / "core.sqlite")
+    from tests.native_installation.helpers import temporary_linear_quota
+    temporary_linear_quota(monkeypatch, tmp_path, core.scope.principal)
     core.now = datetime.now(UTC).timestamp()
     core.capacity = CapacityPolicy("claude", 2, 2)
     core.core = core.new_core()

@@ -14,6 +14,9 @@ class BudgetedTransport:
     def __init__(self, ledger, transport):
         self.ledger, self.transport = ledger, transport
 
+    def admission(self, query, variables, credentials, **kwargs):
+        return self.transport.admission(query, variables, credentials, **kwargs)
+
     def send(self, query, variables, credentials):
         self.ledger.request("product_transport")
         return self.transport.send(query, variables, credentials)

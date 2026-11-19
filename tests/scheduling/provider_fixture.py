@@ -127,8 +127,14 @@ class ProviderFixture:
             data = {
                 "viewer": {"id": e.viewer_id},
                 "organization": {"id": e.workspace_id},
-                "team": {"id": e.team_id, "key": e.team_key},
-                "project": {"id": e.project_id},
+                "team": {"id": e.team_id, "key": e.team_key, "states": {
+                    "nodes": [{"id": v, "name": k} for k, v in self.states.items()],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }},
+                "project": {"id": e.project_id, "teams": {
+                    "nodes": [{"id": e.team_id}],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }},
             }
         elif "ProjectTeams" in query:
             data = {
