@@ -521,6 +521,14 @@ class InstalledCodeDelivery:
 
                     def complete(unit=unit, payload=payload):
                         self.resources.verify(pair)
+                        current = self.core.get_task(self.handle, task.id)
+                        prepared = issuer.lookup(
+                            self.scope, current, observed["digest"], retained=retained_review
+                        )
+                        if prepared is None or prepared["units"].get(unit) != payload["proof_ref"]:
+                            raise EvidenceRequired(
+                                "Current unit review differs from the original prepared proof"
+                            )
                         value = self.core.execution.complete_unit(
                             self.handle,
                             task.id,
