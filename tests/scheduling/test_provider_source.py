@@ -749,6 +749,7 @@ def test_actual_loopback_http_transport_dependency_reads_and_owned_stop(provider
     from tests.linear.helpers import observed_quota, quota_headers
 
     p = provider
+    dispatched = []
     quota = observed_quota(tmp_path, p.expected.viewer_id, credentials=p.client.credentials())
 
     class Handler(BaseHTTPRequestHandler):
@@ -759,6 +760,7 @@ def test_actual_loopback_http_transport_dependency_reads_and_owned_stop(provider
             size = int(self.headers["Content-Length"])
             assert size < 1048576
             payload = json.loads(self.rfile.read(size))
+            dispatched.append(payload["query"])
             response = p.send(payload["query"], payload["variables"], None)
             self.send_response(response.status)
             self.send_header("Content-Length", str(len(response.body)))
@@ -787,9 +789,68 @@ def test_actual_loopback_http_transport_dependency_reads_and_owned_stop(provider
             p.expected,
         )
         client.verify_binding()
+        binding_count = len(dispatched)
+        assert binding_count == 1
         source = DependencySource(p.rig.core, p.rig.handle, client, p.receipts)
-        task = p.task()
+        task = p.task(code=True)
+        before = len(dispatched)
         assert source.refresh(task.id, "http-empty")["state"] == "ready"
+        collection_queries = dispatched[before:]
+        assert len(collection_queries) == 9, collection_queries
+        producer_counts = {
+            "binding": sum("VerifyBinding" in q for q in collection_queries),
+            "schema": sum("DependencySchema" in q for q in collection_queries),
+            "metadata": sum("DependencyMetadata" in q for q in collection_queries),
+            "prose_and_relations": sum("DependencyProseRelations" in q for q in collection_queries),
+        }
+        assert producer_counts == {"binding": 2, "schema": 1, "metadata": 4,
+                                   "prose_and_relations": 2}
+
+        # The actual DeliveryDependencies local loop consumes a fresh signed
+        # observation without sending HTTP again on unchanged pre-renewal ticks.
+        from ai_task_manager.installation.workflows.delivery_dependencies import (
+            DeliveryDependencies,
+        )
+        r = p.rig
+        running = r.transition(task, S.TODO, "enqueue")
+        p.sync(running)
+        from ai_task_manager.domains.scheduling.resources import AdmissionResources
+        r.resource_sources.rows[running.id] = AdmissionResources(
+            p.scope, running.id, running.prose_digest, running.decision_revision,
+            "authored-project", (), (),
+        )
+        r.core.execution.publish_resources(running)
+        running, attempt = r.running(running)
+        p.sync(running)
+        running, attempt = r.settle(running, attempt)
+        p.sync(running)
+        controller = DeliveryDependencies(r.core, r.handle, source, r.now + 120)
+        ticks = []
+
+        def local_tick(seconds):
+            ticks.append((r.now, len(dispatched)))
+            if len(ticks) == 5:
+                controller._stop.set()
+                return True
+            r.now += seconds
+            return False
+
+        controller._stop.wait = local_tick
+        before_start = len(dispatched)
+        controller.start({"task_id": running.id, "attempt_id": attempt.id,
+                          "prose_digest": running.prose_digest,
+                          "decision_revision": running.decision_revision})
+        controller._thread.join(2)
+        controller.close()
+        assert not controller._thread.is_alive() and controller._error is None
+        assert len(dispatched) - before_start == 9
+        assert len(ticks) == 5 and {calls for _, calls in ticks} == {len(dispatched)}
+        (tmp_path / "http-counts.json").write_text(json.dumps({
+            "binding": binding_count, "full_collection": len(collection_queries),
+            "collection_producers": producer_counts,
+            "initial_delivery_refresh": len(dispatched) - before_start,
+            "unchanged_local_ticks": len(ticks), "tick_http_requests": 0,
+        }))
         a = p.task()
         p.edge(a, task)
         assert source.refresh(task.id, "http-blocked")["state"] == "blocked"

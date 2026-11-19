@@ -41,8 +41,13 @@ class OwnedProvider:
                     data = {
                         "viewer": {"id": e.viewer_id},
                         "organization": {"id": e.workspace_id},
-                        "team": {"id": e.team_id, "key": e.team_key},
-                        "project": {"id": e.project_id},
+                        "team": {"id": e.team_id, "key": e.team_key, "states": {
+                            "nodes": [{"id": str(uuid4()), "name": s.value} for s in IssueStatus],
+                            "pageInfo": page,
+                        }},
+                        "project": {"id": e.project_id, "teams": {
+                            "nodes": [{"id": e.team_id}], "pageInfo": page,
+                        }},
                     }
                 elif "ProjectTeams" in query:
                     data = {"project": {"teams": {"nodes": [{"id": e.team_id}], "pageInfo": page}}}

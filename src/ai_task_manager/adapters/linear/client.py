@@ -75,6 +75,9 @@ DECISION_LABEL_UPDATE = (
 )
 
 
+_NO_FIRST_PAGE = object()
+
+
 class LinearClient:
     def __init__(
         self,
@@ -179,10 +182,12 @@ class LinearClient:
             raise LinearError("missing_data", uncertain=mutation)
         return result["data"]
 
-    def paginate(self, query, variables, path):
+    def paginate(self, query, variables, path, *, first_page=_NO_FIRST_PAGE):
         after, seen_cursors, seen_ids, nodes = None, set(), set(), []
-        for _ in range(self.max_pages):
-            data = self.request(query, {**variables, "after": after})
+        for index in range(self.max_pages):
+            data = first_page if index == 0 and first_page is not _NO_FIRST_PAGE else (
+                self.request(query, {**variables, "after": after})
+            )
             try:
                 for key in path:
                     data = data[key]
@@ -215,8 +220,15 @@ class LinearClient:
             ).hexdigest()
             try:
                 result = self._verify_binding()
+                if hashlib.sha256(self.credentials().authorization().encode()).hexdigest() != (
+                    self._verification.digest
+                ):
+                    raise LinearError("credential_binding_changed")
                 self._authorization_digest = self._verification.digest
                 return result
+            except BaseException:
+                self.binding = None
+                raise
             finally:
                 self._verification.digest = None
 
@@ -234,10 +246,14 @@ class LinearClient:
                 raise ScopeMismatch()
         except (KeyError, TypeError) as exc:
             raise ScopeMismatch() from exc
-        teams = self.paginate(PROJECT_TEAMS, {"project": expected.project_id}, ("project", "teams"))
+        teams = self.paginate(
+            PROJECT_TEAMS, {"project": expected.project_id}, ("project", "teams"), first_page=data
+        )
         if expected.team_id not in {x["id"] for x in teams}:
             raise ScopeMismatch()
-        states = self.paginate(STATES, {"team": expected.team_id}, ("team", "states"))
+        states = self.paginate(
+            STATES, {"team": expected.team_id}, ("team", "states"), first_page=data
+        )
         mapping = {}
         for item in states:
             name = item.get("name")

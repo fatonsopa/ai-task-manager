@@ -147,8 +147,14 @@ class ProviderFixture:
             return {
                 "viewer": {"id": self.viewer_id},
                 "organization": {"id": EXPECTED.workspace_id},
-                "team": {"id": EXPECTED.team_id, "key": "TST"},
-                "project": {"id": EXPECTED.project_id},
+                "team": {"id": EXPECTED.team_id, "key": "TST", "states": {
+                    "nodes": [{"id": value, "name": key} for key, value in STATES.items()],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }},
+                "project": {"id": EXPECTED.project_id, "teams": {
+                    "nodes": [{"id": EXPECTED.team_id}],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }},
             }
         if "query ProjectTeams" in query:
             return {

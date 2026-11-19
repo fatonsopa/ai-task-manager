@@ -18,7 +18,7 @@ from tests.scheduling.provider_fixture import ProviderFixture
 BASELINE = Path(__file__).parent / "fixtures/dependency_reader_v1.json"
 
 
-@pytest.mark.parametrize("name,requests", [("single", 13), ("paginated", 27)])
+@pytest.mark.parametrize("name,requests", [("single", 9), ("paginated", 23)])
 def test_exact_baseline_observation_with_fewer_requests(tmp_path, name, requests):
     capture = next(row for row in json.loads(BASELINE.read_text()) if row["case"] == name)
     p = ProviderFixture(tmp_path / "owned")

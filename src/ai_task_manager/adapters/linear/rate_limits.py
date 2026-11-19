@@ -20,7 +20,11 @@ from ai_task_manager.config.files import private_path
 from .errors import LinearError
 
 IDENTITY = """query VerifyBinding($team: String!, $project: String!) {
- viewer { id } organization { id } team(id: $team) { id key } project(id: $project) { id }
+ viewer { id } organization { id }
+ team(id: $team) { id key states(first: 50) {
+ nodes { id name } pageInfo { hasNextPage endCursor } } }
+ project(id: $project) { id teams(first: 50) {
+ nodes { id } pageInfo { hasNextPage endCursor } } }
 }"""
 # Linear's documented maximum complexity of one accepted query.
 MAX_COMPLEXITY = 10_000
