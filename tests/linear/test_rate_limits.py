@@ -393,3 +393,175 @@ def test_global_identity_renewal_preserves_other_endpoint_exhaustion(tmp_path):
     store.require_model(EXPECTED.viewer_id)
     with pytest.raises(LinearError, match="rate_limited"):
         store.reserve(query, {}, CREDS)
+
+
+def test_rc_r2_fresh_sequential_current_headers_credit_provider_refill(tmp_path):
+    now = [1000]
+    user = "11111111-1111-4111-8111-111111111111"
+    store = QuotaStore(tmp_path / "quota.sqlite3", clock=lambda: now[0])
+
+    def current_response():
+        return WireResponse(
+            200,
+            headers(
+                requests=9,
+                complexity=999998,
+                reset=int((now[0] + 3600) * 1000),
+                **{
+                    "x-ratelimit-requests-limit": "10",
+                    "x-ratelimit-complexity-limit": "1000000",
+                },
+            ),
+            json.dumps({"data": {"viewer": {"id": user}}}).encode(),
+        )
+
+    bootstrap = store.reserve(IDENTITY, {}, CREDS, principal=user)
+    store.complete(bootstrap, current_response())
+    for index in range(9):
+        now[0] += 360
+        reference = store.reserve("query Metadata { viewer { id } }", {"step": index}, CREDS)
+        store.complete(reference, current_response())
+    store.require_model(user)
+    store.cancel(store.reserve("query Next { viewer { id } }", {}, CREDS))
+
+
+@pytest.mark.parametrize("completion", ["unknown", "response"])
+def test_matched_endpoint_becomes_usable_once_after_its_own_promised_reset(tmp_path, completion):
+    store = seeded(tmp_path)
+    query = "mutation NewIntent($input: X!) { issueCreate(input:$input) { success } }"
+    reference = store.reserve(query, {"input": {"title": "original"}}, CREDS)
+    store.complete(
+        reference,
+        wire_response(
+            **{
+                "x-ratelimit-endpoint-name": "issueCreate",
+                "x-ratelimit-endpoint-requests-limit": "1",
+                "x-ratelimit-endpoint-requests-remaining": "0",
+                "x-ratelimit-endpoint-requests-reset": "1100000",
+            }
+        ),
+    )
+    with pytest.raises(LinearError, match="rate_limited"):
+        store.reserve(query, {"input": {"title": "new intent"}}, CREDS)
+    store.clock = lambda: 1101
+    current = store.reserve(query, {"input": {"title": "new intent"}}, CREDS)
+    if completion == "unknown":
+        store.complete(current)  # Unknown sends remain charged.
+    else:
+        store.complete(
+            current,
+            wire_response(
+                **{
+                    "x-ratelimit-endpoint-name": "issueCreate",
+                    "x-ratelimit-endpoint-requests-limit": "1",
+                    "x-ratelimit-endpoint-requests-remaining": "0",
+                    "x-ratelimit-endpoint-requests-reset": "1100000",
+                }
+            ),
+        )
+    # The same observed reset cannot replenish twice, even on returned headers.
+    with pytest.raises(LinearError, match="rate_limited"):
+        store.reserve(query, {"input": {"title": "another new intent"}}, CREDS)
+
+
+def test_fresh_credit_retains_unknown_charges_across_restart(tmp_path):
+    store = seeded(tmp_path)
+    unknown = store.reserve("query Unknown", {}, CREDS)
+    store.complete(unknown)
+    store = QuotaStore(store.path, clock=store.clock)
+    current = store.reserve("query Fresh", {}, CREDS)
+    store.complete(current, wire_response(requests=5, complexity=60000))
+    store.require_model(EXPECTED.viewer_id)
+    reserved = [store.reserve("query Bounded", {"i": i}, CREDS) for i in range(4)]
+    with pytest.raises(LinearError, match="rate_limited"):
+        store.reserve("query Bounded", {"i": 4}, CREDS)
+    for reference in reserved:
+        store.cancel(reference)
+
+
+def test_concurrent_higher_headers_do_not_credit_as_a_fresh_sequential_response(tmp_path):
+    store = seeded(tmp_path, requests=2, complexity=20000)
+    first = store.reserve("query First", {}, CREDS)
+    second = store.reserve("query Second", {}, CREDS)
+    store.complete(first, wire_response(requests=0, complexity=0))
+    store.complete(second, wire_response(requests=5000, complexity=6000000, reset=9999999))
+    with pytest.raises(LinearError, match="rate_limited"):
+        store.require_model(EXPECTED.viewer_id)
+    with pytest.raises(LinearError, match="rate_limited"):
+        store.reserve("query Next", {}, CREDS)
+
+
+def test_endpoint_reset_admission_still_requires_current_effect_fence(tmp_path):
+    from ai_task_manager.domains.work.errors import AccessDenied
+
+    store = seeded(tmp_path)
+    query = "mutation NewIntent { issueCreate(input:{}) { success } }"
+    first = store.reserve(query, {}, CREDS)
+    store.complete(
+        first,
+        wire_response(
+            **{
+                "x-ratelimit-endpoint-name": "issueCreate",
+                "x-ratelimit-endpoint-requests-limit": "1",
+                "x-ratelimit-endpoint-requests-remaining": "0",
+                "x-ratelimit-endpoint-requests-reset": "1100000",
+            }
+        ),
+    )
+    store.clock = lambda: 1101
+    transport = HttpTransport(_quota_store=store)
+    transport.opener = Opener(wire_response())
+    client = LinearClient(transport, lambda: CREDS, EXPECTED)
+
+    def current_fence():
+        raise AccessDenied("Current human authority changed")
+
+    with pytest.raises(AccessDenied, match="Current human authority changed"):
+        client.request(query, {}, mutation=True, _before_dispatch=current_fence)
+    assert transport.opener.calls == []
+    # Proven no-dispatch cancellation can return the slot, without authorizing any replay.
+    store.cancel(store.reserve(query, {"intent": "new"}, CREDS))
+
+
+def test_legacy_inflight_row_migrates_without_inventing_fresh_ordering(tmp_path):
+    import sqlite3
+
+    store = seeded(tmp_path, requests=1)
+    reference = store.reserve("query Legacy", {}, CREDS)
+    with sqlite3.connect(store.path) as db:
+        db.execute("ALTER TABLE reservations RENAME TO old_reservations")
+        db.execute(
+            "CREATE TABLE reservations (id TEXT PRIMARY KEY, user TEXT, credential TEXT, "
+            "charges TEXT, bootstrap INT, query_hash TEXT)"
+        )
+        db.execute(
+            "INSERT INTO reservations SELECT id,user,credential,charges,bootstrap,query_hash "
+            "FROM old_reservations"
+        )
+        db.execute("DROP TABLE old_reservations")
+    store = QuotaStore(store.path, clock=store.clock)
+    store.complete(reference, wire_response(requests=5000, complexity=6000000))
+    with pytest.raises(LinearError, match="rate_limited"):
+        store.require_model(EXPECTED.viewer_id)
+    # A later properly bounded identity can establish current authority normally.
+    store.clock = lambda: 2001
+    current = store.reserve(IDENTITY, {}, CREDS)
+    store.complete(current, wire_response(reset=3000000))
+    store.require_model(EXPECTED.viewer_id)
+
+
+@pytest.mark.parametrize("order", ["alias-first", "known-first"])
+def test_unbound_alias_identity_invalidates_other_users_sole_response_witness(tmp_path, order):
+    store = seeded(tmp_path, requests=1)
+    first = store.reserve("query First", {}, CREDS)
+    unbound = store.reserve(IDENTITY, {}, Credentials("unbound-alias"))
+    if order == "known-first":
+        store.complete(first, wire_response(requests=5000, complexity=6000000))
+        with pytest.raises(LinearError, match="rate_limited"):
+            store.require_model(EXPECTED.viewer_id)
+        store.complete(unbound, wire_response(requests=0, complexity=0))
+    else:
+        store.complete(unbound, wire_response(requests=0, complexity=0))
+        store.complete(first, wire_response(requests=5000, complexity=6000000))
+    with pytest.raises(LinearError, match="rate_limited"):
+        store.require_model(EXPECTED.viewer_id)

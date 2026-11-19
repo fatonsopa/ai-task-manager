@@ -101,8 +101,10 @@ class QuotaStore:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS reservations "
                 "(id TEXT PRIMARY KEY, user TEXT, credential TEXT, charges TEXT, bootstrap INT, "
-                "query_hash TEXT)"
+                "query_hash TEXT, sequence INTEGER)"
             )
+            if "sequence" not in {row[1] for row in db.execute("PRAGMA table_info(reservations)")}:
+                db.execute("ALTER TABLE reservations ADD COLUMN sequence INTEGER")
             db.execute("BEGIN IMMEDIATE")
             yield db
             db.commit()
@@ -158,6 +160,25 @@ class QuotaStore:
                 raise LinearError("credential_binding_changed")
             user = principal or (alias[0] if alias else None)
             state = self._state(db, user) if user else None
+            if state is not None and alias:
+                outstanding = [
+                    json.loads(row[0])
+                    for row in db.execute("SELECT charges FROM reservations WHERE user=?", (user,))
+                ]
+                for name, bucket in state["buckets"].items():
+                    if (
+                        name.startswith("endpoint-")
+                        and self._applies(state, name, query)
+                        and self.clock() >= bucket["reset"]
+                        and bucket.get("reset_used", 0) < bucket["reset"]
+                    ):
+                        # This endpoint's promised full reset is consumed once,
+                        # on a new intent. It grants no business-effect authority.
+                        pending = sum(charges.get(name, 0) for charges in outstanding)
+                        unknown = state.get("unknown_charges", {}).get(name, 0)
+                        bucket["floor"] = max(0, bucket["limit"] - unknown)
+                        bucket["available"] = max(0, bucket["floor"] - pending)
+                        bucket["reset_used"] = bucket["reset"]
             blocked = self._blocked(state, query)
             bootstrap = blocked is not None or alias is None
             if bootstrap:
@@ -182,7 +203,9 @@ class QuotaStore:
                     bound = max(state.get("cooldown", 0), horizon)
                     if self.clock() < bound or (state.get("limited") and bound <= 0):
                         raise LinearError(category, retry_after=retry)
-                    if db.execute("SELECT 1 FROM reservations WHERE user=?", (user,)).fetchone():
+                    if db.execute(
+                        "SELECT 1 FROM reservations WHERE user=? OR user IS NULL", (user,)
+                    ).fetchone():
                         raise LinearError("quota_busy")
                 if db.execute("SELECT 1 FROM reservations WHERE bootstrap>0").fetchone():
                     raise LinearError("quota_busy")
@@ -196,12 +219,19 @@ class QuotaStore:
                 }
             )
             if state is not None:
+                state["sequence"] = state.get("sequence", 0) + 1
+                sole = not db.execute(
+                    "SELECT 1 FROM reservations WHERE user=? OR user IS NULL", (user,)
+                ).fetchone()
+                sequence = state["sequence"] if sole else -state["sequence"]
                 for name, charge in charges.items():
                     state["buckets"][name]["available"] -= charge
                 self._save(db, user, state)
+            else:
+                sequence = None
             reference = str(uuid4())
             db.execute(
-                "INSERT INTO reservations VALUES (?,?,?,?,?,?)",
+                "INSERT INTO reservations VALUES (?,?,?,?,?,?,?)",
                 (
                     reference,
                     user,
@@ -209,6 +239,7 @@ class QuotaStore:
                     json.dumps(charges),
                     2 if blocked and state is not None else int(bootstrap),
                     self._query_hash(query),
+                    sequence,
                 ),
             )
             return reference
@@ -255,15 +286,22 @@ class QuotaStore:
     def complete(self, reference, response=None):
         with self._db() as db:
             row = db.execute(
-                "SELECT user,credential,charges,bootstrap,query_hash FROM reservations WHERE id=?",
+                "SELECT user,credential,charges,bootstrap,query_hash,sequence "
+                "FROM reservations WHERE id=?",
                 (reference,),
             ).fetchone()
             if row is None:
                 raise LinearError("quota_reservation_missing")
-            user, credential, raw, bootstrap, query_hash = row
+            user, credential, raw, bootstrap, query_hash, sequence = row
             charges = json.loads(raw)
             db.execute("DELETE FROM reservations WHERE id=?", (reference,))
             if response is None:
+                state = self._state(db, user)
+                if state:
+                    unknown = state.setdefault("unknown_charges", {})
+                    for name, charge in charges.items():
+                        unknown[name] = unknown.get(name, 0) + charge
+                    self._save(db, user, state)
                 return  # Never refund a send whose dispatch/receipt is unknown.
             headers = {k.lower(): v for k, v in response.headers.items()}
             try:
@@ -300,6 +338,18 @@ class QuotaStore:
                 if isinstance(viewer, dict) and viewer.get("id") == user:
                     db.execute("INSERT OR REPLACE INTO aliases VALUES (?,?)", (credential, user))
             state = self._state(db, user) or {"buckets": {}, "cooldown": 0, "limited": False}
+            if bootstrap and sequence is None and state["buckets"]:
+                # A previously unattributed token joins this account's ordering
+                # only now; overlapping known-user requests were not sole.
+                state["sequence"] = state.get("sequence", 0) + 1
+            fresh = (
+                sequence is not None
+                and sequence > 0
+                and sequence == state.get("sequence")
+                and not db.execute(
+                    "SELECT 1 FROM reservations WHERE user=? OR user IS NULL", (user,)
+                ).fetchone()
+            )
             if bootstrap == 2:
                 # Only an explicitly serialized identity after the retained horizon
                 # can establish a fresh window. Moving ordinary reset headers cannot.
@@ -348,13 +398,17 @@ class QuotaStore:
                     continue
                 pending = sum(c.get(name, 0) for c in outstanding)
                 old = state["buckets"].get(name)
-                floor = min(old["floor"], remaining) if old else remaining
-                available = min(old["available"], floor - pending) if old else floor - pending
+                observed = max(0, remaining - state.get("unknown_charges", {}).get(name, 0))
+                floor = min(old["floor"], observed) if old and not fresh else observed
+                available = (
+                    min(old["available"], floor - pending) if old and not fresh else floor - pending
+                )
                 state["buckets"][name] = {
                     "available": max(0, available),
                     "floor": floor,
-                    "limit": min(old["limit"], limit) if old else limit,
+                    "limit": min(old["limit"], limit) if old and not fresh else limit,
                     "reset": max(old["reset"], reset) if old else reset,
+                    "reset_used": old.get("reset_used", 0) if old else 0,
                 }
             if limited:
                 state["limited"] = True
