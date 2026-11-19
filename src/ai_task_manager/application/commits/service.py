@@ -19,7 +19,51 @@ class WorkerCommits:
         self.clock = clock or core.context.clock
         self.binding = core.session_binding(handle)
 
-    def _current(self, row, plan):
+    def _retained_commit(self, row, plan):
+        succession = row.get("succession", {})
+        if not isinstance(self.binding[0], TaskSession) or succession.get("version") != 2:
+            return None
+        authority = succession["authorization"]
+        retained = succession["retained"]
+        original = retained["body"]
+        if original["attempt_id"] != row["attempt_id"]:
+            # A partial-work successor ran a distinct author. Its own ordinary
+            # commit protocol remains responsible for every new effect.
+            return None
+        from ai_task_manager.application.workflows.recovery import _old_plan
+
+        old_plan = _old_plan(original)
+        proof = self.core.context.proof(
+            self.binding[0].reference, "workflow_successor", self.binding[1], row["task_id"]
+        )
+        if (
+            fingerprint(proof.payload) != fingerprint(authority)
+            or authority["reference"] != self.binding[0].reference
+            or authority["plan_ref"] != plan.id
+            or authority["plan_digest"] != plan.digest
+            or authority["expires_at"] < plan.deadline
+            or self.clock() >= plan.deadline
+            or any(
+                original[key] != row[key]
+                for key in ("task_id", "attempt_id", "prose_digest", "decision_revision")
+            )
+            or any(
+                getattr(old_plan, key) != getattr(plan, key)
+                for key in (
+                    "host",
+                    "base",
+                    "allowed_files",
+                    "artifacts",
+                    "commit_checks",
+                    "resource_locks",
+                )
+            )
+            or "worker-commit" not in retained["steps"]
+        ):
+            raise AccessDenied("Current successor differs from retained worker commit authority")
+        return retained
+
+    def _current(self, row, plan, *, retained=False):
         if self.core.session_binding(self.handle) != self.binding:
             raise AccessDenied("Worker commit session changed")
         task = self.core.get_task(self.handle, row["task_id"])
@@ -53,8 +97,10 @@ class WorkerCommits:
             or max(reservations, key=lambda e: e.sequence).payload.get("attempt_id") != attempt.id
         ):
             raise AccessDenied("A newer attempt supersedes this worker commit authority")
+        original = self._retained_commit(row, plan) if retained else None
+        deadline = original["body"]["plan"]["deadline"] if original else plan.deadline
         owner = self.journal.attempt(attempt.id)
-        if owner["task_id"] != task.id or owner["deadline"] != plan.deadline:
+        if owner["task_id"] != task.id or owner["deadline"] != deadline:
             raise AccessDenied("Worker commit original owner or deadline differs")
         pair = self.runtime.pair(attempt.id)
         fact = self.runtime.ownership(attempt.id)
@@ -215,7 +261,10 @@ class WorkerCommits:
         return self.reconcile(row, plan, intent)
 
     def reconcile(self, row, plan, intent):
-        _, attempt, pair, fact = self._current(row, plan)
+        task, attempt, pair, fact = self._current(row, plan, retained=True)
+        retained = self._retained_commit(row, plan)
+        if retained is not None:
+            return self._completed_receipt(row, task, attempt, pair, fact, retained, intent)
         original = self.journal.effect(attempt.id, "worker-commit-intent")
         if original is None and intent.get("commit_protocol") == 1:
             # The component writes this intent before any staging, check or hook.
@@ -269,3 +318,51 @@ class WorkerCommits:
         if not self.journal.observations(attempt.id, "worker-commit-complete"):
             self.journal.observe(attempt.id, "worker-commit-complete", receipt)
         return receipt
+
+    def _completed_receipt(self, row, task, attempt, pair, fact, retained, intent):
+        """Consume an already published result; no hooks, process or ref effects."""
+        saved = retained["steps"]["worker-commit"]
+        candidate = self.journal.effect(attempt.id, "worker-commit-candidate")
+        receipts = self.journal.observations(attempt.id, "worker-commit-complete")
+        published = self.journal.observations(attempt.id, "worker-published")
+        if (
+            intent != saved["payload"]
+            or self.journal.effect(attempt.id, "worker-commit-intent") != intent
+            or not candidate
+            or any(candidate.get(k) != v for k, v in intent.items())
+            or not receipts
+            or not published
+            or any(fact[k] != intent["worktree"][k] for k in ("path", "common", "physical"))
+            or [pair.worktree_id, pair.database_id] != intent["resource_ids"]
+            or self.git.source(pair.worktree) != intent["git_source"]
+        ):
+            raise EvidenceRequired("Exact completed retained worker commit receipt required")
+        head = self.git.committed(pair.worktree, candidate)
+        expected = {
+            "task_id": task.id,
+            "attempt_id": attempt.id,
+            "commit": head,
+            "tree": candidate["tree"],
+            "branch": fact["branch"],
+            "intent_digest": fingerprint(intent),
+            "state": "committed",
+        }
+        if (
+            head is None
+            or any(
+                any(receipt.get(key) != value for key, value in expected.items())
+                for receipt in receipts
+            )
+            or published[-1]["head"] != head
+            or (saved["result"] is not None and saved["result"] != expected)
+        ):
+            raise EvidenceRequired("Retained receipt differs from the exact current publication")
+        with self.core.execution.worker_commit_boundary(
+            self.handle,
+            task.id,
+            attempt.id,
+            task.version,
+            attempt.version,
+            row["decision_revision"],
+        ):
+            return {key: receipts[-1][key] for key in expected}
