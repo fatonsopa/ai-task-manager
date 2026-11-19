@@ -8,9 +8,107 @@ from tests.hosts.test_continuity import AuthoredDependencyCollection
 from tests.worker_commits.helpers import WorkerFixture
 
 
+def test_delivery_background_collects_only_when_current_observation_is_due(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from ai_task_manager.installation.workflows import delivery_dependencies as module
+    from ai_task_manager.supervisor.authority import (
+        CHECK_INTERVAL_SECONDS,
+        MAX_COLLECTION_SECONDS,
+    )
+    from tests.domains.helpers import Rig
+
+    r = Rig(tmp_path / "core.sqlite")
+    task, attempt = r.running()
+    task, attempt = r.settle(task, attempt)
+    source = AuthoredDependencyCollection(r.core, r.handle)
+    row = {"task_id": task.id, "attempt_id": attempt.id,
+           "prose_digest": task.prose_digest, "decision_revision": task.decision_revision}
+    background = []
+    monkeypatch.setattr(module.threading, "Thread", lambda *, target, **_: SimpleNamespace(
+        start=lambda: background.append(target), is_alive=lambda: False,
+        join=lambda *_: None,
+    ))
+    monkeypatch.setattr(module.time, "monotonic", lambda: r.now)
+    controller = DeliveryDependencies(r.core, r.handle, source, r.now + 120)
+    controller.start(row)
+    assert source.calls == 1 and len(background) == 1
+    before = r.core.scheduling.explain(r.handle, task.id)
+    due = before["expires_at"] - MAX_COLLECTION_SECONDS - CHECK_INTERVAL_SECONDS
+    observations = []
+
+    def tick(seconds):
+        observations.append((r.now, source.calls))
+        if r.now >= due + CHECK_INTERVAL_SECONDS:
+            controller._stop.set()
+            return True
+        r.now += seconds
+        return False
+
+    monkeypatch.setattr(controller._stop, "wait", tick)
+    background[0]()
+    assert controller._error is None
+    assert source.calls == 2, observations
+    assert all(calls == 1 for at, calls in observations if at < due)
+    after = r.core.scheduling.explain(r.handle, task.id)
+    assert after["graph_version"] == before["graph_version"]
+    assert after["expires_at"] == due + 30
+
+
+@pytest.mark.parametrize("case", ["slow_publication", "backward_clock", "deadline_cap"])
+def test_delivery_schedule_preserves_measured_window_and_original_cap(tmp_path, monkeypatch, case):
+    from types import SimpleNamespace
+
+    from ai_task_manager.installation.workflows import delivery_dependencies as module
+    from tests.domains.helpers import Rig
+
+    r = Rig(tmp_path / "core.sqlite")
+    task, attempt = r.running()
+    task, attempt = r.settle(task, attempt)
+    source = AuthoredDependencyCollection(r.core, r.handle)
+    clock = [r.now]
+    monkeypatch.setattr(module.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(module.threading, "Thread", lambda **_: SimpleNamespace(
+        start=lambda: None, is_alive=lambda: False, join=lambda *_: None,
+    ))
+    original = r.core.scheduling.observe
+
+    def observe(*args, **kwargs):
+        result = original(*args, **kwargs)
+        if case == "slow_publication":
+            r.now += 10
+        elif case == "backward_clock":
+            clock[0] -= 1
+        return result
+
+    monkeypatch.setattr(r.core.scheduling, "observe", observe)
+    deadline = r.now + (10 if case == "deadline_cap" else 120)
+    controller = DeliveryDependencies(r.core, r.handle, source, deadline)
+    row = {"task_id": task.id, "attempt_id": attempt.id,
+           "prose_digest": task.prose_digest, "decision_revision": task.decision_revision}
+    if case == "deadline_cap":
+        controller.start(row)
+        assert controller._next_refresh_at == deadline
+        r.now = deadline
+        with pytest.raises(AccessDenied):
+            controller.check()
+    else:
+        message = "no safe next" if case == "slow_publication" else "clock moved backwards"
+        with pytest.raises(AccessDenied, match=message):
+            controller.start(row)
+        assert controller._thread is None
+        if case == "slow_publication":
+            assert controller._preparation_latency >= 10
+    assert source.calls == 1
+    controller.close()
+
+
 @pytest.mark.parametrize(
     "case",
-    ["owned_cancel", "foreign_cancel", "scope_fence", "human_hold", "revision", "expired", "graph_changed"],
+    [
+        "owned_cancel", "foreign_cancel", "scope_fence", "human_hold", "revision", "expired",
+        "graph_changed",
+    ],
 )
 def test_owned_publication_wait_close_preserves_current_and_real_refusal_fences(tmp_path, case):
     from contextlib import contextmanager
@@ -36,7 +134,9 @@ def test_owned_publication_wait_close_preserves_current_and_real_refusal_fences(
     expected = ExpectedBinding(r.scope.principal, r.scope.workspace, "team", "TST", r.scope.project)
     source = DependencySource(
         r.core, r.handle, SimpleNamespace(expected=expected),
-        DependencyReceipts(root / "dependencies.sqlite", root / "dependencies.key", clock=lambda: r.now),
+        DependencyReceipts(
+            root / "dependencies.sqlite", root / "dependencies.key", clock=lambda: r.now,
+        ),
     )
     authored = AuthoredDependencyCollection(r.core, r.handle)
     source.prepare = authored.prepare
@@ -59,6 +159,7 @@ def test_owned_publication_wait_close_preserves_current_and_real_refusal_fences(
         before = r.core.scheduling.explain(r.handle, task.id)
         calls = authored.calls
         source.publication_boundary = observed
+        r.now = controller._next_refresh_at
         with boundary(task.id):
             assert entered.wait(3), "The real collector must reach the held publication lock"
             if case == "foreign_cancel":
@@ -102,7 +203,10 @@ def test_owned_publication_wait_close_preserves_current_and_real_refusal_fences(
             controller.check()
             controller.start(row)
             controller.check()
-            assert r.core.scheduling.explain(r.handle, task.id)["source_revision"] > before["source_revision"]
+            assert (
+                r.core.scheduling.explain(r.handle, task.id)["source_revision"]
+                > before["source_revision"]
+            )
             publication_gate()
         else:
             with pytest.raises((AccessDenied, SchedulingBlocked, StaleVersion)):
@@ -120,7 +224,7 @@ def test_owned_publication_wait_close_preserves_current_and_real_refusal_fences(
 
 @pytest.mark.parametrize("case", ["current", "expired", "foreign", "collection_expired"])
 def test_delivery_dependency_collection_never_revives_expired_or_foreign_authority(tmp_path, case):
-    fixture = WorkerFixture((tmp_path / "worker").resolve())
+    fixture = WorkerFixture((tmp_path / "worker").resolve(), resource_locks=())
     controller = None
     try:
         row = fixture.execute_only()
@@ -162,7 +266,7 @@ def test_delivery_dependency_collection_never_revives_expired_or_foreign_authori
 
 
 def test_delivery_close_during_collection_publishes_no_new_observation(tmp_path):
-    fixture = WorkerFixture((tmp_path / "worker").resolve())
+    fixture = WorkerFixture((tmp_path / "worker").resolve(), resource_locks=())
     controller = None
     try:
         row = fixture.execute_only()
@@ -191,7 +295,7 @@ def test_delivery_close_during_collection_publishes_no_new_observation(tmp_path)
 
 
 def test_own_unit_progress_during_collection_keeps_exact_scope_and_graph(tmp_path):
-    fixture = WorkerFixture((tmp_path / "worker").resolve())
+    fixture = WorkerFixture((tmp_path / "worker").resolve(), resource_locks=())
     controller = None
     try:
         row = fixture.execute_only()
