@@ -2,17 +2,22 @@
 
 Production mode permits only the genuine default provider URL. Authored mode
 selects one explicit loopback control; it never changes the operator manifest.
-Headers, credential values and request bodies are not retained.
+Only numeric rate headers and allowlisted error codes are retained; credentials,
+request bodies, response bodies and freeform errors are never retained.
 """
 
 import argparse
+import atexit
 import hashlib
 import json
 import os
+import re
 import runpy
 import sqlite3
 import sys
 import sysconfig
+import threading
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -23,6 +28,32 @@ sys.path.insert(0, str(CHECKOUT))
 from ai_task_manager.adapters.linear.transport import HttpTransport  # noqa: E402
 from ai_task_manager.config.files import private_path, strict_json, write_private  # noqa: E402
 from tests.linear.live.ledger import DriverRefused, Limits, RunLedger, Scope  # noqa: E402
+
+_NUMERIC_HEADERS = frozenset(
+    {
+        "x-ratelimit-requests-limit",
+        "x-ratelimit-requests-remaining",
+        "x-ratelimit-requests-reset",
+        "x-ratelimit-complexity-limit",
+        "x-ratelimit-complexity-remaining",
+        "x-ratelimit-complexity-reset",
+        "x-complexity",
+        "x-ratelimit-endpoint-requests-limit",
+        "x-ratelimit-endpoint-requests-remaining",
+        "x-ratelimit-endpoint-requests-reset",
+    }
+)
+_ERROR_CODES = frozenset(
+    {
+        "RATELIMITED",
+        "RATE_LIMITED",
+        "INTERNAL_SERVER_ERROR",
+        "UNAUTHENTICATED",
+        "FORBIDDEN",
+        "GRAPHQL_VALIDATION_FAILED",
+        "BAD_USER_INPUT",
+    }
+)
 
 
 def open_ledger(path):
@@ -42,17 +73,33 @@ class DispatchObserver:
         self.ledger, self.endpoint, self.receipt = ledger, endpoint, Path(receipt)
         if self.receipt.exists() or self.receipt.is_symlink():
             raise DriverRefused("new_observer_receipt_required")
-        self.record = {**provenance, "dispatches": [], "classification": "pre_io_dispatch_attempts"}
-        self.saved = False
+        self.record = {
+            **provenance,
+            "dispatches": [],
+            "http": [],
+            "classification": "pre_io_dispatch_attempts",
+            "observation_errors": 0,
+        }
+        self.saved, self.closed, self.active = False, False, {}
+        self.lock = threading.RLock()
         self.save()
+        self.code = HttpTransport._send.__code__
+        self.tool = next((i for i in range(5, -1, -1) if sys.monitoring.get_tool(i) is None), None)
+        if self.tool is None:
+            raise DriverRefused("preparation_http_monitor_unavailable")
+        sys.monitoring.use_tool_id(self.tool, "aitm-preparation-http")
+        sys.monitoring.register_callback(self.tool, sys.monitoring.events.PY_RETURN, self._returned)
+        sys.monitoring.set_local_events(self.tool, self.code, sys.monitoring.events.PY_RETURN)
+        atexit.register(self.close)
 
     def save(self):
         # The first publication stays exclusive even if two callers race on a path.
-        write_private(self.receipt, self.record, replace=self.saved)
-        self.saved = True
+        with self.lock:
+            write_private(self.receipt, self.record, replace=self.saved)
+            self.saved = True
 
     def audit(self, event, arguments):
-        if event != "urllib.Request":
+        if self.closed or event != "urllib.Request":
             return
         # CPython's event includes headers. Deliberately never inspect or retain them.
         url, data, _, method = arguments
@@ -69,20 +116,121 @@ class DispatchObserver:
         query = payload["query"]
         operation = "mutation" if query.lstrip().startswith("mutation ") else "query"
         self.ledger.request("product_transport")
-        self.record["dispatches"].append(
-            {
-                "index": len(self.record["dispatches"]) + 1,
-                "operation": operation,
-                "query_sha256": hashlib.sha256(query.encode()).hexdigest(),
-                "variables_sha256": hashlib.sha256(
-                    json.dumps(
-                        payload["variables"],
-                        sort_keys=True,
-                        separators=(",", ":"),
-                        ensure_ascii=False,
-                    ).encode()
-                ).hexdigest(),
+        with self.lock:
+            self.record["dispatches"].append(
+                {
+                    "index": len(self.record["dispatches"]) + 1,
+                    "operation": operation,
+                    "query_sha256": hashlib.sha256(query.encode()).hexdigest(),
+                    "variables_sha256": hashlib.sha256(
+                        json.dumps(
+                            payload["variables"],
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            ensure_ascii=False,
+                        ).encode()
+                    ).hexdigest(),
+                }
+            )
+            self.active[threading.get_ident()] = {
+                "dispatch_index": len(self.record["dispatches"]),
+                "query_sha256": self.record["dispatches"][-1]["query_sha256"],
+                "variables_sha256": self.record["dispatches"][-1]["variables_sha256"],
+                "thread": threading.get_ident(),
+                "pid": os.getpid(),
+                "started_at": time.time(),
+                "started_monotonic": time.monotonic(),
             }
+        self.save()
+
+    def _returned(self, code, offset, value):
+        if code is not self.code or self.closed:
+            return
+        try:
+            with self.lock:
+                row = self.active.pop(threading.get_ident(), None)
+                if row is None:
+                    return  # No accepted urllib audit entry means no correlated HTTP claim.
+                row.update(
+                    status=value.status,
+                    finished_at=time.time(),
+                    elapsed_seconds=time.monotonic() - row["started_monotonic"],
+                    boundary="HttpTransport._send returned HTTP response",
+                    provider_receipt="Application delivery not established",
+                )
+                headers = {name.lower(): raw for name, raw in value.headers.items()}
+                row["quota_headers"] = {
+                    name: raw
+                    for name, raw in headers.items()
+                    if name in _NUMERIC_HEADERS
+                    and type(raw) is str
+                    and len(raw) <= 32
+                    and re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", raw)
+                }
+                retry = headers.get("retry-after")
+                row["retry_after"] = (
+                    retry
+                    if (
+                        type(retry) is str
+                        and len(retry) <= 64
+                        and re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", retry)
+                    )
+                    else None
+                )
+                row["error_codes"], row["error_code_hashes"] = [], []
+                if len(value.body) <= 65536:
+                    try:
+                        data = json.loads(value.body)
+                    except (ValueError, UnicodeError):
+                        data = None
+                    errors = data.get("errors") if isinstance(data, dict) else None
+                    for error in errors[:8] if isinstance(errors, list) else ():
+                        extension = error.get("extensions") if isinstance(error, dict) else None
+                        error_code = extension.get("code") if isinstance(extension, dict) else None
+                        if isinstance(error_code, str) and len(error_code) <= 128:
+                            if error_code in _ERROR_CODES:
+                                row["error_codes"].append(error_code)
+                            else:
+                                row["error_code_hashes"].append(
+                                    hashlib.sha256(error_code.encode()).hexdigest()
+                                )
+                row["caller"] = []
+                frame = sys._getframe(1)
+                for _ in range(16):
+                    if frame is None:
+                        break
+                    source = Path(frame.f_code.co_filename)
+                    if "ai_task_manager" in source.parts and source.name != "transport.py":
+                        row["caller"].append(
+                            {
+                                "source": source.name,
+                                "function": frame.f_code.co_name,
+                                "line": frame.f_lineno,
+                            }
+                        )
+                        if len(row["caller"]) == 4:
+                            break
+                    frame = frame.f_back
+                del frame
+                if len(self.record["http"]) < self.ledger.limits.requests:
+                    self.record["http"].append(row)
+                self.save()  # Persist before LinearClient can discard the WireResponse metadata.
+        except BaseException:
+            # Observation cannot replace the original response or client exception.
+            self.record["observation_errors"] += 1
+
+    def close(self):
+        if self.closed:
+            return
+        sys.monitoring.set_local_events(self.tool, self.code, 0)
+        if sys.monitoring.get_events(self.tool) != 0:
+            raise DriverRefused("preparation_monitor_global_events_changed")
+        sys.monitoring.register_callback(self.tool, sys.monitoring.events.PY_RETURN, None)
+        sys.monitoring.free_tool_id(self.tool)
+        self.closed = True
+        self.record["http_monitoring_closed"] = True
+        self.record["unreturned_dispatches"] = len(self.record["dispatches"]) - len(
+            self.record["http"]
         )
         self.save()
 
@@ -189,7 +337,7 @@ def main(argv=None):
         observer.record["exit_code"] = error.code
         raise
     finally:
-        observer.save()
+        observer.close()
 
 
 if __name__ == "__main__":
