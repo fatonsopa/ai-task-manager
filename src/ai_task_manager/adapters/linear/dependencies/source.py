@@ -33,6 +33,14 @@ class Preparation:
     operation_key: str
 
 
+class DependencyPublicationCancelled(AccessDenied):
+    """An identified caller cancelled its pending publication observation."""
+
+    def __init__(self, cancelled):
+        super().__init__("Dependency publication cancelled")
+        self.cancelled = cancelled
+
+
 def milestone_declarations(value):
     if not isinstance(value, list) or len(value) > 128:
         raise ValidationError("A bounded dependency milestone list is required")
@@ -102,11 +110,10 @@ class DependencySource:
 
         def current():
             self._scope()
-            if (
-                (cancelled is not None and cancelled.is_set())
-                or self.core.context.clock() >= deadline or monotonic() >= end
-            ):
+            if self.core.context.clock() >= deadline or monotonic() >= end:
                 raise AccessDenied("Dependency publication stopped or expired")
+            if cancelled is not None and cancelled.is_set():
+                raise DependencyPublicationCancelled(cancelled)
 
         while True:
             current()
