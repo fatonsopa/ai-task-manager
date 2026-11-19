@@ -123,6 +123,9 @@ class DependencySource:
         depths = getattr(self._publication_local, "depths", {})
         self._publication_local.depths = depths
         nested = depths.get(task_id, 0)
+        guards = getattr(self._publication_local, "guards", {})
+        self._publication_local.guards = guards
+        previous_guards = guards.get(task_id, ())
         try:
             current()
             if not nested:
@@ -150,18 +153,24 @@ class DependencySource:
                         sleep(min(0.01, max(0, end - monotonic())))
                 check_file()
             depths[task_id] = nested + 1
+            guards[task_id] = (*previous_guards, current)
             current()
             yield
             if descriptor is not None:
                 check_file()
         finally:
             depths[task_id] = nested
+            if previous_guards:
+                guards[task_id] = previous_guards
+            else:
+                guards.pop(task_id, None)
             if descriptor is not None:
                 os.close(descriptor)
             lock.release()
 
     def _prepare(self, task_id, operation_key, *, expected_version=None, decision_revision=None):
         scope = self._scope()
+        source_id = self.source_id
         task = self.core.get_task(self.handle, task_id)
         if expected_version is not None or decision_revision is not None:
             self.core.context.check(task, expected_version, decision_revision)
@@ -192,16 +201,6 @@ class DependencySource:
                 if row.issue_id in local:
                     raise EvidenceRequired("Canonical dependency ownership is ambiguous")
                 local[row.issue_id] = row
-        observation = DependencyReader(self.client, scope).observe(task, local)
-        self._scope()
-        observed_issues = observation.raw.get("first", {}).get("nodes", {})
-        for issue in {*observed_issues, task.issue_id}:
-            before = local[issue]
-            if self.core.get_task(self.handle, before.id) != before:
-                raise StaleVersion("Local dependency facts changed during provider observation")
-        now = self.receipts.clock()
-        if not 0 <= now - c["started_at"] <= 30:
-            raise EvidenceRequired("Dependency observation exceeded its freshness window")
         references = {}
         for event in self.core.notifications.list_events(self.handle):
             if event.kind == "transition_requested":
@@ -219,7 +218,6 @@ class DependencySource:
                 or subjects[0].id != task.id
                 or len(predecessors) != 1
                 or not predecessors[0].code_bearing
-                or predecessors[0].issue_id not in observation.predecessors
             ):
                 raise EvidenceRequired("Explicit milestone requires one current observed code edge")
             merged.add(predecessors[0].issue_id)
@@ -227,6 +225,32 @@ class DependencySource:
             prepare = getattr(self.core.context.evidence, "prepare_merge_milestone", None)
             if reference is not None and callable(prepare):
                 prepare(predecessors[0].id, reference)
+        # Restore local publication witnesses before reading the provider. Their
+        # cost cannot consume a freshly observed provider window. Core still
+        # rejects a short-lived witness that expires during this collection.
+        if merged:
+            self._scope()
+            for check in self._publication_local.guards.get(task_id, ()):
+                check()
+            if self.source_id != source_id:
+                raise AccessDenied("Dependency source changed during milestone preparation")
+            for issue in merged | {task.issue_id}:
+                if self.core.get_task(self.handle, local[issue].id) != local[issue]:
+                    raise StaleVersion("Local dependency facts changed during milestone preparation")
+            if not 0 <= self.receipts.clock() - c["started_at"] <= 30:
+                raise EvidenceRequired("Dependency observation exceeded its freshness window")
+        observation = DependencyReader(self.client, scope).observe(task, local)
+        self._scope()
+        observed_issues = observation.raw.get("first", {}).get("nodes", {})
+        for issue in {*observed_issues, task.issue_id}:
+            before = local[issue]
+            if self.core.get_task(self.handle, before.id) != before:
+                raise StaleVersion("Local dependency facts changed during provider observation")
+        if not merged <= set(observation.predecessors):
+            raise EvidenceRequired("Explicit milestone requires one current observed code edge")
+        now = self.receipts.clock()
+        if not 0 <= now - c["started_at"] <= 30:
+            raise EvidenceRequired("Dependency observation exceeded its freshness window")
         edges = tuple(
             Dependency(
                 local[issue].id,

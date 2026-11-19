@@ -392,7 +392,9 @@ def test_sa12_successor_cannot_start_a_foreign_task(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "variant", ["current", "provider-expired", "held", "source", "revision", "deadline"]
+    "variant", ["current", "provider-expired", "held", "source", "revision", "deadline",
+                "slow-producer", "slow-provider", "expired-preparation",
+                "held-preparation", "source-preparation"]
 )
 def test_sa10_declared_milestone_startup_keeps_original_provider_window(tmp_path, variant):
     import json
@@ -440,6 +442,14 @@ def test_sa10_declared_milestone_startup_keeps_original_provider_window(tmp_path
 
     def prepare(subject, ref):
         assert p.depth == 0 and subject == a.id and ref == reference
+        if variant in {"slow-producer", "expired-preparation"}:
+            r.now += 11.385
+        elif variant == "held-preparation":
+            current = r.core.get_task(r.handle, task.id)
+            with r.db.transaction() as conn:
+                work.save(conn, replace(current, human_hold=True), current.version)
+        elif variant == "source-preparation":
+            p.source.milestones = ()
         r.proofs.evidence[ref] = replace(r.proofs.evidence[ref], expires_at=r.now + 5)
         prepared.append({"clock": r.now, "expiry": r.now + 5})
         return ref
@@ -447,6 +457,34 @@ def test_sa10_declared_milestone_startup_keeps_original_provider_window(tmp_path
     r.core.context.evidence.prepare_merge_milestone = prepare
     task = r.transition(task, S.TODO, "enqueue")
     p.sync(task)
+    if variant.endswith("-preparation"):
+        from ai_task_manager.domains.work.errors import StaleVersion
+
+        calls = len(p.calls)
+        with pytest.raises((AccessDenied, StaleVersion)):
+            with p.source.publication_boundary(task.id, not_after=r.now + 10):
+                p.source.refresh(task.id, "dependent")
+        assert prepared and len(p.calls) == calls
+        assert not p.source._publication_local.guards
+        assert not [e for e in r.core.notifications.list_events(r.handle)
+                    if e.task_id == task.id and e.kind == "attempt_reserved"]
+        return
+    if variant == "slow-provider":
+        delayed = []
+
+        def slow(query, variables):
+            if "DependencySchema" in query and not delayed:
+                r.now += 6
+                delayed.append(True)
+
+        p.callback = slow
+        view = p.source.refresh(task.id, "dependent")
+        assert delayed and prepared
+        assert view["state"] == "blocked"
+        assert r.proofs.evidence[reference].expires_at <= r.now
+        assert not [e for e in r.core.notifications.list_events(r.handle)
+                    if e.task_id == task.id and e.kind == "attempt_reserved"]
+        return
     p.source.refresh(task.id, "dependent")
     task, attempt = r.reserved(r.current(task))
     runtime = RuntimeJournal(tmp_path / "runtime.sqlite", clock=lambda: r.now)
@@ -474,6 +512,18 @@ def test_sa10_declared_milestone_startup_keeps_original_provider_window(tmp_path
             verifier_clock_before=r.now,
             proof_expiry_before=r.proofs.evidence[reference].expires_at,
         )
+        if variant == "slow-producer":
+            startup._thread.join(timeout=0.1)
+            assert startup._failure is None
+            assert first["expires_at"] - r.now == 30
+            assert len(prepared) == 2
+            assert r.proofs.evidence[reference].expires_at == r.now + 5
+            assert startup.deadline == runtime.attempt(attempt.id)["deadline"]
+            startup.finish()
+            assert r.core.get_attempt(r.handle, attempt.id).worker_id is None
+            assert not [e for e in r.core.notifications.list_events(r.handle)
+                        if e.task_id == task.id and e.kind == "worker_started"]
+            return
         provider_calls = len(p.calls)
         r.now += 6
         if variant == "provider-expired":
