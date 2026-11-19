@@ -137,3 +137,12 @@ class PermissionSource:
         return NativePermission(
             reference, manifest.digest, AuthoredController(), IntentOnlyAdmissions(), plan
         )
+
+
+def temporary_linear_quota(monkeypatch, root, principal):
+    from ai_task_manager.adapters.linear.rate_limits import QuotaStore
+    from tests.linear.helpers import observed_quota
+
+    home = root / 'quota-user-home'
+    monkeypatch.setattr(QuotaStore, '_user_home', staticmethod(lambda: home))
+    return observed_quota(home / '.config' / 'ai-task-manager', principal)

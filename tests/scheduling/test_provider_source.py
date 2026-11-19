@@ -746,8 +746,10 @@ def test_actual_loopback_http_transport_dependency_reads_and_owned_stop(provider
     from ai_task_manager.adapters.linear.client import LinearClient
     from ai_task_manager.adapters.linear.dependencies.source import DependencySource
     from ai_task_manager.adapters.linear.transport import HttpTransport
+    from tests.linear.helpers import observed_quota, quota_headers
 
     p = provider
+    quota = observed_quota(tmp_path, p.expected.viewer_id, credentials=p.client.credentials())
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -760,6 +762,8 @@ def test_actual_loopback_http_transport_dependency_reads_and_owned_stop(provider
             response = p.send(payload["query"], payload["variables"], None)
             self.send_response(response.status)
             self.send_header("Content-Length", str(len(response.body)))
+            for name, value in quota_headers().items():
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(response.body)
 
@@ -777,7 +781,8 @@ def test_actual_loopback_http_transport_dependency_reads_and_owned_stop(provider
         thread.start()
         assert entered.wait(1), "Owned HTTP loop did not enter"
         client = LinearClient(
-            HttpTransport(timeout=2, _test_endpoint="http://127.0.0.1:" + str(server.server_port)),
+            HttpTransport(timeout=2, _test_endpoint="http://127.0.0.1:" + str(server.server_port),
+                          _quota_store=quota),
             p.client.credentials,
             p.expected,
         )

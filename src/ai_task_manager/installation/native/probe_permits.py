@@ -12,6 +12,7 @@ from ai_task_manager.adapters.hosts.bridge.invocations import (
     InvocationBinding,
     InvocationPermits,
 )
+from ai_task_manager.adapters.linear.rate_limits import require_model
 from ai_task_manager.adapters.process.groups import GroupStop
 from ai_task_manager.domains.work.errors import AccessDenied
 
@@ -53,6 +54,7 @@ class ProbePermits:
                 else "start"
             ),
         )
+        require_model(b.scope)
         name = name or purpose
         if name in self.issued:
             raise AccessDenied("A canary invocation cannot be replayed")

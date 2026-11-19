@@ -30,7 +30,9 @@ from tests.native_installation.helpers import bundle, refresh_digest
 
 
 @pytest.fixture
-def probe(tmp_path, request):
+def probe(tmp_path, request, monkeypatch):
+    from tests.native_installation.helpers import temporary_linear_quota
+    temporary_linear_quota(monkeypatch, tmp_path, "principal")
     b = bundle(tmp_path / "native", "claude", "claude-opus-5-5")
     store = NativeStore.create(tmp_path / "authority.sqlite")
     executable = tmp_path / "authored-cli"

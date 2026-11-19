@@ -2,11 +2,11 @@ import json
 from dataclasses import replace
 
 import pytest
+
 from ai_task_manager.adapters.linear.client import LinearClient
 from ai_task_manager.adapters.linear.errors import LinearError
 from ai_task_manager.adapters.linear.models import Credentials, WireResponse
 from ai_task_manager.adapters.linear.transport import HttpTransport
-
 from tests.linear.helpers import EXPECTED, LinearRig, ProviderFixture, uid
 
 
@@ -126,7 +126,7 @@ def test_l04_wrong_binding_blocks_before_mutations(field):
     try:
         expected = replace(EXPECTED, **{field: "OTHER" if field == "team_key" else uid(900)})
         client = LinearClient(
-            HttpTransport(_test_endpoint=provider.endpoint),
+            HttpTransport(_test_endpoint=provider.endpoint, _quota_store=provider.quota),
             lambda: Credentials("fixture-secret"),
             expected,
         )
@@ -147,14 +147,15 @@ def test_l01_model_controlled_endpoint_redirect_and_response_bounds_are_refused(
     try:
         provider.fail_next = (302, b"redirect")
         client = LinearClient(
-            HttpTransport(_test_endpoint=provider.endpoint),
+            HttpTransport(_test_endpoint=provider.endpoint, _quota_store=provider.quota),
             lambda: Credentials("fixture-secret"),
             EXPECTED,
         )
         with pytest.raises(LinearError, match="http_failure"):
             client.verify_binding()
         provider.fail_next = (200, b"x" * 200)
-        transport = HttpTransport(_test_endpoint=provider.endpoint, max_response_bytes=100)
+        transport = HttpTransport(_test_endpoint=provider.endpoint, max_response_bytes=100,
+                                  _quota_store=provider.quota)
         with pytest.raises(LinearError, match="response_too_large"):
             transport.send("query Fixture", {}, Credentials("fixture-secret"))
     finally:
