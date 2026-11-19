@@ -501,6 +501,7 @@ class LinearClient:
         dispatch = _prepare_dispatch() if _prepare_dispatch is not None else None
         binding = self.current_binding()
         connection = self.check_connection(refresh=True)
+        binding = replace(binding, connection=connection)
         values = {
             "delegateId": connection.agent_id,
             "teamId": self.expected.team_id,
@@ -526,6 +527,7 @@ class LinearClient:
         canonical_id(task.issue_id)
         binding = self.current_binding()
         connection = self.check_connection(refresh=True)
+        binding = replace(binding, connection=connection)
         values = {
             "stateId": binding.states[task.desired_status],
             "assigneeId": self.expected.viewer_id,
