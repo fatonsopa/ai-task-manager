@@ -13,6 +13,21 @@ from tests.linear.helpers import EXPECTED
 from tests.linear.live.ledger import DriverRefused, Limits, RunLedger, Scope
 
 
+@pytest.fixture(autouse=True)
+def close_owned_observer_tools(monkeypatch):
+    created = []
+    original = DispatchObserver.__init__
+
+    def observed(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        created.append(self)
+
+    monkeypatch.setattr(DispatchObserver, "__init__", observed)
+    yield
+    for observer in created:
+        observer.close()
+
+
 def ledger(tmp_path):
     now = time.time()
     return RunLedger(
@@ -124,3 +139,180 @@ def test_OB05_normal_task_action_remains_enqueue_only(tmp_path):
     entry.assert_not_called()
     assert not (tmp_path / "unopened.sqlite").exists()
     assert not (tmp_path / "unwritten.json").exists()
+
+
+@pytest.mark.parametrize(
+    "status,category", [(200, None), (500, "http_failure"), (429, "rate_limited")]
+)
+def test_preparation_observer_retains_returned_http_before_client_failure(
+    tmp_path, monkeypatch, status, category
+):
+    import io
+    import sys
+
+    from ai_task_manager.adapters.linear import transport as transport_module
+    from ai_task_manager.adapters.linear.client import LinearClient
+    from ai_task_manager.adapters.linear.errors import LinearError
+    from ai_task_manager.adapters.linear.models import Credentials
+    from ai_task_manager.adapters.linear.transport import HttpTransport
+    from tests.linear.helpers import observed_quota, quota_headers
+
+    run = ledger(tmp_path)
+    receipt = tmp_path / "response-observer.json"
+    observer = DispatchObserver(
+        run, HttpTransport.ENDPOINT, receipt, {"label": "preparation-control"}
+    )
+    sys.addaudithook(observer.audit)
+    code = "RATELIMITED" if status == 429 else "INTERNAL_SERVER_ERROR"
+    body = (
+        {"data": {"ok": True}}
+        if status == 200
+        else {
+            "errors": [
+                {"message": "PRIVATE_ERROR_BODY", "extensions": {"code": code}},
+                {"extensions": {"code": "PRIVATE_UNKNOWN_CODE"}},
+            ]
+        }
+    )
+    safe_headers = {
+        **quota_headers(),
+        "retry-after": "17",
+        "set-cookie": "PRIVATE_COOKIE",
+        "x-ratelimit-endpoint-name": "PRIVATE_ENDPOINT",
+    }
+
+    class Reply(io.BytesIO):
+        def __init__(self):
+            super().__init__(json.dumps(body).encode())
+            self.code, self.headers = status, safe_headers
+
+    class Opener:
+        def open(self, request, timeout):
+            # Same real audit gateway event, supplied by the socket-free opener.
+            sys.audit(
+                "urllib.Request",
+                request.full_url,
+                request.data,
+                {"Authorization": "PRIVATE_CREDENTIAL"},
+                request.get_method(),
+            )
+            return Reply()
+
+    monkeypatch.setattr(transport_module, "build_opener", lambda *args: Opener())
+    store = observed_quota(tmp_path / "quota", EXPECTED.viewer_id)
+    client = LinearClient(
+        HttpTransport(_quota_store=store), lambda: Credentials("fixture-secret"), EXPECTED
+    )
+    try:
+        query = ("query" if status == 200 else "mutation") + " PrivateProbe { viewer { id } }"
+        variables = {"secret": "PRIVATE_VARIABLE"}
+        intents = []
+        if category is None:
+            assert client.request(query, variables) == {"ok": True}
+        else:
+            with pytest.raises(LinearError) as caught:
+                client.request(
+                    query,
+                    variables,
+                    mutation=True,
+                    _before_dispatch=lambda: intents.append("current-effect-fence"),
+                )
+            assert caught.value.category == category and caught.value.uncertain
+            assert intents == ["current-effect-fence"]
+            if status == 429:
+                assert caught.value.retry_after == 17
+        observed = read_private(receipt)
+        assert len(observed["dispatches"]) == 1 and len(observed["http"]) == 1
+        event = observed["http"][0]
+        assert event["status"] == status and event["dispatch_index"] == 1
+        assert event["query_sha256"] == observed["dispatches"][0]["query_sha256"]
+        assert event["variables_sha256"] == observed["dispatches"][0]["variables_sha256"]
+        assert event["retry_after"] == "17" and event["quota_headers"]["x-complexity"] == "2"
+        assert event["elapsed_seconds"] >= 0 and event["finished_at"] >= event["started_at"]
+        assert any(frame["function"] == "request" for frame in event["caller"])
+        assert event["error_codes"] == ([] if status == 200 else [code])
+        assert observer.record.get("observation_errors", 0) == 0
+        assert sys.monitoring.get_events(observer.tool) == 0
+        assert sys.monitoring.get_local_events(observer.tool, observer.code) == (
+            sys.monitoring.events.PY_RETURN
+        )
+        raw = receipt.read_text()
+        for secret in ("PRIVATE_", "fixture-secret", query, "set-cookie"):
+            assert secret not in raw
+    finally:
+        observer.close()
+        assert sys.monitoring.get_tool(observer.tool) is None
+        assert read_private(receipt)["http_monitoring_closed"] is True
+
+
+def test_concurrent_audit_returns_retain_each_threads_exact_request(tmp_path):
+    import hashlib
+    import threading
+
+    from ai_task_manager.adapters.linear.models import WireResponse
+
+    observer = DispatchObserver(ledger(tmp_path), 'https://api.linear.app/graphql',
+                                tmp_path / 'overlap.json', {})
+    original_lock = observer.lock
+    a_waiting, b_finished = threading.Event(), threading.Event()
+    errors = []
+
+    class OrderedLock:
+        delayed = False
+
+        def __enter__(self):
+            if threading.current_thread().name == 'audit-A' and not self.delayed:
+                self.delayed = True
+                a_waiting.set()
+                assert b_finished.wait(2), 'Owned B observer did not complete'
+            return original_lock.__enter__()
+
+        def __exit__(self, *args):
+            return original_lock.__exit__(*args)
+
+    observer.lock = OrderedLock()
+    packets = {
+        'A': {'query': 'query A { viewer { id } }', 'variables': {'id': 'A'}},
+        'B': {'query': 'query B { viewer { id } }', 'variables': {'id': 'B'}},
+    }
+
+    def worker(name, status):
+        try:
+            observer.audit('urllib.Request', (
+                observer.endpoint, json.dumps(packets[name]).encode(), {}, 'POST'
+            ))
+            observer._returned(observer.code, 0, WireResponse(status, {}, b'{}'))
+        except BaseException as error:
+            errors.append(error)
+        finally:
+            if name == 'B':
+                b_finished.set()
+
+    first = threading.Thread(target=worker, args=('A', 500), name='audit-A')
+    second = threading.Thread(target=worker, args=('B', 429), name='audit-B')
+    try:
+        first.start()
+        assert a_waiting.wait(2), 'Owned A audit did not reach the overlap'
+        second.start()
+        first.join(2)
+        second.join(2)
+        assert not errors and not first.is_alive() and not second.is_alive()
+        observed = read_private(observer.receipt)
+        assert len(observed['dispatches']) == len(observed['http']) == 2
+        for name, status in [('A', 500), ('B', 429)]:
+            event = next(row for row in observed['http'] if row['status'] == status)
+            packet = packets[name]
+            assert event['query_sha256'] == hashlib.sha256(packet['query'].encode()).hexdigest()
+            canonical = json.dumps(packet['variables'], sort_keys=True,
+                                   separators=(',', ':'), ensure_ascii=False).encode()
+            assert event['variables_sha256'] == hashlib.sha256(canonical).hexdigest()
+            dispatch = observed['dispatches'][event['dispatch_index'] - 1]
+            assert dispatch['query_sha256'] == event['query_sha256']
+            assert dispatch['variables_sha256'] == event['variables_sha256']
+    finally:
+        b_finished.set()
+        if first.ident is not None:
+            first.join(2)
+        if second.ident is not None:
+            second.join(2)
+        observer.close()
