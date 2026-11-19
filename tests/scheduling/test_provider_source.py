@@ -40,6 +40,111 @@ def test_complete_empty_prepare_order_local_resolver_and_historical_retry(provid
     assert len(p.calls) == count and r.core.notifications.list_events(r.handle) == events
 
 
+def test_one_dependency_503_keeps_complete_verified_collection(provider, monkeypatch, tmp_path):
+    from ai_task_manager.adapters.linear.dependencies.schema import DETAILS, METADATA
+
+    p = provider
+    task = p.task()
+    original, dispatched, credential_reads = p.send, [], []
+    credentials = p.client.credentials
+
+    def current_credentials():
+        credential_reads.append(True)
+        return credentials()
+
+    def send(query, variables, credentials):
+        dispatched.append((query, len(credential_reads)))
+        if query == METADATA and sum(q == METADATA for q, _ in dispatched) == 1:
+            return WireResponse(503, {}, b"unavailable")
+        return original(query, variables, credentials)
+
+    monkeypatch.setattr(p.client, "credentials", current_credentials)
+    monkeypatch.setattr(p, "send", send)
+    result = p.refresh(task, "single-503")
+    prepared = p.source.prepare(task.id, "single-503")
+    snapshot = p.receipts.verify_snapshot(prepared.snapshot_ref)
+    facts = {
+        "state": result["state"],
+        "completeness": snapshot.completeness,
+        "metadata_dispatches": sum(q == METADATA for q, _ in dispatched),
+        "prose_dispatches": sum(q == DETAILS for q, _ in dispatched),
+        "mutations": sum(q.lstrip().startswith("mutation") for q, _ in dispatched),
+        "credential_rechecked": [n for q, n in dispatched if q == METADATA][:2][1]
+        == [n for q, n in dispatched if q == METADATA][:2][0] + 1,
+    }
+    (tmp_path / "dependency-503-facts.json").write_text(json.dumps(facts, indent=2) + "\n")
+    assert facts == {
+        "state": "ready",
+        "completeness": "complete",
+        "metadata_dispatches": 5,
+        "prose_dispatches": 2,
+        "mutations": 0,
+        "credential_rechecked": True,
+    }, facts
+    assert snapshot.dependencies == ()
+
+
+@pytest.mark.parametrize("mode", ["second_503", "retry_after", "deadline", "credentials"])
+def test_dependency_503_recovery_remains_bounded(provider, monkeypatch, mode):
+    from ai_task_manager.adapters.linear.dependencies import reader
+    from ai_task_manager.adapters.linear.dependencies.schema import DETAILS, METADATA
+    from ai_task_manager.adapters.linear.models import Credentials
+
+    p = provider
+    task = p.task()
+    original, dispatched, clock = p.send, [], [0.0]
+    token = ["original-authored-token"]
+    monkeypatch.setattr(reader.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(p.client, "credentials", lambda: Credentials(token[0]))
+
+    def send(query, variables, credentials):
+        dispatched.append(query)
+        if query == METADATA and dispatched.count(METADATA) == 1:
+            if mode == "deadline":
+                clock[0] = 20
+            elif mode == "credentials":
+                token[0] = "different-authored-token"
+            return WireResponse(503, {"retry-after": "0"} if mode == "retry_after" else {}, b"")
+        if mode == "second_503" and query == DETAILS:
+            return WireResponse(503, {}, b"")
+        return original(query, variables, credentials)
+
+    monkeypatch.setattr(p, "send", send)
+    result = p.refresh(task, "bounded-503")
+    prepared = p.source.prepare(task.id, "bounded-503")
+    snapshot = p.receipts.verify_snapshot(prepared.snapshot_ref)
+    assert result["state"] == "unknown" and snapshot.completeness == "unavailable"
+    assert dispatched.count(METADATA) == (2 if mode == "second_503" else 1)
+    assert dispatched.count(DETAILS) == (1 if mode == "second_503" else 0)
+
+
+@pytest.mark.parametrize("mode", ["mutation", "unknown_query", "request_budget"])
+def test_dependency_503_never_retries_an_unqualified_read(provider, mode):
+    from ai_task_manager.adapters.linear.dependencies.reader import _BudgetTransport, _ReadClient
+    from ai_task_manager.adapters.linear.dependencies.schema import METADATA
+    from ai_task_manager.adapters.linear.errors import LinearError
+
+    dispatched = []
+
+    class Unavailable:
+        def send(self, query, variables, credentials):
+            dispatched.append(query)
+            return WireResponse(503, {}, b"")
+
+    budget = _BudgetTransport(Unavailable())
+    if mode == "request_budget":
+        budget.requests = 2047
+    client = _ReadClient(budget, provider.client.credentials, provider.expected)
+    query = "query UnknownRead { unavailable }" if mode == "unknown_query" else METADATA
+    with pytest.raises(LinearError) as failed:
+        client.request(query, {}, mutation=mode == "mutation")
+    assert failed.value.category == (
+        "dependency_observation_limit" if mode == "request_budget" else "http_failure"
+    )
+    assert len(dispatched) == 1
+    assert budget.requests == (2048 if mode == "request_budget" else 1)
+
+
 @pytest.mark.parametrize("kind", ["blocks", "related", "similar", "archived"])
 def test_outgoing_and_known_nonblocking_relations_do_not_invent_predecessors(provider, kind):
     a, b = provider.task(), provider.task()
