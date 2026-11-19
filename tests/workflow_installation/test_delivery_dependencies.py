@@ -8,6 +8,116 @@ from tests.hosts.test_continuity import AuthoredDependencyCollection
 from tests.worker_commits.helpers import WorkerFixture
 
 
+@pytest.mark.parametrize(
+    "case",
+    ["owned_cancel", "foreign_cancel", "scope_fence", "human_hold", "revision", "expired", "graph_changed"],
+)
+def test_owned_publication_wait_close_preserves_current_and_real_refusal_fences(tmp_path, case):
+    from contextlib import contextmanager
+    from dataclasses import replace
+    from threading import Event, get_ident
+    from types import SimpleNamespace
+
+    from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
+    from ai_task_manager.adapters.linear.dependencies.source import DependencySource
+    from ai_task_manager.adapters.linear.models import ExpectedBinding
+    from ai_task_manager.domains.scheduling.models import Dependency, SchedulingBlocked
+    from ai_task_manager.domains.work.errors import StaleVersion
+    from tests.domains.helpers import Rig
+    from tests.scheduling.helpers import declare
+
+    root = (tmp_path / "owned").resolve()
+    root.mkdir(mode=0o700)
+    r = Rig(root / "core.sqlite")
+    task, attempt = r.running()
+    task, attempt = r.settle(task, attempt)
+    row = {"task_id": task.id, "attempt_id": attempt.id,
+           "prose_digest": task.prose_digest, "decision_revision": task.decision_revision}
+    expected = ExpectedBinding(r.scope.principal, r.scope.workspace, "team", "TST", r.scope.project)
+    source = DependencySource(
+        r.core, r.handle, SimpleNamespace(expected=expected),
+        DependencyReceipts(root / "dependencies.sqlite", root / "dependencies.key", clock=lambda: r.now),
+    )
+    authored = AuthoredDependencyCollection(r.core, r.handle)
+    source.prepare = authored.prepare
+    controller = DeliveryDependencies(r.core, r.handle, source, r.now + 120)
+    boundary = source.publication_boundary
+    entered, foreign_cancel = Event(), Event()
+    main = get_ident()
+
+    @contextmanager
+    def observed(*args, **kwargs):
+        if get_ident() != main:
+            if case == "foreign_cancel":
+                kwargs["cancelled"] = foreign_cancel
+            entered.set()
+        with boundary(*args, **kwargs):
+            yield
+
+    try:
+        controller.start(row)
+        before = r.core.scheduling.explain(r.handle, task.id)
+        calls = authored.calls
+        source.publication_boundary = observed
+        with boundary(task.id):
+            assert entered.wait(3), "The real collector must reach the held publication lock"
+            if case == "foreign_cancel":
+                foreign_cancel.set()
+            elif case == "scope_fence":
+                source.client.expected = replace(expected, team_id="foreign")
+            elif case in {"human_hold", "revision"}:
+                current = r.core.get_task(r.handle, task.id)
+                proof = r.proof("human_decision", task.id, {
+                    "previous_revision": current.decision_revision, "hold": case == "human_hold",
+                })
+                r.core.decisions.record(r.handle, task.id, current.version, proof, r.key())
+            elif case == "expired":
+                r.now = before["expires_at"]
+            controller.close()
+            assert not controller._thread.is_alive()
+        source.client.expected = expected
+        assert authored.calls == calls, "Cancelled collection must publish no observation"
+
+        if case == "graph_changed":
+            other = r.queued()
+            declare(r.core, r.handle, r.current(task), r.core.scheduling.sources, r.now,
+                    dependencies=(Dependency(other.id, "work_done"),))
+
+        plan = SimpleNamespace(grant=SimpleNamespace(binding=SimpleNamespace(
+            task_id=task.id, attempt_id=attempt.id,
+        )))
+
+        def publication_gate():
+            controller.before_fence(plan)
+            current = r.core.get_task(r.handle, task.id)
+            current_attempt = r.core.get_attempt(r.handle, attempt.id)
+            with r.core.execution.worker_commit_boundary(
+                r.handle, task.id, attempt.id, current.version, current_attempt.version,
+                current.decision_revision,
+            ):
+                pass
+
+        if case == "owned_cancel":
+            assert controller._error is None
+            controller.check()
+            controller.start(row)
+            controller.check()
+            assert r.core.scheduling.explain(r.handle, task.id)["source_revision"] > before["source_revision"]
+            publication_gate()
+        else:
+            with pytest.raises((AccessDenied, SchedulingBlocked, StaleVersion)):
+                publication_gate()
+            if case in {"foreign_cancel", "scope_fence", "expired"}:
+                error = controller._error
+                assert error is not None
+                with pytest.raises(AccessDenied):
+                    controller.start(row)
+                assert controller._error is error
+    finally:
+        controller.close()
+        assert controller._thread is None or not controller._thread.is_alive()
+
+
 @pytest.mark.parametrize("case", ["current", "expired", "foreign", "collection_expired"])
 def test_delivery_dependency_collection_never_revives_expired_or_foreign_authority(tmp_path, case):
     fixture = WorkerFixture((tmp_path / "worker").resolve())

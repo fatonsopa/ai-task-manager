@@ -6,7 +6,10 @@ from contextlib import nullcontext
 from dataclasses import replace
 from uuid import uuid4
 
-from ai_task_manager.adapters.linear.dependencies.source import Preparation
+from ai_task_manager.adapters.linear.dependencies.source import (
+    DependencyPublicationCancelled,
+    Preparation,
+)
 from ai_task_manager.domains.work.errors import AccessDenied, StaleVersion
 from ai_task_manager.supervisor.models import RuntimeUncertain
 
@@ -256,7 +259,12 @@ class DeliveryDependencies:
             try:
                 self._refresh()
             except Exception as error:
-                self._error = error
+                if not (
+                    isinstance(error, DependencyPublicationCancelled)
+                    and error.cancelled is self._stop
+                    and self._stop.is_set()
+                ):
+                    self._error = error
                 self._stop.set()
                 return
 
