@@ -11,6 +11,11 @@ from ai_task_manager.adapters.linear.dependencies.source import (
     Preparation,
 )
 from ai_task_manager.domains.work.errors import AccessDenied, StaleVersion
+from ai_task_manager.supervisor.authority import (
+    CHECK_INTERVAL_SECONDS,
+    MAX_COLLECTION_SECONDS,
+    refresh_schedule,
+)
 from ai_task_manager.supervisor.models import RuntimeUncertain
 
 
@@ -27,6 +32,8 @@ class DeliveryDependencies:
         self._mode = "idle"
         self._publication = None
         self._row = None
+        self._next_refresh_at = None
+        self._preparation_latency = 0.0
 
     def _facts(self):
         if (self.core, self.handle, self.source, self.deadline) != self._bound:
@@ -111,6 +118,8 @@ class DeliveryDependencies:
                     expected_version=task.version,
                     decision_revision=task.decision_revision,
                 )
+                preparation_started = time.monotonic()
+                preparation_clock = self.core.context.clock()
                 if self._stop.is_set():
                     return
                 self._collection_current(before, started, collection_end, bootstrap=bootstrap)
@@ -163,12 +172,20 @@ class DeliveryDependencies:
             current.decision_revision,
         ):
             pass
+        now = self.core.context.clock()
+        local_times = (time.monotonic() - preparation_started, now - preparation_clock)
+        if not all(elapsed >= 0 for elapsed in local_times):
+            raise AccessDenied("Local renewal preparation clock moved backwards")
+        self._preparation_latency = max(self._preparation_latency, *local_times)
+        self._next_refresh_at = refresh_schedule(
+            after["expires_at"], self.deadline, now, self._preparation_latency,
+        )
 
     def _collection_current(self, before, started, end, *, bootstrap=False):
         current, _ = self._facts()
         if current.observed_status != "In Progress" or current.sync_state != "confirmed":
             raise AccessDenied("Task synchronization changed during dependency collection")
-        if time.monotonic() - started > 20 or self.core.context.clock() >= end:
+        if time.monotonic() - started > MAX_COLLECTION_SECONDS or self.core.context.clock() >= end:
             raise AccessDenied("Dependency collection outlived its original current authority")
         latest = self.core.scheduling.explain(self.handle, current.id)
         if (latest["state"] != "ready" and not bootstrap) or latest["graph_version"] != before[
@@ -255,9 +272,12 @@ class DeliveryDependencies:
         self.check()
 
     def _run(self):
-        while not self._stop.wait(1):
+        while not self._stop.wait(CHECK_INTERVAL_SECONDS):
             try:
-                self._refresh()
+                self.prepare_local(cancelled=self._stop)
+                self.check()
+                if self.core.context.clock() >= self._next_refresh_at:
+                    self._refresh()
             except Exception as error:
                 if not (
                     isinstance(error, DependencyPublicationCancelled)
@@ -268,7 +288,7 @@ class DeliveryDependencies:
                 self._stop.set()
                 return
 
-    def prepare_local(self):
+    def prepare_local(self, *, cancelled=None):
         if self._assignment is None or self._mode != "observing":
             return
         if self._error is not None:
@@ -280,7 +300,8 @@ class DeliveryDependencies:
         current = self.core.scheduling.explain(self.handle, task.id)
         boundary = getattr(self.source, "publication_boundary", None)
         with (
-            boundary(task.id, not_after=min(self.deadline, current["expires_at"] or self.deadline))
+            boundary(task.id, not_after=min(self.deadline, current["expires_at"] or self.deadline),
+                     cancelled=cancelled)
             if callable(boundary) else nullcontext()
         ):
             self._facts()

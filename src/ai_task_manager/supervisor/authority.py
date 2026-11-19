@@ -17,6 +17,18 @@ MAX_COLLECTION_SECONDS = 20.0
 CHECK_INTERVAL_SECONDS = 1.0
 
 
+def refresh_schedule(expires_at, cap, now, preparation_latency):
+    """Keep one full collection and its measured local preparation before expiry."""
+    if expires_at >= cap:
+        return cap
+    next_at = expires_at - (
+        MAX_COLLECTION_SECONDS + CHECK_INTERVAL_SECONDS + preparation_latency
+    )
+    if next_at <= now:
+        raise AccessDenied("Renewal leaves no safe next collection window")
+    return next_at
+
+
 @dataclass(frozen=True)
 class _Prepared:
     value: WorkRenewal
@@ -339,14 +351,9 @@ class AttemptAuthority:
             raise AccessDenied("Local renewal preparation clock moved backwards")
         self._preparation_latency = max(self._preparation_latency, *local_times)
         cap = min(self.deadline, self.continuity.execution_not_after)
-        if value.expires_at >= cap:
-            return cap
-        next_at = value.expires_at - (
-            MAX_COLLECTION_SECONDS + CHECK_INTERVAL_SECONDS + self._preparation_latency
+        return refresh_schedule(
+            value.expires_at, cap, now, self._preparation_latency
         )
-        if next_at <= now:
-            raise AccessDenied("Renewal leaves no safe next collection window")
-        return next_at
 
     def _observe_current(self):
         """Outside Core only: wait for the model guard while cached authority is valid."""
