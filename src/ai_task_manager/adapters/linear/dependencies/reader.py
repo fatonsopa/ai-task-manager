@@ -34,11 +34,13 @@ class _BudgetTransport:
     def __init__(self, transport):
         self.transport, self.deadline, self.requests = transport, time.monotonic() + 20, 0
         self.response, self.recovered = None, False
+        self.entered, self.failures = False, []
 
     def send(self, query, variables, credentials):
         if self.requests >= 2048 or time.monotonic() >= self.deadline:
             raise LinearError("dependency_observation_limit")
         self.requests += 1
+        self.entered = True
         result = self.transport.send(query, variables, credentials)
         self.response = result
         if time.monotonic() >= self.deadline:
@@ -53,24 +55,59 @@ class _ReadClient(LinearClient):
 
     def request(self, query, variables, *, mutation=False, **kwargs):
         self.transport.response = None
+        self.transport.entered = False
+        started = time.monotonic()
         try:
             return super().request(query, variables, mutation=mutation, **kwargs)
         except LinearError as error:
             response = self.transport.response
-            if (
-                error.category != "http_failure"
-                or mutation
-                or query not in self._queries
-                or self.transport.recovered
-                or response is None
-                or response.status != 503
-                or any(key.lower() == "retry-after" for key in response.headers)
-            ):
+            recover = (
+                not mutation and query in self._queries and not self.transport.recovered
+                and error.retry_after is None
+                and (
+                    (error.category == "transport_failure" and response is None)
+                    or (error.category == "http_failure" and response is not None
+                        and response.status == 503
+                        and not any(key.lower() == "retry-after" for key in response.headers))
+                )
+            )
+            self._failure(query, variables, error, started, recover)
+            if not recover:
                 raise
-            # One recovery for the entire collection, charged to its original
-            # request/deadline budget. Re-enter the client to recheck credentials.
+            # Both failure categories share one recovery and the original budget.
             self.transport.recovered = True
-            return super().request(query, variables, **kwargs)
+            self.transport.response = None
+            self.transport.entered = False
+            started = time.monotonic()
+            try:
+                return super().request(query, variables, **kwargs)
+            except LinearError as recovery_error:
+                self._failure(query, variables, recovery_error, started, False)
+                raise
+
+    def _failure(self, query, variables, error, started, recovery_selected):
+        finished, chain, cause = time.monotonic(), [], error
+        while cause is not None and len(chain) < 4:
+            fact = {"module": type(cause).__module__, "type": type(cause).__name__}
+            if isinstance(cause, OSError) and type(cause.errno) is int:
+                fact["errno"] = cause.errno
+            chain.append(fact)
+            cause = cause.__cause__
+        response = self.transport.response
+        self.transport.failures.append({
+            "query_sha256": hashlib.sha256(query.encode()).hexdigest(),
+            "variables_sha256": digest(variables),
+            "category": error.category,
+            "exception_chain": chain,
+            "started_monotonic": started,
+            "finished_monotonic": finished,
+            "elapsed_seconds": finished - started,
+            "transport_entered": self.transport.entered,
+            "response_returned": response is not None,
+            "response_status": response.status if response is not None else None,
+            "provider_receipt": "unknown",
+            "recovery_selected": recovery_selected,
+        })
 
 
 class DependencyReader:
@@ -271,6 +308,8 @@ class DependencyReader:
                     "authored direction acceptance pending live verification"
                 ),
             }
+            if self.client.transport.failures:
+                raw["read_failures"] = self.client.transport.failures
             return Observation(
                 True,
                 first["nodes"][task.issue_id]["priority"],
@@ -279,14 +318,14 @@ class DependencyReader:
                 raw,
             )
         except (LinearError, AccessDenied, ValidationError) as error:
+            raw = {"unavailable": error.category if isinstance(error, LinearError)
+                   else type(error).__name__}
+            if isinstance(self.client, _ReadClient) and self.client.transport.failures:
+                raw["read_failures"] = self.client.transport.failures
             return Observation(
                 False,
                 "normal",
                 (),
                 schema_hash,
-                {
-                    "unavailable": error.category
-                    if isinstance(error, LinearError)
-                    else type(error).__name__
-                },
+                raw,
             )

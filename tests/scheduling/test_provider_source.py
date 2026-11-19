@@ -84,6 +84,136 @@ def test_one_dependency_503_keeps_complete_verified_collection(provider, monkeyp
     assert snapshot.dependencies == ()
 
 
+def test_one_dependency_transport_failure_keeps_complete_diagnostics(provider, monkeypatch, tmp_path):
+    import hashlib
+    from pathlib import Path
+
+    from ai_task_manager.adapters.linear.dependencies import reader
+    from ai_task_manager.adapters.linear.dependencies.schema import METADATA
+    from ai_task_manager.adapters.linear.errors import LinearError
+
+    p, task = provider, provider.task()
+    assert Path(reader.__file__).resolve() == Path(__file__).resolve().parents[2] / (
+        "src/ai_task_manager/adapters/linear/dependencies/reader.py"
+    )
+    original, dispatched, credential_reads = p.send, [], []
+    credentials = p.client.credentials
+
+    def current_credentials():
+        credential_reads.append(True)
+        return credentials()
+
+    def send(query, variables, credential):
+        dispatched.append((query, dict(variables), len(credential_reads)))
+        if query == METADATA and sum(q == METADATA for q, _, _ in dispatched) == 1:
+            raise LinearError("transport_failure", uncertain=True) from TimeoutError(
+                "private-error-message-and-credential-sentinel"
+            )
+        return original(query, variables, credential)
+
+    monkeypatch.setattr(p.client, "credentials", current_credentials)
+    monkeypatch.setattr(p, "send", send)
+    result = p.refresh(task, "single-transport-failure")
+    assert result["state"] == "ready"
+    ref = p.receipts.lookup(p.scope, task.id, "single-transport-failure")["receipt"]
+    receipt = p.receipts._get(ref, PREFIX)
+    assert receipt["snapshot"]["completeness"] == "complete"
+    failures = receipt["raw"]["observation"]["read_failures"]
+    assert len(failures) == 1
+    failure = failures[0]
+    metadata = [(v, n) for q, v, n in dispatched if q == METADATA]
+    assert len(metadata) == 5 and metadata[1][1] == metadata[0][1] + 1
+    assert failure["query_sha256"] == hashlib.sha256(METADATA.encode()).hexdigest()
+    assert failure["variables_sha256"] == hashlib.sha256(
+        json.dumps(metadata[0][0], sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    assert failure["category"] == "transport_failure"
+    assert failure["transport_entered"] and not failure["response_returned"]
+    assert failure["response_status"] is None and failure["recovery_selected"]
+    assert failure["provider_receipt"] == "unknown"
+    assert [x["type"] for x in failure["exception_chain"]] == [
+        "LinearError", "LinearError", "TimeoutError",
+    ]
+    assert 0 <= failure["elapsed_seconds"] <= 20
+    assert "private-error-message-and-credential-sentinel" not in json.dumps(receipt)
+    assert not any(q.lstrip().startswith("mutation") for q, _, _ in dispatched)
+    (tmp_path / "dependency-transport-facts.json").write_text(json.dumps({
+        "state": result["state"], "failure": failure,
+        "metadata_dispatches": len(metadata), "credential_rechecked": True,
+        "controlled_only": True,
+    }, indent=2) + "\n")
+
+
+@pytest.mark.parametrize("mode", [
+    "second_transport", "transport_then_503", "503_then_transport", "deadline", "credentials",
+])
+def test_dependency_transport_recovery_remains_bounded(provider, monkeypatch, mode):
+    from ai_task_manager.adapters.linear.dependencies import reader
+    from ai_task_manager.adapters.linear.dependencies.schema import DETAILS, METADATA
+    from ai_task_manager.adapters.linear.errors import LinearError
+    from ai_task_manager.adapters.linear.models import Credentials
+
+    p, task = provider, provider.task()
+    original, dispatched, clock, token = p.send, [], [0.0], ["original-authored-token"]
+    monkeypatch.setattr(reader.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(p.client, "credentials", lambda: Credentials(token[0]))
+
+    def send(query, variables, credential):
+        dispatched.append(query)
+        if query == METADATA and dispatched.count(METADATA) == 1:
+            if mode == "503_then_transport":
+                return WireResponse(503, {}, b"")
+            if mode == "deadline":
+                clock[0] = 20
+            if mode == "credentials":
+                token[0] = "changed-authored-token"
+            raise LinearError("transport_failure", uncertain=True) from TimeoutError("private-sentinel")
+        if query == DETAILS:
+            if mode == "transport_then_503":
+                return WireResponse(503, {}, b"")
+            raise LinearError("transport_failure", uncertain=True) from OSError(54, "private-sentinel")
+        return original(query, variables, credential)
+
+    monkeypatch.setattr(p, "send", send)
+    result = p.refresh(task, "bounded-transport")
+    ref = p.receipts.lookup(p.scope, task.id, "bounded-transport")["receipt"]
+    receipt = p.receipts._get(ref, PREFIX)
+    assert result["state"] == "unknown" and receipt["snapshot"]["completeness"] == "unavailable"
+    assert dispatched.count(METADATA) == (1 if mode in {"deadline", "credentials"} else 2)
+    assert dispatched.count(DETAILS) == (0 if mode in {"deadline", "credentials"} else 1)
+    failures = receipt["raw"]["observation"]["read_failures"]
+    assert len(failures) == 2 and sum(x["recovery_selected"] for x in failures) == 1
+    assert failures[-1]["transport_entered"] is (mode not in {"deadline", "credentials"})
+    assert "private-sentinel" not in json.dumps(receipt)
+
+
+@pytest.mark.parametrize("mode", ["mutation", "unknown_query", "request_budget", "retry_after"])
+def test_dependency_transport_never_retries_unqualified_read(provider, mode):
+    from ai_task_manager.adapters.linear.dependencies.reader import _BudgetTransport, _ReadClient
+    from ai_task_manager.adapters.linear.dependencies.schema import METADATA
+    from ai_task_manager.adapters.linear.errors import LinearError
+
+    dispatched = []
+
+    class Unavailable:
+        def send(self, query, variables, credentials):
+            dispatched.append(query)
+            raise LinearError("transport_failure", uncertain=True,
+                              retry_after=0 if mode == "retry_after" else None)
+
+    budget = _BudgetTransport(Unavailable())
+    if mode == "request_budget":
+        budget.requests = 2047
+    client = _ReadClient(budget, provider.client.credentials, provider.expected)
+    query = "query UnknownRead { unavailable }" if mode == "unknown_query" else METADATA
+    with pytest.raises(LinearError) as failed:
+        client.request(query, {}, mutation=mode == "mutation")
+    assert failed.value.category == (
+        "dependency_observation_limit" if mode == "request_budget" else "transport_failure"
+    )
+    assert len(dispatched) == 1 and budget.requests == (2048 if mode == "request_budget" else 1)
+
+
 @pytest.mark.parametrize("mode", ["second_503", "retry_after", "deadline", "credentials"])
 def test_dependency_503_recovery_remains_bounded(provider, monkeypatch, mode):
     from ai_task_manager.adapters.linear.dependencies import reader
