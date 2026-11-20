@@ -176,6 +176,8 @@ def identity_record(r):
 
 def observed(r, case):
     g = r.gateway
+    if case.case_id in {"allow_write", "deny_create_existing"} and g.snapshot()["output.txt"] is None:
+        g.workspace.create("output.txt", digest(r.context.reference))
     g.begin(case)
     before = g.snapshot()
     invocation = "authored-invocation:" + case.case_id
@@ -318,20 +320,24 @@ def certificate(r, valid_until=1200):
     return NormalConformance(r.manifest, r.pins, r.context, r.journal, ref, enrollment=enrollment)
 
 
-@pytest.mark.parametrize("index", range(11))
+@pytest.mark.parametrize("index", range(len(CASE_IDS)))
 def test_fixed_canary_facts_require_actual_calls_and_results(rig, index):
     c = rig.cases[index]
     v = observed(rig, c)
     verify_case(rig.journal, c, v, rig.owner, rig.context.reference, rig.session, rig.context.model)
 
 
-def test_null_argument_is_explicit_in_prompt_and_required_at_dispatch(rig):
+def test_creation_is_explicit_and_legacy_nullable_write_remains_required(rig):
     from jsonschema.exceptions import ValidationError
+    from jsonschema import Draft202012Validator
+    from ai_task_manager.adapters.hosts.bridge.gateway import tool_schema
 
     case = next(case for case in rig.cases if case.case_id == "allow_write")
-    assert '"expected_hash": null' in case.prompt
+    creation = next(case for case in rig.cases if case.case_id == "allow_create")
+    assert creation.tool == "create_file" and "expected_hash" not in creation.arguments
+    assert case.arguments["expected_hash"] == hashlib.sha256(digest(rig.context.reference).encode()).hexdigest()
     assert "Every displayed argument key is required" in case.prompt
-    assert "including keys with explicit null values; do not omit them" in case.prompt
+    Draft202012Validator(tool_schema("write_file")).validate({**case.arguments, "expected_hash": None})
     rig.gateway.begin(case)
     before = rig.gateway.snapshot()
     incomplete = {key: value for key, value in case.arguments.items() if key != "expected_hash"}

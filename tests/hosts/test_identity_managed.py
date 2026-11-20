@@ -91,7 +91,7 @@ def test_v209_real_managed_consumer_uses_accounted_identity_and_joins_it(
             policy_digest(host, sha, env, pair.worktree, {},
                           model="fixture-requested-model", effort="high"), (),
             tuple("mcp__aitm__" + name for name in (
-                "read_file", "write_file", "run_command", "acknowledge_event")),
+                "read_file", "create_file", "write_file", "run_command", "acknowledge_event")),
             "fixture-requested-model", "high",
         )
 

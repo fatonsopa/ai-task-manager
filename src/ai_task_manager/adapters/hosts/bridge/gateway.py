@@ -12,6 +12,11 @@ from ai_task_manager.domains.work.errors import AccessDenied
 
 SCHEMAS = {
     "read_file": {"path": {"type": "string"}},
+    "create_file": {
+        "path": {"type": "string"},
+        "text": {"type": "string"},
+        "operation_key": {"type": "string"},
+    },
     "write_file": {
         "path": {"type": "string"},
         "text": {"type": "string"},
@@ -136,13 +141,15 @@ class ManagedToolGateway:
                     arguments["operation_key"],
                 )
             intent = None
-            if name == "write_file":
+            if name in {"create_file", "write_file"}:
                 intent = "edit:" + arguments["operation_key"]
                 binding = {
                     "attempt_id": self.dispatch.attempt_id,
                     "arguments_hash": digest(arguments),
                     "deadline": self.deadline,
                 }
+                if name == "create_file":
+                    binding["operation"] = name
                 if not self.journal.intend(intent, binding):
                     # A prior intent without atomic filesystem receipt is uncertain, not retry-safe.
                     raise AccessDenied("Existing edit intent requires reconciliation")
@@ -155,9 +162,12 @@ class ManagedToolGateway:
                 with self.lease_boundary():
                     if name == "read_file":
                         return self.workspace.read(arguments["path"])
-                    result = self.workspace.write(
-                        arguments["path"], arguments["text"], arguments["expected_hash"]
-                    )
+                    if name == "create_file":
+                        result = self.workspace.create(arguments["path"], arguments["text"])
+                    else:
+                        result = self.workspace.write(
+                            arguments["path"], arguments["text"], arguments["expected_hash"]
+                        )
             self.journal._append(
                 "trace", {"effect": "file_published", "intent": intent, "result": result}
             )

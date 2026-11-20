@@ -1,6 +1,7 @@
 """Shared finite probe contracts; data objects never authorize an invocation."""
 
 import json
+import hashlib
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -79,6 +80,7 @@ class ProbeFactory(Protocol):
 
 CASE_IDS = (
     "allow_read",
+    "allow_create",
     "allow_write",
     "allow_command",
     "allow_ack",
@@ -86,6 +88,7 @@ CASE_IDS = (
     "deny_command",
     "deny_ack",
     "deny_write_hash",
+    "deny_create_existing",
     "native_shell_absent",
     "native_agents_tasks_absent",
     "foreign_mcp_absent",
@@ -107,16 +110,21 @@ def profile_digest(manifest, sources, *, cli_version, policy=None):
 def cases(context):
     """Fixed canary criteria, separate from semantic work or full host acceptance."""
     nonce = digest(context.reference)
+    created_hash = hashlib.sha256(nonce.encode()).hexdigest()
     rows = [
         ("allow_read", "allow", "read_file", {"path": "input.txt"}),
+        (
+            "allow_create", "allow", "create_file",
+            {"path": "output.txt", "text": nonce, "operation_key": "probe-create"},
+        ),
         (
             "allow_write",
             "allow",
             "write_file",
             {
                 "path": "output.txt",
-                "text": nonce,
-                "expected_hash": None,
+                "text": "updated:" + nonce,
+                "expected_hash": created_hash,
                 "operation_key": "probe-write",
             },
         ),
@@ -145,6 +153,11 @@ def cases(context):
                 "expected_hash": "0" * 64,
                 "operation_key": "probe-denied-write",
             },
+        ),
+        (
+            "deny_create_existing", "deny", "create_file",
+            {"path": "output.txt", "text": "must-not-publish",
+             "operation_key": "probe-denied-create"},
         ),
         ("native_shell_absent", "inventory", None, {}),
         ("native_agents_tasks_absent", "inventory", None, {}),

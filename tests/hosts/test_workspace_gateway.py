@@ -75,6 +75,74 @@ def test_unsettled_edit_intent_does_not_blindly_repeat_publication(managed_works
     assert (dispatch.resources.worktree / "code.py").read_text() == "first"
 
 
+@pytest.mark.parametrize("state", ["unadmitted", "held", "expired", "duplicate"])
+def test_create_uses_the_same_lease_and_intent_fences(managed_workspace, journal, state):
+    r, dispatch, gateway = managed_workspace
+    args = {"path": "created.py", "text": "owned", "operation_key": "create"}
+    if state != "unadmitted":
+        gateway.admit()
+    if state == "held":
+        r.hold(dispatch)
+    elif state == "expired":
+        journal.clock = lambda: gateway.deadline
+    elif state == "duplicate":
+        gateway.call("create_file", args)
+    with pytest.raises((AccessDenied, InvalidTransition)):
+        gateway.call("create_file", args)
+    path = dispatch.resources.worktree / args["path"]
+    if state == "duplicate":
+        assert path.read_text() == "owned"
+    else:
+        assert not path.exists()
+
+
+@pytest.mark.parametrize("first", ["create_file", "write_file"])
+def test_create_and_write_cannot_reuse_each_others_operation_key(managed_workspace, first):
+    _, dispatch, gateway = managed_workspace
+    gateway.admit()
+    args = {"path": "first.py", "text": "first", "operation_key": "shared"}
+    gateway.call(first, {**args, **({"expected_hash": None} if first == "write_file" else {})})
+    second = "write_file" if first == "create_file" else "create_file"
+    with pytest.raises(AccessDenied):
+        gateway.call(second, {**args, "path": "second.py",
+                             **({"expected_hash": None} if second == "write_file" else {})})
+    assert (dispatch.resources.worktree / "first.py").read_text() == "first"
+    assert not (dispatch.resources.worktree / "second.py").exists()
+
+
+def test_create_publishes_without_replacing_a_racing_existing_file(tmp_path, monkeypatch):
+    workspace = Workspace(tmp_path)
+    link = os.link
+
+    def racing_link(source, target, *, src_dir_fd, dst_dir_fd, follow_symlinks):
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644, dir_fd=dst_dir_fd)
+        with os.fdopen(fd, "wb") as foreign:
+            foreign.write(b"concurrent-owned-content")
+        return link(source, target, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd,
+                    follow_symlinks=follow_symlinks)
+
+    monkeypatch.setattr(os, "link", racing_link)
+    with pytest.raises(StaleVersion):
+        workspace.create("racing.py", "must-not-overwrite")
+    assert (tmp_path / "racing.py").read_bytes() == b"concurrent-owned-content"
+    assert not list(tmp_path.glob(".aitm-edit-*"))
+
+
+def test_explicit_create_then_hash_update_preserves_strict_legacy_api(managed_workspace):
+    from jsonschema.exceptions import ValidationError
+
+    _, dispatch, gateway = managed_workspace
+    gateway.admit()
+    created = gateway.call("create_file", {"path": "created.py", "text": "before", "operation_key": "create"})
+    with pytest.raises(StaleVersion):
+        gateway.call("create_file", {"path": "created.py", "text": "wrong", "operation_key": "create-existing"})
+    with pytest.raises(ValidationError):
+        gateway.call("write_file", {"path": "created.py", "text": "wrong", "operation_key": "missing-hash"})
+    gateway.call("write_file", {"path": "created.py", "text": "after",
+                                "expected_hash": created["sha256"], "operation_key": "update"})
+    assert (dispatch.resources.worktree / "created.py").read_text() == "after"
+
+
 @pytest.mark.parametrize(
     "name",
     ["Bash", "spawn_agent", "update_plan", "issue_host_ready", "issue_human", "session_resume"],
@@ -101,6 +169,8 @@ def test_workspace_escape_and_authority_paths_refuse(tmp_path, path):
     workspace = Workspace(tmp_path)
     with pytest.raises(AccessDenied):
         workspace.write(path, "forbidden", None)
+    with pytest.raises(AccessDenied):
+        workspace.create(path, "forbidden")
 
 
 def test_workspace_rejects_symlinks_hardlinks_and_stale_edits(tmp_path):
@@ -114,6 +184,8 @@ def test_workspace_rejects_symlinks_hardlinks_and_stale_edits(tmp_path):
     for path in ["link", "hardlink"]:
         with pytest.raises(AccessDenied):
             workspace.write(path, "bad", None)
+        with pytest.raises((AccessDenied, StaleVersion)):
+            workspace.create(path, "bad")
     first = workspace.write("code.py", "a", None)
     with pytest.raises(StaleVersion):
         workspace.write("code.py", "b", "wrong")

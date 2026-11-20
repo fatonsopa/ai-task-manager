@@ -81,7 +81,9 @@ Core schema 6 reuses the existing forward-writer fence. Migration retains the or
 
 ## Access and failure semantics
 
-Every call requires the sealed configuration and currently authorized session. Native queue reads additionally require the ordinary lead's current role, permission, source/profile/account and configured gateway. Worker and reviewer advertised tools retain their existing set. Queue reads grant no file, command, worker-start or authority-minting capability. Event-only reporting remains confined to its original event and receipts.
+Every call requires the sealed configuration and currently authorized session. Native queue reads additionally require the ordinary lead's current role, permission, source/profile/account and configured gateway. Queue reads grant no file, command, worker-start or authority-minting capability. Event-only reporting remains confined to its original event and receipts.
+
+Worker and reviewer file operations distinguish creation from updates. `create_file(path, text, operation_key)` creates only an absent path and atomically refuses an existing file, including one published concurrently. `write_file(path, text, expected_hash, operation_key)` retains its required nullable hash field; omitting it is invalid. Use the observed hash for an update. Both operations use the same current lease, model, resource, human-decision and original-deadline checks and share the edit operation-key namespace. An existing or uncertain edit intent cannot authorize another publication. Worker qualification covers explicit creation, a valid hash update and refusal to create an existing path within its thirteen-case matrix. The five-case lead matrix and its file-write exclusion remain unchanged. The new worker tool surface requires a matching capability profile and capture; prior task grants are not transferred.
 
 Reads do not start workers, reserve capacity, advance wait counters or change provider workflow status. Selection is not atomic with a later operator request: the workflow rechecks all current guards. Provider/network observation and process/resource effects occur outside Core's short admission transaction.
 

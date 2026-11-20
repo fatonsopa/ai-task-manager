@@ -138,7 +138,11 @@ def sdk_options(policy, gateway):
         max_turns=8,
         max_budget_usd=0.25,
         max_buffer_size=262144,
-        system_prompt="Work only through the managed task tools and follow current task authority.",
+        system_prompt=(
+            "Work only through the managed task tools and follow current task authority."
+            + (" Use create_file for new files and write_file with the observed hash for updates."
+               if "create_file" in gateway.schemas else "")
+        ),
         extra_args={
             "restricted": None,
             "print": None,

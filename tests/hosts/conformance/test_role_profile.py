@@ -85,8 +85,8 @@ def test_role_recipe_matches_sealed_projection_and_real_capture_consumer(rig, tm
         assert set(managed_schemas(runtime)) == expected
         assert len(profile_case_ids(rig.profile)) == 5
     else:
-        assert set(managed_schemas(runtime)) == {"read_file", "write_file", "run_command", "acknowledge_event"}
-        assert len(profile_case_ids(rig.profile)) == 11
+        assert set(managed_schemas(runtime)) == {"read_file", "create_file", "write_file", "run_command", "acknowledge_event"}
+        assert len(profile_case_ids(rig.profile)) == 13
     producer, consumer = capture_role(rig, tmp_path)
     assert consumer.require_native_conformance(rig.manifest, runtime, producer._native_owner.binding, rig.journal) == producer.report_ref
     _, profile, context = verify_capture(rig.journal, producer.report_ref)
@@ -110,7 +110,7 @@ def test_worker_capture_cannot_admit_a_lead_surface(rig, tmp_path, reporting):
         worker.require_installation(rig.manifest)
 
 
-@pytest.mark.parametrize("extra", ["mcp__aitm__write_file", "Bash", "mcp__foreign__read"])
+@pytest.mark.parametrize("extra", ["mcp__aitm__create_file", "mcp__aitm__write_file", "Bash", "mcp__foreign__read"])
 def test_lead_capture_producer_rejects_broader_observed_inventory(rig, tmp_path, extra):
     prepare_role(rig, "lead", False)
     factory = type("ExpandedInventory", (RoleFactory,), {"extra_tool": extra})
