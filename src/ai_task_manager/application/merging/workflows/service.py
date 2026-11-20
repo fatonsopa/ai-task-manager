@@ -13,6 +13,7 @@ from ai_task_manager.application.publication_fences import (
 from ai_task_manager.application.service.models import result
 from ai_task_manager.application.workflows.service import WorkflowService
 from ai_task_manager.domains.checks.models import Scope
+from ai_task_manager.domains.checks.results import CheckTargetMoved
 from ai_task_manager.domains.merging.candidates import CandidateResult
 from ai_task_manager.domains.merging.contracts import Publication
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
@@ -421,25 +422,13 @@ class MergeWorkflowService(WorkflowService):
 
     def _known_target_check(self, result, check_plan, candidate, target):
         """Only a bound postguard refusal may retain known physical success."""
-        grant = self.plan.grant
-        expected = {
-            "candidate_commit": candidate.commit, "candidate_tree": candidate.tree,
-            "source_head": grant.source_head, "expected_target": grant.target_head,
-            "observed_target": target, "grant_digest": grant.digest,
-            "binding_digest": grant.binding.fingerprint,
-            "producer_digest": grant.binding.source_digest,
-            "attempt_id": grant.binding.attempt_id, "task_id": grant.binding.task_id,
-            "plan_digest": check_plan.digest,
-        }
+        expected = self._target_check_context(check_plan, candidate, target)
         dispatched = result.get("dispatched", [])
         return (
-            result.get("outcome") == "unknown"
+            expected is not None
+            and result.get("outcome") == "unknown"
             and result.get("error_type") == "CheckTargetMoved"
             and result.get("target_change") == expected
-            and (check_plan.head, check_plan.base, check_plan.attempt,
-                 check_plan.producer_digest, check_plan.scope.task)
-            == (candidate.commit, grant.target_head, grant.binding.attempt_id,
-                grant.binding.source_digest, grant.binding.task_id)
             and bool(dispatched)
             and result.get("physical_count") == len(dispatched)
             and result.get("ran") == sorted(dispatched)
@@ -450,6 +439,24 @@ class MergeWorkflowService(WorkflowService):
             and result.get("signal") is None
             and result.get("failures") == []
         )
+
+    def _target_check_context(self, check_plan, candidate, target):
+        """Bind a typed refusal to this exact current candidate and grant."""
+        grant = self.plan.grant
+        if (check_plan.head, check_plan.base, check_plan.attempt,
+            check_plan.producer_digest, check_plan.scope.task) != (
+                candidate.commit, grant.target_head, grant.binding.attempt_id,
+                grant.binding.source_digest, grant.binding.task_id):
+            return None
+        return {
+            "candidate_commit": candidate.commit, "candidate_tree": candidate.tree,
+            "source_head": grant.source_head, "expected_target": grant.target_head,
+            "observed_target": target, "grant_digest": grant.digest,
+            "binding_digest": grant.binding.fingerprint,
+            "producer_digest": grant.binding.source_digest,
+            "attempt_id": grant.binding.attempt_id, "task_id": grant.binding.task_id,
+            "plan_digest": check_plan.digest,
+        }
 
     def _resume(self, workflow_ref, *, owner=None):
         task = self._scope()
@@ -469,6 +476,7 @@ class MergeWorkflowService(WorkflowService):
         elif row["owner"] != owner:
             raise AccessDenied("Original merge workflow owner changed")
         ref = workflow_ref
+        check_refusal = None
         try:
             steps = row["steps"]
             if not task.delivered_once and not any(
@@ -637,8 +645,15 @@ class MergeWorkflowService(WorkflowService):
                                 "plan": snap["plan"].digest,
                             }
 
-                        checked = self._step(ref, owner, "checks", {"ref": check_ref}, run_checks)
-                        if checked["outcome"] != "passed":
+                        try:
+                            checked = self._step(
+                                ref, owner, "checks", {"ref": check_ref}, run_checks
+                            )
+                        except CheckTargetMoved as error:
+                            # Normal context exit reacquires this original turn;
+                            # only then may the exact refusal reach replanning.
+                            check_refusal = error
+                        if check_refusal is None and checked["outcome"] != "passed":
                             self._ready()
                             source, target = self.candidate.profile.refs(self.plan.grant)
                             snapshot = self.check_inputs.checks.store.read(check_ref, check_scope)
@@ -653,6 +668,8 @@ class MergeWorkflowService(WorkflowService):
                             ):
                                 return self._envelope(ref, "blocked", "candidate_target_moved")
                             return self._envelope(ref, "blocked", "checks_" + checked["outcome"])
+                    if check_refusal is not None:
+                        raise check_refusal
                     if self.candidate.profile.refs(self.plan.grant) != (
                         self.plan.grant.source_head, self.plan.grant.target_head
                     ):
@@ -839,6 +856,32 @@ class MergeWorkflowService(WorkflowService):
             ):
                 return self._envelope(ref, "done")
             return self._envelope(ref, "uncertain", "provider_confirmation_pending")
+        except CheckTargetMoved as error:
+            if type(error) is not CheckTargetMoved or error is not check_refusal:
+                raise
+            # The immutable-preparation scope has exited. Replanning still
+            # goes through the original target-successor/unknown-effect guards.
+            self._ready()
+            saved = self.store.read(ref)["steps"]
+            selected = saved.get("candidate", {}).get("result")
+            prepared = saved.get("check_plan", {}).get("result")
+            if not selected or not prepared:
+                raise
+            candidate = CandidateResult(**selected)
+            binding = self.plan.grant.binding
+            scope = Scope(binding.principal_id, binding.project_id,
+                          binding.session_id, binding.task_id)
+            snapshot = self.check_inputs.checks.store.read(prepared["ref"], scope)
+            source, target = self.candidate.profile.refs(self.plan.grant)
+            expected = self._target_check_context(snapshot["plan"], candidate, target)
+            if (
+                source != self.plan.grant.source_head
+                or target == self.plan.grant.target_head
+                or expected is None
+                or error.for_plan(snapshot["plan"]) != expected
+            ):
+                raise
+            return self._resume(ref, owner=owner)
         finally:
             if not retained_owner:
                 self.store.release(ref, owner)

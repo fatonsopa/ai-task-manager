@@ -4,7 +4,10 @@ from typing import Protocol
 
 from ai_task_manager.domains.checks.models import Outcome, Plan
 from ai_task_manager.domains.checks.results import (
-    CheckExecutionRefused, CheckTargetMoved, Execution, comparison,
+    CheckExecutionRefused,
+    CheckTargetMoved,
+    Execution,
+    comparison,
 )
 from ai_task_manager.domains.checks.reuse import eligible
 from ai_task_manager.domains.checks.selection import select
@@ -112,7 +115,17 @@ class MergeChecks:
             except StaleVersion:
                 continue
             if not dispatched:
-                self._verify(plan)
+                try:
+                    self._verify(plan)
+                except CheckTargetMoved as error:
+                    if type(error) is not CheckTargetMoved:
+                        raise
+                    error.for_plan(plan)
+                    # This records only already-verified carried proofs or an
+                    # empty skip. Target movement still refuses consumption;
+                    # an empty dispatch must not become an uncertain effect.
+                    self.store.finish(ref, scope, group.key, version)
+                    raise
                 self.store.finish(ref, scope, group.key, version)
                 continue
             try:
