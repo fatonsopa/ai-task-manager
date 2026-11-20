@@ -36,6 +36,7 @@ class DeclaredMilestone:
 def declared_dependencies(core, handle):
     """Existing production collector/reader/receipts over authored GraphQL."""
     from types import SimpleNamespace
+
     from ai_task_manager.adapters.linear.client import LinearClient
     from ai_task_manager.adapters.linear.connections import AgentConnection
     from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
@@ -167,7 +168,9 @@ def install():
         }
         if os.environ.get("T04_DECLARED_COLD"):
             from ai_task_manager.application.service.linear import DECISION_KINDS
-            data = json.loads((Path(os.environ["T04_COLD_ROOT"]) / "declared-provider.json").read_text())
+            data = json.loads(
+                (Path(os.environ["T04_COLD_ROOT"]) / "declared-provider.json").read_text()
+            )
             def evidence(journal):
                 # The owner binds Core/handle after loading, before source consumption.
                 issuer = DeclaredMilestone(None, None, data)
@@ -188,8 +191,10 @@ def install():
     resolve = native.resolve
 
     def composed(*args, **kwargs):
-        options = {"dependencies_factory": (declared_dependencies if os.environ.get("T04_DECLARED_COLD")
-                                           else lambda c, h: AuthoredDependencyCollection(c, h))}
+        options = {"dependencies_factory": (
+            declared_dependencies if os.environ.get("T04_DECLARED_COLD")
+            else lambda c, h: AuthoredDependencyCollection(c, h)
+        )}
         if kwargs.get("service_options") is None:
             kwargs["service_options"] = options
         return resolve(*args, **kwargs)
