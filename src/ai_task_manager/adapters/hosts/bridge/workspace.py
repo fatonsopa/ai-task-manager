@@ -70,6 +70,38 @@ class Workspace:
             data, _ = self._read(parent, name)
         return {"text": data.decode("utf-8"), "sha256": hashlib.sha256(data).hexdigest()}
 
+    def _publish(self, parent, name, text, mode, *, create_only=False):
+        temporary = ".aitm-edit-" + secrets.token_hex(12)
+        try:
+            fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode, dir_fd=parent)
+            with os.fdopen(fd, "wb") as output:
+                os.fchmod(output.fileno(), mode)
+                output.write(text.encode())
+                output.flush()
+                os.fsync(output.fileno())
+            if create_only:
+                try:
+                    os.link(temporary, name, src_dir_fd=parent, dst_dir_fd=parent,
+                            follow_symlinks=False)
+                except FileExistsError as error:
+                    raise StaleVersion("Workspace file already exists") from error
+                os.unlink(temporary, dir_fd=parent)
+            else:
+                os.replace(temporary, name, src_dir_fd=parent, dst_dir_fd=parent)
+            os.fsync(parent)
+        finally:
+            try:
+                os.unlink(temporary, dir_fd=parent)
+            except FileNotFoundError:
+                pass
+
+    def create(self, path, text):
+        if not isinstance(text, str) or len(text.encode()) > MAX_FILE:
+            raise AccessDenied("Workspace edit exceeds the configured limit")
+        with self._parent(path) as (parent, name):
+            self._publish(parent, name, text, 0o644, create_only=True)
+        return {"sha256": hashlib.sha256(text.encode()).hexdigest()}
+
     def write(self, path, text, expected_hash):
         if not isinstance(text, str) or len(text.encode()) > MAX_FILE:
             raise AccessDenied("Workspace edit exceeds the configured limit")
@@ -81,19 +113,5 @@ class Workspace:
             actual = hashlib.sha256(old).hexdigest() if old is not None else None
             if expected_hash != actual:
                 raise StaleVersion("Workspace file changed before this edit")
-            temporary = ".aitm-edit-" + secrets.token_hex(12)
-            try:
-                fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode, dir_fd=parent)
-                with os.fdopen(fd, "wb") as output:
-                    os.fchmod(output.fileno(), mode)
-                    output.write(text.encode())
-                    output.flush()
-                    os.fsync(output.fileno())
-                os.replace(temporary, name, src_dir_fd=parent, dst_dir_fd=parent)
-                os.fsync(parent)
-            finally:
-                try:
-                    os.unlink(temporary, dir_fd=parent)
-                except FileNotFoundError:
-                    pass
+            self._publish(parent, name, text, mode)
         return {"sha256": hashlib.sha256(text.encode()).hexdigest()}

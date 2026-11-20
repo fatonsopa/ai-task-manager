@@ -26,7 +26,7 @@ class CanaryGateway:
         self._physical()
         authority.require_current(context, phase="fixture")
         self.workspace = Workspace(self.root)
-        self.workspace.write("input.txt", digest(context.reference), None)
+        self.workspace.create("input.txt", digest(context.reference))
         self.initial = self.snapshot()
 
     def _physical(self):
@@ -120,10 +120,12 @@ class CanaryGateway:
             )
 
     def _perform(self, name, args):
-        if name in {"read_file", "write_file"} and args["path"] not in {"input.txt", "output.txt"}:
+        if name in {"read_file", "create_file", "write_file"} and args["path"] not in {"input.txt", "output.txt"}:
             raise AccessDenied("Only the two declared canary files are accessible")
         if name == "read_file":
             result = self.workspace.read(args["path"])
+        elif name == "create_file":
+            result = self.workspace.create(args["path"], args["text"])
         elif name == "write_file":
             result = self.workspace.write(args["path"], args["text"], args["expected_hash"])
         elif name == "run_command":

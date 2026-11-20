@@ -198,7 +198,8 @@ def verify_case(journal, case, value, owner, context_ref, session, model):
         read = {"text": nonce, "sha256": hashlib.sha256(nonce.encode()).hexdigest()}
         expected = {
             "read_file": read,
-            "write_file": {"sha256": read["sha256"]},
+            "create_file": {"sha256": read["sha256"]},
+            "write_file": {"sha256": hashlib.sha256(("updated:" + nonce).encode()).hexdigest()},
             "run_command": {"command_ref": "canary-check", "input": read},
             "acknowledge_event": {"acknowledged": "probe"},
         }[case.tool]
@@ -207,8 +208,8 @@ def verify_case(journal, case, value, owner, context_ref, session, model):
             "The actual canary result differs from the registered operation",
         )
         expected_after = dict(value["before"])
-        if case.tool == "write_file":
-            expected_after["output.txt"] = read["sha256"]
+        if case.tool in {"create_file", "write_file"}:
+            expected_after["output.txt"] = expected["sha256"]
         require(value["after"] == expected_after, "An undeclared canary artifact changed")
 
 

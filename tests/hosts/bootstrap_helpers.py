@@ -66,7 +66,7 @@ def create(root, mode, *, seconds=45, cli_version="2.1.301", observed_version="2
     environment = clean_environment(home, claude_profile=home / ".claude_roni")
     sha = hashlib.sha256(executable.read_bytes()).hexdigest()
     tools = tuple(
-        "mcp__aitm__" + n for n in ("read_file", "write_file", "run_command", "acknowledge_event")
+        "mcp__aitm__" + n for n in ("read_file", "create_file", "write_file", "run_command", "acknowledge_event")
     )
     policy = NativePolicy(
         "claude",
