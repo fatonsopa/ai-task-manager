@@ -84,7 +84,9 @@ def test_one_dependency_503_keeps_complete_verified_collection(provider, monkeyp
     assert snapshot.dependencies == ()
 
 
-def test_one_dependency_transport_failure_keeps_complete_diagnostics(provider, monkeypatch, tmp_path):
+def test_one_dependency_transport_failure_keeps_complete_diagnostics(
+    provider, monkeypatch, tmp_path
+):
     import hashlib
     from pathlib import Path
 
@@ -167,11 +169,15 @@ def test_dependency_transport_recovery_remains_bounded(provider, monkeypatch, mo
                 clock[0] = 20
             if mode == "credentials":
                 token[0] = "changed-authored-token"
-            raise LinearError("transport_failure", uncertain=True) from TimeoutError("private-sentinel")
+            raise LinearError("transport_failure", uncertain=True) from TimeoutError(
+                "private-sentinel"
+            )
         if query == DETAILS:
             if mode == "transport_then_503":
                 return WireResponse(503, {}, b"")
-            raise LinearError("transport_failure", uncertain=True) from OSError(54, "private-sentinel")
+            raise LinearError("transport_failure", uncertain=True) from OSError(
+                54, "private-sentinel"
+            )
         return original(query, variables, credential)
 
     monkeypatch.setattr(p, "send", send)
@@ -973,13 +979,17 @@ def test_active_attempt_refresh_preserves_expiry_fence(provider, timing):
         )
 
 
-@pytest.mark.parametrize("variant", ["current", "held", "expired-proof", "wrong-subject"])
+@pytest.mark.parametrize("variant", ["current", "held", "expired-proof", "wrong-subject",
+                                     "missing-issuer", "expired-provider", "publisher-refused"])
 def test_configured_milestone_releases_only_current_observed_merge(provider, tmp_path, variant):
     from ai_task_manager.application.service.linear import LinearComponents
 
     p, r = provider, provider.rig
     predecessor = p.task(code=True, title="Owned code predecessor")
-    dependent = p.task(code=variant.startswith("cold-"), title="Explicit merge dependent")
+    dependent = p.task(
+        code=variant.startswith("cold-") or variant == "start-delay",
+        title="Explicit merge dependent",
+    )
     p.edge(predecessor, dependent)
     declarations = [
         {
@@ -1026,18 +1036,34 @@ def test_configured_milestone_releases_only_current_observed_merge(provider, tmp
     predecessor = r.transition(predecessor, S.IN_DEV, "merge", {"merge": merge})
     p.sync(predecessor)
     preparations = []
+    timing = {"active": False, "collected": False, "refuse": True}
 
     def prepare_current(subject, reference):
         assert p.depth == 0
         assert subject == predecessor.id and reference == merge
         preparations.append((subject, reference))
-        if variant.startswith("cold-"):
+        if variant == "publisher-refused" and len(preparations) > 1 and timing["refuse"]:
+            raise AccessDenied("Authored original publisher authority expired")
+        if variant == "expired-provider" and len(preparations) > 1:
+            r.now += 31
+        if timing["active"]:
+            r.now += 2.931
+        if (variant.startswith("cold-") or variant in {"start-delay", "current", "replay-window"}
+                or variant in {"expired-provider", "publisher-refused"}):
             r.proofs.evidence[reference] = replace(
-                r.proofs.evidence[reference], expires_at=r.now + 5
+                r.proofs.evidence[reference],
+                expires_at=r.now + (1 if variant in {"expired-provider", "publisher-refused"}
+                                   and len(preparations) == 1 else 5),
             )
         return reference
 
     r.core.context.evidence.prepare_merge_milestone = prepare_current
+    if variant == "replay-window":
+        def delayed_provider(query, variables):
+            if not timing["collected"] and "DependencyProse" in query:
+                timing["collected"] = True
+                r.now += 6
+        p.callback = delayed_provider
     if variant == "held":
         with r.db.transaction() as conn:
             predecessor = work.save(
@@ -1048,16 +1074,113 @@ def test_configured_milestone_releases_only_current_observed_merge(provider, tmp
         r.proofs.evidence[merge] = replace(r.proofs.evidence[merge], expires_at=r.now)
     elif variant == "wrong-subject":
         r.proofs.evidence[merge] = replace(r.proofs.evidence[merge], subject=dependent.id)
+    elif variant == "missing-issuer":
+        r.proofs.evidence[merge] = replace(r.proofs.evidence[merge], expires_at=r.now)
+        del r.core.context.evidence.prepare_merge_milestone
+    if variant in {"held", "expired-proof", "wrong-subject", "missing-issuer",
+                   "expired-provider", "publisher-refused"}:
+        from ai_task_manager.domains.work.errors import WorkError
+
+        with pytest.raises(WorkError):
+            source.refresh(dependent.id, "after-merge")
+        calls = len(p.calls)
+        with pytest.raises(WorkError):
+            source.prepare(dependent.id, "after-merge")
+        assert len(p.calls) == calls
+        if variant == "publisher-refused":
+            sealed = source.receipts.lookup(p.scope, dependent.id, "after-merge")["receipt"]
+            original = source.receipts.verify_snapshot(sealed)
+            timing["refuse"] = False
+            view = source.refresh(dependent.id, "after-merge")
+            assert view["state"] == "ready" and view["expires_at"] == original.expires_at
+            assert len(p.calls) == calls
+        return
     view = source.refresh(dependent.id, "after-merge")
-    expected = "ready" if variant == "current" or variant.startswith("cold-") else "blocked"
+    expected = (
+        "ready" if variant in {"current", "start-delay", "replay-window"}
+        or variant.startswith("cold-") else "blocked"
+    )
     assert view["state"] == expected, view
     snapshot = components.scheduling_sources.verify_snapshot(
         source.prepare(dependent.id, "after-merge").snapshot_ref
     )
     assert len(snapshot.dependencies) == 1
     assert snapshot.dependencies[0].condition == "code_merged"
-    assert preparations == [(predecessor.id, merge)]
+    assert preparations == [(predecessor.id, merge)] * (2 if variant == "replay-window" else 1)
     assert dict(snapshot.dependencies[0].evidence_refs)["merge"] == merge
+    if variant == "replay-window":
+        r.now = snapshot.observed_at + 25
+        calls = len(p.calls)
+        prepared = source.prepare(dependent.id, "after-merge")
+        assert components.scheduling_sources.verify_snapshot(prepared.snapshot_ref) == snapshot
+        assert len(p.calls) == calls and snapshot.expires_at > r.now
+        assert r.core.scheduling.explain(r.handle, dependent.id)["state"] == "ready"
+        return
+    if variant == "start-delay":
+        dependent = r.transition(dependent, S.TODO, "enqueue")
+        r.resource_sources.rows[dependent.id] = AdmissionResources(
+            p.scope, dependent.id, dependent.prose_digest, dependent.decision_revision,
+            "authored-project", (), (),
+        )
+        dependent, reserved = r.reserved(dependent)
+        p.sync(dependent)
+        timing["active"] = True
+
+        def collect(query, variables):
+            if not timing["collected"] and "DependencyProse" in query:
+                timing["collected"] = True
+                r.now += 4.0
+
+        p.callback = collect
+        started = r.now
+        view = source.refresh_for_start(
+            dependent.id, "actual-start", expected_version=dependent.version,
+            decision_revision=dependent.decision_revision,
+        )
+        assert view["state"] == "ready"
+        r.now += 1.491
+        startup = r.proof("worker_start", reserved.id, {
+            "task_id": dependent.id, "host": reserved.host, "worker_id": "worker:" + reserved.id,
+        })
+        facts = {"started": started, "core_start_at": r.now, "view": view,
+                 "witness_expires_at": r.proofs.evidence[merge].expires_at}
+        try:
+            result = r.core.execution.start(
+                r.handle, reserved.id, dependent.version, dependent.decision_revision,
+                startup, r.decision(dependent, S.IN_PROGRESS), "actual-core-start",
+            )
+        except Exception as error:
+            from ai_task_manager.observability.failures import FailureStage, capture_failure
+
+            facts["failure"] = capture_failure(error, FailureStage.MANAGED_START)
+            (tmp_path / "milestone-start-result.json").write_text(json.dumps(facts, indent=2))
+            raise
+        facts["result"] = asdict(result)
+        assert result.state == "starting"
+        assert view["expires_at"] - 30 < r.now < view["expires_at"]
+        from ai_task_manager.installation.workflows.delivery_dependencies import (
+            DeliveryDependencies,
+        )
+
+        dependent = r.confirm(r.core.get_task(r.handle, dependent.id))
+        result = r.core.execution.running(
+            r.handle, reserved.id, dependent.version, dependent.decision_revision,
+            r.resources(dependent, result), r.key(),
+        )
+        dependent = r.core.get_task(r.handle, dependent.id)
+        dependent, result = r.settle(dependent, result)
+        p.sync(dependent)
+        delivery = DeliveryDependencies(r.core, r.handle, source, r.now + 120)
+        try:
+            delivery.start({"task_id": dependent.id, "attempt_id": result.id,
+                            "prose_digest": dependent.prose_digest,
+                            "decision_revision": dependent.decision_revision})
+            facts["delivery_collection"] = r.core.scheduling.explain(r.handle, dependent.id)
+            assert facts["delivery_collection"]["state"] == "ready"
+        finally:
+            delivery.close()
+        (tmp_path / "milestone-start-result.json").write_text(json.dumps(facts, indent=2))
+        return
     if variant.startswith("cold-"):
         from ai_task_manager.domains.work.errors import WorkError
         from ai_task_manager.installation.workflows.delivery_dependencies import (
@@ -1125,6 +1248,18 @@ def test_cold_delivery_refuses_expired_declared_milestone_before_collection(
 ):
     test_configured_milestone_releases_only_current_observed_merge(
         provider, tmp_path, "cold-refresh-before-start" if refresh_before_start else "cold-expired"
+    )
+
+
+def test_actual_core_start_keeps_local_merge_witness_current_after_collection(provider, tmp_path):
+    test_configured_milestone_releases_only_current_observed_merge(
+        provider, tmp_path, "start-delay"
+    )
+
+
+def test_milestone_receipt_replay_keeps_original_provider_expiry(provider, tmp_path):
+    test_configured_milestone_releases_only_current_observed_merge(
+        provider, tmp_path, "replay-window"
     )
 
 
