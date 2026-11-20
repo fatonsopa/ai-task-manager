@@ -1,12 +1,12 @@
 # Queued task selection
 
-Type: How-to Guide (HTG). Scope: the installed task queries, guarded workflow start and ordinary managed lead's read-only queue access. DP06 genuine qualification and story acceptance remain separately recorded in the delivery evidence.
+Type: How-to Guide (HTG). Scope: installed queue selection, concurrent start, verified dependency release, original-key recovery, reporting and owned resource disposition. The [DP06 handoff](../plans/deliveries/DP06-handoff.md) binds acceptance and measured limits to their actual candidate.
 
 ## Before you begin
 
 Use an independently prepared, current installation with the exact reviewed runtime and locked dependencies. Keep the sealed service configuration, selected account, finite authority, registered owner and original stores. The [initial workflow procedure](../workflow_preparation/how_to_guide.md) prepares approved tasks; the [recovery procedure](../recovery/how_to_guide.md) preserves interrupted owners and original effects.
 
-Only explicitly queued tasks are candidates. Backlog, free capacity and a model's suggestion grant no permission to start work. Current dependencies, human decisions, task ownership and finite capacity still apply. This procedure does not claim that DP06's later declared-conflict or concurrent-delivery qualification is complete.
+Only explicitly queued tasks are candidates. Backlog, free capacity and a model's suggestion grant no permission to start work. Current dependencies, human decisions, task ownership and finite capacity still apply. Keep each task’s installed plan, worktree, application database and operation key distinct. Closed concurrent members share one owner and merge authority; their transport handlers do not increase finite worker capacity.
 
 Uppercase paths below are operator-supplied private files. Use the installed `aitm` executable from the intended project. A configuration with `workflow_control` routes ordinary calls through its retained owner; an unavailable owner is a recovery prerequisite, not permission to create another one.
 
@@ -63,6 +63,36 @@ Uppercase paths below are operator-supplied private files. Use the installed `ai
    ```
 
    The retained owner supplies the installed workflow registration. Use `--installation` for its dedicated owner, lead-report or recovery command, rather than for `workflow run`. The owner rechecks current task/version, dependencies, human decisions and capacity. `admission_requires_capacity: true` means the queue explanation is not a slot reservation. A selection can therefore wait or refuse if facts change. Do not start a competing task to bypass that refusal.
+
+## Continue delivery and recover safely
+
+1. Start independently eligible closed members with their own original task/plan/key requests. Observe actual native assignment and attempt/resource identities. A dependency-bound task waits until its declared predecessor’s verified `code_merged` proof releases it. Provider status alone is insufficient. Collection prepares the current local merge witness after the provider read; neither that preparation nor a same-key receipt replay extends the original 30-second observation or five-second local proof.
+
+2. If publication loses its target turn, retain the candidate, completed checks and cumulative repository wait. A public result with `data.reason: "candidate_target_moved"` identifies the narrowly verified target-only condition. Under still-current source, task, human, resource and finite authority, use the same original run request or `workflow resume` with `{"workflow_ref":"<original-ref>"}`. The existing workflow replans the candidate and resolves its required checks before publication. Eligible physical-origin passes may carry only when unit, inputs, catalog, binding, producer and source still match; stale or unbound passes refuse, and the author is not restarted. Generic `checks_blocked`, unknown physical state, source changes and holds do not authorize this continuation. Keep the 120-second cumulative repository wait across calls. The workflow can also handle verified empty/carried-only groups and known-complete post-preparation target movement internally. After an actual check nonce has been sent, only typed target drift may wait for that unit’s physical result; non-target guards stay active, and the next unit still requires strict validation. These paths add no public reason or physical execution and give the operator no permission to classify a generic or unknown failure as target-only.
+
+3. After a missing reply, inspect the original workflow before another effect. If the owner is dead, use its original configuration and installation with a private recovery request:
+
+   ```json
+   {"action":"inspect","workflow_ref":"<original-ref>","operation_key":"<original-key>"}
+   ```
+
+   ```sh
+   aitm --config CONFIG --installation INSTALLATION --json workflow recover --input RECOVERY_REQUEST
+   ```
+
+   Change only `action` to `"resume"` after the supported inspection establishes eligibility. A verified cold replacement can deliver an exact stopped durable commit when only the dependency observation expired: the original execution grant/deadline must still be current, and fresh ready dependencies must match the attempt’s original graph, source, prose and decision. Its signed internal proof preserves invalidation history; it permits neither another author nor a repeated completed commit. Missing evidence, changed inputs, holds or expired/revoked original authority refuse. Follow the [recovery procedure](../recovery/how_to_guide.md) for stop, retirement or an eligible separately authorized version-two successor. A fresh successor is not permission to adopt old grants or discard dependencies.
+
+4. Confirm publication and canonical provider readback separately. Keep an exact saved publication or provider response for reconciliation; an older or unavailable read is not permission to resend. Read the original event through the installed `event list` projection. Keep the original Core capability usable until its final reporting consumer finishes.
+
+5. Report that exact event using the [lead reporting procedure](../lead_reporting/how_to_guide.md). When a separate owner-independent phase is needed, the trusted installer uses `installation.sessions.reporting.setup` with a fresh private configuration, the original still-valid Core capability, exact event, fresh finite deadline and new reporting key. Seal and enroll its event-only lead, then run:
+
+   ```sh
+   aitm --config REPORT_CONFIG --installation REPORT_INSTALLATION --json lead report
+   ```
+
+   Verify terminal output, `delivered`, `ai_acknowledged` and `user_reported` receipts at their separate boundaries. Coordination-chat delivery additionally needs actual publication of the checked text and a subsequent acknowledgement. A receipt or native assertion cannot stand in for that publication or human acceptance. An expired reporting phase stays failed; a supported fresh phase has distinct authority and does not extend its clock.
+
+6. After each resource’s last consumer, observe owned process/group stops, attempts, leases and pending effects, then revoke only the actual owned permissions and enrollments through their supported APIs. Retire eligible local resources through recovery `action: "retire"` under exact current cleanup authority. Provider archive has its own authority and original key. Keep journals, source bindings and dirty, unmerged, shared, foreign or uncertain resources protected. Record their owner, original identity, prerequisite and supported next action; the [DP06 handoff](../plans/deliveries/DP06-handoff.md#resource-disposition) carries the current retained obligations.
 
 ## Confirm success
 
