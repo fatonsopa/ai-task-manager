@@ -243,7 +243,9 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(
                 from ai_task_manager.domains.work.errors import AccessDenied
 
                 calls = []
-                for call in range(2 if resume_waits else 1):
+                wait_refusals = 0
+                maximum_calls = owner.capability.maximum_attempts + int(resume_waits)
+                for call in range(maximum_calls):
                     call_started = time.monotonic()
                     try:
                         result = owner.workflow.run(
@@ -254,16 +256,25 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(
                                 "call": call + 1,
                                 "seconds": time.monotonic() - call_started,
                                 "state": result["data"]["state"],
+                                "reason": result["data"].get("reason"),
+                                "workflow": result["data"]["workflow"],
+                                "operation_key": "ordered-delivery",
                             }
                         )
+                        if (
+                            result["data"]["state"] == "blocked"
+                            and result["data"].get("reason") == "candidate_target_moved"
+                        ):
+                            continue
                         break
                     except AccessDenied as error:
                         if (
                             not resume_waits
                             or str(error) != "Original repository turn wait budget expired"
-                            or call
+                            or wait_refusals
                         ):
                             raise
+                        wait_refusals += 1
                         calls.append(
                             {
                                 "call": call + 1,
@@ -272,6 +283,12 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(
                                 "reason": str(error),
                             }
                         )
+                else:
+                    raise AccessDenied("Original target continuation call budget exhausted")
+                assert all(
+                    row.get("workflow", result["data"]["workflow"])
+                    == result["data"]["workflow"] for row in calls
+                )
                 with lock:
                     completed.append(
                         {
@@ -288,6 +305,8 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(
                             "setup_seconds": owner.setup_seconds,
                             "stages": owner.workflow.timings,
                             "public_calls": calls,
+                            "maximum_public_calls": maximum_calls,
+                            "wait_refusals": wait_refusals,
                             "cumulative_repository_wait_seconds": (
                                 sum(
                                     c["seconds"]
@@ -354,6 +373,7 @@ def test_successful_ordered_contenders_keep_every_owned_eight_line_change(
                     "observer_errors": observer_errors,
                     "sampling_seconds": 0.02,
                     "same_key_wait_resume_allowed": resume_waits,
+                    "same_key_target_checkpoint_resume_allowed": True,
                     "frozen_queue_budget_met": all(
                         row["cumulative_repository_wait_seconds"] <= 120 for row in completed
                     )
