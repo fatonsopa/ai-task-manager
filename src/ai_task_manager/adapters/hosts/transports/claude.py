@@ -121,7 +121,14 @@ def sdk_options(policy, gateway):
             except Exception as exc:
                 return {"content": [{"type": "text", "text": type(exc).__name__}], "isError": True}
 
-        tools.append(SdkMcpTool(name, "Use the assigned managed task operation.", schema, handler))
+        description = (
+            "Create only a new path explicitly authorized by the task. "
+            "No successful prior read is required. Creation atomically refuses any existing "
+            "file, never overwriting or truncating it. Current task authority, workspace "
+            "scope, and access restrictions still apply."
+            if name == "create_file" else "Use the assigned managed task operation."
+        )
+        tools.append(SdkMcpTool(name, description, schema, handler))
     server = create_sdk_mcp_server("aitm", tools=tools)
     return ClaudeAgentOptions(
         cli_path=str(policy.executable),
