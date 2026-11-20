@@ -143,6 +143,255 @@ def test_empty_group_target_move_replans_same_key_without_worker_replay(tmp_path
         other.close()
 
 
+def test_watcher_target_move_keeps_nonce_dispatch_fenced(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+    from pathlib import Path
+
+    from ai_task_manager.adapters.hosts.bridge import containers
+    from ai_task_manager.domains.checks.models import Scope
+    from ai_task_manager.domains.checks.results import CheckTargetMoved
+    from tests.merge_workloads.fixture import Owner, Project
+
+    project = Project(tmp_path / "watcher-target")
+    owned, other = Owner(project, 0), Owner(project, 1)
+    children = []
+    try:
+        candidate = owned.candidates.prepare(owned.grant)
+        inputs = owned.capability.checks
+        scope = Scope(owned.r.scope.principal, owned.r.scope.project,
+                      owned.r.scope.logical_session, owned.task.id)
+        ref = inputs.prepare(owned.candidates.profile, owned.grant, candidate, "watcher-target")
+        runner = inputs.checks.source_guard.runner
+        execute, popen = runner.execute_registered, containers.subprocess.Popen
+        moved, nonce_effects = [], []
+
+        def retain_child(argv, *args, **kwargs):
+            child = popen(argv, *args, **kwargs)
+            if len(argv) > 2 and Path(str(argv[2])).name == "container_watch.py":
+                children.append(child)
+            return child
+
+        def after_watcher(command, pair, boundary, effect, key):
+            @contextmanager
+            def current_effect():
+                job = runner.jobs.get("container:" + key)
+                if job is not None:
+                    nonce_effects.append(True)
+                with effect():
+                    yield
+                    if job is None and not moved:
+                        git(project.repo, "update-ref", "refs/heads/integration",
+                            other.grant.source_head, project.base)
+                        moved.append(True)
+
+            return execute(command, pair, boundary, current_effect, key)
+
+        monkeypatch.setattr(containers.subprocess, "Popen", retain_child)
+        monkeypatch.setattr(runner, "execute_registered", after_watcher)
+        with pytest.raises(CheckTargetMoved):
+            inputs.checks.run(ref, scope)
+        assert moved and not nonce_effects and runner.jobs == {}
+        assert len(children) == 1
+        children[0].wait(timeout=15)
+        directory = next(runner.root.glob("aitm-fixture-*"))
+        cleanup = json.loads((directory / "cleanup.json").read_text())
+        assert cleanup["trigger"] == "controller_disconnected"
+        assert cleanup["container"]["confirmed_stop"] and cleanup["container"]["removed"]
+        row = inputs.checks.store.read(ref, scope)["groups"]["feature 0"]["result"]
+        assert row["outcome"] == "unknown" and row["physical_count"] is None
+        assert "target_change" not in row
+    finally:
+        for child in children:
+            child.wait(timeout=15)
+        owned.close()
+        other.close()
+
+
+def test_nonce_target_move_retains_actual_terminal_and_physical_result(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+
+    from ai_task_manager.domains.checks.models import Scope
+    from ai_task_manager.domains.checks.results import CheckTargetMoved
+    from tests.merge_workloads.fixture import Owner, Project
+
+    project = Project(tmp_path / "nonce-target")
+    owned, other = Owner(project, 0, broad=True), Owner(project, 1)
+    try:
+        candidate = owned.candidates.prepare(owned.grant)
+        inputs = owned.capability.checks
+        scope = Scope(owned.r.scope.principal, owned.r.scope.project,
+                      owned.r.scope.logical_session, owned.task.id)
+        ref = inputs.prepare(owned.candidates.profile, owned.grant, candidate, "nonce-target")
+        runner = inputs.checks.source_guard.runner
+        execute = runner.execute_registered
+        moved = []
+
+        def after_nonce(command, pair, boundary, effect, key):
+            @contextmanager
+            def current_effect():
+                job = runner.jobs.get("container:" + key)
+                with effect():
+                    yield
+                    if job is not None and not moved:
+                        git(project.repo, "update-ref", "refs/heads/integration",
+                            other.grant.source_head, project.base)
+                        moved.append(True)
+
+            return execute(command, pair, boundary, current_effect, key)
+
+        monkeypatch.setattr(runner, "execute_registered", after_nonce)
+        with pytest.raises(CheckTargetMoved):
+            inputs.checks.run(ref, scope)
+        snapshot = inputs.checks.store.read(ref, scope)
+        assert len(snapshot["plan"].units) == 4
+        row = snapshot["groups"]["feature 0"]["result"]
+        assert row["outcome"] == "unknown" and row["error_type"] == "CheckTargetMoved"
+        assert row["physical_count"] == 1 and row["ran"] == ["feature-0"]
+        assert row["exit_code"] == 0 and row["failures"] == []
+        assert row["target_change"]["observed_target"] == other.grant.source_head
+        assert len(runner.jobs) == 1
+        assert all(value["state"] == "pending" for name, value in snapshot["groups"].items()
+                   if name != "feature 0")
+        job = next(iter(runner.jobs.values()))
+        frames = [
+            json.loads(line) for line in (job["directory"] / "stdout").read_bytes().splitlines()
+        ]
+        assert len(frames) == 2 and frames[0]["type"] == "sandbox_ready"
+        assert frames[1]["outcome"] == "succeeded" and job["stop"].confirmed
+        assert inputs.checks.store.proofs(snapshot["plan"], snapshot["plan"].units[0]) == []
+        (tmp_path / "nonce-target-result.json").write_text(json.dumps({
+            "check_ref": ref, "result": row, "terminal": frames[1],
+            "worker_head": git(owned.pair.worktree, "rev-parse", "HEAD"),
+        }, indent=2))
+    finally:
+        owned.close()
+        other.close()
+
+
+@pytest.mark.parametrize("fault", ["hold", "source", "deadline", "generic"])
+def test_nonce_capture_keeps_non_target_refusals(tmp_path, monkeypatch, fault):
+    from contextlib import contextmanager
+    from pathlib import Path
+
+    from ai_task_manager.domains.checks.models import Scope
+    from ai_task_manager.domains.work.errors import AccessDenied, WorkError
+    from tests.merge_workloads.fixture import Owner, Project
+
+    project = Project(tmp_path / "nonce-refusal")
+    owned = Owner(project, 0)
+    try:
+        candidate = owned.candidates.prepare(owned.grant)
+        inputs = owned.capability.checks
+        scope = Scope(owned.r.scope.principal, owned.r.scope.project,
+                      owned.r.scope.logical_session, owned.task.id)
+        ref = inputs.prepare(owned.candidates.profile, owned.grant, candidate, "nonce-refusal")
+        runner = inputs.checks.source_guard.runner
+        execute = runner.execute_registered
+        changed = []
+
+        def after_nonce(command, pair, boundary, effect, key):
+            @contextmanager
+            def current_effect():
+                job = runner.jobs.get("container:" + key)
+                with effect():
+                    yield
+                    if job is not None and not changed:
+                        changed.append(True)
+                        if fault == "hold":
+                            owned.runtime.hold(owned.dispatch)
+                        elif fault == "source":
+                            (Path(candidate.path) / owned.changed).write_text("Changed source\n")
+                        elif fault == "deadline":
+                            owned.r.now = owned.context.deadline
+                        else:
+                            raise AccessDenied("Unidentified policy refusal")
+
+            return execute(command, pair, boundary, current_effect, key)
+
+        monkeypatch.setattr(runner, "execute_registered", after_nonce)
+        try:
+            inputs.checks.run(ref, scope)
+        except WorkError:
+            pass
+        assert changed
+        row = inputs.checks.store.read(ref, scope)["groups"]["feature 0"]["result"]
+        assert row["outcome"] == "unknown" and "target_change" not in row
+        assert len(runner.jobs) == 1 and next(iter(runner.jobs.values()))["stop"].confirmed
+        (tmp_path / "nonce-refusal-result.json").write_text(json.dumps({
+            "fault": fault, "check_ref": ref, "result": row,
+        }, indent=2))
+    finally:
+        owned.close()
+
+
+@pytest.mark.parametrize("change_source", [False, True])
+def test_known_complete_postturn_change_uses_only_target_successor(
+    tmp_path, monkeypatch, change_source
+):
+    from contextlib import contextmanager
+
+    from ai_task_manager.domains.work.errors import AccessDenied
+    from tests.merge_workloads.fixture import Owner, Project
+
+    project = Project(tmp_path / "postturn")
+    owned = Owner(project, 0)
+    other = None if change_source else Owner(project, 1)
+    workflow = None
+    try:
+        workflow = owned.workflow = compose(owned)
+        original = owned.candidates.profile.immutable_preparation
+        changed = []
+        worker_head = git(owned.pair.worktree, "rev-parse", "HEAD")
+
+        @contextmanager
+        def change_after_complete_checks():
+            with original():
+                yield
+                if not changed and workflow.references:
+                    ref = next(iter(workflow.references))
+                    before = workflow.store.read(ref)
+                    checked = before["steps"].get("checks", {}).get("result")
+                    if checked and checked["outcome"] == "passed":
+                        if change_source:
+                            head = git(project.repo, "commit-tree", worker_head + "^{tree}",
+                                       "-p", worker_head, "-m", "Authored source change")
+                            git(project.repo, "update-ref", owned.grant.source_ref,
+                                head, worker_head)
+                        else:
+                            git(project.repo, "update-ref", "refs/heads/integration",
+                                other.grant.source_head, project.base)
+                        changed.append(before)
+
+        monkeypatch.setattr(owned.candidates.profile, "immutable_preparation",
+                            change_after_complete_checks)
+        if change_source:
+            with pytest.raises(AccessDenied, match="[Ss]ource"):
+                workflow.run(owned.task.id, workflow.original_plan.id, "postturn-change")
+            current = workflow.store.read(next(iter(workflow.references)))
+            assert current.get("target_lineage", []) == []
+            assert "publication" not in current["steps"]
+        else:
+            result = workflow.run(owned.task.id, workflow.original_plan.id, "postturn-change")
+            assert result["data"]["state"] == "done", result
+            current = workflow.store.read(result["data"]["workflow"])
+            assert len(current["target_lineage"]) == 1
+            assert git(project.repo, "show", "integration:features/0.txt") == owned.value.strip()
+            assert git(project.repo, "show", "integration:features/1.txt") == other.value.strip()
+            assert git(owned.pair.worktree, "rev-parse", "HEAD") == worker_head
+            assert len(owned.runtime.runtime.workers) == 1
+        assert len(changed) == 1
+        (tmp_path / "postturn-change-result.json").write_text(json.dumps({
+            "change_source": change_source, "original_steps": changed[0]["steps"],
+            "current": current,
+        }, indent=2))
+    finally:
+        if workflow is not None:
+            workflow.close()
+        owned.close()
+        if other is not None:
+            other.close()
+
+
 def test_postcheck_target_move_retains_physical_result_and_rechecks_without_worker_replay(tmp_path):
     from dataclasses import asdict
     from types import SimpleNamespace
