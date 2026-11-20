@@ -180,6 +180,7 @@ def owner_main(root, sockets, mode="ordinary"):
             "plan_ref": name,
             "files": ["src/a.txt"],
             "artifacts": ["src/a.txt"],
+            "resource_locks": [],
             "installation_path": str(b.installation),
             "role": role,
             **more,

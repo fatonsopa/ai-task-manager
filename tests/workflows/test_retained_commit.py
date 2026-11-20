@@ -28,6 +28,39 @@ from tests.worker_commits.helpers import WorkerFixture, git
 from tests.worker_commits.test_private_commit_controls import private_commit
 
 
+def test_pending_commit_refusal_is_retained_and_publicly_redacted(tmp_path):
+    from ai_task_manager.application.workflows.service import WorkflowService
+
+    fixture = WorkerFixture(tmp_path / "owned", resource_locks=())
+    try:
+        row = fixture.execute_only()
+        pair = fixture.runtime.pair(row["attempt_id"])
+        intent = fixture.commits.prepare(row, fixture.plan)
+        fixture.store.claim(fixture.ref, fixture.rig.scope, "original-owner")
+        fixture.store.intend(fixture.ref, "original-owner", "worker-commit", intent)
+        fixture.store.release(fixture.ref, "original-owner")
+        private_text = "Private changed worker content\n"
+        (pair.worktree / "result.py").write_text(private_text)
+        public = WorkflowService(fixture.driver)._resume(fixture.ref)
+        result = public["data"]
+        assert result["state"] == "blocked" and result["reason"] == "AccessDenied"
+        diagnostic = result["failure"]
+        current = fixture.store.read(fixture.ref, fixture.rig.scope)
+        assert diagnostic == current["last_failure"]
+        assert diagnostic["step"] == "worker-commit"
+        assert diagnostic["plan_digest"] == fixture.plan.digest
+        assert diagnostic["attempt_id"] == row["attempt_id"]
+        assert diagnostic["cause"]["stage"] == "workflow_run"
+        assert diagnostic["cause"]["causes"][0]["code"] == "access_denied"
+        assert diagnostic["cause"]["causes"][0]["frames"]
+        assert private_text.strip() not in json.dumps(diagnostic)
+        assert current["steps"]["worker-commit"]["result"] is None
+        assert fixture.checks.calls == 0
+        assert (pair.worktree / "result.py").read_text() == private_text
+    finally:
+        fixture.close()
+
+
 @pytest.mark.parametrize("case", ["current", "missing_receipt", "changed_source", "dependencies"])
 def test_successor_reconciles_pending_completed_commit_without_effects(tmp_path, monkeypatch, case):
     fixture = WorkerFixture((tmp_path / "owned").resolve(), resource_locks=())

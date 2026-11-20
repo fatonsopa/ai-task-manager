@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.domains.work.models import ACTIVE_ATTEMPTS, Cause, IssueStatus
+from ai_task_manager.observability.failures import FailureStage, capture_failure
 from ai_task_manager.storage.sessions import TaskSession
 
 
@@ -259,6 +260,7 @@ class WorkflowDriver:
             owner,
             controller=self.owner_identity() if self.owner_identity else None,
         )
+        name = None
         try:
             for _ in range(self._context(ref)[2].max_steps):
                 row, task, plan = self._context(ref)
@@ -481,6 +483,21 @@ class WorkflowDriver:
         except Exception as error:
             from ai_task_manager.supervisor.models import RuntimeUncertain
 
+            failure = {
+                "workflow": ref,
+                "task_id": row["task_id"],
+                "attempt_id": row["attempt_id"],
+                "plan_digest": row["plan_digest"],
+                "runtime_digest": row["runtime_digest"],
+                "step": name,
+                "cause": capture_failure(error, FailureStage.WORKFLOW_RUN),
+            }
+            try:
+                self.store.record_failure(ref, owner, failure)
+            except Exception as diagnostic_error:
+                failure["retention_failure"] = capture_failure(
+                    diagnostic_error, FailureStage.DIAGNOSTIC_RETENTION
+                )
             return {
                 "state": "uncertain"
                 if isinstance(error, RuntimeUncertain) or getattr(error, "uncertain", False) is True
@@ -488,6 +505,7 @@ class WorkflowDriver:
                 "reason": type(error).__name__,
                 "detail": str(error),
                 "workflow": ref,
+                "failure": failure,
             }
         finally:
             try:
