@@ -205,8 +205,8 @@ class ColdRecovery:
 
     def release_retained_claim(self, spec, service):
         """Release one sibling lock only for its exact witnessed dead controller."""
-        from dataclasses import asdict
         import json
+        from dataclasses import asdict
 
         from ai_task_manager.domains.checks.models import canonical
 
@@ -226,7 +226,8 @@ class ColdRecovery:
         expected = {**witness["owner"], "instance": self.previous["instance"]}
         for row in rows:
             body = json.loads(row["body"])
-            if body.get("claim_controller") != expected or body.get("plan_id") != spec.data["plan_ref"]:
+            if (body.get("claim_controller") != expected
+                    or body.get("plan_id") != spec.data["plan_ref"]):
                 continue
             store.release_dead_claim(
                 row["id"], service.scope, row["owner"], expected,

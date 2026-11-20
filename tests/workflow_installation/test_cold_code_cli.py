@@ -29,7 +29,9 @@ def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path,
         "PATH": os.defpath,
         "PYTHONDONTWRITEBYTECODE": "1",
         "T04_COLD_ROOT": str(root),
-        "T04_COLD_STAGE": "worker-commit" if crash_stage == "declared-worker-commit" else crash_stage,
+        "T04_COLD_STAGE": (
+            "worker-commit" if crash_stage == "declared-worker-commit" else crash_stage
+        ),
         "PYTHONPATH": os.pathsep.join(
             map(
                 str,
@@ -187,7 +189,9 @@ def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path,
                     "cold_checkpoints": [json.loads(row[0]) for row in checkpoint],
                     "age_seconds": time.time() - snapshot["observed_at"],
                     "author_calls_unchanged": True,
-                    "publication_witness": "Authored A fact with current5s window; real Core/source checks",
+                    "publication_witness": (
+                        "Authored A fact with current5s window; real Core/source checks"
+                    ),
                 }, indent=2) + "\n")
         finally:
             (root / "stop-cold-owner").touch()

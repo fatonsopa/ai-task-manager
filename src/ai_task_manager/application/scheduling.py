@@ -478,7 +478,9 @@ class Scheduling:
                 for field in ("scope", "task_id", "prose_digest", "canonical_issue_id",
                               "source_id", "dependencies", "priority", "completeness")
             ):
-                raise EvidenceRequired("Original dependency work cannot change during cold delivery")
+                raise EvidenceRequired(
+                    "Original dependency work cannot change during cold delivery"
+                )
             payload = {
                 "authorization": authorization_ref, "workflow": grant["workflow"],
                 "attempt_id": attempt.id, "graph_version": current["graph_version"],
@@ -654,7 +656,9 @@ class Scheduling:
     def source_changed(self, conn, task, event):
         if event.kind == "scheduling_wait_changed":
             return
-        session = conn.execute("SELECT scope FROM sessions WHERE id=?", (task.session_id,)).fetchone()
+        session = conn.execute(
+            "SELECT scope FROM sessions WHERE id=?", (task.session_id,)
+        ).fetchone()
         scope = Scope(**json.loads(session[0]))
         if store.current(conn, task.id):
             self._record_wait(conn, scope, task)
