@@ -314,11 +314,12 @@ class CheckStore:
                 identifier(error)
                 if execution is not None:
                     result = judge(plan, group, dispatched, execution)
-                    if target_change is not None and (
-                        result["outcome"] != "passed"
-                        or target_change.get("plan_digest") != plan.digest
-                    ):
-                        raise ValidationError("Target continuation requires a successful physical result")
+                    if target_change is not None:
+                        if target_change.get("plan_digest") != plan.digest:
+                            raise ValidationError("Target refusal differs from the physical plan")
+                        if result["outcome"] != "passed":
+                            # Retain known failure facts without granting target continuation.
+                            target_change = None
                     result.update(outcome="unknown", passed=[], error_type=error)
                 else:
                     if target_change is not None:
