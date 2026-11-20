@@ -20,7 +20,7 @@ from ai_task_manager.supervisor.models import RuntimeUncertain
 
 
 class DeliveryDependencies:
-    def __init__(self, core, handle, source, deadline):
+    def __init__(self, core, handle, source, deadline, *, recovery=None):
         self.core, self.handle, self.source, self.deadline = core, handle, source, deadline
         self.scope = core.session_binding(handle)
         self._bound = (core, handle, source, deadline)
@@ -34,8 +34,18 @@ class DeliveryDependencies:
         self._row = None
         self._next_refresh_at = None
         self._preparation_latency = 0.0
+        self.recovery, self._recovery_bound = recovery, recovery
+        self._completed_commits = None
+        self._cold_ref, self._cold_bound = None, False
+
+    def bind_commits(self, commits):
+        if self._completed_commits is not None and self._completed_commits is not commits:
+            raise AccessDenied("Completed delivery commit owner changed")
+        self._completed_commits = commits
 
     def _facts(self):
+        if self.recovery is not self._recovery_bound:
+            raise AccessDenied("Cold delivery recovery owner changed")
         if (self.core, self.handle, self.source, self.deadline) != self._bound:
             raise AccessDenied("Delivery dependency owner changed")
         if self.source.core is not self.core or self.source.binding != self.scope:
@@ -44,6 +54,10 @@ class DeliveryDependencies:
             raise AccessDenied("Delivery dependency session changed")
         task_id, attempt_id, prose, revision = self._assignment
         task = self.core.get_task(self.handle, task_id)
+        if self._cold_ref is not None:
+            self.core.context.proof(
+                self._cold_ref, "workflow_cold_delivery", self.scope[1], task.id
+            )
         attempt = self.core.get_attempt(self.handle, attempt_id)
         if (
             self.core.context.clock() >= self.deadline
@@ -62,11 +76,30 @@ class DeliveryDependencies:
 
         task, _ = self._facts()
         current = self.core.scheduling.explain(self.handle, task.id)
+        pending_commit = self._row.get("steps", {}).get("worker-commit")
+        from ai_task_manager.storage import scheduling
+
+        with self.core.context.db.transaction() as conn:
+            binding = scheduling.attempt_binding(conn, self._assignment[1])
+        needs_recovery = (
+            current["state"] != "ready" or not current["expires_at"]
+            or current["expires_at"] <= self.core.context.clock()
+            or bool(binding and binding["invalidated_by"])
+        )
+        if (self.recovery is not None and self._cold_ref is None and needs_recovery
+                and pending_commit is not None and pending_commit["result"] is None):
+            from .cold import ColdRecovery
+
+            if type(self.recovery) is not ColdRecovery:
+                raise AccessDenied("Verified original cold recovery is required")
+            self._cold_ref = self.recovery.prepare_delivery(
+                self.core, self.handle, self._row, self._completed_commits
+            )
         successor = (
             isinstance(self.scope[0], TaskSession)
             and self._row.get("succession", {}).get("version") == 2
         )
-        end = self.deadline if successor else min(
+        end = self.deadline if successor or (self._cold_ref and not self._cold_bound) else min(
             self.deadline, current["expires_at"] or self.deadline
         )
         boundary = getattr(self.source, "publication_boundary", None)
@@ -95,7 +128,9 @@ class DeliveryDependencies:
             self._graph = before["graph_version"]
         elif self._graph != before["graph_version"]:
             raise AccessDenied("Original delivery dependency graph changed")
-        bootstrap = successor and self._graph == before["graph_version"]
+        bootstrap = (successor and self._graph == before["graph_version"]) or (
+            self._cold_ref is not None and not self._cold_bound
+        )
         if not bootstrap:
             self.prepare_local()
             before = self.core.scheduling.explain(self.handle, task.id)
@@ -163,6 +198,11 @@ class DeliveryDependencies:
         current, attempt = self._facts()
         if successor:
             self.core.scheduling.successor_delivery(self.handle, current.id, attempt.id)
+        elif self._cold_ref is not None:
+            self.core.scheduling.cold_delivery(
+                self.handle, current.id, attempt.id, self._cold_ref
+            )
+            self._cold_bound = True
         with self.core.execution.worker_commit_boundary(
             self.handle,
             current.id,

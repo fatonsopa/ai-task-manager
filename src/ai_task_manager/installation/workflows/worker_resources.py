@@ -39,6 +39,8 @@ class ResourceWorkerCommits:
         self.checks = ResourceCommitChecks(commits.checks, resources, commits.runtime)
         commits.checks = self.checks
         self._bound = (commits, resources, self.checks)
+        if freshness is not None:
+            freshness.bind_commits(commits)
 
     @contextmanager
     def _use(self, row, plan, *, retained=False):

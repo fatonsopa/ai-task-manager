@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.parametrize("crash_stage", ["checks", "worker-commit"])
+@pytest.mark.parametrize("crash_stage", ["checks", "worker-commit", "declared-worker-commit"])
 def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path, crash_stage):
     root = tmp_path.resolve()
     root.chmod(0o700)
@@ -29,7 +29,7 @@ def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path,
         "PATH": os.defpath,
         "PYTHONDONTWRITEBYTECODE": "1",
         "T04_COLD_ROOT": str(root),
-        "T04_COLD_STAGE": crash_stage,
+        "T04_COLD_STAGE": "worker-commit" if crash_stage == "declared-worker-commit" else crash_stage,
         "PYTHONPATH": os.pathsep.join(
             map(
                 str,
@@ -44,6 +44,8 @@ def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path,
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": os.devnull,
     }
+    if crash_stage == "declared-worker-commit":
+        env["T04_DECLARED_COLD"] = "1"
     child = None
     successor = None
     with (root / "owner.log").open("wb") as output:
@@ -108,6 +110,13 @@ def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path,
             assert (root / "crashed.json").exists(), result
             child.wait(timeout=8)
             assert child.returncode == 71, (root / "owner.log").read_text()
+            if crash_stage == "declared-worker-commit":
+                with sqlite3.connect(root / "declared-provider/core.sqlite") as db:
+                    snapshot = json.loads(db.execute(
+                        "SELECT data FROM scheduling_snapshots WHERE task_id=?",
+                        (ready["task_id"],),
+                    ).fetchone()[0])
+                time.sleep(max(0, snapshot["expires_at"] - time.time() + 0.05))
             state = Path(ready["state_root"])
             with sqlite3.connect(state / "workflow.sqlite") as db:
                 reference = db.execute("SELECT id FROM runs").fetchone()[0]
@@ -163,6 +172,23 @@ def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path,
                 == "4"
             )
             assert recovered["data"]["cleanup"] == "pending_independent_retirement"
+            if crash_stage == "declared-worker-commit":
+                with sqlite3.connect(root / "declared-provider/core.sqlite") as db:
+                    invalidation = db.execute(
+                        "SELECT invalidated_by FROM scheduling_attempts WHERE task_id=?",
+                        (ready["task_id"],),
+                    ).fetchone()[0]
+                    checkpoint = db.execute(
+                        "SELECT payload FROM checkpoints WHERE kind='cold_delivery'"
+                    ).fetchall()
+                assert invalidation and checkpoint
+                (root / "dependent-cold-result.json").write_text(json.dumps({
+                    "recovered": recovered, "prior_invalidation_retained": invalidation,
+                    "cold_checkpoints": [json.loads(row[0]) for row in checkpoint],
+                    "age_seconds": time.time() - snapshot["observed_at"],
+                    "author_calls_unchanged": True,
+                    "publication_witness": "Authored A fact with current5s window; real Core/source checks",
+                }, indent=2) + "\n")
         finally:
             (root / "stop-cold-owner").touch()
             if child is not None and child.poll() is None:

@@ -40,6 +40,7 @@ DECISION_KINDS = frozenset(
         "session_resume",
         "workflow_successor",
         "workflow_successor_observation",
+        "workflow_cold_delivery",
         "notification_delivered",
         "notification_ai_acknowledged",
         "notification_user_reported",

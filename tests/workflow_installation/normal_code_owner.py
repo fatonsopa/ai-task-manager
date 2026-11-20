@@ -41,11 +41,52 @@ def owner_main(root, sockets, mode="ordinary"):
     os.umask(0o077)
     runtime = RuntimeRig(root)
     r = runtime.rig
+    declared = bool(os.environ.get("T04_DECLARED_COLD"))
+    if declared:
+        from tests.scheduling.provider_fixture import ProviderFixture as GraphProvider
+
+        declared_provider = GraphProvider(root / "declared-provider")
+        runtime.rig = r = declared_provider.rig
+        r.key = lambda: "fixture:" + str(uuid4())
     r.now = time.time()
     r.policy = ApprovalPolicy("a" * 64, "b" * 64, "c" * 64)
     r.capacity = CapacityPolicy("claude", 2, 2)
     r.core = r.new_core()
-    task = r.queued(code=True)
+    if declared:
+        from ai_task_manager.adapters.linear.dependencies.source import DependencySource
+        from ai_task_manager.domains.scheduling.resources import AdmissionResources
+        from tests.workflow_installation.cold_code_controls import declared_dependencies
+
+        p = declared_provider
+        p.source = DependencySource(r.core, r.handle, p.client, p.receipts)
+        r.core.scheduling.sources = p.receipts
+        predecessor = p.task(code=True, title="A declared publication")
+        r.resource_sources.rows[predecessor.id] = AdmissionResources(
+            r.scope, predecessor.id, predecessor.prose_digest, 0, "authored-project", (), ())
+        p.source.refresh(predecessor.id, "a-empty")
+        predecessor = r.transition(predecessor, "Todo", "enqueue")
+        predecessor, a_attempt = r.running(predecessor)
+        predecessor = r.complete(predecessor)
+        predecessor, _ = r.settle(predecessor, a_attempt)
+        merge_ref = r.proof("merge", predecessor.id,
+                            {"commit": "a" * 40, "prose_digest": predecessor.prose_digest})
+        predecessor = r.transition(predecessor, "In Dev", "merge", {"merge": merge_ref})
+        task = p.task(code=True, title="C declared dependent")
+        r.resource_sources.rows[task.id] = AdmissionResources(
+            r.scope, task.id, task.prose_digest, 0, "authored-project", (), ())
+        p.edge(predecessor, task)
+        data = {"scope": asdict(r.scope), "expected": asdict(p.expected),
+                "connection": asdict(p.connection), "states": p.states, "edges": p.edges,
+                "predecessor": predecessor.id, "dependent": task.id,
+                "predecessor_prose": predecessor.prose_digest,
+                "dependent_prose": task.prose_digest, "merge_ref": merge_ref,
+                "merge_payload": r.proofs.evidence[merge_ref].payload}
+        write_private(root / "declared-provider.json", data)
+        source = declared_dependencies(r.core, r.handle)
+        source.refresh(task.id, "c-initial")
+        task = r.transition(task, "Todo", "enqueue")
+    else:
+        task = r.queued(code=True)
     initialize(runtime.repo)
     subprocess.run(["git", "-C", str(runtime.repo), "branch", "integration"], check=True)
     base = subprocess.check_output(
@@ -55,6 +96,7 @@ def owner_main(root, sockets, mode="ordinary"):
     enroll_claim_store(r.db, authority)
     SessionFile(root / "session.json").save(r.handle, r.scope)
     config = root / "service.json"
+    grant_ref = "session-enrollment:declared-cold" if declared else "declared-installation"
     write_private(
         config,
         {
@@ -64,7 +106,7 @@ def owner_main(root, sockets, mode="ordinary"):
             "authority_key": str(authority.key_path),
             "session_file": str(root / "session.json"),
             "approval_policy": asdict(r.policy),
-            "grant_ref": "declared-installation",
+            "grant_ref": grant_ref,
             "workflow_control": {
                 "record": str(sockets / "owner.json"),
                 "endpoint": str(sockets / "owner.sock"),
@@ -74,13 +116,18 @@ def owner_main(root, sockets, mode="ordinary"):
     )
     deadline = time.time() + 300
     observations = Observations()
-    observations.grants["declared-installation"] = HostGrant(
+    observations.grants[grant_ref] = HostGrant(
         r.scope,
         r.scope.logical_session,
         ("start", "merge", "non_code_complete"),
         "declared-owned-fixture",
         deadline,
     )
+    if declared:
+        from ai_task_manager.adapters.decisions.observations import bind_record
+
+        bind_record(authority, grant_ref, {"scope": asdict(r.scope),
+                    "actions": ["start", "merge"], "expires_at": deadline})
 
     def provider(core, handle, decisions, writer):
         r.core = core
@@ -108,9 +155,19 @@ def owner_main(root, sockets, mode="ordinary"):
             ]
         ),
         "provider_factory": provider,
-        "dependencies_factory": lambda c, h: AuthoredDependencyCollection(c, h),
+        "dependencies_factory": (declared_dependencies if declared
+                                 else lambda c, h: AuthoredDependencyCollection(c, h)),
         "scheduling_sources": r.scheduling_sources,
     }
+    if declared:
+        from ai_task_manager.application.service.linear import DECISION_KINDS
+        from tests.workflow_installation.cold_code_controls import DeclaredMilestone
+
+        options["evidence_factory"] = lambda journal: EvidenceRouter([
+            EvidenceRoute("fixture:", frozenset({"provider_status", "external_observation"}),
+                          DeclaredMilestone(r.core, r.handle, data, r.proofs)),
+            EvidenceRoute("decision-proof:", DECISION_KINDS, journal),
+        ])
     reviewer_tasks = {}
     for stage in ("code_worker", "code_candidate"):
         prose = TaskProse(
@@ -120,11 +177,16 @@ def owner_main(root, sockets, mode="ordinary"):
             "This is an authored local protocol control, not a genuine model evaluation.",
             False,
         )
-        value = r.core.intake.submit(r.handle, prose, r.approval(prose), r.key())
-        value = r.confirm(value)
-        value = r.transition(value, "Todo", "enqueue")
-        r.known_dependencies[value.id] = ((), "normal")
-        known_declaration(r, value)
+        if declared:
+            value = p.task(title=prose.title)
+            declared_dependencies(r.core, r.handle).refresh(value.id, r.key())
+            value = r.transition(value, "Todo", "enqueue")
+        else:
+            value = r.core.intake.submit(r.handle, prose, r.approval(prose), r.key())
+            value = r.confirm(value)
+            value = r.transition(value, "Todo", "enqueue")
+            r.known_dependencies[value.id] = ((), "normal")
+            known_declaration(r, value)
         reviewer_tasks[stage] = value
     assignment = (
         task.title

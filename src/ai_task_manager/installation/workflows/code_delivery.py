@@ -187,7 +187,9 @@ class InstalledCodeDelivery:
         self.core, self.handle, self.store, self.runtime = core, handle, store, runtime
         from .delivery_dependencies import DeliveryDependencies
 
-        self.freshness = DeliveryDependencies(core, handle, dependencies, context.deadline)
+        self.freshness = DeliveryDependencies(
+            core, handle, dependencies, context.deadline, recovery=context.recovery
+        )
         self.resources = DeliveryResources(
             resources, core.context.clock, context.deadline, self.freshness
         )
