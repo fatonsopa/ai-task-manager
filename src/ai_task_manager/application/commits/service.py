@@ -265,6 +265,9 @@ class WorkerCommits:
         retained = self._retained_commit(row, plan)
         if retained is not None:
             return self._completed_receipt(row, task, attempt, pair, fact, retained, intent)
+        if self.journal.observations(attempt.id, "worker-commit-complete"):
+            self.git.require_quiescent_commit(attempt.id)
+            return self._completed_receipt(row, task, attempt, pair, fact, row, intent)
         original = self.journal.effect(attempt.id, "worker-commit-intent")
         if original is None and intent.get("commit_protocol") == 1:
             # The component writes this intent before any staging, check or hook.
@@ -321,6 +324,29 @@ class WorkerCommits:
 
     def _completed_receipt(self, row, task, attempt, pair, fact, retained, intent):
         """Consume an already published result; no hooks, process or ref effects."""
+        result = self._completed_observation(row, task, attempt, pair, fact, retained, intent)
+        with self.core.execution.worker_commit_boundary(
+            self.handle, task.id, attempt.id, task.version, attempt.version,
+            row["decision_revision"],
+        ):
+            return result
+
+    def completed_observation(self, row, plan):
+        """Verify stopped physical completion before a trusted delivery rebind."""
+        task, attempt, pair, fact = self._current(row, plan)
+        if self.clock() >= plan.deadline:
+            raise AccessDenied("Original worker commit deadline expired")
+        intent = row["steps"].get("worker-commit")
+        if intent is None:
+            raise EvidenceRequired("Original pending worker commit intent is required")
+        self.git.require_quiescent_commit(attempt.id)
+        return self._completed_observation(
+            row, task, attempt, pair, fact, row, intent["payload"]
+        )
+
+    def _completed_observation(self, row, task, attempt, pair, fact, retained, intent):
+        if self.clock() >= row["plan"]["deadline"]:
+            raise AccessDenied("Original worker commit deadline expired")
         saved = retained["steps"]["worker-commit"]
         candidate = self.journal.effect(attempt.id, "worker-commit-candidate")
         receipts = self.journal.observations(attempt.id, "worker-commit-complete")
@@ -357,12 +383,4 @@ class WorkerCommits:
             or (saved["result"] is not None and saved["result"] != expected)
         ):
             raise EvidenceRequired("Retained receipt differs from the exact current publication")
-        with self.core.execution.worker_commit_boundary(
-            self.handle,
-            task.id,
-            attempt.id,
-            task.version,
-            attempt.version,
-            row["decision_revision"],
-        ):
-            return {key: receipts[-1][key] for key in expected}
+        return {key: receipts[-1][key] for key in expected}

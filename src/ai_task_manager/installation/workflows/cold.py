@@ -205,8 +205,8 @@ class ColdRecovery:
 
     def release_retained_claim(self, spec, service):
         """Release one sibling lock only for its exact witnessed dead controller."""
-        from dataclasses import asdict
         import json
+        from dataclasses import asdict
 
         from ai_task_manager.domains.checks.models import canonical
 
@@ -226,7 +226,8 @@ class ColdRecovery:
         expected = {**witness["owner"], "instance": self.previous["instance"]}
         for row in rows:
             body = json.loads(row["body"])
-            if body.get("claim_controller") != expected or body.get("plan_id") != spec.data["plan_ref"]:
+            if (body.get("claim_controller") != expected
+                    or body.get("plan_id") != spec.data["plan_ref"]):
                 continue
             store.release_dead_claim(
                 row["id"], service.scope, row["owner"], expected,
@@ -299,6 +300,71 @@ class ColdRecovery:
         ):
             raise AccessDenied("Recovery requires the original task, plan and operation key")
         return row
+
+    def prepare_delivery(self, core, handle, row, commits):
+        """Authorize one stopped publication continuation, never worker startup."""
+        from dataclasses import asdict
+
+        from ai_task_manager.adapters.decisions.observations import current_enrollment
+        from ai_task_manager.adapters.git.commits import ConfinedWorkerGit
+        from ai_task_manager.adapters.workflow_control.identity import process_start
+        from ai_task_manager.application.commits import WorkerCommits
+        from ai_task_manager.storage import scheduling
+
+        self.check(published=True)
+        scope = Scope(**self.spec.data["scope"])
+        grant = current_enrollment(self.journal, self.config["grant_ref"], asdict(scope))
+        descriptor = read_private(self.successor["record"])
+        witness = self.witness["workflow"]
+        store = WorkflowStore.open_existing(witness["path"], store_id=witness["store_id"])
+        actual = store.read(self.data["request"]["workflow_ref"], scope)
+        if (
+            type(commits) is not WorkerCommits
+            or type(commits.git) is not ConfinedWorkerGit
+            or commits.core is not core or commits.handle != handle
+            or str(core.context.db.path) != self.config["core_database"]
+            or physical(commits.journal.path) != self.witness["files"]["runtime"]
+            or core.session_binding(handle)[1] != scope
+            or row != actual or row["id"] != self.data["request"]["workflow_ref"]
+            or row["task_id"] != self.spec.data["task_id"]
+            or row["plan_id"] != self.spec.data["plan_ref"]
+            or store.original_key(row["id"], scope) != self.data["request"]["operation_key"]
+            or (descriptor["pid"], descriptor["start"]) != (os.getpid(), process_start(os.getpid()))
+            or not {"start", "merge"} <= set(grant["actions"])
+            or core.context.clock() >= min(self.spec.data["deadline"], grant["expires_at"])
+            or history(self.journal, stop_reference(self.config_file, row["id"])) is not None
+        ):
+            raise AccessDenied("Current original cold delivery ownership is required")
+        task = core.get_task(handle, row["task_id"])
+        attempt = core.get_attempt(handle, row["attempt_id"])
+        intent = row["steps"].get("worker-commit", {}).get("payload", {})
+        if (task.version, attempt.version, task.decision_revision) != (
+            intent.get("task_version"), intent.get("attempt_version"), row["decision_revision"]
+        ):
+            raise EvidenceRequired("Completed commit input versions must remain current")
+        from ai_task_manager.application.workflows.recovery import _old_plan
+
+        receipt = commits.completed_observation(row, _old_plan(row))
+        with core.context.db.transaction() as conn:
+            binding = scheduling.attempt_binding(conn, attempt.id)
+            observed = scheduling.current(conn, task.id)
+        if not binding or not observed or binding["graph_version"] != observed["graph_version"]:
+            raise EvidenceRequired("Original dependency graph must remain unchanged")
+        payload = {
+            "workflow": row["id"], "task_id": task.id, "attempt_id": attempt.id,
+            "task_version": task.version, "attempt_version": attempt.version,
+            "decision_revision": task.decision_revision, "prose_digest": task.prose_digest,
+            "plan_digest": row["plan_digest"], "runtime_digest": row["runtime_digest"],
+            "graph_version": binding["graph_version"],
+            "snapshot": asdict(observed["snapshot"]), "receipt": receipt,
+            "remaining_work": sorted(set(task.required_work) - set(task.completed_work)),
+            "deadline": self.spec.data["deadline"], "recovery": self.reference,
+        }
+        self.check(published=True)
+        return self.journal._evidence(
+            "workflow_cold_delivery", scope, task.id, payload, self.config["grant_ref"],
+            min(self.spec.data["deadline"], grant["expires_at"]),
+        )
 
     def publish(self, service, descriptor):
         self.authorize(service)

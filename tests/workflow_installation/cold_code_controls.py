@@ -7,6 +7,79 @@ from pathlib import Path
 from threading import Thread
 
 
+class DeclaredMilestone:
+    """Authored publication fact; real Core/source still enforce the declared edge."""
+
+    def __init__(self, core, handle, data, fallback=None):
+        self.core, self.handle, self.data, self.fallback = core, handle, data, fallback
+        self.until = 0
+
+    def prepare_merge_milestone(self, subject, reference):
+        from ai_task_manager.domains.work.errors import EvidenceRequired
+
+        task = self.core.get_task(self.handle, subject)
+        if (subject != self.data["predecessor"] or reference != self.data["merge_ref"]
+                or not task.delivered_once or task.human_hold or task.sync_state != "confirmed"):
+            raise EvidenceRequired("Current authored predecessor publication required")
+        self.until = self.core.context.clock() + 5
+        return reference
+
+    def verify_evidence(self, reference):
+        from ai_task_manager.domains.work.models import Evidence, Scope
+
+        if reference == self.data["merge_ref"]:
+            return Evidence("merge", Scope(**self.data["scope"]), self.data["predecessor"],
+                            self.data["merge_payload"], self.until)
+        return self.fallback.verify_evidence(reference)
+
+
+def declared_dependencies(core, handle):
+    """Existing production collector/reader/receipts over authored GraphQL."""
+    from types import SimpleNamespace
+
+    from ai_task_manager.adapters.linear.client import LinearClient
+    from ai_task_manager.adapters.linear.connections import AgentConnection
+    from ai_task_manager.adapters.linear.dependencies.receipts import DependencyReceipts
+    from ai_task_manager.adapters.linear.dependencies.source import DependencySource
+    from ai_task_manager.adapters.linear.models import Credentials, ExpectedBinding
+    from tests.scheduling.provider_fixture import ProviderFixture
+
+    root = Path(os.environ["T04_COLD_ROOT"])
+    data = json.loads((root / "declared-provider.json").read_text())
+    clock = time.time
+    core.context.clock = core.context.db.clock = clock
+    provider = ProviderFixture.__new__(ProviderFixture)
+    provider.rig = SimpleNamespace(core=core, handle=handle)
+    provider.scope = core.session_binding(handle)[1]
+    provider.expected = ExpectedBinding(**data["expected"])
+    provider.connection = AgentConnection(**data["connection"])
+    provider.states = data["states"]
+    provider.nodes, provider.edges, provider.calls = {}, data["edges"], []
+    provider.callback, provider.depth, provider.disabled, provider.page_size = None, 0, False, 50
+    provider.schema = json.loads(Path(__file__).parents[1].joinpath(
+        "scheduling/fixtures/dependency_schema.json").read_text())
+    for task in core.list_tasks(handle):
+        if task.issue_id:
+            provider.sync(task)
+    send = provider.send
+
+    def current_provider(query, variables, credentials):
+        for current in core.list_tasks(handle):
+            if current.issue_id:
+                provider.sync(current)
+        return send(query, variables, credentials)
+
+    provider.send = current_provider
+    client = LinearClient(provider, lambda: Credentials("authored-token"),
+                          provider.expected, max_pages=5)
+    client.verify_binding()
+    receipts = DependencyReceipts(root / "declared-deps.sqlite", root / "declared-deps.key",
+                                 clock=clock)
+    core.scheduling.sources = receipts
+    return DependencySource(core, handle, client, receipts,
+                            milestones=((data["dependent_prose"], data["predecessor_prose"]),))
+
+
 def install():
     from ai_task_manager.adapters.decisions.authority import HostGrant
     from ai_task_manager.adapters.decisions.journal import AuthorityJournal
@@ -80,7 +153,8 @@ def install():
         defaults = {
             "observations": grants,
             "scheduling_sources": SnapshotSource(),
-            "dependencies_factory": lambda c, h: AuthoredDependencyCollection(c, h),
+            "dependencies_factory": (declared_dependencies if os.environ.get("T04_DECLARED_COLD")
+                                     else lambda c, h: AuthoredDependencyCollection(c, h)),
             "provider_factory": lambda c, h, *_: Provider(c, config),
             "evidence_factory": lambda j: EvidenceRouter(
                 [
@@ -92,19 +166,56 @@ def install():
                 ]
             ),
         }
-        return loading(path, *args, **{**defaults, **kwargs})
+        if os.environ.get("T04_DECLARED_COLD"):
+            from ai_task_manager.application.service.linear import DECISION_KINDS
+            data = json.loads(
+                (Path(os.environ["T04_COLD_ROOT"]) / "declared-provider.json").read_text()
+            )
+            def evidence(journal):
+                # The owner binds Core/handle after loading, before source consumption.
+                issuer = DeclaredMilestone(None, None, data)
+                return EvidenceRouter([
+                    EvidenceRoute("fixture:", frozenset({"external_observation"}), issuer),
+                    EvidenceRoute("decision-proof:", DECISION_KINDS | {"provider_status"}, journal),
+                ])
+            defaults["evidence_factory"] = evidence
+        result = loading(path, *args, **{**defaults, **kwargs})
+        if os.environ.get("T04_DECLARED_COLD"):
+            for route in result.core.context.evidence.routes:
+                if type(route.verifier) is DeclaredMilestone:
+                    route.verifier.core, route.verifier.handle = result.core, result.handle
+        return result
 
     from ai_task_manager.installation import native
 
     resolve = native.resolve
 
     def composed(*args, **kwargs):
-        options = {"dependencies_factory": lambda c, h: AuthoredDependencyCollection(c, h)}
+        options = {"dependencies_factory": (
+            declared_dependencies if os.environ.get("T04_DECLARED_COLD")
+            else lambda c, h: AuthoredDependencyCollection(c, h)
+        )}
         if kwargs.get("service_options") is None:
             kwargs["service_options"] = options
         return resolve(*args, **kwargs)
 
     native.resolve = composed
+    if os.environ.get("T04_DECLARED_COLD"):
+        verify = EvidenceRouter.verify_evidence
+
+        def verify_declared(self, reference):
+            issuer = next((route.verifier for route in self.routes
+                           if type(route.verifier) is DeclaredMilestone), None)
+            if issuer is not None and reference == issuer.data["merge_ref"]:
+                return issuer.verify_evidence(reference)
+            return verify(self, reference)
+
+        EvidenceRouter.verify_evidence = verify_declared
+        def prepare_milestone(self, subject, reference):
+            return next(route.verifier for route in self.routes
+                        if type(route.verifier) is DeclaredMilestone).prepare_merge_milestone(
+                            subject, reference)
+        EvidenceRouter.prepare_merge_milestone = prepare_milestone
     service.load_service = load
     from ai_task_manager.installation import workflows
     from ai_task_manager.installation.workflows import composition
@@ -178,8 +289,7 @@ def install():
 
     def reported(self, reference):
         value = running(self, reference)
-        if "detail" in value:
-            (Path(os.environ["T04_COLD_ROOT"]) / "driver-result.json").write_text(json.dumps(value))
+        (Path(os.environ["T04_COLD_ROOT"]) / "driver-result.json").write_text(json.dumps(value))
         return value
 
     WorkflowDriver.run = reported

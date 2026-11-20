@@ -20,8 +20,12 @@ from ai_task_manager.application.merging.workflows import (
     MergePlan,
     MergeWorkflowService,
 )
+from ai_task_manager.domains.checks.results import (
+    CheckExecutionRefused,
+    CheckTargetMoved,
+    Execution,
+)
 from ai_task_manager.domains.merging.candidates import CandidateGrant
-from ai_task_manager.domains.checks.results import CheckExecutionRefused, CheckTargetMoved, Execution
 from ai_task_manager.domains.merging.contracts import Binding
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.storage.merging.journal import Journal
@@ -187,7 +191,9 @@ class InstalledCodeDelivery:
         self.core, self.handle, self.store, self.runtime = core, handle, store, runtime
         from .delivery_dependencies import DeliveryDependencies
 
-        self.freshness = DeliveryDependencies(core, handle, dependencies, context.deadline)
+        self.freshness = DeliveryDependencies(
+            core, handle, dependencies, context.deadline, recovery=context.recovery
+        )
         self.resources = DeliveryResources(
             resources, core.context.clock, context.deadline, self.freshness
         )

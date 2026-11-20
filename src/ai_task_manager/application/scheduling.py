@@ -12,7 +12,7 @@ from ai_task_manager.domains.scheduling.models import (
     RejectSchedulingSources,
     SchedulingBlocked,
 )
-from ai_task_manager.domains.work.errors import EvidenceRequired, StaleVersion
+from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired, StaleVersion
 from ai_task_manager.domains.work.models import DELIVERED, Scope, SyncState
 from ai_task_manager.domains.work.models import AttemptState as A
 from ai_task_manager.domains.work.models import IssueStatus as S
@@ -247,8 +247,6 @@ class Scheduling:
                     "AND kind='successor_delivery'",
                     (attempt.id,),
                 ).fetchall()
-                import json
-
                 successor = any(
                     json.loads(row[0])
                     == {
@@ -259,6 +257,31 @@ class Scheduling:
                     }
                     for row in rows
                 )
+            if not successor and (
+                attempt.state == "done"
+                and not isinstance(session_id, sessions.TaskSession)
+            ):
+                for row in conn.execute(
+                    "SELECT payload FROM checkpoints WHERE attempt_id=? AND kind='cold_delivery'",
+                    (attempt.id,),
+                ):
+                    saved = json.loads(row[0])
+                    try:
+                        proof = self.c.proof(
+                            saved["authorization"], "workflow_cold_delivery", scope, task.id
+                        )
+                    except (AccessDenied, EvidenceRequired):
+                        continue
+                    if saved == {
+                        "authorization": saved["authorization"],
+                        "workflow": proof.payload["workflow"],
+                        "attempt_id": attempt.id,
+                        "graph_version": current["graph_version"],
+                        "task_version": task.version,
+                        "decision_revision": task.decision_revision,
+                    } and proof.payload["attempt_id"] == attempt.id:
+                        successor = True
+                        break
             if not successor and (
                 not binding
                 or binding["invalidated_by"]
@@ -410,6 +433,65 @@ class Scheduling:
             conn.execute(
                 "INSERT OR IGNORE INTO checkpoints VALUES(?,?,?,?)",
                 (checkpoint, attempt.id, "successor_delivery", json.dumps(payload, sort_keys=True)),
+            )
+            return payload
+
+    def cold_delivery(self, handle, task_id, attempt_id, authorization_ref):
+        """Record current delivery facts under verified original cold authority."""
+        with self.c.db.transaction() as conn:
+            sid, scope = sessions.resolve(conn, handle)
+            if isinstance(sid, sessions.TaskSession):
+                raise AccessDenied("Ordinary original cold delivery authority is required")
+            task, attempt = work.get(conn, sid, task_id), attempts.get(conn, sid, attempt_id)
+            proof = self.c.proof(authorization_ref, "workflow_cold_delivery", scope, task.id)
+            grant = proof.payload
+            if (
+                not task.code_bearing or task.human_hold or task.delivered_once
+                or task.prose_digest != grant["prose_digest"]
+                or task.decision_revision != grant["decision_revision"]
+                or task.execution_state != "done" or attempt.state != "done"
+                or attempt.task_id != task.id or attempt.id != grant["attempt_id"]
+                or attempt.version != grant["attempt_version"]
+                or task.observed_status != "In Progress" or task.sync_state != "confirmed"
+                or self._readiness(conn, scope, task).state != "ready"
+            ):
+                raise AccessDenied("Current stopped code and dependency facts are required")
+            base = grant["task_version"]
+            progress = {
+                json.loads(row[0])["task_version"]
+                for row in conn.execute(
+                    "SELECT payload FROM events WHERE task_id=? AND kind='work_unit_verified'",
+                    (task.id,),
+                )
+                if base < json.loads(row[0]).get("task_version", 0) <= task.version
+                and json.loads(row[0]).get("unit") in grant["remaining_work"]
+            }
+            if task.version < base or progress != set(range(base + 1, task.version + 1)):
+                raise EvidenceRequired("Foreign task progress cannot rebind cold delivery")
+            current = store.current(conn, task.id)
+            previous = store.attempt_binding(conn, attempt.id)
+            original = store.snapshot_from(grant["snapshot"])
+            if not previous or previous["graph_version"] != grant["graph_version"] or (
+                current["graph_version"] != grant["graph_version"]
+            ) or any(
+                getattr(original, field) != getattr(current["snapshot"], field)
+                for field in ("scope", "task_id", "prose_digest", "canonical_issue_id",
+                              "source_id", "dependencies", "priority", "completeness")
+            ):
+                raise EvidenceRequired(
+                    "Original dependency work cannot change during cold delivery"
+                )
+            payload = {
+                "authorization": authorization_ref, "workflow": grant["workflow"],
+                "attempt_id": attempt.id, "graph_version": current["graph_version"],
+                "task_version": task.version, "decision_revision": task.decision_revision,
+            }
+            from ai_task_manager.config.files import digest
+
+            conn.execute(
+                "INSERT OR IGNORE INTO checkpoints VALUES(?,?,?,?)",
+                ("cold-delivery:" + digest(payload), attempt.id, "cold_delivery",
+                 json.dumps(payload, sort_keys=True)),
             )
             return payload
 
@@ -574,7 +656,9 @@ class Scheduling:
     def source_changed(self, conn, task, event):
         if event.kind == "scheduling_wait_changed":
             return
-        session = conn.execute("SELECT scope FROM sessions WHERE id=?", (task.session_id,)).fetchone()
+        session = conn.execute(
+            "SELECT scope FROM sessions WHERE id=?", (task.session_id,)
+        ).fetchone()
         scope = Scope(**json.loads(session[0]))
         if store.current(conn, task.id):
             self._record_wait(conn, scope, task)

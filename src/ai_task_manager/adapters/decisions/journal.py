@@ -245,6 +245,18 @@ class AuthorityJournal:
                 or data["expires_at"] > enrollment["expires_at"]
             ):
                 raise AccessDenied("Enrollment does not authorize this finite successor")
+        if data["kind"] == "workflow_cold_delivery":
+            if not isinstance(origin, str) or not origin.startswith(PREFIX):
+                raise AccessDenied("Cold delivery requires current original enrollment")
+            enrollment = current_enrollment(self, origin, data["scope"])
+            if (
+                not {"start", "merge"} <= set(enrollment["actions"])
+                or data.get("expires_at") is None
+                or data["expires_at"] > min(
+                    enrollment["expires_at"], data["payload"]["deadline"]
+                )
+            ):
+                raise AccessDenied("Original enrollment cannot authorize this cold delivery")
         if data["kind"] == "delivered_followup":
             if not isinstance(origin, str) or not origin.startswith(PREFIX):
                 raise AccessDenied("Delivered follow-up requires enrolled delegation")
