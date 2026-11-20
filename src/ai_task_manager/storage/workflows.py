@@ -453,6 +453,19 @@ class WorkflowStore:
         with self.transaction() as conn:
             conn.execute("UPDATE runs SET owner=NULL WHERE id=? AND owner=?", (reference, owner))
 
+    def record_failure(self, reference, owner, failure):
+        """Retain one bounded redacted refusal under its existing workflow claim."""
+        encoded = canonical(failure)
+        if type(failure) is not dict or len(encoded.encode()) > 16384:
+            raise SchemaError("Workflow failure must be bounded diagnostic metadata")
+        with self.transaction() as conn:
+            row = conn.execute("SELECT body,owner FROM runs WHERE id=?", (reference,)).fetchone()
+            if row is None or row["owner"] != owner:
+                raise AccessDenied("Workflow diagnostic owner changed")
+            body = json.loads(row["body"])
+            body["last_failure"] = failure
+            conn.execute("UPDATE runs SET body=? WHERE id=?", (canonical(body), reference))
+
     def intend(self, reference, owner, name, payload):
         with self.transaction() as conn:
             if (

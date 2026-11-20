@@ -76,6 +76,7 @@ class WorkflowService:
                 "commit",
                 "cleanup",
                 "merge_workflow",
+                "failure",
             }
         }
         envelope = result(

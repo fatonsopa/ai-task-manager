@@ -169,6 +169,10 @@ def main(argv=None, *, workflow_registry=None):
         envelope = (
             failure(ValidationError(str(exc))) if isinstance(exc, ValueError) else failure(exc)
         )
+        if args.group == "workflow" and args.action == "recover":
+            from ai_task_manager.observability.failures import FailureStage, capture_failure
+
+            envelope["error"]["failure"] = capture_failure(exc, FailureStage.COLD_RECOVERY)
     output = sys.stdout if envelope["ok"] else sys.stderr
     if not args.json and args.group == "task" and args.action == "list" and envelope["ok"]:
         output.write(

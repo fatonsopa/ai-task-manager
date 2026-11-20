@@ -979,7 +979,7 @@ def test_configured_milestone_releases_only_current_observed_merge(provider, tmp
 
     p, r = provider, provider.rig
     predecessor = p.task(code=True, title="Owned code predecessor")
-    dependent = p.task(title="Explicit merge dependent")
+    dependent = p.task(code=variant.startswith("cold-"), title="Explicit merge dependent")
     p.edge(predecessor, dependent)
     declarations = [
         {
@@ -1031,6 +1031,10 @@ def test_configured_milestone_releases_only_current_observed_merge(provider, tmp
         assert p.depth == 0
         assert subject == predecessor.id and reference == merge
         preparations.append((subject, reference))
+        if variant.startswith("cold-"):
+            r.proofs.evidence[reference] = replace(
+                r.proofs.evidence[reference], expires_at=r.now + 5
+            )
         return reference
 
     r.core.context.evidence.prepare_merge_milestone = prepare_current
@@ -1045,7 +1049,8 @@ def test_configured_milestone_releases_only_current_observed_merge(provider, tmp
     elif variant == "wrong-subject":
         r.proofs.evidence[merge] = replace(r.proofs.evidence[merge], subject=dependent.id)
     view = source.refresh(dependent.id, "after-merge")
-    assert view["state"] == ("ready" if variant == "current" else "blocked"), view
+    expected = "ready" if variant == "current" or variant.startswith("cold-") else "blocked"
+    assert view["state"] == expected, view
     snapshot = components.scheduling_sources.verify_snapshot(
         source.prepare(dependent.id, "after-merge").snapshot_ref
     )
@@ -1053,6 +1058,56 @@ def test_configured_milestone_releases_only_current_observed_merge(provider, tmp
     assert snapshot.dependencies[0].condition == "code_merged"
     assert preparations == [(predecessor.id, merge)]
     assert dict(snapshot.dependencies[0].evidence_refs)["merge"] == merge
+    if variant.startswith("cold-"):
+        from ai_task_manager.domains.work.errors import WorkError
+        from ai_task_manager.installation.workflows.delivery_dependencies import (
+            DeliveryDependencies,
+        )
+
+        dependent = r.transition(dependent, S.TODO, "enqueue")
+        r.resource_sources.rows[dependent.id] = AdmissionResources(
+            p.scope, dependent.id, dependent.prose_digest, dependent.decision_revision,
+            "authored-project", (), (),
+        )
+        p.sync(dependent)
+        source.refresh(dependent.id, "cold-queued")
+        dependent, dependent_attempt = r.running(dependent)
+        dependent, dependent_attempt = r.settle(dependent, dependent_attempt)
+        p.sync(dependent)
+        original_view = source.refresh(dependent.id, "cold-stopped")
+        deadline = r.now + 300
+        row = {"task_id": dependent.id, "attempt_id": dependent_attempt.id,
+               "prose_digest": dependent.prose_digest,
+               "decision_revision": dependent.decision_revision}
+        r.now += 167
+        controller = DeliveryDependencies(r.core, r.handle, source, deadline)
+        calls = len(p.calls)
+        fresh = None
+        if variant == "cold-refresh-before-start":
+            fresh = source.refresh(dependent.id, "cold-fresh-original-authority")
+            assert fresh["state"] == "ready"
+            assert fresh["graph_version"] == original_view["graph_version"]
+        try:
+            with pytest.raises(WorkError) as refusal:
+                controller.start(row)
+            if fresh is None:
+                assert len(p.calls) == calls
+            after = r.core.scheduling.explain(r.handle, dependent.id)
+            if fresh is None:
+                assert after["state"] == "unknown"
+                assert after["source_revision"] == original_view["source_revision"]
+            else:
+                assert "guarded stop/resume" in str(refusal.value)
+            (tmp_path / "cold-expired-dependency.json").write_text(json.dumps({
+                "age_seconds": 167, "original_deadline": deadline,
+                "before": original_view, "after": after,
+                "refusal_type": type(refusal.value).__name__,
+                "refusal": str(refusal.value),
+                "fresh_before_first_start": fresh,
+            }, indent=2) + "\n")
+        finally:
+            controller.close()
+        return
     # Unconfigured provider edges retain their stronger complete-work meaning.
     default = type(source)(r.core, r.handle, p.client, components.scheduling_sources)
     ordinary = p.task(title="Unconfigured dependent")
@@ -1062,6 +1117,15 @@ def test_configured_milestone_releases_only_current_observed_merge(provider, tmp
         default.refresh(dependent.id, "changed-policy")
     with pytest.raises(AccessDenied, match="another milestone policy"):
         default.prepare(dependent.id, "after-merge")
+
+
+@pytest.mark.parametrize("refresh_before_start", [False, True])
+def test_cold_delivery_refuses_expired_declared_milestone_before_collection(
+    provider, tmp_path, refresh_before_start
+):
+    test_configured_milestone_releases_only_current_observed_merge(
+        provider, tmp_path, "cold-refresh-before-start" if refresh_before_start else "cold-expired"
+    )
 
 
 @pytest.mark.parametrize("variant", ["unknown-field", "digest", "self", "duplicate", "condition"])

@@ -13,7 +13,8 @@ from pathlib import Path
 import pytest
 
 
-def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path):
+@pytest.mark.parametrize("crash_stage", ["checks", "worker-commit"])
+def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path, crash_stage):
     root = tmp_path.resolve()
     root.chmod(0o700)
     sockets = Path(tempfile.mkdtemp(prefix="t04-code-")).resolve()
@@ -28,6 +29,7 @@ def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path)
         "PATH": os.defpath,
         "PYTHONDONTWRITEBYTECODE": "1",
         "T04_COLD_ROOT": str(root),
+        "T04_COLD_STAGE": crash_stage,
         "PYTHONPATH": os.pathsep.join(
             map(
                 str,
@@ -103,6 +105,7 @@ def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path)
                 "operation_key": "original-cold-code",
             }
             first, result = call("run", request)
+            assert (root / "crashed.json").exists(), result
             child.wait(timeout=8)
             assert child.returncode == 71, (root / "owner.log").read_text()
             state = Path(ready["state_root"])
@@ -148,7 +151,11 @@ def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path)
                     after = db.execute(
                         "SELECT call_id,status,process_stopped FROM native_calls"
                     ).fetchall()
-                assert after == calls[role] and all(row[2] == 1 for row in after)
+                assert all(row[2] == 1 for row in after)
+                if crash_stage == "checks" or role == "author":
+                    assert after == calls[role]
+                else:
+                    assert calls[role] == [] and after
             assert (
                 subprocess.check_output(
                     ["git", "-C", ready["repository"], "show", "integration:src/a.txt"], text=True
@@ -157,6 +164,7 @@ def test_installed_original_key_recovers_code_after_actual_owner_crash(tmp_path)
             )
             assert recovered["data"]["cleanup"] == "pending_independent_retirement"
         finally:
+            (root / "stop-cold-owner").touch()
             if child is not None and child.poll() is None:
                 child.terminate()
                 child.wait(timeout=22)
