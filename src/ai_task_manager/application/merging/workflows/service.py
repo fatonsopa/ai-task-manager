@@ -419,6 +419,38 @@ class MergeWorkflowService(WorkflowService):
         finally:
             self.store.release(workflow_ref, owner)
 
+    def _known_target_check(self, result, check_plan, candidate, target):
+        """Only a bound postguard refusal may retain known physical success."""
+        grant = self.plan.grant
+        expected = {
+            "candidate_commit": candidate.commit, "candidate_tree": candidate.tree,
+            "source_head": grant.source_head, "expected_target": grant.target_head,
+            "observed_target": target, "grant_digest": grant.digest,
+            "binding_digest": grant.binding.fingerprint,
+            "producer_digest": grant.binding.source_digest,
+            "attempt_id": grant.binding.attempt_id, "task_id": grant.binding.task_id,
+            "plan_digest": check_plan.digest,
+        }
+        dispatched = result.get("dispatched", [])
+        return (
+            result.get("outcome") == "unknown"
+            and result.get("error_type") == "CheckTargetMoved"
+            and result.get("target_change") == expected
+            and (check_plan.head, check_plan.base, check_plan.attempt,
+                 check_plan.producer_digest, check_plan.scope.task)
+            == (candidate.commit, grant.target_head, grant.binding.attempt_id,
+                grant.binding.source_digest, grant.binding.task_id)
+            and bool(dispatched)
+            and result.get("physical_count") == len(dispatched)
+            and result.get("ran") == sorted(dispatched)
+            and result.get("not_run") == []
+            and result.get("cause") == "completed"
+            and result.get("summary_available") is True
+            and result.get("exit_code") == 0
+            and result.get("signal") is None
+            and result.get("failures") == []
+        )
+
     def _resume(self, workflow_ref, *, owner=None):
         task = self._scope()
         row = self.store.read(workflow_ref)
@@ -463,6 +495,10 @@ class MergeWorkflowService(WorkflowService):
                                 group["state"] == "complete"
                                 and group["result"]["outcome"]
                                 not in {"passed", "skipped", "assertion", "dev_red"}
+                                and not self._known_target_check(
+                                    group["result"], snapshot["plan"],
+                                    CandidateResult(**steps["candidate"]["result"]), target,
+                                )
                             )
                             for group in snapshot["groups"].values()
                         ):
@@ -603,6 +639,19 @@ class MergeWorkflowService(WorkflowService):
 
                         checked = self._step(ref, owner, "checks", {"ref": check_ref}, run_checks)
                         if checked["outcome"] != "passed":
+                            self._ready()
+                            source, target = self.candidate.profile.refs(self.plan.grant)
+                            snapshot = self.check_inputs.checks.store.read(check_ref, check_scope)
+                            groups = tuple(snapshot["groups"].values())
+                            known = [self._known_target_check(
+                                group.get("result") or {}, snapshot["plan"], candidate, target,
+                            ) for group in groups]
+                            if source == self.plan.grant.source_head and any(known) and all(
+                                group["state"] == "complete" and (
+                                    accepted or group["result"]["outcome"] in {"passed", "skipped"}
+                                ) for group, accepted in zip(groups, known)
+                            ):
+                                return self._envelope(ref, "blocked", "candidate_target_moved")
                             return self._envelope(ref, "blocked", "checks_" + checked["outcome"])
                     if self.candidate.profile.refs(self.plan.grant) != (
                         self.plan.grant.source_head, self.plan.grant.target_head

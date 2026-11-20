@@ -21,6 +21,7 @@ from ai_task_manager.application.merging.workflows import (
     MergeWorkflowService,
 )
 from ai_task_manager.domains.merging.candidates import CandidateGrant
+from ai_task_manager.domains.checks.results import CheckExecutionRefused, CheckTargetMoved, Execution
 from ai_task_manager.domains.merging.contracts import Binding
 from ai_task_manager.domains.work.errors import AccessDenied, EvidenceRequired
 from ai_task_manager.storage.merging.journal import Journal
@@ -129,7 +130,11 @@ class ResourceGuard:
 
     def verify(self, plan):
         self.resources.verify(self.pair)
-        self.delegate.verify(plan)
+        try:
+            self.delegate.verify(plan)
+        except CheckTargetMoved:
+            self.resources.verify(self.pair)
+            raise
         self.resources.verify(self.pair)
 
 
@@ -139,8 +144,20 @@ class ResourceExecutor:
 
     def execute(self, plan, group, units):
         self.resources.verify(self.pair)
-        result = self.delegate.execute(plan, group, units)
-        self.resources.verify(self.pair)
+        try:
+            result = self.delegate.execute(plan, group, units)
+        except CheckExecutionRefused as refused:
+            try:
+                self.resources.verify(self.pair)
+            except Exception as error:
+                raise CheckExecutionRefused(refused.execution, error) from error
+            raise
+        try:
+            self.resources.verify(self.pair)
+        except Exception as error:
+            if type(result) is Execution:
+                raise CheckExecutionRefused(result, error) from error
+            raise
         return result
 
 

@@ -3,6 +3,7 @@ from dataclasses import replace
 import pytest
 
 from ai_task_manager.application.merge_checks.service import MergeChecks
+from ai_task_manager.domains.checks.results import CheckExecutionRefused, CheckTargetMoved
 from ai_task_manager.domains.work.errors import AccessDenied
 from ai_task_manager.storage.checks import CheckStore
 from tests.checks.fixtures import (
@@ -176,9 +177,43 @@ def test_executor_exception_is_uncertain(tmp_path):
     assert result["outcome"] == "blocked"
     row = result["groups"]["checks a"]["result"]
     assert row["outcome"] == "unknown" and row["physical_count"] is None
+    assert row["failure"] and "Reply validation failed after an effect" not in str(row["failure"])
+    assert "target_change" not in row
     assert effects == [("a",)]
     service.run(ref, SCOPE)
     assert effects == [("a",)]
+
+
+def test_failed_physical_check_with_target_refusal_is_retained_without_continuation(tmp_path):
+    signature = sha("assertion failure")
+
+    def failed_then_target_moved(plan, group, names):
+        observed = execution(
+            plan, group, names, passed=(), failures=(("a", signature),), exit_code=1
+        )
+        refusal = CheckTargetMoved(
+            candidate_commit=plan.head, candidate_tree="3" * 40,
+            source_head="4" * 40, expected_target=plan.base, observed_target="5" * 40,
+            grant_digest=sha("grant"), binding_digest=plan.binding_digest,
+            producer_digest=plan.producer_digest, attempt_id=plan.attempt,
+            task_id=plan.scope.task,
+        )
+        raise CheckExecutionRefused(observed, refusal)
+
+    service, executor = rig(tmp_path, executor=RecordingExecutor(failed_then_target_moved))
+    ref = prepare(service)
+    result = service.run(ref, SCOPE)
+    group = result["groups"]["checks a"]
+    row = group["result"]
+    assert group["state"] == "complete" and result["outcome"] == "blocked"
+    assert row["outcome"] == "unknown" and row["passed"] == []
+    assert row["physical_count"] == 1 and row["ran"] == ["a"] and row["not_run"] == []
+    assert row["exit_code"] == 1 and row["failures"] == [["a", signature]]
+    assert row["error_type"] == "CheckTargetMoved" and row["failure"]
+    assert "target_change" not in row
+    assert service.store.proofs(result["plan"], result["plan"].units[0]) == []
+    assert service.run(ref, SCOPE)["groups"]["checks a"]["result"] == row
+    assert executor.calls == [("checks a", ("a",))]
 
 
 def test_retry_retains_failure(tmp_path):
@@ -230,6 +265,7 @@ def test_postexecution_source_change_cannot_mint_proof(tmp_path):
     result = service.run(ref, SCOPE)
     assert result["outcome"] == "blocked"
     assert result["groups"]["checks a"]["result"]["physical_count"] == 1
+    assert "target_change" not in result["groups"]["checks a"]["result"]
     assert service.store.proofs(result["plan"], result["plan"].units[0]) == []
 
 

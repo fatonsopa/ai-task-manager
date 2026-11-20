@@ -296,7 +296,8 @@ class CheckStore:
             return expected_version + 1
 
     def finish(
-        self, ref, scope, group, expected_version, execution=None, *, baseline=None, error=None
+        self, ref, scope, group, expected_version, execution=None, *, baseline=None, error=None,
+        failure=None, target_change=None,
     ):
         with self._transaction() as conn:
             plan = self._plan(conn, ref, scope)
@@ -313,9 +314,23 @@ class CheckStore:
                 identifier(error)
                 if execution is not None:
                     result = judge(plan, group, dispatched, execution)
+                    if target_change is not None:
+                        if target_change.get("plan_digest") != plan.digest:
+                            raise ValidationError("Target refusal differs from the physical plan")
+                        if result["outcome"] != "passed":
+                            # Retain known failure facts without granting target continuation.
+                            target_change = None
                     result.update(outcome="unknown", passed=[], error_type=error)
                 else:
+                    if target_change is not None:
+                        raise ValidationError("Target continuation requires a physical result")
                     result = {"outcome": "unknown", "ran": [], "passed": [], "error_type": error}
+                if failure is not None:
+                    if type(failure) is not dict or len(canonical(failure).encode()) > 16384:
+                        raise ValidationError("A bounded redacted check failure is required")
+                    result["failure"] = failure
+                if target_change is not None:
+                    result["target_change"] = target_change
             elif dispatched:
                 result = judge(plan, group, dispatched, execution, baseline=baseline)
             elif execution is not None:

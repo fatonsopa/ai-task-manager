@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 from math import isfinite
 
-from ai_task_manager.domains.work.errors import ValidationError
+from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
+from ai_task_manager.domains.merging.contracts import oid
 
 from .models import Outcome, content_hash, identifier
 
@@ -25,6 +26,47 @@ class Execution:
     ended: float
     signal: int | None = None
     resource_refs: tuple[tuple[str, str], ...] = ()
+
+
+class CheckExecutionRefused(AccessDenied):
+    """Preserve a returned physical observation when its postguard refuses."""
+
+    def __init__(self, execution, cause):
+        if type(execution) is not Execution or not isinstance(cause, Exception):
+            raise ValidationError("An exact physical check observation and refusal are required")
+        self.execution, self.cause = execution, cause
+        super().__init__("Physical check observation failed its post-execution guard")
+
+
+class CheckTargetMoved(AccessDenied):
+    """A current source guard observed only a different candidate target."""
+
+    def __init__(self, *, candidate_commit, candidate_tree, source_head, expected_target,
+                 observed_target, grant_digest, binding_digest, producer_digest,
+                 attempt_id, task_id):
+        for value in (candidate_commit, candidate_tree, source_head, expected_target, observed_target):
+            oid(value)
+        for value in (grant_digest, binding_digest, producer_digest):
+            content_hash(value)
+        identifier(attempt_id)
+        identifier(task_id)
+        self.details = {
+            "candidate_commit": candidate_commit, "candidate_tree": candidate_tree,
+            "source_head": source_head, "expected_target": expected_target,
+            "observed_target": observed_target, "grant_digest": grant_digest,
+            "binding_digest": binding_digest, "producer_digest": producer_digest,
+            "attempt_id": attempt_id, "task_id": task_id,
+        }
+        super().__init__("Candidate check target moved after source validation")
+
+    def for_plan(self, plan):
+        d = self.details
+        if (plan.head, plan.base, plan.producer_digest, plan.attempt, plan.scope.task) != (
+            d["candidate_commit"], d["expected_target"], d["producer_digest"],
+            d["attempt_id"], d["task_id"],
+        ):
+            raise ValidationError("Target refusal differs from the checked candidate plan")
+        return {**d, "plan_digest": plan.digest}
 
 
 def comparison(value):
