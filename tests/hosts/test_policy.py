@@ -105,6 +105,39 @@ def test_claude_uses_custom_owned_transport_and_never_sdk_spawn(tmp_path, monkey
         sdk_command(p, options, 30)
 
 
+def test_sdk_advertises_create_only_guarantee_without_broadening_other_roles(tmp_path, monkeypatch):
+    from ai_task_manager.adapters.hosts.transports import claude
+
+    advertised = []
+    factory = claude.create_sdk_mcp_server
+
+    def capture(name, *, tools):
+        advertised.append({tool.name: tool for tool in tools})
+        return factory(name, tools=tools)
+
+    monkeypatch.setattr(claude, "create_sdk_mcp_server", capture)
+    p = policy(tmp_path, "claude")
+    schemas = {name: tool_schema(name) for name in SCHEMAS}
+    options = sdk_options(p, SimpleNamespace(schemas=schemas))
+    tools = advertised[-1]
+    assert set(tools) == set(schemas)
+    assert all(tool.input_schema == schemas[name] for name, tool in tools.items())
+    description = tools["create_file"].description
+    assert "only a new path explicitly authorized by the task" in description
+    assert "No successful prior read is required" in description
+    assert "atomically refuses any existing file" in description
+    assert "never overwriting or truncating it" in description
+    assert "Current task authority, workspace scope, and access restrictions still apply" in description
+    assert all(tool.description == "Use the assigned managed task operation."
+               for name, tool in tools.items() if name != "create_file")
+    assert (options.max_turns, options.max_budget_usd, options.max_buffer_size) == (8, 0.25, 262144)
+    lead = replace(p, role="lead", allowed_tools=("mcp__aitm__acknowledge_event",))
+    lead_options = sdk_options(lead, SimpleNamespace(schemas={"acknowledge_event": schemas["acknowledge_event"]}))
+    assert set(advertised[-1]) == {"acknowledge_event"}
+    assert advertised[-1]["acknowledge_event"].description == "Use the assigned managed task operation."
+    assert "create_file" not in lead_options.system_prompt
+
+
 @pytest.mark.parametrize(
     "field,value",
     [("max_turns", None), ("max_turns", 4), ("max_budget_usd", 100), ("max_buffer_size", None)],
