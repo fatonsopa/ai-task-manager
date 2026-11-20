@@ -3,10 +3,13 @@
 from typing import Protocol
 
 from ai_task_manager.domains.checks.models import Outcome, Plan
-from ai_task_manager.domains.checks.results import Execution, comparison
+from ai_task_manager.domains.checks.results import (
+    CheckExecutionRefused, CheckTargetMoved, Execution, comparison,
+)
 from ai_task_manager.domains.checks.reuse import eligible
 from ai_task_manager.domains.checks.selection import select
 from ai_task_manager.domains.work.errors import StaleVersion, ValidationError
+from ai_task_manager.observability.failures import FailureStage, capture_failure
 
 from .read_retries import CheckReads
 
@@ -116,7 +119,20 @@ class MergeChecks:
                 self._verify(plan)
                 execution = self.executor.execute(plan, group.key, dispatched)
             except Exception as error:
-                self.store.finish(ref, scope, group.key, version, error=type(error).__name__)
+                execution, stage = None, FailureStage.CHECK_EXECUTION
+                if type(error) is CheckExecutionRefused:
+                    execution, error = error.execution, error.cause
+                    stage = FailureStage.CHECK_POST_EXECUTION
+                target_change = None
+                if execution is not None and type(error) is CheckTargetMoved:
+                    try:
+                        target_change = error.for_plan(plan)
+                    except ValidationError:
+                        pass
+                self.store.finish(
+                    ref, scope, group.key, version, execution, error=type(error).__name__,
+                    failure=capture_failure(error, stage), target_change=target_change,
+                )
                 continue
             baseline = None
             if self.baselines is not None:
@@ -128,8 +144,16 @@ class MergeChecks:
             try:
                 self._verify(plan)
             except Exception as error:
+                target_change = None
+                if type(error) is CheckTargetMoved:
+                    try:
+                        target_change = error.for_plan(plan)
+                    except ValidationError:
+                        pass
                 self.store.finish(
-                    ref, scope, group.key, version, execution, error=type(error).__name__
+                    ref, scope, group.key, version, execution, error=type(error).__name__,
+                    failure=capture_failure(error, FailureStage.CHECK_POST_EXECUTION),
+                    target_change=target_change,
                 )
                 continue
             try:

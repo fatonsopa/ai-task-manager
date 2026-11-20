@@ -84,6 +84,123 @@ def test_default_target_advance_recovers_without_worker_replay(tmp_path):
         owned.close()
 
 
+def test_postcheck_target_move_retains_physical_result_and_rechecks_without_worker_replay(tmp_path):
+    from dataclasses import asdict
+    from types import SimpleNamespace
+
+    from ai_task_manager.application.workflows.driver import WorkflowDriver
+    from ai_task_manager.application.workflows.models import WorkflowPlan, WorkflowPlans
+    from ai_task_manager.application.workflows.service import WorkflowService
+    from ai_task_manager.config.files import write_private
+    from ai_task_manager.domains.checks.models import Scope
+    from ai_task_manager.installation.workflows.code_delivery import InstalledCodeDelivery
+    from ai_task_manager.storage.workflows import WorkflowStore
+    from tests.hosts.test_continuity import AuthoredDependencyCollection
+
+    owned = Provisioned(tmp_path / "owned")
+    workflow = None
+    delivery = None
+    try:
+        manifest = json.loads(owned.manifest.read_text())
+        manifest["attempts"] = 4
+        write_private(owned.manifest, manifest, replace=True)
+        owned.reseal()
+        owned.prepare()
+        worker_head = git(owned.pair.worktree, "rev-parse", "HEAD")
+        checks = owned.capability.checks.checks
+        runner = checks.executor.runner
+        execute = runner.execute_registered
+        moved = []
+
+        def advance_after_verified_result(*args, **kwargs):
+            result = execute(*args, **kwargs)
+            if not moved:
+                target = git(owned.runtime.repo, "commit-tree", owned.base + "^{tree}",
+                             "-p", owned.base, "-m", "Concurrent owned publication")
+                git(owned.runtime.repo, "update-ref", "refs/heads/integration", target, owned.base)
+                moved.append(target)
+            return result
+
+        runner.execute_registered = advance_after_verified_result
+        workflow = compose(owned)
+        workflow.successor_merge = None
+        outer_plan = WorkflowPlan("public-postcheck", "unused-author", owned.attempt.host,
+                                  owned.base, ("verify.py", "src/a.txt"), ("src/a.txt",),
+                                  owned.context.deadline, resource_locks=())
+        outer_store = WorkflowStore(owned.root / "outer.sqlite")
+        outer_ref = outer_store.create(owned.r.scope, owned.task, outer_plan,
+                                       "postcheck-target-move", "retained-runtime")
+        runtime = SimpleNamespace(pair=lambda _: owned.pair, binding=lambda *_: "retained-runtime")
+        delivery = InstalledCodeDelivery(
+            owned.r.core, owned.r.handle, outer_store, runtime, owned.runtime.resources,
+            owned.code, owned.context, None, None, None, workflow.provider, (),
+            AuthoredDependencyCollection(owned.r.core, owned.r.handle),
+        )
+        delivery.components[outer_ref] = workflow
+        commit = {"state": "committed", "branch": "managed/" + owned.attempt.id,
+                  "commit": worker_head, "attempt_id": owned.attempt.id, "task_id": owned.task.id}
+        selected = {"registration": owned.code.fingerprint, "commit": commit,
+                    "plan": asdict(workflow.original_plan)}
+        outer_store.claim(outer_ref, owned.r.scope, "retained-control")
+        for name, payload, result in (("worker-commit", {}, commit),
+                                      ("code-plan", selected, {"installed": True})):
+            outer_store.intend(outer_ref, "retained-control", name, payload)
+            outer_store.finish(outer_ref, "retained-control", name, result, attempt_id=owned.attempt.id)
+        outer_store.release(outer_ref, "retained-control")
+        driver = WorkflowDriver(owned.r.core, owned.r.handle, outer_store, WorkflowPlans((outer_plan,)),
+                                runtime=runtime, repository=owned.runtime.resources,
+                                provider=workflow.provider, code_delivery=delivery)
+        public = WorkflowService(driver, {owned.task.id: outer_plan.id})
+        observed = []
+        run = driver.run
+
+        def actual_return(reference):
+            value = run(reference)
+            observed.append(value)
+            return value
+
+        driver.run = actual_return
+        first = public.run(owned.task.id, outer_plan.id, "postcheck-target-move")
+        assert first["data"]["state"] == "blocked", first
+        assert first["data"]["reason"] == observed[-1]["reason"] == "candidate_target_moved"
+        reference = first["data"]["merge_workflow"]
+        history = workflow.store.read(reference)
+        check_ref = history["steps"]["check_plan"]["result"]["ref"]
+        scope = Scope(owned.r.scope.principal, owned.r.scope.project,
+                      owned.r.scope.logical_session, owned.task.id)
+        before = checks.store.read(check_ref, scope)
+        old_result = before["groups"]["checks"]["result"]
+        assert old_result["outcome"] == "unknown" and old_result["passed"] == []
+        assert old_result["physical_count"] == 1 and old_result["exit_code"] == 0
+        assert old_result["target_change"]["observed_target"] == moved[0]
+        assert old_result["target_change"]["grant_digest"] == owned.grant.digest
+        assert old_result["target_change"]["candidate_commit"] == owned.candidate.commit
+        assert old_result["failure"] and "Concurrent owned publication" not in str(old_result["failure"])
+        assert checks.store.proofs(before["plan"], before["plan"].units[0]) == []
+        second = public.run(owned.task.id, outer_plan.id, "postcheck-target-move")
+        assert second["data"]["state"] == "done", second
+        assert checks.store.read(check_ref, scope) == before
+        current = workflow.store.read(reference)
+        fresh_ref = current["steps"]["check_plan"]["result"]["ref"]
+        assert fresh_ref != check_ref and len(current["target_lineage"]) == 1
+        fresh = checks.store.read(fresh_ref, scope)["groups"]["checks"]["result"]
+        assert fresh["physical_count"] == 1 and fresh["carried_count"] == 0
+        assert git(owned.pair.worktree, "rev-parse", "HEAD") == worker_head
+        assert git(owned.runtime.repo, "show", "integration:src/a.txt") == "4"
+        assert len(owned.runtime.runtime.workers) == 1
+        (tmp_path / "postcheck-target-result.json").write_text(json.dumps({
+            "first": first, "old_result": old_result, "second": second,
+            "fresh_result": fresh, "worker_head": worker_head,
+            "actual_driver_returns": observed, "public_workflow": outer_ref,
+        }, indent=2))
+    finally:
+        if delivery is not None:
+            delivery.close()
+        if workflow is not None:
+            workflow.close()
+        owned.close()
+
+
 @pytest.mark.parametrize("fault", ["attempts", "unknown", "hold", "deadline", "rewind"])
 def test_target_successor_refuses_changed_or_unresolved_original_authority(tmp_path, fault):
     from ai_task_manager.config.files import write_private

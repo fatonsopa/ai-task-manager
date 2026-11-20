@@ -176,6 +176,8 @@ def test_executor_exception_is_uncertain(tmp_path):
     assert result["outcome"] == "blocked"
     row = result["groups"]["checks a"]["result"]
     assert row["outcome"] == "unknown" and row["physical_count"] is None
+    assert row["failure"] and "Reply validation failed after an effect" not in str(row["failure"])
+    assert "target_change" not in row
     assert effects == [("a",)]
     service.run(ref, SCOPE)
     assert effects == [("a",)]
@@ -230,6 +232,7 @@ def test_postexecution_source_change_cannot_mint_proof(tmp_path):
     result = service.run(ref, SCOPE)
     assert result["outcome"] == "blocked"
     assert result["groups"]["checks a"]["result"]["physical_count"] == 1
+    assert "target_change" not in result["groups"]["checks a"]["result"]
     assert service.store.proofs(result["plan"], result["plan"].units[0]) == []
 
 

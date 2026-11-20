@@ -30,7 +30,7 @@ from ai_task_manager.domains.checks.models import (
     content_hash,
     fingerprint,
 )
-from ai_task_manager.domains.checks.results import Execution
+from ai_task_manager.domains.checks.results import CheckExecutionRefused, CheckTargetMoved, Execution
 from ai_task_manager.domains.merging.candidates import CandidateGrant
 from ai_task_manager.domains.merging.contracts import Binding
 from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
@@ -443,7 +443,7 @@ class CandidateCheckOwner:
             self.source.registration.fingerprint,
         )
 
-    def _verify_source(self):
+    def _verify_source(self, *, defer_target=False):
         task = self._current(retained=True)
         candidate, grant, pair, cp, store = self.selected
         c = self.context
@@ -518,9 +518,7 @@ class CandidateCheckOwner:
             ).returncode
             == 0
         )
-        if source_head != grant.source_head or (
-            target_head != expected_target and not retained_descendant
-        ):
+        if source_head != grant.source_head:
             raise AccessDenied("Candidate check source or target changed")
         if (
             cp.query(candidate.path, "rev-parse", "HEAD").stdout.decode().strip()
@@ -547,6 +545,18 @@ class CandidateCheckOwner:
         except UnicodeDecodeError:
             raise AccessDenied("Changed candidate paths require supported UTF-8 names") from None
         self.source.require_coverage(paths)
+        if target_head != expected_target and not retained_descendant:
+            moved = CheckTargetMoved(
+                candidate_commit=candidate.commit, candidate_tree=candidate.tree,
+                source_head=source_head, expected_target=expected_target,
+                observed_target=target_head, grant_digest=grant.digest,
+                binding_digest=grant.binding.fingerprint,
+                producer_digest=grant.binding.source_digest,
+                attempt_id=grant.binding.attempt_id, task_id=grant.binding.task_id,
+            )
+            if defer_target:
+                return moved
+            raise moved
         return not published
 
     def _publication_started(self):
@@ -680,7 +690,7 @@ class CandidateCheckOwner:
     def verify(self, plan):
         if self.selected is None:
             raise AccessDenied("Current candidate discovery must precede check consumption")
-        self._verify_source()
+        moved = self._verify_source(defer_target=True)
         candidate, grant, _, _, _ = self.selected
         all_units = self._units()
         expected = {u.name: u for u in all_units}
@@ -703,6 +713,8 @@ class CandidateCheckOwner:
         ):
             raise AccessDenied("Prepared check inputs differ from current candidate")
         self.catalogs.verify(plan)
+        if type(moved) is CheckTargetMoved:
+            raise moved
 
     def execute(self, plan, group, names):
         self.verify(plan)
@@ -756,9 +768,8 @@ class CandidateCheckOwner:
                 raise AccessDenied("Actual confined command inputs differ from selected unit")
             outputs.append(result)
             refs.append(proof.trace_ref)
-        self.verify(plan)
         resources = next(g.resources for g in plan.groups if g.key == group)
-        return Execution(
+        execution = Execution(
             plan.digest,
             group,
             names,
@@ -774,3 +785,8 @@ class CandidateCheckOwner:
             time.monotonic(),
             resource_refs=tuple((r, pair.database_id) for r in resources),
         )
+        try:
+            self.verify(plan)
+        except Exception as error:
+            raise CheckExecutionRefused(execution, error) from error
+        return execution

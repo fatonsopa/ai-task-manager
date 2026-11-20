@@ -26,6 +26,8 @@ class FailureStage(StrEnum):
     NATIVE_DISCONNECT = "native_disconnect"
     MANAGED_START = "managed_start"
     MANAGED_EXECUTION = "managed_execution"
+    CHECK_EXECUTION = "check_execution"
+    CHECK_POST_EXECUTION = "check_post_execution"
     MANAGED_SETTLEMENT = "managed_settlement"
     MANAGED_STOP = "managed_stop"
     RECEIVER_LOAD = "receiver_load"
