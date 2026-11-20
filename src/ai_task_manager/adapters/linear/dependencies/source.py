@@ -179,6 +179,7 @@ class DependencySource:
             if prior["source_id"] != self.source_id:
                 raise AccessDenied("Original dependency operation uses another milestone policy")
             c = prior["context"]
+            self._prepare_receipt_milestones(task, prior["receipt"], c)
             return Preparation(
                 task_id, c["task_version"], c["decision_revision"], prior["receipt"], operation_key
             )
@@ -236,7 +237,9 @@ class DependencySource:
                 raise AccessDenied("Dependency source changed during milestone preparation")
             for issue in merged | {task.issue_id}:
                 if self.core.get_task(self.handle, local[issue].id) != local[issue]:
-                    raise StaleVersion("Local dependency facts changed during milestone preparation")
+                    raise StaleVersion(
+                        "Local dependency facts changed during milestone preparation"
+                    )
             if not 0 <= self.receipts.clock() - c["started_at"] <= 30:
                 raise EvidenceRequired("Dependency observation exceeded its freshness window")
         observation = DependencyReader(self.client, scope).observe(task, local)
@@ -304,7 +307,28 @@ class DependencySource:
                 },
             },
         )
+        self._prepare_receipt_milestones(task, reference, c, collecting=True)
         return Preparation(task.id, task.version, task.decision_revision, reference, operation_key)
+
+    def _prepare_receipt_milestones(self, task, reference, context, *, collecting=False):
+        """Revalidate local publication after collection without renewing provider age."""
+        if not any(subject == task.prose_digest for subject, _ in self.milestones):
+            return
+        self.core.context.check(task, context["task_version"], context["decision_revision"])
+        scope, source_id = self._scope(), self.source_id
+        snapshot = self.receipts.verify_snapshot(reference)
+        if snapshot.completeness != "complete":
+            return
+        self._prepare_snapshot_milestones(scope, task, snapshot)
+        self._scope()
+        if self.source_id != source_id or self.core.get_task(self.handle, task.id) != task:
+            raise StaleVersion("Task or source changed during local milestone preparation")
+        now = self.receipts.clock()
+        if (collecting and not 0 <= now - context["started_at"] <= 30
+                or snapshot.expires_at <= now):
+            raise EvidenceRequired(
+                "Original dependency collection expired during local preparation"
+            )
 
     def refresh(self, task_id, operation_key):
         with self.publication_boundary(task_id):
@@ -350,14 +374,18 @@ class DependencySource:
         if snapshot != published["snapshot"]:
             raise AccessDenied("Current signed dependency observation differs from publication")
         view = self.core.scheduling.explain(self.handle, task.id)
+        if (snapshot.source_revision != view["source_revision"]
+                or snapshot.expires_at != view["expires_at"]):
+            raise AccessDenied("Current published dependency observation changed")
+        self._prepare_snapshot_milestones(scope, task, snapshot)
+
+    def _prepare_snapshot_milestones(self, scope, task, snapshot):
         if (
             snapshot.scope != scope
             or snapshot.source_id != self.source_id
             or snapshot.completeness != "complete"
             or snapshot.prose_digest != task.prose_digest
             or snapshot.canonical_issue_id != task.issue_id
-            or snapshot.source_revision != view["source_revision"]
-            or snapshot.expires_at != view["expires_at"]
             or snapshot.expires_at <= self.core.context.clock()
             or task.human_hold
             or task.sync_state != "confirmed"
@@ -387,6 +415,9 @@ class DependencySource:
                     and proof.expires_at is not None
                     and proof.expires_at - self.core.context.clock() > 2
                 ):
+                    if (self.core.get_task(self.handle, predecessor.id) != predecessor
+                            or self.core.get_task(self.handle, task.id) != task):
+                        raise StaleVersion("Local milestone ownership changed during verification")
                     continue
             except EvidenceRequired:
                 pass
@@ -394,6 +425,14 @@ class DependencySource:
                 raise EvidenceRequired("The original current merge producer is unavailable")
             if prepare(predecessor.id, reference) != reference:
                 raise EvidenceRequired("The original merge milestone reference changed")
+            proof = self.core.context.proof(reference, "merge", scope, predecessor.id)
+            if proof.payload.get("prose_digest") != predecessor.prose_digest:
+                raise EvidenceRequired(
+                    "Current merge witness differs from approved predecessor work"
+                )
+            if (self.core.get_task(self.handle, predecessor.id) != predecessor
+                    or self.core.get_task(self.handle, task.id) != task):
+                raise StaleVersion("Local milestone ownership changed during preparation")
 
     def refresh_for_start(self, task_id, caller_key, *, expected_version, decision_revision):
         with self.publication_boundary(task_id):
