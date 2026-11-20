@@ -284,8 +284,7 @@ def install():
 
     def reported(self, reference):
         value = running(self, reference)
-        if "detail" in value:
-            (Path(os.environ["T04_COLD_ROOT"]) / "driver-result.json").write_text(json.dumps(value))
+        (Path(os.environ["T04_COLD_ROOT"]) / "driver-result.json").write_text(json.dumps(value))
         return value
 
     WorkflowDriver.run = reported
