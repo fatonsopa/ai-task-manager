@@ -30,7 +30,11 @@ from ai_task_manager.domains.checks.models import (
     content_hash,
     fingerprint,
 )
-from ai_task_manager.domains.checks.results import CheckExecutionRefused, CheckTargetMoved, Execution
+from ai_task_manager.domains.checks.results import (
+    CheckExecutionRefused,
+    CheckTargetMoved,
+    Execution,
+)
 from ai_task_manager.domains.merging.candidates import CandidateGrant
 from ai_task_manager.domains.merging.contracts import Binding
 from ai_task_manager.domains.work.errors import AccessDenied, ValidationError
@@ -688,6 +692,9 @@ class CandidateCheckOwner:
         return tuple(units)
 
     def verify(self, plan):
+        self._verify_plan(plan)
+
+    def _verify_plan(self, plan, *, defer_target=False):
         if self.selected is None:
             raise AccessDenied("Current candidate discovery must precede check consumption")
         moved = self._verify_source(defer_target=True)
@@ -714,6 +721,8 @@ class CandidateCheckOwner:
             raise AccessDenied("Prepared check inputs differ from current candidate")
         self.catalogs.verify(plan)
         if type(moved) is CheckTargetMoved:
+            if defer_target:
+                return moved
             raise moved
 
     def execute(self, plan, group, names):
@@ -727,14 +736,35 @@ class CandidateCheckOwner:
         selected = {u.name: u for u in plan.units}
         outputs, refs = [], []
         started = time.monotonic()
-        for name in names:
+        resources = next(g.resources for g in plan.groups if g.key == group)
+
+        def observed():
+            completed = names[:len(outputs)]
+            return Execution(
+                plan.digest, group, names, completed, completed, (), 0,
+                "completed", True, digest(refs), digest(outputs), started,
+                time.monotonic(), resource_refs=tuple((r, pair.database_id) for r in resources),
+            )
+
+        pending_target = None
+        for index, name in enumerate(names):
+            if index:
+                try:
+                    self.verify(plan)
+                except Exception as error:
+                    raise CheckExecutionRefused(observed(), error) from error
             value = self.source.units[name]
             if selected[name].group != group:
                 raise AccessDenied("Dispatched unit belongs to another installed group")
             key = "candidate-check:" + plan.digest + ":" + name
+            sent = False
 
             def boundary():
-                self.verify(plan)
+                nonlocal pending_target
+                moved = self._verify_plan(plan, defer_target=sent)
+                if moved is not None:
+                    moved.for_plan(plan)
+                    pending_target = moved
                 self._require_new_work()
                 job = self.runner.jobs.get("container:" + key)
                 if job is not None:
@@ -747,8 +777,16 @@ class CandidateCheckOwner:
 
             @contextmanager
             def effect():
+                nonlocal sent
+                job = self.runner.jobs.get("container:" + key)
                 boundary()
                 yield
+                # Watcher creation also uses this port, before registering its
+                # job. Only the existing job's later yield sends the nonce.
+                if job is not None:
+                    if self.runner.jobs.get("container:" + key) is not job:
+                        raise AccessDenied("Current confined command job changed")
+                    sent = True
                 boundary()
 
             result = self.runner.execute_registered(
@@ -768,25 +806,13 @@ class CandidateCheckOwner:
                 raise AccessDenied("Actual confined command inputs differ from selected unit")
             outputs.append(result)
             refs.append(proof.trace_ref)
-        resources = next(g.resources for g in plan.groups if g.key == group)
-        execution = Execution(
-            plan.digest,
-            group,
-            names,
-            names,
-            names,
-            (),
-            0,
-            "completed",
-            True,
-            digest(refs),
-            digest(outputs),
-            started,
-            time.monotonic(),
-            resource_refs=tuple((r, pair.database_id) for r in resources),
-        )
+            if pending_target is not None:
+                break
+        execution = observed()
         try:
             self.verify(plan)
         except Exception as error:
             raise CheckExecutionRefused(execution, error) from error
+        if pending_target is not None:
+            raise CheckExecutionRefused(execution, pending_target) from pending_target
         return execution

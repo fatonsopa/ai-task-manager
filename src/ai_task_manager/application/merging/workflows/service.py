@@ -670,10 +670,18 @@ class MergeWorkflowService(WorkflowService):
                             return self._envelope(ref, "blocked", "checks_" + checked["outcome"])
                     if check_refusal is not None:
                         raise check_refusal
-                    if self.candidate.profile.refs(self.plan.grant) != (
-                        self.plan.grant.source_head, self.plan.grant.target_head
-                    ):
+                    source, target = self.candidate.profile.refs(self.plan.grant)
+                    if source != self.plan.grant.source_head:
                         raise AccessDenied("Source or target changed during immutable preparation")
+                    if target != self.plan.grant.target_head:
+                        if any(name in steps for name in (
+                            "publication_intent", "publication_fence", "publication"
+                        )):
+                            raise AccessDenied(
+                                "Source or target changed during immutable preparation"
+                            )
+                        self._ready()
+                        return self._resume(ref, owner=owner)
                     before = self._publication(ref, candidate, check_ref)
                     pub_ref = before.registration["ref"]
 
