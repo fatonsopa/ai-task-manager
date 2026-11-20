@@ -78,6 +78,89 @@ def test_reused_results_are_not_physical(tmp_path):
     assert service.run(second, SCOPE)["groups"]["checks a"]["result"] == result
 
 
+@pytest.mark.parametrize("carried", [False, True])
+def test_target_move_closes_zero_dispatch_without_claiming_execution(
+    tmp_path, monkeypatch, carried
+):
+    service, executor = rig(tmp_path)
+    units = (unit(), unit("b", "checks b"))
+    first = prepare(service, units)
+    first_result = service.run(first, SCOPE)
+    ref = prepare(service, units, key="new-plan", attempt="new-attempt")
+    group = "checks a" if carried else "checks b"
+    armed = []
+    begin, verify = service.store.begin, service.source_guard.verify
+
+    def after_begin(*args):
+        version = begin(*args)
+        if args[2] == group:
+            assert args[4] == ()
+            armed.append(True)
+        return version
+
+    def moved(plan):
+        verify(plan)
+        if armed:
+            raise CheckTargetMoved(
+                candidate_commit=plan.head, candidate_tree="3" * 40,
+                source_head="4" * 40, expected_target=plan.base, observed_target="5" * 40,
+                grant_digest=sha("grant"), binding_digest=plan.binding_digest,
+                producer_digest=plan.producer_digest, attempt_id=plan.attempt,
+                task_id=plan.scope.task,
+            )
+
+    monkeypatch.setattr(service.store, "begin", after_begin)
+    monkeypatch.setattr(service.source_guard, "verify", moved)
+    calls = list(executor.calls)
+    with pytest.raises(CheckTargetMoved):
+        service.run(ref, SCOPE)
+    row = service.store.read(ref, SCOPE)["groups"][group]
+    assert row["state"] == "complete"
+    assert row["result"]["outcome"] == ("passed" if carried else "skipped")
+    assert row["result"]["physical_count"] == 0 and row["result"]["ran"] == []
+    assert row["result"]["carried_count"] == int(carried)
+    assert executor.calls == calls
+    assert service.store.read(first, SCOPE) == first_result
+
+
+@pytest.mark.parametrize("fault", ["generic", "wrong-plan"])
+def test_zero_dispatch_does_not_settle_unbound_or_generic_refusal(tmp_path, monkeypatch, fault):
+    from ai_task_manager.domains.work.errors import ValidationError
+
+    service, executor = rig(tmp_path)
+    ref = prepare(service, (unit(), unit("b", "checks b")))
+    armed = []
+    begin, verify = service.store.begin, service.source_guard.verify
+
+    def after_begin(*args):
+        version = begin(*args)
+        if args[2] == "checks b":
+            assert args[4] == ()
+            armed.append(True)
+        return version
+
+    def refused(plan):
+        verify(plan)
+        if armed:
+            if fault == "generic":
+                raise AccessDenied("Unidentified source refusal")
+            raise CheckTargetMoved(
+                candidate_commit="0" * 40, candidate_tree="3" * 40,
+                source_head="4" * 40, expected_target=plan.base, observed_target="5" * 40,
+                grant_digest=sha("grant"), binding_digest=plan.binding_digest,
+                producer_digest=plan.producer_digest, attempt_id=plan.attempt,
+                task_id=plan.scope.task,
+            )
+
+    monkeypatch.setattr(service.store, "begin", after_begin)
+    monkeypatch.setattr(service.source_guard, "verify", refused)
+    with pytest.raises(AccessDenied if fault == "generic" else ValidationError):
+        service.run(ref, SCOPE)
+    row = service.store.read(ref, SCOPE)["groups"]["checks b"]
+    assert row["state"] == "intent" and row["result"] is None
+    assert executor.calls == [("checks a", ("a",))]
+
+
 def test_partial_reuse_dispatches_only_missing(tmp_path):
     service, executor = rig(tmp_path)
     service.run(prepare(service), SCOPE)

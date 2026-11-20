@@ -84,6 +84,65 @@ def test_default_target_advance_recovers_without_worker_replay(tmp_path):
         owned.close()
 
 
+def test_empty_group_target_move_replans_same_key_without_worker_replay(tmp_path, monkeypatch):
+    from tests.merge_workloads.fixture import Owner, Project
+
+    project = Project(tmp_path / "empty-target")
+    owned, other = Owner(project, 0), Owner(project, 1)
+    workflow = None
+    try:
+        workflow = owned.workflow = compose(owned)
+        checks = owned.capability.checks.checks
+        begin = checks.store.begin
+        moved = []
+        worker_head = git(owned.pair.worktree, "rev-parse", "HEAD")
+
+        def move_after_empty_intent(ref, scope, group, version, dispatched, carried):
+            result = begin(ref, scope, group, version, dispatched, carried)
+            if group == "feature 3" and not moved:
+                assert dispatched == () and carried == {}
+                before = checks.store.read(ref, scope)
+                assert before["groups"]["feature 0"]["result"]["physical_count"] == 1
+                assert before["groups"][group]["state"] == "intent"
+                git(project.repo, "update-ref", "refs/heads/integration",
+                    other.grant.source_head, project.base)
+                moved.append((ref, scope, before))
+            return result
+
+        monkeypatch.setattr(checks.store, "begin", move_after_empty_intent)
+        result = workflow.run(owned.task.id, workflow.original_plan.id, "empty-target-race")
+        assert result["data"]["state"] == "done", result
+        assert len(moved) == 1
+        ref, scope, before = moved[0]
+        old = checks.store.read(ref, scope)
+        assert old["groups"]["feature 0"]["result"] == before["groups"]["feature 0"]["result"]
+        empty = old["groups"]["feature 3"]
+        assert empty["state"] == "complete" and empty["result"]["outcome"] == "skipped"
+        assert empty["result"]["dispatched"] == [] and empty["result"]["ran"] == []
+        assert empty["result"]["physical_count"] == 0
+        current = workflow.store.read(result["data"]["workflow"])
+        fresh_ref = current["steps"]["check_plan"]["result"]["ref"]
+        assert fresh_ref != ref and len(current["target_lineage"]) == 1
+        assert checks.store.read(fresh_ref, scope)["outcome"] == "passed"
+        assert git(project.repo, "show", "integration:features/0.txt") == owned.value.strip()
+        assert git(project.repo, "show", "integration:features/1.txt") == other.value.strip()
+        assert git(owned.pair.worktree, "rev-parse", "HEAD") == worker_head
+        assert len(owned.runtime.runtime.workers) == 1
+        assert workflow.run(owned.task.id, workflow.original_plan.id,
+                            "empty-target-race")["data"]["workflow"] == result["data"]["workflow"]
+        (tmp_path / "empty-target-result.json").write_text(json.dumps({
+            "result": result, "old_check_ref": ref, "old_groups": old["groups"],
+            "fresh_check_ref": fresh_ref,
+            "fresh_groups": checks.store.read(fresh_ref, scope)["groups"],
+            "worker_head": worker_head, "target_lineage": current["target_lineage"],
+        }, indent=2))
+    finally:
+        if workflow is not None:
+            workflow.close()
+        owned.close()
+        other.close()
+
+
 def test_postcheck_target_move_retains_physical_result_and_rechecks_without_worker_replay(tmp_path):
     from dataclasses import asdict
     from types import SimpleNamespace
@@ -145,11 +204,15 @@ def test_postcheck_target_move_retains_physical_result_and_rechecks_without_work
         for name, payload, result in (("worker-commit", {}, commit),
                                       ("code-plan", selected, {"installed": True})):
             outer_store.intend(outer_ref, "retained-control", name, payload)
-            outer_store.finish(outer_ref, "retained-control", name, result, attempt_id=owned.attempt.id)
+            outer_store.finish(
+                outer_ref, "retained-control", name, result, attempt_id=owned.attempt.id
+            )
         outer_store.release(outer_ref, "retained-control")
-        driver = WorkflowDriver(owned.r.core, owned.r.handle, outer_store, WorkflowPlans((outer_plan,)),
-                                runtime=runtime, repository=owned.runtime.resources,
-                                provider=workflow.provider, code_delivery=delivery)
+        driver = WorkflowDriver(
+            owned.r.core, owned.r.handle, outer_store, WorkflowPlans((outer_plan,)),
+            runtime=runtime, repository=owned.runtime.resources,
+            provider=workflow.provider, code_delivery=delivery,
+        )
         public = WorkflowService(driver, {owned.task.id: outer_plan.id})
         observed = []
         run = driver.run
@@ -175,7 +238,10 @@ def test_postcheck_target_move_retains_physical_result_and_rechecks_without_work
         assert old_result["target_change"]["observed_target"] == moved[0]
         assert old_result["target_change"]["grant_digest"] == owned.grant.digest
         assert old_result["target_change"]["candidate_commit"] == owned.candidate.commit
-        assert old_result["failure"] and "Concurrent owned publication" not in str(old_result["failure"])
+        assert (
+            old_result["failure"]
+            and "Concurrent owned publication" not in str(old_result["failure"])
+        )
         assert checks.store.proofs(before["plan"], before["plan"].units[0]) == []
         second = public.run(owned.task.id, outer_plan.id, "postcheck-target-move")
         assert second["data"]["state"] == "done", second
